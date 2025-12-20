@@ -24,11 +24,11 @@ git commit -m "Initial commit: Ronin AI Agent Library
 ### 2. Add GitHub Remote
 
 ```bash
-# Add your roninito repository as remote
-git remote add origin https://github.com/roninito/roninito.git
+# Add your ronin repository as remote
+git remote add origin https://github.com/roninito/ronin.git
 
 # Or if using SSH:
-git remote add origin git@github.com:roninito/roninito.git
+git remote add origin git@github.com:roninito/ronin.git
 
 # Verify remote
 git remote -v

@@ -1,0 +1,23 @@
+{
+  "name": "ronin",
+  "version": "0.1.0",
+  "description": "Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files",
+  "module": "src/index.ts",
+  "type": "module",
+  // "private": true,
+  "bin": {
+    "ronin": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "ronin": "bun run src/cli/index.ts",
+    "start": "bun run ronin start",
+    "dev": "bun run ronin start"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

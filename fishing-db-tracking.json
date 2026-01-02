@@ -1,0 +1,361 @@
+{
+  "Largemouth Bass": {
+    "processed": true,
+    "processedAt": "2026-01-01T23:57:27.040Z"
+  },
+  "Smallmouth Bass": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.691Z"
+  },
+  "Spotted Bass": {
+    "processed": true,
+    "processedAt": "2025-12-25T21:04:52.382Z"
+  },
+  "Striped Bass": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Rainbow Trout": {
+    "processed": true,
+    "processedAt": "2025-12-27T09:06:37.687Z"
+  },
+  "Brown Trout": {
+    "processed": true,
+    "processedAt": "2025-12-25T19:08:16.414Z"
+  },
+  "Brook Trout": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.693Z"
+  },
+  "Lake Trout": {
+    "processed": true,
+    "processedAt": "2025-12-27T07:12:53.496Z"
+  },
+  "Cutthroat Trout": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.693Z"
+  },
+  "Chinook Salmon": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Coho Salmon": {
+    "processed": true,
+    "processedAt": "2025-12-25T20:12:55.686Z"
+  },
+  "Sockeye Salmon": {
+    "processed": true,
+    "processedAt": "2025-12-27T10:09:42.284Z"
+  },
+  "Pink Salmon": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Atlantic Salmon": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Northern Pike": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Muskellunge": {
+    "processed": true,
+    "processedAt": "2025-12-27T08:14:09.369Z"
+  },
+  "Chain Pickerel": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Walleye": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.694Z"
+  },
+  "Yellow Perch": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.695Z"
+  },
+  "White Perch": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.695Z"
+  },
+  "Bluegill": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.695Z"
+  },
+  "Redear Sunfish": {
+    "processed": true,
+    "processedAt": "2025-12-27T06:31:33.590Z"
+  },
+  "Pumpkinseed": {
+    "processed": true,
+    "processedAt": "2025-12-27T12:30:57.984Z"
+  },
+  "Crappie": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.695Z"
+  },
+  "Rock Bass": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.696Z"
+  },
+  "Channel Catfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.696Z"
+  },
+  "Blue Catfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.696Z"
+  },
+  "Flathead Catfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.696Z"
+  },
+  "Bullhead": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.696Z"
+  },
+  "Carp": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Common Carp": {
+    "processed": true,
+    "processedAt": "2025-12-27T11:26:37.361Z"
+  },
+  "Grass Carp": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Sturgeon": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Paddlefish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Bluefish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Weakfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.697Z"
+  },
+  "Redfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Black Drum": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.698Z"
+  },
+  "Flounder": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.698Z"
+  },
+  "Summer Flounder": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.698Z"
+  },
+  "Winter Flounder": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.699Z"
+  },
+  "Halibut": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.699Z"
+  },
+  "Cod": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.699Z"
+  },
+  "Haddock": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.699Z"
+  },
+  "Pollock": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.699Z"
+  },
+  "Tuna": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.700Z"
+  },
+  "Bluefin Tuna": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.700Z"
+  },
+  "Yellowfin Tuna": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.700Z"
+  },
+  "Albacore": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.700Z"
+  },
+  "Snapper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.700Z"
+  },
+  "Red Snapper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.701Z"
+  },
+  "Yellowtail Snapper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.701Z"
+  },
+  "Grouper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.701Z"
+  },
+  "Black Grouper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "Red Grouper": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "Mackerel": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "Spanish Mackerel": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "King Mackerel": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "Mahi Mahi": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.702Z"
+  },
+  "Wahoo": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Amberjack": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Sheepshead": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Porgy": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Scup": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Triggerfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.703Z"
+  },
+  "Filefish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Tarpon": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Bonefish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Permit": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Snook": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Speckled Trout": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.704Z"
+  },
+  "Cobia": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.705Z"
+  },
+  "Lingcod": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.705Z"
+  },
+  "Rockfish": {
+    "processed": false,
+    "error": "Unable to connect. Is the computer able to access the url?",
+    "lastAttempt": "2026-01-01T23:55:22.705Z"
+  }
+}

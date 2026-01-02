@@ -1,0 +1,258 @@
+#!/usr/bin/env bun
+
+import { startCommand } from "./commands/start.js";
+import { runCommand } from "./commands/run.js";
+import { listCommand } from "./commands/list.js";
+import { statusCommand } from "./commands/status.js";
+import { createPluginCommand } from "./commands/create-plugin.js";
+import { createAgentCommand } from "./commands/create-agent.js";
+import { listPluginsCommand } from "./commands/list-plugins.js";
+import { pluginInfoCommand } from "./commands/plugin-info.js";
+import { askCommand } from "./commands/ask.js";
+import { configCommand } from "./commands/config.js";
+import { docsCommand } from "./commands/docs.js";
+import { existsSync } from "fs";
+import { join } from "path";
+
+// Check if we're in the right directory
+const packageJsonPath = join(process.cwd(), "package.json");
+if (!existsSync(packageJsonPath)) {
+  // Try parent directory (ronin/)
+  const parentPackageJson = join(process.cwd(), "ronin", "package.json");
+  if (existsSync(parentPackageJson)) {
+    console.error("❌ Please run this command from the ronin directory:");
+    console.error(`   cd ronin`);
+    console.error(`   bun run ronin ${process.argv.slice(2).join(" ")}`);
+    process.exit(1);
+  } else {
+    console.error("❌ Could not find package.json. Please run from the ronin project directory.");
+    process.exit(1);
+  }
+}
+
+const command = process.argv[2];
+const args = process.argv.slice(3);
+
+async function main() {
+  switch (command) {
+    case "start":
+      await startCommand({
+        agentDir: getArg("--agent-dir", args) || "./agents",
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
+    case "run":
+      const agentName = args[0];
+      if (!agentName) {
+        console.error("❌ Agent name required");
+        console.log("Usage: ronin run <agent-name>");
+        process.exit(1);
+      }
+      await runCommand({
+        agentName,
+        agentDir: getArg("--agent-dir", args) || "./agents",
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
+    case "list":
+      await listCommand({
+        agentDir: getArg("--agent-dir", args) || "./agents",
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
+    case "status":
+      await statusCommand({
+        agentDir: getArg("--agent-dir", args) || "./agents",
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
+    case "create":
+      if (args[0] === "plugin") {
+        const pluginName = args[1];
+        if (!pluginName) {
+          console.error("❌ Plugin name required");
+          console.log("Usage: ronin create plugin <name>");
+          process.exit(1);
+        }
+        await createPluginCommand({
+          pluginName,
+          pluginDir: getArg("--plugin-dir", args),
+        });
+      } else if (args[0] === "agent") {
+        const description = args.slice(1).join(" ");
+        await createAgentCommand({
+          description: description || undefined,
+          agentDir: getArg("--agent-dir", args),
+          local: args.includes("--local"),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+          pluginDir: getArg("--plugin-dir", args),
+          noPreview: args.includes("--no-preview"),
+          edit: args.includes("--edit"),
+        });
+      } else {
+        console.error(`❌ Unknown create command: ${args[0]}`);
+        console.log("Available: ronin create plugin <name>, ronin create agent [description]");
+        process.exit(1);
+      }
+      break;
+
+    case "plugins":
+      if (args[0] === "list") {
+        await listPluginsCommand({
+          pluginDir: getArg("--plugin-dir", args),
+        });
+      } else if (args[0] === "info") {
+        const pluginName = args[1];
+        if (!pluginName) {
+          console.error("❌ Plugin name required");
+          console.log("Usage: ronin plugins info <plugin-name>");
+          process.exit(1);
+        }
+        await pluginInfoCommand({
+          pluginName,
+          pluginDir: getArg("--plugin-dir", args),
+        });
+      } else {
+        console.error(`❌ Unknown plugins command: ${args[0]}`);
+        console.log("Available: ronin plugins list, ronin plugins info <name>");
+        process.exit(1);
+      }
+      break;
+
+    case "ask":
+      // Check if first arg is a model name (grok, gemini, etc.)
+      let question = args.join(" ");
+      let model: string | undefined;
+      
+      // Check if first arg is a known model name
+      const firstArg = args[0];
+      const knownModels = ["grok", "gemini", "local", "ollama"];
+      if (firstArg && !firstArg.startsWith("--") && knownModels.includes(firstArg)) {
+        model = firstArg;
+        question = args.slice(1).join(" ");
+      }
+      
+      await askCommand({
+        question: question || undefined,
+        model: model || getArg("--model", args),
+        agentDir: getArg("--agent-dir", args),
+        pluginDir: getArg("--plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        showSources: args.includes("--sources"),
+      });
+      break;
+
+    case "config":
+      await configCommand({
+        agentDir: getArg("--agent-dir", args),
+        externalAgentDir: getArg("--external-agent-dir", args),
+        grokApiKey: getArg("--grok-api-key", args),
+        geminiApiKey: getArg("--gemini-api-key", args),
+        show: args.includes("--show"),
+      });
+      break;
+
+    case "docs":
+      await docsCommand({
+        document: args[0] && !args[0].startsWith("--") ? args[0] : undefined,
+        browser: !args.includes("--terminal"),
+        terminal: args.includes("--terminal"),
+        port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
+        list: args.includes("--list"),
+      });
+      break;
+
+    case "help":
+    case "--help":
+    case "-h":
+      printHelp();
+      break;
+
+    default:
+      if (!command) {
+        printHelp();
+      } else {
+        console.error(`❌ Unknown command: ${command}`);
+        printHelp();
+        process.exit(1);
+      }
+  }
+}
+
+function getArg(flag: string, args: string[]): string | undefined {
+  const index = args.indexOf(flag);
+  if (index !== -1 && index + 1 < args.length) {
+    return args[index + 1];
+  }
+  return undefined;
+}
+
+function printHelp() {
+  console.log(`
+Ronin - Bun AI Agent Library
+
+Usage: ronin <command> [options]
+
+Commands:
+  start              Start and schedule all agents
+  run <agent-name>   Run a specific agent manually
+  list               List all available agents
+  status             Show runtime status and active schedules
+  create plugin <name> Create a new plugin template
+  create agent [desc]  AI-powered agent creation (interactive)
+                        Use --local to create in ~/.ronin/agents
+  plugins list       List all loaded plugins
+  plugins info <name> Show detailed plugin information
+  ask [model] [question] Ask questions about Ronin (interactive)
+                        Models: local (default), grok, gemini
+                        Example: ronin ask grok "question"
+                        Example: ronin ask gemini "question"
+  config              Manage configuration (agent directories, etc.)
+                        ronin config --show
+                        ronin config --external-agent-dir <path>
+  docs [doc]          View documentation in browser
+                        ronin docs CLI
+                        ronin docs --list
+                        ronin docs --terminal
+  help               Show this help message
+
+Options:
+  --agent-dir <dir>     Agent directory (default: ./agents)
+  --plugin-dir <dir>    Plugin directory (default: ./plugins)
+  --ollama-url <url>    Ollama API URL (default: http://localhost:11434)
+  --ollama-model <name> Ollama model name (default: qwen3)
+  --db-path <path>      Database file path (default: ronin.db)
+
+Examples:
+  ronin start
+  ronin run my-agent
+  ronin list
+  ronin status
+`);
+}
+
+main().catch(error => {
+  console.error("❌ Fatal error:", error);
+  process.exit(1);
+});
+

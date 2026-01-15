@@ -52,6 +52,21 @@ bun start
 
 **Note:** After installing globally (`bun link` or `npm install -g`), you can use `ronin` directly instead of `bun run ronin`.
 
+## AI Definitions (CLI)
+
+Ronin can manage local AI model definitions in a registry file at `~/.ronin/ai-models.json` and run them via `ollama run`.
+
+```bash
+# Add a model definition
+bun run ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+
+# List all definitions
+bun run ronin ai list
+
+# Run a definition
+bun run ronin ai run qwen3
+```
+
 ## Writing Agents
 
 See [AGENTS.md](./AGENTS.md) for detailed documentation on writing agent files.

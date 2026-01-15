@@ -155,6 +155,18 @@ export class AgentRegistry {
           });
         }
 
+        // Routes endpoint - API (JSON)
+        if (path === "/api/routes") {
+          const routes = this.getRoutesList(port);
+          return Response.json({
+            running: true,
+            port,
+            routes,
+          }, {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         // Status endpoint - Web UI (HTML)
         if (path === "/status") {
           const status = this.getStatus();
@@ -305,6 +317,52 @@ export class AgentRegistry {
         webhook: a.webhook,
       })),
     };
+  }
+
+  /**
+   * Get all known routes (system + registered HTTP + webhook routes)
+   */
+  private getRoutesList(port: number): Array<{
+    path: string;
+    url: string;
+    type: "system" | "http" | "webhook";
+    description?: string;
+  }> {
+    const routes: Array<{
+      path: string;
+      url: string;
+      type: "system" | "http" | "webhook";
+      description?: string;
+    }> = [];
+
+    const addRoute = (path: string, type: "system" | "http" | "webhook", description?: string) => {
+      routes.push({
+        path,
+        url: `http://localhost:${port}${path}`,
+        type,
+        description,
+      });
+    };
+
+    // System routes
+    addRoute("/", "system", "Routes dashboard");
+    addRoute("/status", "system", "Status UI");
+    addRoute("/api/status", "system", "Status JSON");
+    addRoute("/health", "system", "Health check");
+    addRoute("/api/health", "system", "Health check JSON");
+    addRoute("/api/routes", "system", "List registered routes");
+
+    // HTTP API routes (agent-registered)
+    for (const path of this.http.getAllRoutes().keys()) {
+      addRoute(path, "http", "Agent-registered HTTP route");
+    }
+
+    // Webhook routes
+    for (const [path, agentName] of this.webhookRoutes.entries()) {
+      addRoute(path, "webhook", `Webhook for ${agentName}`);
+    }
+
+    return routes;
   }
 
   /**

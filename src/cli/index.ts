@@ -3,6 +3,8 @@
 import { startCommand } from "./commands/start.js";
 import { runCommand } from "./commands/run.js";
 import { listCommand } from "./commands/list.js";
+import { listRoutesCommand } from "./commands/list-routes.js";
+import { aiCommand } from "./commands/ai.js";
 import { statusCommand } from "./commands/status.js";
 import { createPluginCommand } from "./commands/create-plugin.js";
 import { createAgentCommand } from "./commands/create-agent.js";
@@ -69,6 +71,18 @@ async function main() {
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
+    case "ai":
+    case "models":
+      await aiCommand({ args });
+      break;
+
+    case "listRoutes":
+    case "routes":
+      await listRoutesCommand({
+        port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
       });
       break;
 
@@ -168,6 +182,7 @@ async function main() {
         externalAgentDir: getArg("--external-agent-dir", args),
         grokApiKey: getArg("--grok-api-key", args),
         geminiApiKey: getArg("--gemini-api-key", args),
+        geminiModel: getArg("--gemini-model", args),
         show: args.includes("--show"),
       });
       break;
@@ -217,6 +232,9 @@ Commands:
   start              Start and schedule all agents
   run <agent-name>   Run a specific agent manually
   list               List all available agents
+  ai <command>       Manage AI definitions (local registry)
+  models <command>   Alias for ai
+  listRoutes         List all registered server routes
   status             Show runtime status and active schedules
   create plugin <name> Create a new plugin template
   create agent [desc]  AI-powered agent creation (interactive)
@@ -242,11 +260,14 @@ Options:
   --ollama-url <url>    Ollama API URL (default: http://localhost:11434)
   --ollama-model <name> Ollama model name (default: qwen3)
   --db-path <path>      Database file path (default: ronin.db)
+  --port <number>       Server port (listRoutes only; default: 3000)
 
 Examples:
   ronin start
   ronin run my-agent
   ronin list
+  ronin ai list
+  ronin listRoutes
   ronin status
 `);
 }

@@ -2,6 +2,7 @@ import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
 import { loadConfig, getDefaultAgentDir, ensureDefaultAgentDir } from "./config.js";
+import { ensureAiRegistry } from "./ai.js";
 
 export interface StartOptions {
   agentDir?: string;
@@ -15,6 +16,7 @@ export interface StartOptions {
  * Start command: Discover, load, and schedule all agents
  */
 export async function startCommand(options: StartOptions = {}): Promise<void> {
+  await ensureAiRegistry();
   // Load config from file if available
   const config = await loadConfig();
   // Default to ~/.ronin/agents if no agentDir specified

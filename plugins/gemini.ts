@@ -3,8 +3,15 @@ import type { Plugin } from "../src/plugins/base.js";
 /**
  * Gemini AI Plugin - Remote streaming AI calls using Google Gemini API
  * 
- * Requires GEMINI_API_KEY environment variable
- * API endpoint: https://generativelanguage.googleapis.com/v1beta
+ * Requires GEMINI_API_KEY environment variable (set via header x-goog-api-key)
+ * API endpoint: https://generativelanguage.googleapis.com/v1beta (default) or v1
+ * 
+ * Available models (v1beta API):
+ * - gemini-1.5-pro (default)
+ * - gemini-1.5-flash
+ * - gemini-3-pro-preview
+ * 
+ * Set GEMINI_API_VERSION environment variable to use v1 instead of v1beta
  */
 
 interface GeminiMessage {
@@ -38,40 +45,99 @@ async function* streamGeminiChat(
     throw new Error("GEMINI_API_KEY is required. Set it via environment variable or: ronin config --gemini-api-key <key>");
   }
 
-  const model = options.model || "gemini-pro";
+  // Get model from options, environment variable, config file, or use default
+  let model = options.model;
+  if (!model) {
+    model = process.env.GEMINI_MODEL;
+    if (!model) {
+      // Try loading from config file
+      const { loadConfig } = await import("../src/cli/commands/config.js");
+      const config = await loadConfig();
+      model = config.geminiModel;
+    }
+    // Default model - try gemini-1.5-flash first (fast), fallback options: gemini-1.5-pro, gemini-3-pro-preview
+    // Note: Model availability depends on your API key and region
+    model = model || "gemini-1.5-flash";
+  }
+  
+  // Extract system instruction if present
+  const systemInstruction = messages.find(m => m.role === "system")?.content;
+
+  // Use v1beta API by default (matches Google's documentation examples)
+  // Can override via GEMINI_API_VERSION environment variable (v1 or v1beta)
+  const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
   
   // Convert messages to Gemini format
-  // Gemini uses a different message format - combine system and user messages
-  const contents = messages
+  // For v1 API, include system instruction in contents; for v1beta, handle separately
+  let contents = messages
     .filter(m => m.role !== "system") // System messages handled separately
     .map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
 
-  // Extract system instruction if present
-  const systemInstruction = messages.find(m => m.role === "system")?.content;
+  // For v1 API, prepend system instruction as first user message if present
+  if (apiVersion === "v1" && systemInstruction) {
+    contents = [
+      {
+        role: "user",
+        parts: [{ text: systemInstruction }],
+      },
+      ...contents,
+    ];
+  }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:streamGenerateContent`;
+  
+  // Debug: Log the URL being used (without API key)
+  if (process.env.DEBUG_GEMINI) {
+    console.error(`[DEBUG] Gemini API URL: ${url}`);
+    console.error(`[DEBUG] Model: ${model}, API Version: ${apiVersion}`);
+  }
+  
+  // Build request body
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.maxOutputTokens,
+    },
+  };
+  
+  // v1beta supports systemInstruction as separate field
+  if (apiVersion === "v1beta" && systemInstruction) {
+    requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+  }
   
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
     },
-    body: JSON.stringify({
-      contents,
-      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-      generationConfig: {
-        temperature: options.temperature ?? 0.7,
-        maxOutputTokens: options.maxOutputTokens,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.statusText} - ${error}`);
+    const errorText = await response.text();
+    let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
+    if (errorText) {
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage += ` - ${errorJson.error.message}`;
+          // Include model and API version in error for debugging
+          errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
+        } else {
+          errorMessage += ` - ${errorText}`;
+        }
+      } catch {
+        errorMessage += ` - ${errorText}`;
+      }
+    } else {
+      errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
+    }
+    throw new Error(errorMessage);
   }
 
   if (!response.body) {
@@ -138,39 +204,106 @@ async function geminiChat(
     throw new Error("GEMINI_API_KEY is required. Set it via environment variable or: ronin config --gemini-api-key <key>");
   }
 
-  const model = options.model || "gemini-pro";
+  // Get model from options, environment variable, config file, or use default
+  let model = options.model;
+  if (!model) {
+    model = process.env.GEMINI_MODEL;
+    if (!model) {
+      // Try loading from config file
+      const { loadConfig } = await import("../src/cli/commands/config.js");
+      const config = await loadConfig();
+      model = config.geminiModel;
+    }
+    // Default model - try gemini-1.5-flash first (fast), fallback options: gemini-1.5-pro, gemini-3-pro-preview
+    // Note: Model availability depends on your API key and region
+    model = model || "gemini-1.5-flash";
+  }
+  
+  // Extract system instruction if present
+  const systemInstruction = messages.find(m => m.role === "system")?.content;
+
+  // Use v1beta API by default (matches Google's documentation examples)
+  // Can override via GEMINI_API_VERSION environment variable (v1 or v1beta)
+  const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
   
   // Convert messages to Gemini format
-  const contents = messages
-    .filter(m => m.role !== "system")
+  // For v1 API, include system instruction in contents; for v1beta, handle separately
+  let contents = messages
+    .filter(m => m.role !== "system") // System messages handled separately
     .map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
 
-  // Extract system instruction if present
-  const systemInstruction = messages.find(m => m.role === "system")?.content;
+  // For v1 API, prepend system instruction as first user message if present
+  if (apiVersion === "v1" && systemInstruction) {
+    contents = [
+      {
+        role: "user",
+        parts: [{ text: systemInstruction }],
+      },
+      ...contents,
+    ];
+  }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent`;
+  
+  // Debug: Log the URL being used (without API key)
+  if (process.env.DEBUG_GEMINI) {
+    console.error(`[DEBUG] Gemini API URL: ${url}`);
+    console.error(`[DEBUG] Model: ${model}, API Version: ${apiVersion}`);
+  }
+  
+  // Build request body
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.maxOutputTokens,
+    },
+  };
+  
+  // v1beta supports systemInstruction as separate field
+  if (apiVersion === "v1beta" && systemInstruction) {
+    requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+  }
   
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
     },
-    body: JSON.stringify({
-      contents,
-      systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-      generationConfig: {
-        temperature: options.temperature ?? 0.7,
-        maxOutputTokens: options.maxOutputTokens,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.statusText} - ${error}`);
+    const errorText = await response.text();
+    let errorMessage = `Gemini API error: ${response.status} ${response.statusText}`;
+    if (errorText) {
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error?.message) {
+          errorMessage += ` - ${errorJson.error.message}`;
+          // Include model and API version in error for debugging
+          errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
+        } else {
+          errorMessage += ` - ${errorText}`;
+        }
+      } catch {
+        errorMessage += ` - ${errorText}`;
+      }
+    } else {
+      errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
+    }
+    
+    // If it's a 404, suggest trying a different model
+    if (response.status === 404) {
+      errorMessage += `\n💡 Tip: Try a different model: bun run ronin config --gemini-model gemini-1.5-pro`;
+      errorMessage += `\n   Or: bun run ronin config --gemini-model gemini-3-pro-preview`;
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
@@ -206,7 +339,7 @@ const geminiPlugin: Plugin = {
             },
             options: {
               type: "object",
-              description: "Optional settings: model (gemini-pro, gemini-pro-vision), temperature, maxOutputTokens",
+              description: "Optional settings: model (gemini-pro, gemini-1.5-pro-latest, gemini-1.5-flash-latest, etc.), temperature, maxOutputTokens",
             },
           },
           required: ["messages"],
@@ -231,7 +364,7 @@ const geminiPlugin: Plugin = {
             },
             options: {
               type: "object",
-              description: "Optional settings: model (gemini-pro, gemini-pro-vision), temperature, maxOutputTokens",
+              description: "Optional settings: model (gemini-pro, gemini-1.5-pro-latest, gemini-1.5-flash-latest, etc.), temperature, maxOutputTokens",
             },
           },
           required: ["messages"],

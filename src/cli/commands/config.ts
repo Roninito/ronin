@@ -10,6 +10,7 @@ export interface ConfigOptions {
   externalAgentDir?: string;
   grokApiKey?: string;
   geminiApiKey?: string;
+  geminiModel?: string;
   show?: boolean;
 }
 
@@ -110,6 +111,7 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     const envExternal = process.env.RONIN_EXTERNAL_AGENT_DIR;
     const envGrok = process.env.GROK_API_KEY;
     const envGemini = process.env.GEMINI_API_KEY;
+    const envGeminiModel = process.env.GEMINI_MODEL;
     
     console.log("\n📋 Ronin Configuration\n");
     console.log("From config file (~/.ronin/config.json):");
@@ -119,6 +121,8 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       for (const [key, value] of Object.entries(config)) {
         if (key === "grokApiKey" || key === "geminiApiKey") {
           console.log(`   ${key}: ${maskValue(value)}`);
+        } else if (key === "geminiModel") {
+          console.log(`   ${key}: ${value} (default: gemini-pro if not set)`);
         } else {
           console.log(`   ${key}: ${value}`);
         }
@@ -140,6 +144,11 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       console.log(`   GEMINI_API_KEY: ${maskValue(envGemini)}`);
     } else {
       console.log("   GEMINI_API_KEY: (not set)");
+    }
+    if (envGeminiModel) {
+      console.log(`   GEMINI_MODEL: ${envGeminiModel}`);
+    } else {
+      console.log("   GEMINI_MODEL: (not set)");
     }
     const envWebhookPort = process.env.WEBHOOK_PORT;
     const webhookPort = envWebhookPort ? parseInt(envWebhookPort) : 3000;
@@ -189,6 +198,28 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       console.log("✅ Gemini API key saved to configuration");
       console.log("\n💡 The API key is stored in ~/.ronin/config.json");
       console.log("💡 Environment variable GEMINI_API_KEY takes precedence if set");
+    }
+    return;
+  }
+
+  if (options.geminiModel !== undefined) {
+    const config = await loadConfig();
+    
+    if (options.geminiModel === "") {
+      // Remove model setting
+      delete config.geminiModel;
+      await saveConfig(config);
+      console.log("✅ Removed Gemini model from configuration");
+      console.log("\n💡 Will use default model: gemini-pro");
+      console.log("💡 Note: Environment variable GEMINI_MODEL takes precedence if set");
+    } else {
+      config.geminiModel = options.geminiModel;
+      await saveConfig(config);
+      console.log(`✅ Gemini model set to: ${options.geminiModel}`);
+      console.log("\n💡 The model is stored in ~/.ronin/config.json");
+      console.log("💡 Environment variable GEMINI_MODEL takes precedence if set");
+      console.log("💡 Common models: gemini-pro (v1beta), gemini-1.5-pro-latest, gemini-1.5-flash-latest");
+      console.log("💡 If a model doesn't work, check Google's API documentation for available models");
     }
     return;
   }
@@ -250,6 +281,8 @@ Usage:
   ronin config --grok-api-key ""         Remove Grok API key
   ronin config --gemini-api-key <key>     Set Gemini API key
   ronin config --gemini-api-key ""        Remove Gemini API key
+  ronin config --gemini-model <model>     Set Gemini model (e.g., gemini-1.5-pro)
+  ronin config --gemini-model ""          Remove Gemini model (use default)
 
 Examples:
   ronin config --show
@@ -257,6 +290,7 @@ Examples:
   ronin config --agent-dir ./custom-agents
   ronin config --grok-api-key sk-xxxxx
   ronin config --gemini-api-key AIxxxxx
+  ronin config --gemini-model gemini-1.5-flash
 
 Note: 
   - API keys can also be set via environment variables (takes precedence)

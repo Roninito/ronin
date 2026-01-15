@@ -95,6 +95,53 @@ ronin list [options]
 **Output:**
 Shows agent names, schedules, file watchers, and webhook paths.
 
+### `ai`
+
+Manage local AI model definitions (CLI-only registry).
+
+**Usage:**
+```bash
+ronin ai <command> [options]
+```
+
+**Commands:**
+- `list` - List saved definitions
+- `add <name>` - Add or update a definition
+- `remove <name>` - Remove a definition
+- `show <name>` - Show a definition as JSON
+- `run <name>` - Run a definition via `ollama run`
+
+**Options:**
+- `--file <path>` - Registry file (default: `~/.ronin/ai-models.json`)
+- `--provider <name>` - Provider (default: `ollama`)
+- `--model <name>` - Model name (required for add)
+- `--args "<args>"` - Args for provider command (space or comma separated)
+- `--tags "a,b"` - Comma-separated tags
+- `--description "..."` - Description for the definition
+- `--force` - Overwrite existing definition
+
+**Examples:**
+```bash
+ronin ai list
+ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+ronin ai run qwen3
+```
+
+### `listRoutes`
+
+List all registered server routes from a running Ronin instance.
+
+**Usage:**
+```bash
+ronin listRoutes [options]
+```
+
+**Options:**
+- `--port <number>` - Webhook server port (default: `3000`)
+
+**Output:**
+Shows system routes, agent-registered HTTP routes, and webhook endpoints with full URLs.
+
 ### `status`
 
 Show runtime status and active schedules.

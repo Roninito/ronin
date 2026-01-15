@@ -9,6 +9,33 @@ import type {
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b";
+const DEFAULT_OLLAMA_TIMEOUT_MS = (() => {
+  const raw =
+    process.env.OLLAMA_TIMEOUT_MS ||
+    process.env.RONIN_AI_TIMEOUT_MS ||
+    process.env.RONIN_OLLAMA_TIMEOUT_MS;
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  // Default: 90 seconds (based on testing - complex prompts need more time)
+  return Number.isFinite(parsed) ? parsed : 90_000;
+})();
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function getTimeoutMs(options?: CompletionOptions): number {
+  return options?.timeoutMs ?? DEFAULT_OLLAMA_TIMEOUT_MS;
+}
 
 export class AIAPI {
   private baseUrl: string;
@@ -46,19 +73,23 @@ export class AIAPI {
    */
   async complete(prompt: string, options: CompletionOptions = {}): Promise<string> {
     const model = options.model || this.defaultModel;
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        options: {
-          temperature: options.temperature ?? 0.7,
-          num_predict: options.maxTokens,
-        },
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/generate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt,
+          stream: false,
+          options: {
+            temperature: options.temperature ?? 0.7,
+            num_predict: options.maxTokens,
+          },
+        }),
+      },
+      getTimeoutMs(options)
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -70,7 +101,20 @@ export class AIAPI {
     }
 
     const data = await response.json();
-    return data.response || "";
+    const responseText = data.response || "";
+    
+    // Log empty responses for debugging (but don't spam)
+    if (!responseText) {
+      console.warn(`[AI] Empty response from Ollama for model "${model}".`);
+      if (data.thinking) {
+        console.warn(`[AI] Thinking present but no response. Thinking preview:`, data.thinking.substring(0, 100));
+      }
+      if (data.done_reason) {
+        console.warn(`[AI] Done reason: ${data.done_reason}`);
+      }
+    }
+    
+    return responseText;
   }
 
   /**
@@ -78,19 +122,23 @@ export class AIAPI {
    */
   async *stream(prompt: string, options: CompletionOptions = {}): AsyncIterable<string> {
     const model = options.model || this.defaultModel;
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: true,
-        options: {
-          temperature: options.temperature ?? 0.7,
-          num_predict: options.maxTokens,
-        },
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/generate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt,
+          stream: true,
+          options: {
+            temperature: options.temperature ?? 0.7,
+            num_predict: options.maxTokens,
+          },
+        }),
+      },
+      getTimeoutMs(options)
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -138,22 +186,26 @@ export class AIAPI {
    */
   async chat(messages: Message[], options: Omit<ChatOptions, "messages"> = {}): Promise<Message> {
     const model = options.model || this.defaultModel;
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-        stream: false,
-        options: {
-          temperature: options.temperature ?? 0.7,
-          num_predict: options.maxTokens,
-        },
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: messages.map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          stream: false,
+          options: {
+            temperature: options.temperature ?? 0.7,
+            num_predict: options.maxTokens,
+          },
+        }),
+      },
+      getTimeoutMs(options)
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -179,22 +231,26 @@ export class AIAPI {
     options: Omit<ChatOptions, "messages"> = {}
   ): AsyncIterable<string> {
     const model = options.model || this.defaultModel;
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        })),
-        stream: true,
-        options: {
-          temperature: options.temperature ?? 0.7,
-          num_predict: options.maxTokens,
-        },
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: messages.map(m => ({
+            role: m.role,
+            content: m.content,
+          })),
+          stream: true,
+          options: {
+            temperature: options.temperature ?? 0.7,
+            num_predict: options.maxTokens,
+          },
+        }),
+      },
+      getTimeoutMs(options)
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -254,25 +310,29 @@ export class AIAPI {
 
     // Try native function calling first
     try {
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "user",
-              content: prompt,
+      const response = await fetchWithTimeout(
+        `${this.baseUrl}/api/chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            tools: tools,
+            stream: false,
+            options: {
+              temperature: options.temperature ?? 0.7,
+              num_predict: options.maxTokens,
             },
-          ],
-          tools: tools,
-          stream: false,
-          options: {
-            temperature: options.temperature ?? 0.7,
-            num_predict: options.maxTokens,
-          },
-        }),
-      });
+          }),
+        },
+        getTimeoutMs(options)
+      );
 
       if (!response.ok) {
         // If model not found (404), provide helpful error message
@@ -368,20 +428,24 @@ Respond with a JSON object in this format:
   ]
 }`;
 
-    const response = await fetch(`${this.baseUrl}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        prompt: enhancedPrompt,
-        stream: false,
-        format: "json",
-        options: {
-          temperature: options.temperature ?? 0.7,
-          num_predict: options.maxTokens,
-        },
-      }),
-    });
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/generate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: enhancedPrompt,
+          stream: false,
+          format: "json",
+          options: {
+            temperature: options.temperature ?? 0.7,
+            num_predict: options.maxTokens,
+          },
+        }),
+      },
+      getTimeoutMs(options)
+    );
 
     if (!response.ok) {
       if (response.status === 404) {

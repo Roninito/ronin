@@ -1,7 +1,7 @@
 import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
-import { loadConfig, getDefaultAgentDir, ensureDefaultAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 
 export interface StartOptions {
@@ -21,13 +21,12 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   const config = await loadConfig();
   // Default to ~/.ronin/agents if no agentDir specified
   const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir = process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir;
+  const externalAgentDir =
+    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
   
   console.log("🚀 Starting Ronin Agent System...");
   console.log(`📁 Agent directory: ${agentDir}`);
-  if (externalAgentDir) {
-    console.log(`📁 External agent directory: ${externalAgentDir}`);
-  }
+  console.log(`📁 External agent directory: ${externalAgentDir}`);
 
   // Create API
   const api = await createAPI({
@@ -38,7 +37,7 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   });
 
   // Load agents
-  const loader = new AgentLoader(agentDir);
+  const loader = new AgentLoader(agentDir, externalAgentDir);
   console.log("🔍 Discovering agents...");
   const agents = await loader.loadAllAgents(api);
 

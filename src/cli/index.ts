@@ -39,7 +39,7 @@ async function main() {
   switch (command) {
     case "start":
       await startCommand({
-        agentDir: getArg("--agent-dir", args) || "./agents",
+        agentDir: getArg("--agent-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -56,7 +56,7 @@ async function main() {
       }
       await runCommand({
         agentName,
-        agentDir: getArg("--agent-dir", args) || "./agents",
+        agentDir: getArg("--agent-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -66,7 +66,7 @@ async function main() {
 
     case "list":
       await listCommand({
-        agentDir: getArg("--agent-dir", args) || "./agents",
+        agentDir: getArg("--agent-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -88,7 +88,7 @@ async function main() {
 
     case "status":
       await statusCommand({
-        agentDir: getArg("--agent-dir", args) || "./agents",
+        agentDir: getArg("--agent-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),

@@ -4,7 +4,7 @@ import { join } from "path";
 import { createAPI } from "../../api/index.js";
 import { stdin, stdout } from "process";
 import { createInterface } from "readline";
-import { ensureDefaultAgentDir } from "./config.js";
+import { ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 
 export interface CreateAgentOptions {
   description?: string;
@@ -66,7 +66,7 @@ export async function createAgentCommand(
   // Use local directory (~/.ronin/agents) if --local flag is set or no agentDir specified
   let agentDir: string;
   if (options.local) {
-    agentDir = ensureDefaultAgentDir();
+    agentDir = ensureDefaultExternalAgentDir();
   } else {
     agentDir = options.agentDir || ensureDefaultAgentDir();
   }

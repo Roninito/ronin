@@ -1,6 +1,7 @@
 import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
+import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 
 export interface RunOptions {
   agentName: string;
@@ -15,7 +16,10 @@ export interface RunOptions {
  * Run command: Execute a specific agent manually
  */
 export async function runCommand(options: RunOptions): Promise<void> {
-  const agentDir = options.agentDir || "./agents";
+  const config = await loadConfig();
+  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
+  const externalAgentDir =
+    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
   console.log(`🚀 Running agent: ${options.agentName}`);
 
@@ -28,7 +32,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   });
 
   // Load agents
-  const loader = new AgentLoader(agentDir);
+  const loader = new AgentLoader(agentDir, externalAgentDir);
   const agents = await loader.loadAllAgents(api);
 
   // Find the agent

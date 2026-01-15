@@ -160,13 +160,14 @@ export PORT="3000"            # General server port
 #### Database Paths
 
 ```bash
-export FISHY_DB_PATH="fishing.db"  # Fishing database path (default: fishing.db)
+export FISHY_DATA_DIR="~/.ronin/data"         # Fishy data directory (default)
+export FISHY_DB_PATH="~/.ronin/data/fishing.db" # Fishing database path (default)
 ```
 
 #### Agent Directories
 
 ```bash
-export RONIN_EXTERNAL_AGENT_DIR="~/my-agents"  # External agent directory (optional)
+export RONIN_EXTERNAL_AGENT_DIR="~/.ronin/agents"  # External agent directory (default)
 ```
 
 **Note:** You can also set the external agent directory using the config command:
@@ -174,11 +175,11 @@ export RONIN_EXTERNAL_AGENT_DIR="~/my-agents"  # External agent directory (optio
 bun run ronin config --external-agent-dir ~/my-agents
 ```
 
-This allows you to store agents outside the project folder. Agents from both the local `./agents` directory and the external directory (if set) will be loaded.
+This allows you to store agents outside the project folder. Agents from both the local `./agents` directory and the external directory will be loaded by default.
 
 ### CLI Options
 
-- `--agent-dir <dir>` - Agent directory (default: `~/.ronin/agents`)
+- `--agent-dir <dir>` - Agent directory (default: `./agents`)
 - `--plugin-dir <dir>` - Plugin directory (default: `./plugins`)
 - `--ollama-url <url>` - Ollama API URL
 - `--ollama-model <name>` - Ollama model name
@@ -209,8 +210,9 @@ ronin/
 ```
 
 **Note:** 
-- The default agent directory is `~/.ronin/agents` (local agents folder)
-- You can override with `--agent-dir` flag or use `--local` when creating agents
+- The default local agent directory is `./agents`
+- The default external agent directory is `~/.ronin/agents`
+- You can override local with `--agent-dir` or use `--local` to create in the external directory
 - The `plugins/` directory is where you place plugin files
 - Both are auto-discovered by the `start` command
 
@@ -238,8 +240,8 @@ bun run ronin config --show
 ```
 
 When you run `bun run ronin start`, agents from both:
-- Local directory: `~/.ronin/agents` (default, or custom path set via `--agent-dir`)
-- External directory: Path set via `RONIN_EXTERNAL_AGENT_DIR` or config file
+- Local directory: `./agents` (default, or custom path set via `--agent-dir`)
+- External directory: `~/.ronin/agents` (default, or custom path set via `RONIN_EXTERNAL_AGENT_DIR` or config file)
 
 will be discovered and loaded. The external directory is optional - if it doesn't exist or isn't set, only local agents will be loaded.
 
@@ -254,6 +256,7 @@ bun run ronin docs
 # View specific document
 bun run ronin docs CLI
 bun run ronin docs ARCHITECTURE
+bun run ronin docs MEMORY_DB
 
 # View in terminal
 bun run ronin docs CLI --terminal
@@ -487,7 +490,7 @@ bun run ronin status
 # Check webhook server (if configured)
 curl http://localhost:3000/health
 
-# Check fishy server (if fishing database exists)
+# Check fishy server (requires fishy agent in ~/.ronin/agents)
 curl http://localhost:3000/fishy/api/fish
 ```
 

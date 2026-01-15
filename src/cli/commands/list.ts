@@ -1,6 +1,7 @@
 import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
+import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 
 export interface ListOptions {
   agentDir?: string;
@@ -14,7 +15,10 @@ export interface ListOptions {
  * List command: Show all registered agents and their schedules
  */
 export async function listCommand(options: ListOptions = {}): Promise<void> {
-  const agentDir = options.agentDir || "./agents";
+  const config = await loadConfig();
+  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
+  const externalAgentDir =
+    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
   // Create API
   const api = await createAPI({
@@ -25,7 +29,7 @@ export async function listCommand(options: ListOptions = {}): Promise<void> {
   });
 
   // Load agents
-  const loader = new AgentLoader(agentDir);
+  const loader = new AgentLoader(agentDir, externalAgentDir);
   const agents = await loader.loadAllAgents(api);
 
   if (agents.length === 0) {

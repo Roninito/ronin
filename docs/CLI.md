@@ -337,19 +337,14 @@ ronin config --gemini-api-key ""
 
 **Note:** Environment variables take precedence over config file settings.
 
-### `fishy`
+### Fishy Agent
 
-Start the Fishy web server to browse the fishing database.
-
-**Usage:**
-```bash
-ronin fishy
-```
+Fishy is a local agent that serves a fishing database UI and API. It is loaded from the external agents directory (default: `~/.ronin/agents`). Start Ronin and visit the routes below.
 
 **Environment Variables:**
-- `WEBHOOK_PORT` - Server port (default: `3000`, same as main webhook server)
-- `FISHY_PORT` - Server port (fallback, default: `3000`)
-- `FISHY_DB_PATH` - Database path (default: `fishing.db`)
+- `WEBHOOK_PORT` - Server port (default: `3000`)
+- `FISHY_DATA_DIR` - Data directory (default: `~/.ronin/data`)
+- `FISHY_DB_PATH` - Database path (default: `~/.ronin/data/fishing.db`)
 
 **Access:**
 - Web interface: `http://localhost:3000/fishy`
@@ -393,6 +388,7 @@ ronin docs --list
 - `TOOL_CALLING` - Function calling guide
 - `REMOTE_AI` - Remote AI setup guide
 - `OLLAMA_GPU` - Ollama GPU configuration
+- `MEMORY_DB` - Ronin memory database (`ronin.db`)
 
 ### `help`
 
@@ -409,15 +405,14 @@ ronin -h
 
 ### Default Agent Directory
 
-By default, agents are stored in `~/.ronin/agents`. This provides:
-- Centralized agent storage
-- Easy sharing across projects
-- Separation from project code
+By default, agents are loaded from both:
+- Local directory: `./agents`
+- External directory: `~/.ronin/agents`
 
 **Override:**
-- Use `--agent-dir` flag in commands
-- Set via `ronin config --agent-dir <path>`
-- Use `--local` flag when creating agents (uses default directory)
+- Use `--agent-dir` flag to change the local directory
+- Set external directory via `ronin config --external-agent-dir <path>` or `RONIN_EXTERNAL_AGENT_DIR`
+- Use `--local` when creating agents to place them in the external directory
 
 ### External Agent Directory
 
@@ -524,14 +519,14 @@ ronin docs PLUGINS --terminal
 ### Server Ports
 - `WEBHOOK_PORT` - Webhook server port (default: `3000`)
   - Used for webhook server, status endpoint, and Fishy server
-- `FISHY_PORT` - Fishy server port (fallback, default: `3000`)
 - `PORT` - General server port
 
 ### Directories
-- `RONIN_EXTERNAL_AGENT_DIR` - External agent directory
+- `RONIN_EXTERNAL_AGENT_DIR` - External agent directory (default: `~/.ronin/agents`)
 
 ### Database
-- `FISHY_DB_PATH` - Fishing database path (default: `fishing.db`)
+- `FISHY_DATA_DIR` - Fishy data directory (default: `~/.ronin/data`)
+- `FISHY_DB_PATH` - Fishing database path (default: `~/.ronin/data/fishing.db`)
 
 ## Troubleshooting
 

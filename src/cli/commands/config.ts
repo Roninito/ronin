@@ -29,7 +29,7 @@ function getConfigPath(): string {
  * Get the default local agents directory
  */
 export function getDefaultAgentDir(): string {
-  return join(homedir(), ".ronin", "agents");
+  return join(process.cwd(), "agents");
 }
 
 /**
@@ -37,6 +37,24 @@ export function getDefaultAgentDir(): string {
  */
 export function ensureDefaultAgentDir(): string {
   const agentDir = getDefaultAgentDir();
+  if (!existsSync(agentDir)) {
+    mkdirSync(agentDir, { recursive: true });
+  }
+  return agentDir;
+}
+
+/**
+ * Get the default external agents directory
+ */
+export function getDefaultExternalAgentDir(): string {
+  return join(homedir(), ".ronin", "agents");
+}
+
+/**
+ * Ensure the default external agents directory exists
+ */
+export function ensureDefaultExternalAgentDir(): string {
+  const agentDir = getDefaultExternalAgentDir();
   if (!existsSync(agentDir)) {
     mkdirSync(agentDir, { recursive: true });
   }
@@ -133,7 +151,7 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     if (envExternal) {
       console.log(`   RONIN_EXTERNAL_AGENT_DIR: ${envExternal}`);
     } else {
-      console.log("   RONIN_EXTERNAL_AGENT_DIR: (not set)");
+      console.log(`   RONIN_EXTERNAL_AGENT_DIR: (not set, default: ${getDefaultExternalAgentDir()})`);
     }
     if (envGrok) {
       console.log(`   GROK_API_KEY: ${maskValue(envGrok)}`);

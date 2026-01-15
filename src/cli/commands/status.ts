@@ -1,7 +1,7 @@
 import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
-import { loadConfig, ensureDefaultAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 
 export interface StatusOptions {
   agentDir?: string;
@@ -92,12 +92,11 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
   const config = await loadConfig();
   // Use same default logic as start command
   const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir = process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir;
+  const externalAgentDir =
+    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
   console.log(`   Agent directory: ${agentDir}`);
-  if (externalAgentDir) {
-    console.log(`   External agent directory: ${externalAgentDir}`);
-  }
+  console.log(`   External agent directory: ${externalAgentDir}`);
 
   // Create API and load agents to show what would be registered
   // Note: We don't actually register them to avoid scheduling/executing
@@ -109,7 +108,7 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
   });
 
   // Load agents (but don't register them - just get metadata)
-  const loader = new AgentLoader(agentDir);
+  const loader = new AgentLoader(agentDir, externalAgentDir);
   const agents = await loader.loadAllAgents(api);
 
   // Calculate status without actually registering (to avoid scheduling)

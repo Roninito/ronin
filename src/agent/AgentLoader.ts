@@ -15,10 +15,10 @@ export class AgentLoader {
   private agentDir: string;
   private externalAgentDir: string | null;
 
-  constructor(agentDir: string = "./agents") {
+  constructor(agentDir: string = "./agents", externalAgentDir?: string | null) {
     this.agentDir = agentDir;
-    // Check for external agent directory from environment variable
-    this.externalAgentDir = process.env.RONIN_EXTERNAL_AGENT_DIR || null;
+    // Allow override via argument, fallback to environment variable
+    this.externalAgentDir = externalAgentDir ?? process.env.RONIN_EXTERNAL_AGENT_DIR ?? null;
   }
 
   /**
@@ -32,7 +32,7 @@ export class AgentLoader {
     await this.discoverRecursive(this.agentDir, files);
     
     // Discover agents in external directory if set
-    if (this.externalAgentDir) {
+    if (this.externalAgentDir && this.externalAgentDir !== this.agentDir) {
       try {
         await this.discoverRecursive(this.externalAgentDir, files);
       } catch (error) {

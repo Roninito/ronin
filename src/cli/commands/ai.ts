@@ -87,7 +87,7 @@ Options:
 
 Examples:
   ronin ai list
-  ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+  ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
   ronin ai run qwen3
 `);
 }

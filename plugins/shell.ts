@@ -15,7 +15,26 @@ const shellPlugin: Plugin = {
       args?: string[],
       options?: { cwd?: string; env?: Record<string, string> }
     ) => {
-      const proc = Bun.spawn([command, ...(args || [])], {
+      // If command contains spaces and no args provided, split intelligently
+      let cmd: string;
+      let cmdArgs: string[];
+      
+      if (!args || args.length === 0) {
+        // Check if command contains spaces (likely a full command line)
+        const parts = command.trim().split(/\s+/);
+        if (parts.length > 1) {
+          cmd = parts[0];
+          cmdArgs = parts.slice(1);
+        } else {
+          cmd = command;
+          cmdArgs = [];
+        }
+      } else {
+        cmd = command;
+        cmdArgs = args;
+      }
+
+      const proc = Bun.spawn([cmd, ...cmdArgs], {
         stdout: "pipe",
         stderr: "pipe",
         cwd: options?.cwd,
@@ -43,7 +62,26 @@ const shellPlugin: Plugin = {
       args?: string[],
       options?: { cwd?: string; env?: Record<string, string> }
     ) => {
-      const proc = Bun.spawn([command, ...(args || [])], {
+      // If command contains spaces and no args provided, split intelligently
+      let cmd: string;
+      let cmdArgs: string[];
+      
+      if (!args || args.length === 0) {
+        // Check if command contains spaces (likely a full command line)
+        const parts = command.trim().split(/\s+/);
+        if (parts.length > 1) {
+          cmd = parts[0];
+          cmdArgs = parts.slice(1);
+        } else {
+          cmd = command;
+          cmdArgs = [];
+        }
+      } else {
+        cmd = command;
+        cmdArgs = args;
+      }
+
+      const proc = Bun.spawn([cmd, ...cmdArgs], {
         stdout: "pipe",
         stderr: "pipe",
         cwd: options?.cwd,

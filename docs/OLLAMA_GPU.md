@@ -23,7 +23,7 @@ intel_gpu_top  # If available
 watch -n 1 intel_gpu_top
 
 # In another terminal, run a test
-ollama run qwen3:0.6b "test prompt"
+ollama run qwen3:1.7b "test prompt"
 ```
 
 ## Forcing GPU Usage
@@ -59,7 +59,7 @@ Intel GPUs use different acceleration methods:
    
    Some models may need specific settings. Check:
    ```bash
-   ollama show qwen3:0.6b
+   ollama show qwen3:1.7b
    ```
 
 4. **Verify GPU Acceleration**
@@ -70,7 +70,7 @@ Intel GPUs use different acceleration methods:
    watch -n 1 'ps aux | grep ollama'
    
    # Terminal 2: Test
-   ollama run qwen3:0.6b "test"
+   ollama run qwen3:1.7b "test"
    ```
 
 ### Alternative: Use Remote Models
@@ -90,7 +90,7 @@ ronin ask grok "your question"
 
 ```bash
 # Test response time
-time ollama run qwen3:0.6b "test prompt"
+time ollama run qwen3:1.7b "test prompt"
 
 # Check if model is loaded in GPU memory
 ollama ps
@@ -106,7 +106,7 @@ htop  # or top
    - Limit max tokens in prompts
 
 2. **Use Quantized Models**
-   - qwen3:0.6b is already quantized
+   - qwen3:1.7b is already quantized
    - Consider even smaller quantizations
 
 3. **Adjust Ollama Settings**

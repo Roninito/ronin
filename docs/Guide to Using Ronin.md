@@ -407,6 +407,19 @@ ronin listRoutes
 
 ---
 
+## RSS Ingestion and Global Vectors (GVEC)
+
+Two powerful patterns pair especially well in Ronin:
+
+### 1) RSS as an ingestion backbone
+
+An RSS agent can keep a curated list of feeds (stored in `~/.ronin/data/rss.feeds.json`), pull items every few hours, summarize them, and persist them into a dedicated database (`~/.ronin/data/rss.feed.db`). Once you have that, you’ve got a local “news lake” that other agents can build on.
+
+### 2) GVEC: turn news into geolocated “vectors”
+
+The GVEC agent reads RSS items, uses AI to infer category + location, geocodes the location, and stores geolocated vectors in `~/.ronin/data/gvec.db`. It then exposes a globe view at `/gvec/globe` and data at `/gvec/data`.\n+
+This is one of those Ronin sweet spots: a small, local agent turns raw web content into a browsable internal tool.
+
 ## Practical Workflow: A Day in Ronin
 
 Here’s a simple, repeatable workflow that works well for teams:
@@ -520,7 +533,7 @@ Ronin includes a simple CLI registry for AI model definitions stored at `~/.roni
 Why is this useful? Because you can name models in human terms and run them consistently:
 
 ```bash
-ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
 ronin ai list
 ronin ai run qwen3
 ```

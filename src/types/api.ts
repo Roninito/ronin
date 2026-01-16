@@ -6,6 +6,10 @@ export interface CompletionOptions {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
+  /**
+   * Network timeout for AI requests (ms). If omitted, Ronin uses a generous default.
+   */
+  timeoutMs?: number;
 }
 
 /**
@@ -166,6 +170,124 @@ export interface AgentAPI {
     call(pluginName: string, method: string, ...args: unknown[]): Promise<unknown>;
     has(pluginName: string): boolean;
     list(): string[];
+  };
+
+  /**
+   * Git operations (if git plugin is loaded)
+   */
+  git?: {
+    init(): Promise<{ success: boolean; message: string }>;
+    clone(url: string, dir?: string): Promise<{ success: boolean; output: string }>;
+    status(): Promise<{ clean: boolean; files: Array<{ status: string; file: string }> }>;
+    add(files: string | string[]): Promise<{ success: boolean }>;
+    commit(message: string, files?: string[]): Promise<{ success: boolean; output: string }>;
+    push(remote?: string, branch?: string): Promise<{ success: boolean; output: string }>;
+    pull(remote?: string, branch?: string): Promise<{ success: boolean; output: string }>;
+    branch(name?: string): Promise<{ success?: boolean; output?: string; branches?: string[] }>;
+    checkout(branch: string): Promise<{ success: boolean; output: string }>;
+  };
+
+  /**
+   * Shell operations (if shell plugin is loaded)
+   */
+  shell?: {
+    exec(
+      command: string,
+      args?: string[],
+      options?: { cwd?: string; env?: Record<string, string> }
+    ): Promise<{ exitCode: number; stdout: string; stderr: string; success: boolean }>;
+    execAsync(
+      command: string,
+      args?: string[],
+      options?: { cwd?: string; env?: Record<string, string> }
+    ): Promise<{
+      process: import("bun").Subprocess;
+      readOutput(): Promise<{ exitCode: number; stdout: string; stderr: string; success: boolean }>;
+    }>;
+    which(command: string): Promise<string | null>;
+    env(): Promise<Record<string, string>>;
+    cwd(): Promise<string>;
+  };
+
+  /**
+   * Web scraping operations (if scrape plugin is loaded)
+   */
+  scrape?: {
+    scrape_to_markdown(
+      url: string,
+      options?: {
+        instructions?: string;
+        selector?: string;
+        includeImages?: boolean;
+        timeoutMs?: number;
+        userAgent?: string;
+      }
+    ): Promise<{ url: string; finalUrl: string; title?: string; markdown: string; images: string[]; links: string[] }>;
+  };
+
+  /**
+   * Torrent operations (if torrent plugin is loaded)
+   */
+  torrent?: {
+    search(query: string, options?: { site?: string; limit?: number }): Promise<Array<{
+      title: string;
+      magnet: string;
+      size: string;
+      seeders: number;
+      leechers: number;
+      uploadDate: string;
+      category: string;
+      url: string;
+    }>>;
+    add(magnetOrPath: string, options?: { downloadPath?: string }): Promise<{
+      infoHash: string;
+      name: string;
+      status: {
+        infoHash: string;
+        name: string;
+        progress: number;
+        downloadSpeed: number;
+        uploadSpeed: number;
+        downloaded: number;
+        uploaded: number;
+        timeRemaining: number;
+        peers: number;
+        length: number;
+        ready: boolean;
+        done: boolean;
+      };
+    }>;
+    list(): Promise<Array<{
+      infoHash: string;
+      name: string;
+      progress: number;
+      downloadSpeed: number;
+      uploadSpeed: number;
+      downloaded: number;
+      uploaded: number;
+      timeRemaining: number;
+      peers: number;
+      length: number;
+      ready: boolean;
+      done: boolean;
+    }>>;
+    status(infoHash: string): Promise<{
+      infoHash: string;
+      name: string;
+      progress: number;
+      downloadSpeed: number;
+      uploadSpeed: number;
+      downloaded: number;
+      uploaded: number;
+      timeRemaining: number;
+      peers: number;
+      length: number;
+      ready: boolean;
+      done: boolean;
+    }>;
+    pause(infoHash: string): Promise<{ success: boolean; message: string }>;
+    resume(infoHash: string): Promise<{ success: boolean; message: string }>;
+    remove(infoHash: string, options?: { removeFiles?: boolean }): Promise<{ success: boolean; message: string }>;
   };
 }
 

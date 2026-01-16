@@ -1,6 +1,6 @@
 # Ronin - Bun AI Agent Library
 
-A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features (cron, file watching, HTTP) and integrating with Ollama (qwen3) for local AI capabilities.
+A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features (cron, file watching, HTTP) and integrating with Ollama (qwen3:1.7b) for local AI capabilities.
 
 ## Features
 
@@ -58,7 +58,7 @@ Ronin can manage local AI model definitions in a registry file at `~/.ronin/ai-m
 
 ```bash
 # Add a model definition
-bun run ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+bun run ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
 
 # List all definitions
 bun run ronin ai list
@@ -75,10 +75,21 @@ See [AGENTS.md](./AGENTS.md) for detailed documentation on writing agent files.
 
 Ronin includes a plugin system for extending functionality:
 
-- **Built-in Plugins**: Git and Shell plugins included
+- **Built-in Plugins**: Git, Shell, Scrape, and Torrent plugins included
+- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*` for type-safe, ergonomic access
 - **Auto-discovery**: Plugins automatically loaded from `plugins/` directory
 - **Function Calling**: Plugins available as tools for AI function calling
 - **CLI Tools**: Create and manage plugins via CLI
+
+**Example:**
+```typescript
+// Clean, type-safe direct API
+const status = await this.api.git?.status();
+await this.api.shell?.exec("ls", ["-la"]);
+
+// Or use generic API for any plugin
+await this.api.plugins.call("custom-plugin", "method");
+```
 
 See [docs/PLUGINS.md](./docs/PLUGINS.md) for plugin development guide.
 
@@ -146,7 +157,7 @@ source ~/.bashrc
 
 ```bash
 export OLLAMA_URL="http://localhost:11434"  # Default
-export OLLAMA_MODEL="qwen3:4b"              # Default
+export OLLAMA_MODEL="qwen3:1.7b"              # Default
 ```
 
 #### Server Ports
@@ -292,7 +303,7 @@ User=your-username
 WorkingDirectory=/path/to/ronin
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 Environment="OLLAMA_URL=http://localhost:11434"
-Environment="OLLAMA_MODEL=qwen3:4b"
+Environment="OLLAMA_MODEL=qwen3:1.7b"
 Environment="GROK_API_KEY=your-grok-key"
 Environment="GEMINI_API_KEY=your-gemini-key"
 ExecStart=/usr/local/bin/bun run ronin start
@@ -367,7 +378,7 @@ nano ~/Library/LaunchAgents/com.ronin.agent.plist
     <key>OLLAMA_URL</key>
     <string>http://localhost:11434</string>
     <key>OLLAMA_MODEL</key>
-    <string>qwen3:4b</string>
+    <string>qwen3:1.7b</string>
     <key>GROK_API_KEY</key>
     <string>your-grok-key</string>
     <key>GEMINI_API_KEY</key>
@@ -418,7 +429,7 @@ nssm set RoninAgent AppDirectory "C:\path\to\ronin"
 
 # Set environment variables
 nssm set RoninAgent AppEnvironmentExtra "OLLAMA_URL=http://localhost:11434" 
-"OLLAMA_MODEL=qwen3:4b" "GROK_API_KEY=your-grok-key" "GEMINI_API_KEY=your-gemini-key"
+"OLLAMA_MODEL=qwen3:1.7b" "GROK_API_KEY=your-grok-key" "GEMINI_API_KEY=your-gemini-key"
 
 # Set output files
 nssm set RoninAgent AppStdout "C:\path\to\ronin\ronin.log"

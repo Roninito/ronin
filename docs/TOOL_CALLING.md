@@ -28,11 +28,23 @@ export default class MyAgent extends BaseAgent {
     // Execute tool calls
     for (const toolCall of toolCalls) {
       const [pluginName, methodName] = toolCall.name.split("_");
-      const result = await this.api.plugins.call(
-        pluginName,
-        methodName,
-        ...(toolCall.arguments.args || [])
-      );
+      
+      // For common plugins, you can use direct API (when available)
+      // Otherwise fall back to generic plugin API
+      let result;
+      if (pluginName === "git" && this.api.git) {
+        result = await (this.api.git as any)[methodName](...(toolCall.arguments.args || []));
+      } else if (pluginName === "shell" && this.api.shell) {
+        result = await (this.api.shell as any)[methodName](...(toolCall.arguments.args || []));
+      } else {
+        // Generic plugin API for all plugins
+        result = await this.api.plugins.call(
+          pluginName,
+          methodName,
+          ...(toolCall.arguments.args || [])
+        );
+      }
+      
       console.log(`Tool ${toolCall.name} result:`, result);
     }
 
@@ -55,11 +67,21 @@ export default class MyAgent extends BaseAgent {
     const results = [];
     for (const toolCall of toolCalls) {
       const [pluginName, methodName] = toolCall.name.split("_");
-      const result = await this.api.plugins.call(
-        pluginName,
-        methodName,
-        ...(toolCall.arguments.args || [])
-      );
+      
+      // Use direct API when available, otherwise use generic API
+      let result;
+      if (pluginName === "git" && this.api.git) {
+        result = await (this.api.git as any)[methodName](...(toolCall.arguments.args || []));
+      } else if (pluginName === "shell" && this.api.shell) {
+        result = await (this.api.shell as any)[methodName](...(toolCall.arguments.args || []));
+      } else {
+        result = await this.api.plugins.call(
+          pluginName,
+          methodName,
+          ...(toolCall.arguments.args || [])
+        );
+      }
+      
       results.push({ tool: toolCall.name, result });
     }
 
@@ -206,7 +228,7 @@ for (const toolCall of toolCalls) {
 Ronin uses Ollama's native function calling API via the `/api/chat` endpoint with the `tools` parameter. This requires:
 
 1. **Ollama version** that supports function calling
-2. **Model support** - qwen3 should support function calling
+2. **Model support** - qwen3:1.7b should support function calling
 3. **Proper tool definitions** - Automatically generated from plugins
 
 If function calling is not supported, you can:
@@ -253,11 +275,19 @@ export default class GitAgent extends BaseAgent {
         const [pluginName, methodName] = toolCall.name.split("_");
         
         try {
-          const result = await this.api.plugins.call(
-            pluginName,
-            methodName,
-            ...(toolCall.arguments.args || [])
-          );
+          // Use direct API when available for better type safety
+          let result;
+          if (pluginName === "git" && this.api.git) {
+            result = await (this.api.git as any)[methodName](...(toolCall.arguments.args || []));
+          } else if (pluginName === "shell" && this.api.shell) {
+            result = await (this.api.shell as any)[methodName](...(toolCall.arguments.args || []));
+          } else {
+            result = await this.api.plugins.call(
+              pluginName,
+              methodName,
+              ...(toolCall.arguments.args || [])
+            );
+          }
           
           console.log(`Executed ${toolCall.name}:`, result);
           

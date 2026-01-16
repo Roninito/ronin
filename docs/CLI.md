@@ -28,7 +28,7 @@ ronin start [options]
 - `--agent-dir <dir>` - Agent directory (default: `~/.ronin/agents`)
 - `--plugin-dir <dir>` - Plugin directory (default: `./plugins`)
 - `--ollama-url <url>` - Ollama API URL (default: `http://localhost:11434`)
-- `--ollama-model <name>` - Ollama model name (default: `qwen3:4b`)
+- `--ollama-model <name>` - Ollama model name (default: `qwen3:1.7b`)
 - `--db-path <path>` - Database file path (default: `ronin.db`)
 
 **Examples:**
@@ -123,7 +123,7 @@ ronin ai <command> [options]
 **Examples:**
 ```bash
 ronin ai list
-ronin ai add qwen3 --model qwen3:4b --description "Fast local model"
+ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
 ronin ai run qwen3
 ```
 
@@ -142,6 +142,19 @@ ronin listRoutes [options]
 **Output:**
 Shows system routes, agent-registered HTTP routes, and webhook endpoints with full URLs.
 
+## Local Agents (Installed in `~/.ronin/agents`)
+
+Some agents are intentionally kept out of the repo and live in `~/.ronin/agents` (loaded by default). If you’ve installed them, start Ronin and use `ronin listRoutes` to find their routes.
+
+### RSS Feed Agent
+
+- **Purpose**: Manage RSS feeds, ingest items on a schedule, and serve news items over HTTP.\n+- **Data**:\n+  - Feeds list: `~/.ronin/data/rss.feeds.json`\n+  - DB: `~/.ronin/data/rss.feed.db`\n+- **Routes**:\n+  - `GET/POST/DELETE /rss/feeds`\n+  - `GET /rss/news?limit=20`\n+  - `GET /rss/news/:id`\n+- **Events**:\n+  - listens: `news.feeds.list.request` → emits: `news.feeds.list`\n+  - listens: `news.item.request` → emits: `news.item`\n+
+### GVEC Agent
+
+- **Purpose**: Turn RSS items into geolocated vectors and render them on a globe.\n+- **Data**: `~/.ronin/data/gvec.db`\n+- **Routes**:\n+  - `GET /gvec/data`\n+  - `GET /gvec/globe`\n+
+### NOAA News Agent
+
+- **Purpose**: Scrape NOAA news page, generate short articles, store results.\n+- **Data**: `~/.ronin/data/noaa.news.db`\n+
 ### `status`
 
 Show runtime status and active schedules.
@@ -514,7 +527,7 @@ ronin docs PLUGINS --terminal
 - `GROK_API_KEY` - Grok API key
 - `GEMINI_API_KEY` - Gemini API key
 - `OLLAMA_URL` - Ollama API URL (default: `http://localhost:11434`)
-- `OLLAMA_MODEL` - Ollama model name (default: `qwen3:4b`)
+- `OLLAMA_MODEL` - Ollama model name (default: `qwen3:1.7b`)
 
 ### Server Ports
 - `WEBHOOK_PORT` - Webhook server port (default: `3000`)

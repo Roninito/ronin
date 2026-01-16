@@ -258,7 +258,7 @@ Options:
   --agent-dir <dir>     Agent directory (default: ./agents)
   --plugin-dir <dir>    Plugin directory (default: ./plugins)
   --ollama-url <url>    Ollama API URL (default: http://localhost:11434)
-  --ollama-model <name> Ollama model name (default: qwen3)
+  --ollama-model <name> Ollama model name (default: qwen3:1.7b)
   --db-path <path>      Database file path (default: ronin.db)
   --port <number>       Server port (listRoutes only; default: 3000)
 

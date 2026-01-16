@@ -34,11 +34,11 @@ echo ""
 
 # Test inference and check CPU/GPU usage
 echo "5. Testing Inference (this will take a moment)..."
-echo "   Running: ollama run qwen3:0.6b 'test'"
+echo "   Running: ollama run qwen3:1.7b 'test'"
 echo "   Watch CPU/GPU usage in another terminal with: htop or intel_gpu_top"
 echo ""
 
-time ollama run qwen3:0.6b "test" 2>&1 | tail -3
+time ollama run qwen3:1.7b "test" 2>&1 | tail -3
 echo ""
 
 # Check Ollama process

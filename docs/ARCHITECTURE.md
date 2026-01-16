@@ -32,7 +32,7 @@ Ronin is a Bun-based AI agent library that enables scheduling and execution of T
         ▼              ▼              ▼
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
 │   Ollama    │ │   SQLite    │ │   Plugins   │
-│  (qwen3)    │ │  (Memory)   │ │  Directory  │
+│  (qwen3:1.7b)    │ │  (Memory)   │ │  Directory  │
 └─────────────┘ └─────────────┘ └─────────────┘
 ```
 
@@ -72,7 +72,7 @@ Ronin is a Bun-based AI agent library that enables scheduling and execution of T
 ### 3. API Layer
 
 **AIAPI** (`src/api/ai.ts`)
-- Ollama integration for qwen3 model
+- Ollama integration for qwen3:1.7b model
 - Methods:
   - `complete()` - Basic text completion
   - `stream()` - Streaming completions
@@ -163,7 +163,7 @@ export default {
 ### Environment Variables
 
 - `OLLAMA_URL` - Ollama API URL (default: `http://localhost:11434`)
-- `OLLAMA_MODEL` - Ollama model name (default: `qwen3`)
+- `OLLAMA_MODEL` - Ollama model name (default: `qwen3:1.7b`)
 - `WEBHOOK_PORT` - Webhook server port (default: `3000`)
 
 ### CLI Options

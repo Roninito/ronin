@@ -75,18 +75,25 @@ export default class TestPluginAgent extends BaseAgent {
   }
 
   async execute(): Promise<void> {
-    // Test git plugin
-    const gitStatus = await this.api.plugins.call("git", "status");
+    // Test git plugin (using direct API)
+    const gitStatus = await this.api.git?.status();
     console.log("Git Status:", gitStatus);
 
-    // Test shell plugin
-    const cwd = await this.api.plugins.call("shell", "cwd");
+    // Test shell plugin (using direct API)
+    const cwd = await this.api.shell?.cwd();
     console.log("Current Directory:", cwd);
+
+    // Test shell exec
+    const result = await this.api.shell?.exec("echo", ["Hello from shell!"]);
+    console.log("Shell output:", result?.stdout);
 
     // Test memory
     await this.api.memory.store("test", "Hello from agent!");
     const value = await this.api.memory.retrieve("test");
     console.log("Memory Value:", value);
+
+    // You can still use the generic API for any plugin
+    // const customResult = await this.api.plugins.call("custom-plugin", "method");
   }
 }
 ```
@@ -158,7 +165,7 @@ ollama serve
 
 2. Pull the model (if needed):
 ```bash
-ollama pull qwen3
+ollama pull qwen3:1.7b
 ```
 
 3. Run an agent:

@@ -370,45 +370,121 @@ export class AgentRegistry {
    */
   private getRootHTML(port: number): string {
     const status = this.getStatus();
-    const routes = [
-      {
-        path: "/status",
-        title: "Status Dashboard",
-        description: "View system status, agents, and runtime information",
-        icon: "⚡",
-        category: "Web UI"
-      },
-      {
-        path: "/fishy",
-        title: "Fishy Database",
-        description: "Browse the North American fish database",
-        icon: "🐟",
-        category: "Web UI"
-      },
-      {
-        path: "/api/status",
-        title: "Status API",
-        description: "Get system status as JSON",
-        icon: "📊",
-        category: "API"
-      },
-      {
-        path: "/api/health",
-        title: "Health Check",
-        description: "Simple health check endpoint",
-        icon: "❤️",
-        category: "API"
-      },
-      ...Array.from(this.webhookRoutes.entries()).map(([path, agentName]) => ({
-        path,
-        title: `${agentName} Webhook`,
-        description: `Webhook endpoint for ${agentName} agent`,
-        icon: "🔗",
-        category: "Webhooks"
-      }))
-    ];
+    const allRoutes = this.getRoutesList(port);
 
-    // Group routes by category
+    // Helper function to get icon for a route
+    const getRouteIcon = (path: string, type: string): string => {
+      // Route-specific icons
+      if (path.includes("/fishy")) return "🐟";
+      if (path.includes("/rss")) return "📰";
+      if (path.includes("/gvec")) return "🌍";
+      
+      // Type-based icons
+      if (type === "system") return "⚡";
+      if (type === "webhook") return "🔗";
+      if (path.startsWith("/api/")) return "🔌";
+      return "🌐";
+    };
+
+    // Helper function to get title for a route
+    const getRouteTitle = (path: string, type: string, description?: string): string => {
+      if (description && description !== "Agent-registered HTTP route") {
+        // Extract title from description if it's descriptive
+        if (description.includes("Webhook for")) {
+          return description.replace("Webhook for ", "") + " Webhook";
+        }
+        if (description.includes("Routes dashboard")) return "Routes Dashboard";
+        if (description.includes("Status UI")) return "Status Dashboard";
+        if (description.includes("Status JSON")) return "Status API";
+        if (description.includes("Health check")) return "Health Check";
+        if (description.includes("List registered routes")) return "Routes API";
+      }
+      
+      // Generate title from path
+      if (path === "/") return "Routes Dashboard";
+      if (path === "/status") return "Status Dashboard";
+      if (path.startsWith("/api/")) {
+        const apiName = path.replace("/api/", "").split("/")[0];
+        return apiName.charAt(0).toUpperCase() + apiName.slice(1) + " API";
+      }
+      if (type === "webhook") {
+        const agentName = this.webhookRoutes.get(path);
+        return agentName ? `${agentName} Webhook` : "Webhook";
+      }
+      
+      // Convert path to title
+      const segments = path.split("/").filter(Boolean);
+      return segments.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+    };
+
+    // Helper function to get category for a route
+    const getRouteCategory = (path: string, type: string): string => {
+      if (type === "system") {
+        if (path.startsWith("/api/")) return "System";
+        return "System";
+      }
+      if (type === "webhook") return "Webhooks";
+      if (path.startsWith("/api/")) return "API";
+      return "Web UI";
+    };
+
+    // Helper function to get description for a route
+    const getRouteDescription = (path: string, type: string, description?: string): string => {
+      if (description && description !== "Agent-registered HTTP route") {
+        return description;
+      }
+      
+      if (type === "system") {
+        if (path === "/") return "Routes dashboard";
+        if (path === "/status") return "View system status, agents, and runtime information";
+        if (path === "/api/status") return "Get system status as JSON";
+        if (path === "/api/health" || path === "/health") return "Simple health check endpoint";
+        if (path === "/api/routes") return "List all registered routes as JSON";
+      }
+      
+      if (type === "webhook") {
+        const agentName = this.webhookRoutes.get(path);
+        return agentName ? `Webhook endpoint for ${agentName} agent` : "Webhook endpoint";
+      }
+      
+      if (path.startsWith("/api/")) {
+        return "API endpoint";
+      }
+      
+      return "Web interface";
+    };
+
+    // Deduplicate routes (prefer routes without trailing slashes)
+    const routeMap = new Map<string, typeof allRoutes[0]>();
+    for (const route of allRoutes) {
+      const normalizedPath = route.path.endsWith("/") && route.path.length > 1
+        ? route.path.slice(0, -1)
+        : route.path;
+      
+      // Skip root route from display
+      if (normalizedPath === "/") continue;
+      
+      // Prefer route without trailing slash, or keep existing if already added
+      if (!routeMap.has(normalizedPath)) {
+        routeMap.set(normalizedPath, route);
+      } else {
+        const existing = routeMap.get(normalizedPath)!;
+        if (!route.path.endsWith("/") && existing.path.endsWith("/")) {
+          routeMap.set(normalizedPath, route);
+        }
+      }
+    }
+
+    // Transform routes into template format
+    const routes = Array.from(routeMap.values()).map(route => ({
+      path: route.path.endsWith("/") && route.path.length > 1 ? route.path.slice(0, -1) : route.path,
+      title: getRouteTitle(route.path, route.type, route.description),
+      description: getRouteDescription(route.path, route.type, route.description),
+      icon: getRouteIcon(route.path, route.type),
+      category: getRouteCategory(route.path, route.type)
+    }));
+
+    // Group routes by category and sort within each category
     const routesByCategory = routes.reduce((acc, route) => {
       if (!acc[route.category]) {
         acc[route.category] = [];
@@ -416,6 +492,11 @@ export class AgentRegistry {
       acc[route.category].push(route);
       return acc;
     }, {} as Record<string, typeof routes>);
+
+    // Sort routes within each category by path
+    for (const category in routesByCategory) {
+      routesByCategory[category].sort((a, b) => a.path.localeCompare(b.path));
+    }
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -663,7 +744,7 @@ export class AgentRegistry {
       ${Object.entries(routesByCategory).map(([category, categoryRoutes]) => `
         <div class="category">
           <h2 class="category-title">
-            <span>${category === "Web UI" ? "🌐" : category === "API" ? "🔌" : "🔗"}</span>
+            <span>${category === "Web UI" ? "🌐" : category === "API" ? "🔌" : category === "Webhooks" ? "🔗" : "⚡"}</span>
             ${category}
           </h2>
           ${categoryRoutes.length > 0 ? `

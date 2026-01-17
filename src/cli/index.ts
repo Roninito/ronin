@@ -13,6 +13,9 @@ import { pluginInfoCommand } from "./commands/plugin-info.js";
 import { askCommand } from "./commands/ask.js";
 import { configCommand } from "./commands/config.js";
 import { docsCommand } from "./commands/docs.js";
+import { realmConnectCommand } from "./commands/realm-connect.js";
+import { realmStatusCommand } from "./commands/realm-status.js";
+import { realmDiscoverCommand } from "./commands/realm-discover.js";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -197,6 +200,56 @@ async function main() {
       });
       break;
 
+    case "realm":
+      if (args[0] === "connect") {
+        const url = getArg("--url", args);
+        const callsign = getArg("--callsign", args) || getArg("--call-sign", args);
+        if (!url || !callsign) {
+          console.error("❌ --url and --callsign required");
+          console.log("Usage: ronin realm connect --url ws://realm.example.com:3000 --callsign Leerie");
+          process.exit(1);
+        }
+        await realmConnectCommand({
+          url,
+          callsign,
+          token: getArg("--token", args),
+          localPort: getArg("--local-port", args) ? parseInt(getArg("--local-port", args)!) : undefined,
+          agentDir: getArg("--agent-dir", args),
+          pluginDir: getArg("--plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+        });
+      } else if (args[0] === "status") {
+        await realmStatusCommand({
+          agentDir: getArg("--agent-dir", args),
+          pluginDir: getArg("--plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+        });
+      } else if (args[0] === "discover") {
+        const callsign = args[1];
+        if (!callsign) {
+          console.error("❌ Call sign required");
+          console.log("Usage: ronin realm discover <callsign>");
+          process.exit(1);
+        }
+        await realmDiscoverCommand({
+          callsign,
+          agentDir: getArg("--agent-dir", args),
+          pluginDir: getArg("--plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+        });
+      } else {
+        console.error(`❌ Unknown realm command: ${args[0]}`);
+        console.log("Available: ronin realm connect, ronin realm status, ronin realm discover <callsign>");
+        process.exit(1);
+      }
+      break;
+
     case "help":
     case "--help":
     case "-h":
@@ -252,6 +305,11 @@ Commands:
                         ronin docs CLI
                         ronin docs --list
                         ronin docs --terminal
+  realm connect      Connect to Realm discovery server
+                        ronin realm connect --url ws://realm.example.com:3000 --callsign Leerie
+  realm status       Show Realm connection status
+  realm discover     Discover a peer by call sign
+                        ronin realm discover Tyro
   help               Show this help message
 
 Options:

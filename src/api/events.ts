@@ -2,6 +2,7 @@ type EventHandler = (data: unknown) => void;
 
 export class EventsAPI {
   private handlers: Map<string, Set<EventHandler>> = new Map();
+  private requestIdCounter = 0;
 
   /**
    * Emit an event
@@ -51,6 +52,74 @@ export class EventsAPI {
     } else {
       this.handlers.clear();
     }
+  }
+
+  /**
+   * Send a targeted event to specific agent(s)
+   * @param targets Agent name(s) to target (e.g., 'rss-feed' or ['rss-feed', 'gvec'])
+   * @param eventType Event type name (e.g., 'get-new-items')
+   * @param payload Event payload data
+   */
+  beam(targets: string | string[], eventType: string, payload: unknown): void {
+    const targetArray = Array.isArray(targets) ? targets : [targets];
+    targetArray.forEach((target) => {
+      this.emit(`target:${target}:${eventType}`, payload);
+    });
+  }
+
+  /**
+   * Query an agent(s) and wait for a response
+   * @param targets Agent name(s) to query
+   * @param queryType Query type name (e.g., 'get-new-items')
+   * @param payload Query payload data
+   * @param timeout Timeout in milliseconds (default: 5000)
+   * @returns Promise that resolves with the response data or rejects on timeout/error
+   */
+  query(
+    targets: string | string[],
+    queryType: string,
+    payload: unknown,
+    timeout: number = 5000
+  ): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const requestId = `req-${this.requestIdCounter++}`;
+      const targetArray = Array.isArray(targets) ? targets : [targets];
+
+      // Listen for response
+      const handleResponse = (res: any) => {
+        if (res.requestId === requestId) {
+          this.off(`response:${requestId}`, handleResponse);
+          clearTimeout(timer);
+          if (res.error) {
+            reject(new Error(res.error));
+          } else {
+            resolve(res.data);
+          }
+        }
+      };
+      this.on(`response:${requestId}`, handleResponse);
+
+      // Timeout
+      const timer = setTimeout(() => {
+        this.off(`response:${requestId}`, handleResponse);
+        reject(new Error(`Query timeout after ${timeout}ms`));
+      }, timeout);
+
+      // Send query to all targets
+      targetArray.forEach((target) => {
+        this.beam(target, queryType, { ...(payload as object), requestId });
+      });
+    });
+  }
+
+  /**
+   * Reply to a query
+   * @param requestId Request ID from the query payload
+   * @param data Response data
+   * @param error Error message (if any)
+   */
+  reply(requestId: string, data: unknown, error: string | null = null): void {
+    this.emit(`response:${requestId}`, { data, error, requestId });
   }
 }
 

@@ -161,6 +161,9 @@ export interface AgentAPI {
     emit(event: string, data: unknown): void;
     on(event: string, handler: (data: unknown) => void): void;
     off(event: string, handler: (data: unknown) => void): void;
+    beam(targets: string | string[], eventType: string, payload: unknown): void;
+    query(targets: string | string[], queryType: string, payload: unknown, timeout?: number): Promise<unknown>;
+    reply(requestId: string, data: unknown, error?: string | null): void;
   };
 
   /**
@@ -288,6 +291,109 @@ export interface AgentAPI {
     pause(infoHash: string): Promise<{ success: boolean; message: string }>;
     resume(infoHash: string): Promise<{ success: boolean; message: string }>;
     remove(infoHash: string, options?: { removeFiles?: boolean }): Promise<{ success: boolean; message: string }>;
+  };
+
+  /**
+   * Telegram operations (if telegram plugin is loaded)
+   */
+  telegram?: {
+    initBot(token: string, options?: { webhookUrl?: string }): Promise<string>;
+    sendMessage(botId: string, chatId: string | number, text: string, options?: { parseMode?: "HTML" | "Markdown" | "MarkdownV2" }): Promise<void>;
+    sendPhoto(botId: string, chatId: string | number, photo: string | Buffer, caption?: string): Promise<void>;
+    getUpdates(botId: string, options?: { limit?: number; offset?: number }): Promise<Array<{
+      update_id: number;
+      message?: {
+        message_id: number;
+        chat: { id: number; type: string; title?: string; username?: string };
+        text?: string;
+        caption?: string;
+        photo?: Array<{ file_id: string }>;
+        date: number;
+      };
+    }>>;
+    joinChannel(botId: string, channelId: string): Promise<void>;
+    setWebhook(botId: string, url: string): Promise<void>;
+    onMessage(botId: string, callback: (update: {
+      update_id: number;
+      message?: {
+        message_id: number;
+        chat: { id: number; type: string; title?: string; username?: string };
+        text?: string;
+        caption?: string;
+        photo?: Array<{ file_id: string }>;
+        date: number;
+      };
+    }) => void): void;
+    getBotInfo(botId: string): Promise<{
+      id: number;
+      username: string;
+      first_name: string;
+      can_join_groups: boolean;
+      can_read_all_group_messages: boolean;
+    }>;
+  };
+
+  /**
+   * Discord operations (if discord plugin is loaded)
+   */
+  discord?: {
+    initBot(token: string, options?: { intents?: number[] }): Promise<string>;
+    sendMessage(clientId: string, channelId: string, content: string, options?: {
+      embed?: {
+        title?: string;
+        description?: string;
+        color?: number;
+        fields?: Array<{ name: string; value: string; inline?: boolean }>;
+        footer?: string;
+      };
+    }): Promise<void>;
+    getMessages(clientId: string, channelId: string, options?: { limit?: number; before?: string }): Promise<Array<{
+      id: string;
+      content: string;
+      author: { id: string; username: string; bot: boolean };
+      channelId: string;
+      guildId: string | null;
+      timestamp: number;
+    }>>;
+    onMessage(clientId: string, callback: (message: {
+      id: string;
+      content: string;
+      author: { id: string; username: string; bot: boolean };
+      channelId: string;
+      guildId: string | null;
+      timestamp: number;
+    }) => void): void;
+    onReady(clientId: string, callback: () => void): void;
+    joinGuild(clientId: string, inviteCode: string): Promise<{
+      code: string;
+      guild?: { id: string; name: string };
+      channel?: { id: string; name: string };
+    }>;
+    getChannel(clientId: string, channelId: string): Promise<{
+      id: string;
+      name: string;
+      type: string;
+      guildId: string | null;
+    }>;
+  };
+
+  /**
+   * Realm operations (if realm plugin is loaded)
+   */
+  realm?: {
+    init(discoveryUrl: string, callSign: string, options?: {
+      token?: string;
+      localWsPort?: number;
+      heartbeatInterval?: number;
+      stunServers?: RTCIceServer[];
+      turnServers?: RTCIceServer[];
+    }): Promise<void>;
+    disconnect(): void;
+    sendMessage(to: string, content: string): Promise<void>;
+    beam(target: string | string[], eventType: string, payload: unknown): Promise<void>;
+    query(target: string, queryType: string, payload: unknown, timeout?: number): Promise<unknown>;
+    getPeerStatus(callSign: string): Promise<{ online: boolean; wsAddress?: string }>;
+    sendMedia(to: string, stream: MediaStream): Promise<void>;
   };
 }
 

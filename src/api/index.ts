@@ -77,6 +77,29 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     remove: torrentPlugin.plugin.methods.remove as NonNullable<AgentAPI["torrent"]>["remove"],
   } : undefined;
 
+  const telegramPlugin = plugins.find(p => p.name === "telegram");
+  const telegramAPI: AgentAPI["telegram"] = telegramPlugin ? {
+    initBot: telegramPlugin.plugin.methods.initBot as NonNullable<AgentAPI["telegram"]>["initBot"],
+    sendMessage: telegramPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["telegram"]>["sendMessage"],
+    sendPhoto: telegramPlugin.plugin.methods.sendPhoto as NonNullable<AgentAPI["telegram"]>["sendPhoto"],
+    getUpdates: telegramPlugin.plugin.methods.getUpdates as NonNullable<AgentAPI["telegram"]>["getUpdates"],
+    joinChannel: telegramPlugin.plugin.methods.joinChannel as NonNullable<AgentAPI["telegram"]>["joinChannel"],
+    setWebhook: telegramPlugin.plugin.methods.setWebhook as NonNullable<AgentAPI["telegram"]>["setWebhook"],
+    onMessage: telegramPlugin.plugin.methods.onMessage as NonNullable<AgentAPI["telegram"]>["onMessage"],
+    getBotInfo: telegramPlugin.plugin.methods.getBotInfo as NonNullable<AgentAPI["telegram"]>["getBotInfo"],
+  } : undefined;
+
+  const discordPlugin = plugins.find(p => p.name === "discord");
+  const discordAPI: AgentAPI["discord"] = discordPlugin ? {
+    initBot: discordPlugin.plugin.methods.initBot as NonNullable<AgentAPI["discord"]>["initBot"],
+    sendMessage: discordPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["discord"]>["sendMessage"],
+    getMessages: discordPlugin.plugin.methods.getMessages as NonNullable<AgentAPI["discord"]>["getMessages"],
+    onMessage: discordPlugin.plugin.methods.onMessage as NonNullable<AgentAPI["discord"]>["onMessage"],
+    onReady: discordPlugin.plugin.methods.onReady as NonNullable<AgentAPI["discord"]>["onReady"],
+    joinGuild: discordPlugin.plugin.methods.joinGuild as NonNullable<AgentAPI["discord"]>["joinGuild"],
+    getChannel: discordPlugin.plugin.methods.getChannel as NonNullable<AgentAPI["discord"]>["getChannel"],
+  } : undefined;
+
   // Generate tool definitions from plugins for function calling
   const pluginTools = pluginsToTools(plugins.map(p => p.plugin));
   
@@ -89,6 +112,24 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     const allTools = [...pluginTools, ...tools];
     return originalCallTools(prompt, allTools, options);
   };
+
+  const eventsAPI = new EventsAPI();
+
+  // Set events API for realm plugin if loaded
+  const realmPlugin = plugins.find(p => p.name === "realm");
+  if (realmPlugin && realmPlugin.plugin.methods.setEventsAPI) {
+    (realmPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
+  }
+
+  const realmAPI: AgentAPI["realm"] = realmPlugin ? {
+    init: realmPlugin.plugin.methods.init as NonNullable<AgentAPI["realm"]>["init"],
+    disconnect: realmPlugin.plugin.methods.disconnect as NonNullable<AgentAPI["realm"]>["disconnect"],
+    sendMessage: realmPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["realm"]>["sendMessage"],
+    beam: realmPlugin.plugin.methods.beam as NonNullable<AgentAPI["realm"]>["beam"],
+    query: realmPlugin.plugin.methods.query as NonNullable<AgentAPI["realm"]>["query"],
+    getPeerStatus: realmPlugin.plugin.methods.getPeerStatus as NonNullable<AgentAPI["realm"]>["getPeerStatus"],
+    sendMedia: realmPlugin.plugin.methods.sendMedia as NonNullable<AgentAPI["realm"]>["sendMedia"],
+  } : undefined;
 
   const api: AgentAPI = {
     ai: aiAPI,
@@ -110,12 +151,15 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
         db.transaction(fn),
     },
     http: new HTTPAPI(),
-    events: new EventsAPI(),
+    events: eventsAPI,
     plugins: pluginsAPI,
     ...(gitAPI && { git: gitAPI }),
     ...(shellAPI && { shell: shellAPI }),
     ...(scrapeAPI && { scrape: scrapeAPI }),
     ...(torrentAPI && { torrent: torrentAPI }),
+    ...(telegramAPI && { telegram: telegramAPI }),
+    ...(discordAPI && { discord: discordAPI }),
+    ...(realmAPI && { realm: realmAPI }),
   };
 
   return api;

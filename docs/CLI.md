@@ -215,6 +215,29 @@ ronin create agent "process images" --agent-dir ./custom-agents
 4. Saves to agent directory
 5. Optionally opens in editor
 
+### `cancel agent-creation`
+
+Cancel active agent creation tasks. Useful if an agent creation is taking too long or you want to stop it.
+
+**Usage:**
+```bash
+ronin cancel agent-creation [taskId] [options]
+```
+
+**Options:**
+- `--port <number>` - Webhook server port (default: `3000`)
+
+**Examples:**
+```bash
+# Cancel all active agent creations
+ronin cancel agent-creation
+
+# Cancel a specific task
+ronin cancel agent-creation abc123
+```
+
+**Note:** If `taskId` is omitted, all active agent creation tasks will be cancelled.
+
 ### `create plugin`
 
 Create a new plugin template.
@@ -293,11 +316,17 @@ ronin ask [model] [question] [options]
 # Single question with default (local) model
 ronin ask "how do plugins work?"
 
-# Use Grok
+# Use Grok (model name as first argument)
 ronin ask grok "explain agent scheduling"
 
-# Use Gemini
+# Use Gemini (model name as first argument)
 ronin ask gemini "how to create a new agent?"
+
+# Use local/Ollama (explicit)
+ronin ask local "how do agents work?"
+
+# Use --model flag instead
+ronin ask "explain scheduling" --model grok
 
 # Interactive mode
 ronin ask
@@ -330,6 +359,7 @@ ronin config [options]
 - `--grok-api-key ""` - Remove Grok API key
 - `--gemini-api-key <key>` - Set Gemini API key
 - `--gemini-api-key ""` - Remove Gemini API key
+- `--gemini-model <model>` - Set Gemini model name (e.g., `gemini-1.5-pro`)
 
 **Examples:**
 ```bash
@@ -342,6 +372,9 @@ ronin config --external-agent-dir ~/my-agents
 # Set API keys
 ronin config --grok-api-key sk-xxxxx
 ronin config --gemini-api-key AIxxxxx
+
+# Set Gemini model
+ronin config --gemini-model gemini-1.5-pro
 
 # Remove API keys
 ronin config --grok-api-key ""
@@ -402,6 +435,83 @@ ronin docs --list
 - `REMOTE_AI` - Remote AI setup guide
 - `OLLAMA_GPU` - Ollama GPU configuration
 - `MEMORY_DB` - Ronin memory database (`ronin.db`)
+
+### `realm connect`
+
+Connect to a Realm discovery server for peer-to-peer communication.
+
+**Usage:**
+```bash
+ronin realm connect --url <url> --callsign <callsign> [options]
+```
+
+**Required Options:**
+- `--url <url>` - WebSocket URL of the Realm Discovery Server
+- `--callsign <callsign>` - Your unique call sign identifier
+
+**Options:**
+- `--token <token>` - Authentication token (if required)
+- `--local-port <port>` - Local WebSocket port (default: auto)
+- `--agent-dir <dir>` - Agent directory
+- `--plugin-dir <dir>` - Plugin directory
+- `--ollama-url <url>` - Ollama API URL
+- `--ollama-model <name>` - Ollama model name
+- `--db-path <path>` - Database file path
+
+**Examples:**
+```bash
+# Connect to Realm server
+ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie
+
+# Connect with authentication token
+ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie --token abc123
+```
+
+### `realm status`
+
+Show Realm connection status and active peers.
+
+**Usage:**
+```bash
+ronin realm status [options]
+```
+
+**Options:**
+- `--agent-dir <dir>` - Agent directory
+- `--plugin-dir <dir>` - Plugin directory
+- `--ollama-url <url>` - Ollama API URL
+- `--ollama-model <name>` - Ollama model name
+- `--db-path <path>` - Database file path
+
+**Output:**
+Shows connection status, your call sign, and list of connected peers.
+
+### `realm discover`
+
+Discover a peer by call sign and check if they're online.
+
+**Usage:**
+```bash
+ronin realm discover <callsign> [options]
+```
+
+**Options:**
+- `--agent-dir <dir>` - Agent directory
+- `--plugin-dir <dir>` - Plugin directory
+- `--ollama-url <url>` - Ollama API URL
+- `--ollama-model <name>` - Ollama model name
+- `--db-path <path>` - Database file path
+
+**Examples:**
+```bash
+# Discover a peer
+ronin realm discover Tyro
+```
+
+**Output:**
+Shows peer status (online/offline) and WebSocket address if online.
+
+**Note:** You must be connected to Realm (`ronin realm connect`) before discovering peers.
 
 ### `help`
 

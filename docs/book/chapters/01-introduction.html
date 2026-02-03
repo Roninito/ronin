@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 1: What is Ronin? - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 1</div>
+    <h1 class="chapter-title">What is Ronin?</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+    <p>
+      Ronin is a Bun-based AI agent library designed for scheduling and executing TypeScript/JavaScript agent task files with memory and context management. It leverages Bun's native features—including cron scheduling, file watching, and HTTP capabilities—while integrating seamlessly with Ollama for local AI capabilities.
+    </p>
+
+    <p>
+      At its core, Ronin provides a simple yet powerful framework for building autonomous agents that can perform scheduled tasks, respond to file changes, handle webhooks, and interact with AI models. Whether you're automating routine tasks, monitoring systems, or building complex workflows, Ronin gives you the tools to create intelligent, persistent agents that work autonomously.
+    </p>
+
+    <h2>Key Features</h2>
+
+    <h3>Simple Agent Classes</h3>
+    <p>
+      Write agents as TypeScript/JavaScript classes that extend a base <code>Agent</code> class. Each agent implements an <code>execute()</code> method where your logic lives. This familiar object-oriented approach makes agent development intuitive and maintainable.
+    </p>
+
+    <h3>Cron Scheduling</h3>
+    <p>
+      Ronin includes a custom cron scheduler for time-based agent execution. Schedule agents to run at specific times, intervals, or complex patterns. The scheduler checks every minute and executes agents when their schedule matches the current time.
+    </p>
+
+    <h3>File Watching</h3>
+    <p>
+      Watch files and directories for changes using glob patterns. Agents can respond to file creation, updates, or deletions automatically, making them perfect for build systems, log monitoring, or data processing pipelines.
+    </p>
+
+    <h3>Webhook Support</h3>
+    <p>
+      Expose HTTP webhook endpoints for your agents. Trigger agents remotely via HTTP POST requests, enabling integration with external systems, CI/CD pipelines, or web applications.
+    </p>
+
+    <h3>Memory System</h3>
+    <p>
+      SQLite-based storage for agent state and conversation history. Agents can store and retrieve data, maintain context across executions, and build up knowledge over time. The memory system supports key-value storage, text search, and metadata queries.
+    </p>
+
+    <h3>Rich API</h3>
+    <p>
+      Agents receive a comprehensive <code>api</code> object with AI, files, database, HTTP, and event capabilities. This unified interface makes it easy to build powerful agents without managing low-level details.
+    </p>
+
+    <h3>Plugin System</h3>
+    <p>
+      Auto-discoverable plugins extend Ronin's functionality. Built-in plugins include Git operations, shell commands, web scraping, and torrent management. Create custom plugins to add domain-specific capabilities.
+    </p>
+
+    <h3>Function Calling</h3>
+    <p>
+      AI agents can use plugins as tools via Ollama's function calling API. This enables agents to make intelligent decisions about which tools to use, creating more autonomous and adaptive behavior.
+    </p>
+
+    <h3>CLI Management</h3>
+    <p>
+      Simple CLI to start, run, list, and check status of agents. The CLI also supports creating new agents with AI assistance, managing plugins, and configuring the system.
+    </p>
+
+    <h2>Use Cases</h2>
+
+    <h3>Automated Monitoring</h3>
+    <p>
+      Create agents that monitor log files, system metrics, or external APIs. Schedule regular health checks, alert on anomalies, or aggregate data for reporting.
+    </p>
+
+    <h3>Data Processing</h3>
+    <p>
+      Build agents that watch for new data files, process them automatically, and store results. Use AI to extract insights, transform data formats, or generate summaries.
+    </p>
+
+    <h3>Development Automation</h3>
+    <p>
+      Automate Git workflows, run tests, deploy applications, or manage dependencies. Agents can respond to code changes, run builds, or execute deployment pipelines.
+    </p>
+
+    <h3>Content Management</h3>
+    <p>
+      Monitor RSS feeds, scrape websites, generate content, or manage media libraries. Use AI to summarize articles, extract key information, or create structured data.
+    </p>
+
+    <h3>System Integration</h3>
+    <p>
+      Connect different systems via webhooks and APIs. Agents can act as bridges between services, transform data formats, or orchestrate complex workflows.
+    </p>
+
+    <h2>Ronin, Realm, and Agents</h2>
+
+    <p>
+      Understanding the relationship between these three components is key to using the system effectively:
+    </p>
+
+    <h3>Ronin</h3>
+    <p>
+      Ronin is the core framework that provides agent execution, scheduling, memory management, and API access. It's the runtime environment where agents live and execute.
+    </p>
+
+    <h3>Realm</h3>
+    <p>
+      Realm is a peer-to-peer communication system that enables Ronin instances to communicate with each other. Using WebSocket connections with WebRTC fallback, Realm allows agents running on different machines to send messages, share data, and coordinate actions.
+    </p>
+
+    <h3>Agents</h3>
+    <p>
+      Agents are the executable units of work in Ronin. Each agent is a TypeScript/JavaScript class that extends <code>BaseAgent</code> and implements an <code>execute()</code> method. Agents can be scheduled, watch files, expose webhooks, and use the full Ronin API.
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">💡 Key Insight</div>
+      <p>
+        Think of Ronin as the operating system, Realm as the network layer, and Agents as the applications. Together, they form a complete platform for building distributed, intelligent automation systems.
+      </p>
+    </div>
+
+    <h2>Why Bun?</h2>
+
+    <p>
+      Ronin is built on Bun, a fast JavaScript runtime and toolkit. Bun provides several advantages:
+    </p>
+
+    <ul>
+      <li><strong>Performance:</strong> Bun is significantly faster than Node.js for many operations, making agent execution more efficient.</li>
+      <li><strong>Native Features:</strong> Bun includes built-in support for SQLite, file operations, HTTP servers, and more, reducing dependencies.</li>
+      <li><strong>TypeScript:</strong> Native TypeScript support without compilation steps.</li>
+      <li><strong>Package Management:</strong> Built-in package manager simplifies dependency management.</li>
+    </ul>
+
+    <h2>What's Next?</h2>
+
+    <p>
+      Now that you understand what Ronin is and what it can do, the next chapter will guide you through installation and setup. You'll learn how to install Ronin, configure your environment, and run your first agent.
+    </p>
+  </div>
+</body>
+</html>

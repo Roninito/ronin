@@ -33,7 +33,7 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
     dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
+    pluginDir: options.pluginDir || config.pluginDir,
   });
 
   // Load agents
@@ -52,6 +52,7 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   const registry = new AgentRegistry({
     files: api.files as any,
     http: api.http as any,
+    events: api.events as any,
   });
 
   // Always start webhook server so status endpoint is available

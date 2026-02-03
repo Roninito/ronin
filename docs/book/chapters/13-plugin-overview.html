@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 13: Plugin System Overview - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 13</div>
+    <h1 class="chapter-title">Plugin System Overview</h1>
+  </div>
+
+  <div class="content">
+    <h2>What are Plugins?</h2>
+
+    <p>
+      Plugins extend Ronin's capabilities by providing reusable functionality that agents can access. Plugins are automatically discovered from the <code>plugins/</code> directory and made available to all agents.
+    </p>
+
+    <p>
+      Plugins enable you to:
+    </p>
+
+    <ul>
+      <li>Add domain-specific functionality</li>
+      <li>Integrate with external services</li>
+      <li>Share code between agents</li>
+      <li>Make functionality available for AI function calling</li>
+    </ul>
+
+    <h2>Plugin Discovery</h2>
+
+    <p>
+      Plugins are automatically discovered from:
+    </p>
+
+    <ul>
+      <li><code>plugins/</code> directory (default)</li>
+      <li>Recursive subdirectories</li>
+      <li>Files matching <code>*.ts</code> or <code>*.js</code></li>
+      <li>Excludes test files (<code>*.test.ts</code>, <code>*.spec.ts</code>)</li>
+    </ul>
+
+    <p>
+      When Ronin starts, it scans the plugin directory, loads all plugins, and makes them available to agents.
+    </p>
+
+    <h2>Direct API Access vs Generic API</h2>
+
+    <h3>Direct API Access</h3>
+    <p>
+      Commonly used plugins have direct API access with full TypeScript support:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Direct API Access</div>
+      <pre><code>// Clean, type-safe direct API
+const status = await this.api.git?.status();
+await this.api.shell?.exec("ls", ["-la"]);
+await this.api.scrape?.scrape_to_markdown("https://example.com");
+await this.api.torrent?.search("ubuntu");
+
+// Telegram bot
+const botId = await this.api.telegram?.initBot("YOUR_TOKEN");
+await this.api.telegram?.sendMessage(botId, "@channel", "Hello!");
+
+// Discord bot
+const clientId = await this.api.discord?.initBot("YOUR_TOKEN");
+await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
+
+// LangChain integration
+const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });</code></pre>
+    </div>
+
+    <p>
+      Benefits:
+    </p>
+    <ul>
+      <li>Full TypeScript autocomplete and type checking</li>
+      <li>Cleaner, more readable code</li>
+      <li>Better IDE support</li>
+      <li>Compile-time error detection</li>
+    </ul>
+
+    <h3>Generic Plugin API</h3>
+    <p>
+      All plugins can be accessed via the generic API:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Generic API</div>
+      <pre><code>// Generic API for any plugin
+await this.api.plugins.call("custom-plugin", "method", arg1, arg2);</code></pre>
+    </div>
+
+    <h2>Built-in Plugins</h2>
+
+    <p>
+      Ronin includes several built-in plugins:
+    </p>
+
+    <ul>
+      <li><strong>git</strong> - Git operations (init, clone, status, commit, push, pull, etc.)</li>
+      <li><strong>shell</strong> - Shell command execution</li>
+      <li><strong>scrape</strong> - Web scraping to markdown</li>
+      <li><strong>torrent</strong> - Torrent search and management</li>
+      <li><strong>realm</strong> - Peer-to-peer communication</li>
+      <li><strong>telegram</strong> - Telegram bot integration</li>
+      <li><strong>discord</strong> - Discord bot integration</li>
+      <li><strong>langchain</strong> - LangChain integration for chains, agents, and graphs</li>
+      <li><strong>grok</strong> - Grok AI integration</li>
+      <li><strong>gemini</strong> - Google Gemini AI integration</li>
+      <li><strong>hyprland</strong> - Hyprland window manager configuration</li>
+      <li><strong>web-scraper</strong> - Advanced web scraping (alias for scrape)</li>
+    </ul>
+
+    <h2>Function Calling Integration</h2>
+
+    <p>
+      Plugins are automatically available as tools for AI function calling. When you call <code>api.ai.callTools()</code>, plugin methods are automatically included as available tools.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Function Calling with Plugins</div>
+      <pre><code>const { toolCalls } = await this.api.ai.callTools(
+  "Check git status and commit if there are changes",
+  [] // Plugin tools are automatically included
+);</code></pre>
+    </div>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers using plugins in your agents, including direct API access, generic API calls, and function calling patterns.
+    </p>
+  </div>
+</body>
+</html>

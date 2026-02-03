@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 17: AI Integration - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 17</div>
+    <h1 class="chapter-title">AI Integration</h1>
+  </div>
+
+  <div class="content">
+    <h2>Ollama Setup</h2>
+
+    <p>
+      Ollama provides local AI capabilities. Install and configure:
+    </p>
+
+    <ol>
+      <li>Install Ollama from <a href="https://ollama.ai">ollama.ai</a></li>
+      <li>Pull a model: <code>ollama pull qwen3:1.7b</code></li>
+      <li>Start Ollama: <code>ollama serve</code></li>
+      <li>Configure in Ronin: <code>export OLLAMA_URL="http://localhost:11434"</code></li>
+    </ol>
+
+    <h2>Model Selection</h2>
+
+    <p>
+      Choose models based on your needs:
+    </p>
+
+    <ul>
+      <li><strong>qwen3:1.7b</strong> - Fast, lightweight (default)</li>
+      <li><strong>llama2</strong> - Good balance</li>
+      <li><strong>mistral</strong> - High quality</li>
+    </ul>
+
+    <h2>Remote AI Providers</h2>
+
+    <h3>Grok (xAI)</h3>
+    <p>
+      Set <code>GROK_API_KEY</code> environment variable or use <code>ronin config --grok-api-key</code>.
+    </p>
+
+    <h3>Gemini (Google)</h3>
+    <p>
+      Set <code>GEMINI_API_KEY</code> environment variable or use <code>ronin config --gemini-api-key</code>.
+    </p>
+
+    <h2>Basic AI Operations</h2>
+
+    <h3>complete()</h3>
+    <div class="code-example">
+      <div class="code-example-title">Text Completion</div>
+      <pre><code>const response = await this.api.ai.complete("Hello!");
+console.log(response);</code></pre>
+    </div>
+
+    <h3>stream()</h3>
+    <div class="code-example">
+      <div class="code-example-title">Streaming</div>
+      <pre><code>for await (const chunk of this.api.ai.stream("Tell me a story")) {
+  process.stdout.write(chunk);
+}</code></pre>
+    </div>
+
+    <h3>chat()</h3>
+    <div class="code-example">
+      <div class="code-example-title">Chat with History</div>
+      <pre><code>const response = await this.api.ai.chat([
+  { role: "user", content: "Hello!" },
+  { role: "assistant", content: "Hi there!" },
+  { role: "user", content: "How are you?" }
+]);</code></pre>
+    </div>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers function calling, which enables AI agents to intelligently use plugins as tools.
+    </p>
+  </div>
+</body>
+</html>

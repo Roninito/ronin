@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 3: Architecture Overview - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 3</div>
+    <h1 class="chapter-title">Architecture Overview</h1>
+  </div>
+
+  <div class="content">
+    <h2>System Architecture</h2>
+
+    <p>
+      Ronin is built on a layered architecture that separates concerns and provides clear extension points. Understanding this architecture will help you build better agents and extend Ronin's capabilities.
+    </p>
+
+    <div class="diagram">
+      <pre><code>┌─────────────────────────────────────────────────────────────┐
+│                      CLI Interface                          │
+│  (start, run, list, status, create plugin, plugins list)   │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Agent Runtime                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │AgentLoader   │  │AgentRegistry │  │CronScheduler │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      API Layer                              │
+│  ┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────┐     │
+│  │  AI  │ │Memory  │ │Files │ │   DB   │ │ Plugins  │     │
+│  └──────┘ └────────┘ └──────┘ └────────┘ └──────────┘     │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│   Ollama    │ │   SQLite    │ │   Plugins   │
+│  (qwen3:1.7b)│ │  (Memory)   │ │  Directory  │
+└─────────────┘ └─────────────┘ └─────────────┘</code></pre>
+    </div>
+
+    <h2>Core Components</h2>
+
+    <h3>1. Agent System</h3>
+
+    <h4>AgentLoader</h4>
+    <p>
+      The <code>AgentLoader</code> (<code>src/agent/AgentLoader.ts</code>) is responsible for discovering and loading agent files. It:
+    </p>
+    <ul>
+      <li>Scans the <code>agents/</code> directory recursively</li>
+      <li>Loads TypeScript/JavaScript files using dynamic <code>import()</code></li>
+      <li>Validates agent structure (must extend <code>BaseAgent</code>, have <code>execute()</code> method)</li>
+      <li>Extracts metadata (schedule, watch patterns, webhook paths)</li>
+      <li>Supports both local and external agent directories</li>
+    </ul>
+
+    <h4>AgentRegistry</h4>
+    <p>
+      The <code>AgentRegistry</code> (<code>src/agent/AgentRegistry.ts</code>) manages the agent lifecycle:
+    </p>
+    <ul>
+      <li>Registers cron schedules using <code>CronScheduler</code></li>
+      <li>Sets up file watchers for agents with <code>watch</code> patterns</li>
+      <li>Manages HTTP webhook routes via <code>Bun.serve()</code></li>
+      <li>Handles graceful shutdown</li>
+      <li>Provides status information</li>
+    </ul>
+
+    <h4>CronScheduler</h4>
+    <p>
+      The <code>CronScheduler</code> (<code>src/agent/CronScheduler.ts</code>) provides time-based scheduling:
+    </p>
+    <ul>
+      <li>Custom cron expression parser</li>
+      <li>Checks cron expressions every minute</li>
+      <li>Supports standard cron format: <code>minute hour day month weekday</code></li>
+      <li>Supports wildcards (<code>*</code>) and intervals (<code>*/N</code>)</li>
+    </ul>
+
+    <h3>2. Memory System</h3>
+
+    <h4>MemoryStore</h4>
+    <p>
+      The <code>MemoryStore</code> (<code>src/memory/Memory.ts</code>) provides persistent storage:
+    </p>
+    <ul>
+      <li>SQLite-based storage using Bun's native SQLite</li>
+      <li>Three main tables:
+        <ul>
+          <li><code>memories</code> - Key-value storage with metadata</li>
+          <li><code>conversations</code> - Conversation history per agent</li>
+          <li><code>agent_state</code> - Agent execution state</li>
+        </ul>
+      </li>
+      <li>Operations: store, retrieve, search, getRecent, getByMetadata</li>
+    </ul>
+
+    <h3>3. API Layer</h3>
+
+    <p>
+      The API layer provides a unified interface for agents to access system capabilities. Each API is namespaced under <code>api</code>:
+    </p>
+
+    <h4>AIAPI</h4>
+    <p>
+      The <code>AIAPI</code> (<code>src/api/ai.ts</code>) provides AI capabilities:
+    </p>
+    <ul>
+      <li><code>complete()</code> - Basic text completion</li>
+      <li><code>stream()</code> - Streaming completions</li>
+      <li><code>chat()</code> - Chat with message history</li>
+      <li><code>callTools()</code> - Function calling with tool definitions</li>
+      <li>Supports Ollama (local) and remote providers (Grok, Gemini)</li>
+    </ul>
+
+    <h4>PluginsAPI</h4>
+    <p>
+      The <code>PluginsAPI</code> (<code>src/api/plugins.ts</code>) manages plugins:
+    </p>
+    <ul>
+      <li><code>call(pluginName, method, ...args)</code> - Execute plugin method</li>
+      <li><code>has(pluginName)</code> - Check if plugin exists</li>
+      <li><code>list()</code> - Get all plugin names</li>
+      <li>Direct API access for common plugins (<code>api.git</code>, <code>api.shell</code>, etc.)</li>
+    </ul>
+
+    <h4>Other APIs</h4>
+    <ul>
+      <li><code>FilesAPI</code> - File operations using <code>Bun.file</code></li>
+      <li><code>DatabaseAPI</code> - SQLite operations</li>
+      <li><code>HTTPAPI</code> - HTTP client using <code>fetch</code></li>
+      <li><code>EventsAPI</code> - Event emitter for inter-agent communication</li>
+    </ul>
+
+    <h3>4. Plugin System</h3>
+
+    <h4>Plugin Structure</h4>
+    <p>
+      Plugins are simple objects with a name, description, and methods:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Plugin Structure</div>
+      <pre><code>export default {
+  name: "plugin-name",
+  description: "Plugin description",
+  methods: {
+    methodName: async (args) => { /* ... */ }
+  }
+}</code></pre>
+    </div>
+
+    <h4>PluginLoader</h4>
+    <p>
+      The <code>PluginLoader</code> (<code>src/plugins/PluginLoader.ts</code>):
+    </p>
+    <ul>
+      <li>Auto-discovers plugins from <code>plugins/</code> directory</li>
+      <li>Loads and validates plugin structure</li>
+      <li>Returns plugin metadata</li>
+    </ul>
+
+    <h4>Tool Generation</h4>
+    <p>
+      The <code>toolGenerator</code> (<code>src/plugins/toolGenerator.ts</code>):
+    </p>
+    <ul>
+      <li>Converts plugins to Ollama tool definitions</li>
+      <li>Enables function calling integration</li>
+      <li>Auto-generates tool schemas from plugin methods</li>
+    </ul>
+
+    <h3>5. CLI Interface</h3>
+
+    <p>
+      The CLI (<code>src/cli/</code>) provides commands for managing Ronin:
+    </p>
+    <ul>
+      <li><code>start</code> - Start and schedule all agents</li>
+      <li><code>run &lt;agent-name&gt;</code> - Run agent manually</li>
+      <li><code>list</code> - List all agents</li>
+      <li><code>status</code> - Show runtime status</li>
+      <li><code>create plugin &lt;name&gt;</code> - Create new plugin template</li>
+      <li><code>plugins list</code> - List loaded plugins</li>
+      <li><code>config</code> - Manage configuration</li>
+      <li><code>ask</code> - Ask questions about Ronin</li>
+    </ul>
+
+    <h2>Data Flow</h2>
+
+    <h3>Agent Execution Flow</h3>
+
+    <ol>
+      <li><strong>Discovery:</strong> <code>AgentLoader</code> scans <code>agents/</code> directory</li>
+      <li><strong>Loading:</strong> Dynamic import of agent files</li>
+      <li><strong>Validation:</strong> Check agent structure and methods</li>
+      <li><strong>Registration:</strong> <code>AgentRegistry</code> registers schedules/events</li>
+      <li><strong>Execution:</strong> Agent's <code>execute()</code> method called on trigger</li>
+      <li><strong>API Access:</strong> Agent receives <code>api</code> object with all capabilities</li>
+    </ol>
+
+    <h3>Plugin Loading Flow</h3>
+
+    <ol>
+      <li><strong>Discovery:</strong> <code>PluginLoader</code> scans <code>plugins/</code> directory</li>
+      <li><strong>Loading:</strong> Dynamic import of plugin files</li>
+      <li><strong>Validation:</strong> Check plugin structure (name, description, methods)</li>
+      <li><strong>Registration:</strong> Plugins registered with <code>PluginsAPI</code></li>
+      <li><strong>Tool Generation:</strong> Plugins converted to tool definitions</li>
+      <li><strong>Integration:</strong> Tools available via <code>api.ai.callTools()</code></li>
+    </ol>
+
+    <h3>Function Calling Flow</h3>
+
+    <ol>
+      <li><strong>Agent Request:</strong> Agent calls <code>api.ai.callTools(prompt, tools)</code></li>
+      <li><strong>Tool Merging:</strong> Plugin tools automatically merged with provided tools</li>
+      <li><strong>Ollama Request:</strong> Request sent to Ollama <code>/api/chat</code> with <code>tools</code> parameter</li>
+      <li><strong>Tool Calls:</strong> Ollama returns tool calls in response</li>
+      <li><strong>Execution:</strong> Tool calls executed via <code>api.plugins.call()</code></li>
+      <li><strong>Response:</strong> Results returned to agent</li>
+    </ol>
+
+    <h2>File Structure</h2>
+
+    <pre><code>ronin/
+├── agents/              # Agent files (user-created)
+├── plugins/             # Plugin files (user-created + built-in)
+├── docs/                # Documentation
+├── src/
+│   ├── agent/           # Agent system
+│   │   ├── AgentLoader.ts
+│   │   ├── AgentRegistry.ts
+│   │   ├── CronScheduler.ts
+│   │   └── index.ts
+│   ├── memory/          # Memory system
+│   │   └── Memory.ts
+│   ├── api/             # API implementations
+│   │   ├── ai.ts
+│   │   ├── plugins.ts
+│   │   ├── files.ts
+│   │   ├── database.ts
+│   │   ├── http.ts
+│   │   ├── events.ts
+│   │   └── index.ts
+│   ├── plugins/         # Plugin system
+│   │   ├── PluginLoader.ts
+│   │   ├── toolGenerator.ts
+│   │   └── base.ts
+│   ├── cli/             # CLI commands
+│   │   └── commands/
+│   ├── types/           # TypeScript types
+│   │   └── index.ts
+│   └── index.ts         # Main library export
+└── ronin.db             # SQLite database (created at runtime)</code></pre>
+
+    <h2>Key Design Decisions</h2>
+
+    <h3>1. Async API Creation</h3>
+    <p>
+      <code>createAPI()</code> is async to allow plugins to be loaded before the API is ready. This ensures all plugins are available when agents start executing.
+    </p>
+
+    <h3>2. Direct Bun APIs</h3>
+    <p>
+      Ronin uses Bun's native APIs directly (<code>Bun.spawn</code>, <code>Bun.file</code>, <code>Bun.serve</code>) rather than wrapping Node.js APIs. This provides better performance and simpler code.
+    </p>
+
+    <h3>3. Custom Cron</h3>
+    <p>
+      A custom cron scheduler was built since Bun doesn't include a cron API. The scheduler checks every minute and matches cron expressions, providing flexibility without external dependencies.
+    </p>
+
+    <h3>4. Plugin Auto-discovery</h3>
+    <p>
+      Plugins are automatically discovered from the <code>plugins/</code> directory. This eliminates the need for manual registration and makes the system more extensible.
+    </p>
+
+    <h3>5. Tool Integration</h3>
+    <p>
+      Plugins are automatically available as tools for function calling. This enables AI agents to intelligently choose which tools to use without hardcoding tool calls.
+    </p>
+
+    <h3>6. SQLite Memory</h3>
+    <p>
+      Persistent memory using Bun's native SQLite provides fast, reliable storage without external dependencies. The database is created automatically and can be customized via CLI options.
+    </p>
+
+    <h2>Extension Points</h2>
+
+    <p>
+      Ronin provides several extension points for customization:
+    </p>
+
+    <ol>
+      <li><strong>Agents:</strong> Add <code>.ts</code> files to <code>agents/</code> directory</li>
+      <li><strong>Plugins:</strong> Add <code>.ts</code> files to <code>plugins/</code> directory or use <code>ronin create plugin</code></li>
+      <li><strong>Custom APIs:</strong> Extend <code>AgentAPI</code> interface and implement in <code>src/api/</code></li>
+      <li><strong>CLI Commands:</strong> Add commands to <code>src/cli/commands/</code></li>
+    </ol>
+
+    <h2>Security Considerations</h2>
+
+    <ol>
+      <li><strong>Shell Plugin:</strong> Executes arbitrary commands - use with caution</li>
+      <li><strong>File Operations:</strong> Validates paths but agents have file system access</li>
+      <li><strong>Webhooks:</strong> HTTP server exposes endpoints - consider authentication</li>
+      <li><strong>Plugin Loading:</strong> Dynamic imports execute code - only load trusted plugins</li>
+    </ol>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand Ronin's architecture, the next chapter will cover the CLI interface in detail, showing you how to use all available commands and options.
+    </p>
+  </div>
+</body>
+</html>

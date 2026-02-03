@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 20: Event System - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 20</div>
+    <h1 class="chapter-title">Event System</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+
+    <p>
+      The event system enables inter-agent communication and plugin integration. Agents can emit and listen to events to coordinate actions and share information.
+    </p>
+
+    <h2>Event Emission</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Emitting Events</div>
+      <pre><code>this.api.events.emit("user:login", { userId: 123 });
+this.api.events.emit("task:completed", { taskId: "task-123" });
+this.api.events.emit("error:occurred", { message: "Something went wrong" });</code></pre>
+    </div>
+
+    <h2>Event Listening</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Listening to Events</div>
+      <pre><code>this.api.events.on("user:login", (data) => {
+  console.log("User logged in:", data);
+});
+
+this.api.events.on("task:completed", (data) => {
+  console.log("Task completed:", data);
+});</code></pre>
+    </div>
+
+    <h2>Inter-Agent Communication</h2>
+
+    <p>
+      Agents can communicate via events:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Agent Communication</div>
+      <pre><code>// Agent A emits event
+this.api.events.emit("data:ready", { data: "processed" });
+
+// Agent B listens
+this.api.events.on("data:ready", async (data) => {
+  await this.processData(data);
+});</code></pre>
+    </div>
+
+    <h2>Realm Events</h2>
+
+    <p>
+      Realm plugin emits events for incoming messages and data:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Realm Events</div>
+      <pre><code>this.api.events.on("realm:message", (data: { from: string; content: string }) => {
+  console.log(`Message from ${data.from}: ${data.content}`);
+});
+
+this.api.events.on("realm:beam:fishing-data", (payload) => {
+  console.log("Fishing data:", payload);
+});</code></pre>
+    </div>
+
+    <h2>Custom Events</h2>
+
+    <p>
+      Create custom events for your use cases:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Custom Events</div>
+      <pre><code>// Define event types
+type CustomEvents = {
+  "backup:started": { timestamp: number };
+  "backup:completed": { file: string };
+  "backup:failed": { error: string };
+};
+
+// Emit custom events
+this.api.events.emit("backup:started", { timestamp: Date.now() });</code></pre>
+    </div>
+
+    <h2>Removing Listeners</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Removing Listeners</div>
+      <pre><code>const handler = (data: unknown) => {
+  console.log("Event:", data);
+};
+
+this.api.events.on("custom:event", handler);
+// Later...
+this.api.events.off("custom:event", handler);</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <ul>
+      <li>Use descriptive event names with namespaces (e.g., <code>user:login</code>)</li>
+      <li>Include relevant data in event payloads</li>
+      <li>Remove listeners when agents shut down</li>
+      <li>Handle errors in event handlers</li>
+      <li>Document custom events</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers production deployment, including running as a daemon, monitoring, and security considerations.
+    </p>
+  </div>
+</body>
+</html>

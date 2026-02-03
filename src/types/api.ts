@@ -152,6 +152,7 @@ export interface AgentAPI {
     serve(handler: (req: Request) => Response | Promise<Response>): void;
     registerRoute(path: string, handler: (req: Request) => Response | Promise<Response>): void;
     registerRoutes(routes: Record<string, (req: Request) => Response | Promise<Response>>): void;
+    getAllRoutes(): Map<string, (req: Request) => Response | Promise<Response>>;
   };
 
   /**
@@ -394,6 +395,17 @@ export interface AgentAPI {
     query(target: string, queryType: string, payload: unknown, timeout?: number): Promise<unknown>;
     getPeerStatus(callSign: string): Promise<{ online: boolean; wsAddress?: string }>;
     sendMedia(to: string, stream: MediaStream): Promise<void>;
+  };
+
+  /**
+   * LangChain operations (if langchain plugin is loaded)
+   */
+  langchain?: {
+    runChain(prompt: string, input: any, api?: AgentAPI): Promise<string>;
+    runAgent(query: string, tools?: any[], api?: AgentAPI): Promise<any>;
+    buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise<any>;
+    runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise<string>;
+    buildResearchGraph(api?: AgentAPI): Promise<any>;
   };
 }
 

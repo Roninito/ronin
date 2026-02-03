@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 2: Installation & Setup - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 2</div>
+    <h1 class="chapter-title">Installation & Setup</h1>
+  </div>
+
+  <div class="content">
+    <h2>Prerequisites</h2>
+
+    <p>
+      Before installing Ronin, ensure you have the following prerequisites installed on your system:
+    </p>
+
+    <h3>Bun</h3>
+    <p>
+      Ronin requires Bun, a fast JavaScript runtime. Install Bun using one of these methods:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Installation via curl (macOS, Linux, WSL)</div>
+      <pre><code>curl -fsSL https://bun.sh/install | bash</code></pre>
+    </div>
+
+    <div class="code-example">
+      <div class="code-example-title">Installation via npm</div>
+      <pre><code>npm install -g bun</code></pre>
+    </div>
+
+    <p>
+      Verify your installation:
+    </p>
+
+    <pre><code>bun --version</code></pre>
+
+    <h3>Ollama (Optional but Recommended)</h3>
+    <p>
+      Ollama enables local AI capabilities. While Ronin can work with remote AI providers (Grok, Gemini), Ollama provides free, local AI processing.
+    </p>
+
+    <p>
+      Install Ollama from <a href="https://ollama.ai">ollama.ai</a>, then pull a model:
+    </p>
+
+    <pre><code>ollama pull qwen3:1.7b</code></pre>
+
+    <p>
+      Start Ollama (if not running as a service):
+    </p>
+
+    <pre><code>ollama serve</code></pre>
+
+    <h3>Node.js (Optional)</h3>
+    <p>
+      While Ronin runs on Bun, some plugins or tools may require Node.js. Install Node.js 18+ if needed for compatibility.
+    </p>
+
+    <h2>Installing Ronin</h2>
+
+    <h3>Clone the Repository</h3>
+    <p>
+      Clone the Ronin repository to your local machine:
+    </p>
+
+    <pre><code>git clone https://github.com/your-org/ronin.git
+cd ronin</code></pre>
+
+    <h3>Install Dependencies</h3>
+    <p>
+      Install all required dependencies using Bun:
+    </p>
+
+    <pre><code>bun install</code></pre>
+
+    <h3>Verify Installation</h3>
+    <p>
+      Verify that Ronin is installed correctly:
+    </p>
+
+    <pre><code>bun run ronin --help</code></pre>
+
+    <p>
+      You should see a list of available commands. If you see an error, check that:
+    </p>
+
+    <ul>
+      <li>Bun is installed and in your PATH</li>
+      <li>You're in the ronin directory</li>
+      <li>Dependencies are installed (<code>bun install</code>)</li>
+    </ul>
+
+    <h2>Environment Configuration</h2>
+
+    <h3>Quick Setup Script</h3>
+    <p>
+      Ronin includes an interactive setup script for configuring API keys and GPU settings:
+    </p>
+
+    <pre><code>./setup-env.sh</code></pre>
+
+    <p>
+      This script will prompt you for:
+    </p>
+
+    <ul>
+      <li>Grok API key (optional, for remote AI)</li>
+      <li>Gemini API key (optional, for remote AI)</li>
+      <li>Ollama configuration (URL and model)</li>
+      <li>GPU settings (if using GPU acceleration)</li>
+    </ul>
+
+    <h3>Manual Configuration</h3>
+    <p>
+      Alternatively, configure Ronin manually using environment variables or the config command:
+    </p>
+
+    <h4>Using the Config Command</h4>
+    <pre><code># Set API keys
+bun run ronin config --grok-api-key "your-grok-key"
+bun run ronin config --gemini-api-key "your-gemini-key"
+
+# View configuration
+bun run ronin config --show</code></pre>
+
+    <h4>Using Environment Variables</h4>
+    <p>
+      Add to your shell profile (<code>~/.bashrc</code>, <code>~/.zshrc</code>, etc.):
+    </p>
+
+    <pre><code>export GROK_API_KEY="your-grok-api-key"
+export GEMINI_API_KEY="your-gemini-api-key"
+export OLLAMA_URL="http://localhost:11434"
+export OLLAMA_MODEL="qwen3:1.7b"
+export WEBHOOK_PORT="3000"</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">⚠️ Important</div>
+      <p>
+        Environment variables take precedence over config file settings. This allows you to override config file values when needed.
+      </p>
+    </div>
+
+    <h3>Getting API Keys</h3>
+
+    <h4>Grok (xAI)</h4>
+    <ol>
+      <li>Sign up at <a href="https://x.ai">x.ai</a></li>
+      <li>Navigate to the developer dashboard</li>
+      <li>Create a new API key</li>
+      <li>Copy the key and set it via config or environment variable</li>
+    </ol>
+
+    <h4>Gemini (Google)</h4>
+    <ol>
+      <li>Go to <a href="https://aistudio.google.com/app/apikey">Google AI Studio</a></li>
+      <li>Create a new API key</li>
+      <li>Copy the key and set it via config or environment variable</li>
+    </ol>
+
+    <h2>First Agent Execution</h2>
+
+    <h3>List Available Agents</h3>
+    <p>
+      First, see what agents are available:
+    </p>
+
+    <pre><code>bun run ronin list</code></pre>
+
+    <p>
+      This will show all agents in the default directories (<code>./agents</code> and <code>~/.ronin/agents</code>).
+    </p>
+
+    <h3>Run an Example Agent</h3>
+    <p>
+      Run the example agent to verify everything works:
+    </p>
+
+    <pre><code>bun run ronin run example-agent</code></pre>
+
+    <p>
+      You should see output indicating the agent executed successfully. If you see errors, check:
+    </p>
+
+    <ul>
+      <li>Ollama is running (<code>curl http://localhost:11434/api/tags</code>)</li>
+      <li>The model is available (<code>ollama list</code>)</li>
+      <li>You're in the correct directory</li>
+    </ul>
+
+    <h3>Start All Agents</h3>
+    <p>
+      Start the Ronin system to schedule and run all agents:
+    </p>
+
+    <pre><code>bun run ronin start</code></pre>
+
+    <p>
+      This command will:
+    </p>
+
+    <ul>
+      <li>Discover all agents from local and external directories</li>
+      <li>Register scheduled agents with the cron scheduler</li>
+      <li>Set up file watchers for agents with watch patterns</li>
+      <li>Register webhook endpoints</li>
+      <li>Start the webhook server</li>
+      <li>Keep running to execute scheduled tasks</li>
+    </ul>
+
+    <p>
+      Press <code>Ctrl+C</code> to stop the system.
+    </p>
+
+    <h2>Project Structure</h2>
+
+    <p>
+      After installation, your Ronin directory should look like this:
+    </p>
+
+    <pre><code>ronin/
+├── src/
+│   ├── agent/          # Agent base class, loader, and registry
+│   ├── memory/         # SQLite-based memory system
+│   ├── api/            # API namespace (ai, files, db, http, events)
+│   ├── plugins/        # Plugin system (loader, tool generator)
+│   ├── cli/            # CLI commands
+│   ├── types/          # TypeScript types
+│   └── index.ts         # Main library export
+├── agents/             # Your agent files (loaded by start command)
+├── plugins/            # Plugin files (auto-discovered)
+│   ├── git.ts          # Built-in git plugin
+│   ├── shell.ts         # Built-in shell plugin
+│   └── ...
+├── docs/               # Documentation
+├── package.json         # Dependencies and scripts
+└── ronin.db            # SQLite database (created at runtime)</code></pre>
+
+    <h2>Troubleshooting Common Setup Issues</h2>
+
+    <h3>Bun Not Found</h3>
+    <p>
+      <strong>Problem:</strong> <code>bun: command not found</code>
+    </p>
+    <p>
+      <strong>Solution:</strong> Ensure Bun is installed and in your PATH. Add Bun to your PATH:
+    </p>
+    <pre><code>export PATH="$HOME/.bun/bin:$PATH"</code></pre>
+
+    <h3>Ollama Connection Error</h3>
+    <p>
+      <strong>Problem:</strong> <code>Failed to connect to Ollama</code>
+    </p>
+    <p>
+      <strong>Solution:</strong>
+    </p>
+    <ul>
+      <li>Verify Ollama is running: <code>curl http://localhost:11434/api/tags</code></li>
+      <li>Check <code>OLLAMA_URL</code> environment variable</li>
+      <li>Start Ollama: <code>ollama serve</code></li>
+    </ul>
+
+    <h3>Model Not Found</h3>
+    <p>
+      <strong>Problem:</strong> <code>Model qwen3:1.7b not found</code>
+    </p>
+    <p>
+      <strong>Solution:</strong> Pull the model:
+    </p>
+    <pre><code>ollama pull qwen3:1.7b</code></pre>
+
+    <h3>Permission Errors</h3>
+    <p>
+      <strong>Problem:</strong> Permission denied when creating files or directories
+    </p>
+    <p>
+      <strong>Solution:</strong> Ensure you have write permissions in the Ronin directory and <code>~/.ronin</code> directory:
+    </p>
+    <pre><code>mkdir -p ~/.ronin/agents ~/.ronin/data
+chmod -R 755 ~/.ronin</code></pre>
+
+    <h3>Port Already in Use</h3>
+    <p>
+      <strong>Problem:</strong> <code>Port 3000 already in use</code>
+    </p>
+    <p>
+      <strong>Solution:</strong> Change the webhook port:
+    </p>
+    <pre><code>export WEBHOOK_PORT=3001
+bun run ronin start</code></pre>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that Ronin is installed and configured, you're ready to explore the system architecture and learn how to write your own agents. The next chapters will cover:
+    </p>
+
+    <ul>
+      <li>System architecture and core components</li>
+      <li>CLI commands and usage</li>
+      <li>Configuration options</li>
+      <li>Writing your first agent</li>
+    </ul>
+  </div>
+</body>
+</html>

@@ -131,6 +131,15 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     sendMedia: realmPlugin.plugin.methods.sendMedia as NonNullable<AgentAPI["realm"]>["sendMedia"],
   } : undefined;
 
+  const langchainPlugin = plugins.find(p => p.name === "langchain");
+  const langchainAPI: AgentAPI["langchain"] = langchainPlugin ? {
+    runChain: langchainPlugin.plugin.methods.runChain as NonNullable<AgentAPI["langchain"]>["runChain"],
+    runAgent: langchainPlugin.plugin.methods.runAgent as NonNullable<AgentAPI["langchain"]>["runAgent"],
+    buildAgentCreationGraph: langchainPlugin.plugin.methods.buildAgentCreationGraph as NonNullable<AgentAPI["langchain"]>["buildAgentCreationGraph"],
+    runAnalysisChain: langchainPlugin.plugin.methods.runAnalysisChain as NonNullable<AgentAPI["langchain"]>["runAnalysisChain"],
+    buildResearchGraph: langchainPlugin.plugin.methods.buildResearchGraph as NonNullable<AgentAPI["langchain"]>["buildResearchGraph"],
+  } : undefined;
+
   const api: AgentAPI = {
     ai: aiAPI,
     memory: {
@@ -160,6 +169,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(telegramAPI && { telegram: telegramAPI }),
     ...(discordAPI && { discord: discordAPI }),
     ...(realmAPI && { realm: realmAPI }),
+    ...(langchainAPI && { langchain: langchainAPI }),
   };
 
   return api;

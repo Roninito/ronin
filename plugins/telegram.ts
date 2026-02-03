@@ -300,6 +300,92 @@ const telegramPlugin: Plugin = {
         );
       }
     },
+
+    /**
+     * Get channel information
+     * @param botId ID from initBot
+     * @param channelId Channel ID (e.g., '@channelusername' or numeric ID)
+     * @returns Channel information object
+     */
+    getChannelInfo: async (
+      botId: string,
+      channelId: string | number
+    ): Promise<{
+      id: number;
+      title: string;
+      username?: string;
+      type: string;
+      description?: string;
+    }> => {
+      const instance = bots.get(botId);
+      if (!instance) {
+        throw new Error(`Bot not initialized: ${botId}`);
+      }
+
+      try {
+        const chat = await instance.bot.api.getChat(channelId);
+        return {
+          id: chat.id,
+          title: "title" in chat ? chat.title : "Unknown",
+          username: "username" in chat ? chat.username : undefined,
+          type: chat.type,
+          description: "description" in chat ? chat.description : undefined,
+        };
+      } catch (error) {
+        throw new Error(
+          `Failed to get channel info: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+
+    /**
+     * Get channel post history
+     * Note: Telegram Bot API doesn't have a direct method to get channel history.
+     * This method relies on the bot receiving updates through polling or webhooks.
+     * For best results, ensure the bot has been added to the channel and is receiving updates.
+     * @param botId ID from initBot
+     * @param channelId Channel ID
+     * @param options Optional parameters (limit)
+     * @returns Array of recent messages from the channel (from received updates)
+     */
+    getChannelHistory: async (
+      botId: string,
+      channelId: string | number,
+      options?: { limit?: number }
+    ): Promise<Array<{
+      message_id: number;
+      text?: string;
+      caption?: string;
+      date: number;
+      chat: {
+        id: number;
+        title?: string;
+        username?: string;
+        type: string;
+      };
+    }>> => {
+      const instance = bots.get(botId);
+      if (!instance) {
+        throw new Error(`Bot not initialized: ${botId}`);
+      }
+
+      try {
+        // Note: The Telegram Bot API doesn't provide a direct way to fetch historical messages.
+        // This is a limitation of the Bot API. Bots can only receive messages sent after they join.
+        // To get historical data, you would need to use the Telegram Client API (MTProto).
+        
+        // For now, we return an empty array and document this limitation
+        console.warn(
+          "[telegram] getChannelHistory: Bot API cannot fetch historical messages. " +
+          "Only messages received after bot joined will be available via onMessage handler."
+        );
+        return [];
+      } catch (error) {
+        throw new Error(
+          `Failed to get channel history: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
   },
 };
 

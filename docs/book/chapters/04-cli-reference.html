@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 4: CLI Reference - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 4</div>
+    <h1 class="chapter-title">CLI Reference</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+
+    <p>
+      Ronin provides a comprehensive CLI for managing AI agents, plugins, and system configuration. All commands are accessed via <code>bun run ronin &lt;command&gt;</code> or <code>ronin &lt;command&gt;</code> if installed globally.
+    </p>
+
+    <h2>Core Commands</h2>
+
+    <h3>start</h3>
+    <p>
+      Start and schedule all agents. This command discovers agents from the local and external agent directories, registers them with the scheduler, and keeps the process running.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin start [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>--agent-dir &lt;dir&gt;</code></td>
+          <td>Agent directory</td>
+          <td><code>./agents</code></td>
+        </tr>
+        <tr>
+          <td><code>--plugin-dir &lt;dir&gt;</code></td>
+          <td>Plugin directory</td>
+          <td><code>./plugins</code></td>
+        </tr>
+        <tr>
+          <td><code>--ollama-url &lt;url&gt;</code></td>
+          <td>Ollama API URL</td>
+          <td><code>http://localhost:11434</code></td>
+        </tr>
+        <tr>
+          <td><code>--ollama-model &lt;name&gt;</code></td>
+          <td>Ollama model name</td>
+          <td><code>qwen3:1.7b</code></td>
+        </tr>
+        <tr>
+          <td><code>--db-path &lt;path&gt;</code></td>
+          <td>Database file path</td>
+          <td><code>ronin.db</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Examples</h4>
+    <pre><code># Start with default settings
+ronin start
+
+# Start with custom agent directory
+ronin start --agent-dir ./my-agents
+
+# Start with custom Ollama model
+ronin start --ollama-model llama2</code></pre>
+
+    <h4>What It Does</h4>
+    <ul>
+      <li>Discovers agents from local and external directories</li>
+      <li>Registers scheduled agents with cron scheduler</li>
+      <li>Sets up file watchers for agents with <code>watch</code> property</li>
+      <li>Registers webhook endpoints for agents with <code>webhook</code> property</li>
+      <li>Starts webhook server (default port: 3000)</li>
+      <li>Keeps process alive to run scheduled tasks</li>
+    </ul>
+
+    <h3>run</h3>
+    <p>
+      Run a specific agent manually, bypassing the scheduler.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin run &lt;agent-name&gt; [options]</code></pre>
+    </div>
+
+    <h4>Examples</h4>
+    <pre><code># Run an agent
+ronin run example-agent
+
+# Run with custom settings
+ronin run my-agent --ollama-model llama2</code></pre>
+
+    <h3>list</h3>
+    <p>
+      List all available agents and their schedules.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin list [options]</code></pre>
+    </div>
+
+    <p>
+      Output shows agent names, schedules, file watchers, and webhook paths.
+    </p>
+
+    <h3>status</h3>
+    <p>
+      Show runtime status and active schedules.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin status [options]</code></pre>
+    </div>
+
+    <p>
+      Output shows active agents, next scheduled runs, file watchers, and webhooks.
+    </p>
+
+    <h2>Agent Management</h2>
+
+    <h3>create agent</h3>
+    <p>
+      AI-powered interactive agent creation. Uses AI to generate agent code based on your description.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin create agent [description] [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--local</code> - Create agent in local directory (<code>~/.ronin/agents</code>) instead of project directory</li>
+      <li><code>--agent-dir &lt;dir&gt;</code> - Custom agent directory (overrides <code>--local</code>)</li>
+      <li><code>--no-preview</code> - Skip preview before saving</li>
+      <li><code>--edit</code> - Open in editor after creation</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Interactive creation
+ronin create agent
+
+# Create with description
+ronin create agent "monitor log files and alert on errors"
+
+# Create in local directory
+ronin create agent "backup database daily" --local</code></pre>
+
+    <h4>Process</h4>
+    <ol>
+      <li>Prompts for agent description (if not provided)</li>
+      <li>Uses AI to generate agent code</li>
+      <li>Shows preview (unless <code>--no-preview</code>)</li>
+      <li>Saves to agent directory</li>
+      <li>Optionally opens in editor</li>
+    </ol>
+
+    <h3>cancel agent-creation</h3>
+    <p>
+      Cancel active agent creation tasks. Useful if an agent creation is taking too long or you want to stop it.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin cancel agent-creation [taskId] [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--port &lt;number&gt;</code> - Webhook server port (default: <code>3000</code>)</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Cancel all active agent creations
+ronin cancel agent-creation
+
+# Cancel a specific task
+ronin cancel agent-creation abc123</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        If <code>taskId</code> is omitted, all active agent creation tasks will be cancelled.
+      </p>
+    </div>
+
+    <h2>Plugin Management</h2>
+
+    <h3>create plugin</h3>
+    <p>
+      Create a new plugin template.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin create plugin &lt;name&gt; [options]</code></pre>
+    </div>
+
+    <h4>Examples</h4>
+    <pre><code>ronin create plugin my-plugin</code></pre>
+
+    <h3>plugins list</h3>
+    <p>
+      List all loaded plugins.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin plugins list [options]</code></pre>
+    </div>
+
+    <p>
+      Output shows plugin names and descriptions.
+    </p>
+
+    <h3>plugins info</h3>
+    <p>
+      Show detailed information about a plugin.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin plugins info &lt;plugin-name&gt; [options]</code></pre>
+    </div>
+
+    <h4>Examples</h4>
+    <pre><code>ronin plugins info git
+ronin plugins info grok</code></pre>
+
+    <h2>AI Commands</h2>
+
+    <h3>ai</h3>
+    <p>
+      Manage local AI model definitions (CLI-only registry).
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin ai &lt;command&gt; [options]</code></pre>
+    </div>
+
+    <h4>Commands</h4>
+    <ul>
+      <li><code>list</code> - List saved definitions</li>
+      <li><code>add &lt;name&gt;</code> - Add or update a definition</li>
+      <li><code>remove &lt;name&gt;</code> - Remove a definition</li>
+      <li><code>show &lt;name&gt;</code> - Show a definition as JSON</li>
+      <li><code>run &lt;name&gt;</code> - Run a definition via <code>ollama run</code></li>
+    </ul>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--file &lt;path&gt;</code> - Registry file (default: <code>~/.ronin/ai-models.json</code>)</li>
+      <li><code>--provider &lt;name&gt;</code> - Provider (default: <code>ollama</code>)</li>
+      <li><code>--model &lt;name&gt;</code> - Model name (required for add)</li>
+      <li><code>--args "&lt;args&gt;"</code> - Args for provider command</li>
+      <li><code>--tags "a,b"</code> - Comma-separated tags</li>
+      <li><code>--description "..."</code> - Description for the definition</li>
+      <li><code>--force</code> - Overwrite existing definition</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code>ronin ai list
+ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
+ronin ai run qwen3</code></pre>
+
+    <h3>ask</h3>
+    <p>
+      Ask questions about Ronin or get help. Supports multiple AI providers.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin ask [model] [question] [options]</code></pre>
+    </div>
+
+    <h4>Models</h4>
+    <ul>
+      <li><code>local</code> (default) - Uses Ollama with local models</li>
+      <li><code>grok</code> - Uses Grok AI (requires <code>GROK_API_KEY</code>)</li>
+      <li><code>gemini</code> - Uses Google Gemini (requires <code>GEMINI_API_KEY</code>)</li>
+    </ul>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--model &lt;name&gt;</code> - Specify model explicitly</li>
+      <li><code>--sources</code> - Show sources for answers</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Single question with default (local) model
+ronin ask "how do plugins work?"
+
+# Use Grok (model name as first argument)
+ronin ask grok "explain agent scheduling"
+
+# Use Gemini (model name as first argument)
+ronin ask gemini "how to create a new agent?"
+
+# Use local/Ollama (explicit)
+ronin ask local "how do agents work?"
+
+# Use --model flag instead
+ronin ask "explain scheduling" --model grok
+
+# Interactive mode
+ronin ask
+
+# Interactive mode with specific model
+ronin ask grok</code></pre>
+
+    <h4>Features</h4>
+    <ul>
+      <li>Context-aware: Gathers information from agents, plugins, and documentation</li>
+      <li>Tool calling: Can execute tools to gather information</li>
+      <li>Streaming responses: Real-time output</li>
+      <li>Pattern matching: Automatically detects common queries</li>
+    </ul>
+
+    <h2>Configuration</h2>
+
+    <h3>config</h3>
+    <p>
+      Manage Ronin configuration. Settings are stored in <code>~/.ronin/config.json</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin config [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--show</code> - Show current configuration</li>
+      <li><code>--agent-dir &lt;path&gt;</code> - Set local agent directory</li>
+      <li><code>--external-agent-dir &lt;path&gt;</code> - Set external agent directory</li>
+      <li><code>--external-agent-dir ""</code> - Remove external agent directory</li>
+      <li><code>--grok-api-key &lt;key&gt;</code> - Set Grok API key</li>
+      <li><code>--grok-api-key ""</code> - Remove Grok API key</li>
+      <li><code>--gemini-api-key &lt;key&gt;</code> - Set Gemini API key</li>
+      <li><code>--gemini-api-key ""</code> - Remove Gemini API key</li>
+      <li><code>--gemini-model &lt;model&gt;</code> - Set Gemini model name (e.g., <code>gemini-1.5-pro</code>)</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Show current configuration
+ronin config --show
+
+# Set external agent directory
+ronin config --external-agent-dir ~/my-agents
+
+# Set API keys
+ronin config --grok-api-key sk-xxxxx
+ronin config --gemini-api-key AIxxxxx
+
+# Set Gemini model
+ronin config --gemini-model gemini-1.5-pro
+
+# Remove API keys
+ronin config --grok-api-key ""
+ronin config --gemini-api-key ""</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">⚠️ Note</div>
+      <p>
+        Environment variables take precedence over config file settings.
+      </p>
+    </div>
+
+    <h2>Realm Commands</h2>
+
+    <h3>realm connect</h3>
+    <p>
+      Connect to a Realm discovery server for peer-to-peer communication.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin realm connect --url &lt;url&gt; --callsign &lt;callsign&gt; [options]</code></pre>
+    </div>
+
+    <h4>Required Options</h4>
+    <ul>
+      <li><code>--url &lt;url&gt;</code> - WebSocket URL of the Realm Discovery Server</li>
+      <li><code>--callsign &lt;callsign&gt;</code> - Your unique call sign identifier</li>
+    </ul>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--token &lt;token&gt;</code> - Authentication token (if required)</li>
+      <li><code>--local-port &lt;port&gt;</code> - Local WebSocket port (default: auto)</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Connect to Realm server
+ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie
+
+# Connect with authentication token
+ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie --token abc123</code></pre>
+
+    <h3>realm status</h3>
+    <p>
+      Show Realm connection status and active peers.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin realm status [options]</code></pre>
+    </div>
+
+    <p>
+      Output shows connection status, your call sign, and list of connected peers.
+    </p>
+
+    <h3>realm discover</h3>
+    <p>
+      Discover a peer by call sign and check if they're online.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin realm discover &lt;callsign&gt; [options]</code></pre>
+    </div>
+
+    <h4>Examples</h4>
+    <pre><code># Discover a peer
+ronin realm discover Tyro</code></pre>
+
+    <p>
+      Output shows peer status (online/offline) and WebSocket address if online.
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        You must be connected to Realm (<code>ronin realm connect</code>) before discovering peers.
+      </p>
+    </div>
+
+    <h2>Documentation</h2>
+
+    <h3>docs</h3>
+    <p>
+      View documentation in browser or terminal.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin docs [document] [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--browser</code> - Open in browser (default)</li>
+      <li><code>--terminal</code> - Show in terminal</li>
+      <li><code>--port &lt;port&gt;</code> - Documentation server port (default: <code>3002</code>)</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Open main documentation in browser
+ronin docs
+
+# Open specific document
+ronin docs CLI
+ronin docs ARCHITECTURE
+ronin docs PLUGINS
+
+# View in terminal
+ronin docs --terminal
+
+# List available documents
+ronin docs --list</code></pre>
+
+    <h4>Available Documents</h4>
+    <ul>
+      <li><code>CLI</code> - CLI documentation</li>
+      <li><code>ARCHITECTURE</code> - System architecture</li>
+      <li><code>PLUGINS</code> - Plugin development guide</li>
+      <li><code>TOOL_CALLING</code> - Function calling guide</li>
+      <li><code>REMOTE_AI</code> - Remote AI setup guide</li>
+      <li><code>OLLAMA_GPU</code> - Ollama GPU configuration</li>
+      <li><code>MEMORY_DB</code> - Ronin memory database</li>
+    </ul>
+
+    <h2>Other Commands</h2>
+
+    <h3>listRoutes</h3>
+    <p>
+      List all registered server routes from a running Ronin instance.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin listRoutes [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--port &lt;number&gt;</code> - Webhook server port (default: <code>3000</code>)</li>
+    </ul>
+
+    <p>
+      Output shows system routes, agent-registered HTTP routes, and webhook endpoints with full URLs.
+    </p>
+
+    <h3>help</h3>
+    <p>
+      Show help message.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin help
+ronin --help
+ronin -h</code></pre>
+    </div>
+
+    <h2>Common Workflows</h2>
+
+    <h3>Basic Workflow</h3>
+    <pre><code># 1. Create an agent
+ronin create agent "monitor system logs" --local
+
+# 2. List agents
+ronin list
+
+# 3. Test run agent
+ronin run monitor-system-logs
+
+# 4. Start all agents
+ronin start</code></pre>
+
+    <h3>Advanced Workflow</h3>
+    <pre><code># 1. Configure system
+ronin config --grok-api-key sk-xxxxx
+ronin config --external-agent-dir ~/shared-agents
+
+# 2. Create agent in local directory
+ronin create agent "backup database" --local
+
+# 3. View configuration
+ronin config --show
+
+# 4. Start with custom settings
+ronin start --ollama-model llama2
+
+# 5. Check status
+ronin status</code></pre>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you're familiar with the CLI, the next chapter covers configuration and environment setup in detail, including environment variables, config file management, and running Ronin as a daemon.
+    </p>
+  </div>
+</body>
+</html>

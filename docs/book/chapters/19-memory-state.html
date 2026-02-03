@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 19: Memory & State Management - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 19</div>
+    <h1 class="chapter-title">Memory & State Management</h1>
+  </div>
+
+  <div class="content">
+    <h2>Memory Database Schema</h2>
+
+    <p>
+      Ronin uses SQLite for persistent storage. The database schema includes:
+    </p>
+
+    <h3>memories</h3>
+    <pre><code>CREATE TABLE IF NOT EXISTS memories (
+  id TEXT PRIMARY KEY,
+  key TEXT UNIQUE,
+  value TEXT NOT NULL,
+  text TEXT,
+  metadata TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);</code></pre>
+
+    <h3>conversations</h3>
+    <pre><code>CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY,
+  agent_name TEXT,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  metadata TEXT,
+  created_at INTEGER NOT NULL
+);</code></pre>
+
+    <h3>agent_state</h3>
+    <pre><code>CREATE TABLE IF NOT EXISTS agent_state (
+  agent_name TEXT PRIMARY KEY,
+  state TEXT NOT NULL,
+  metadata TEXT,
+  updated_at INTEGER NOT NULL
+);</code></pre>
+
+    <h2>Storing and Retrieving Data</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Basic Operations</div>
+      <pre><code>// Store data
+await this.api.memory.store("lastRun", Date.now());
+await this.api.memory.store("config", { key: "value" });
+
+// Retrieve data
+const lastRun = await this.api.memory.retrieve("lastRun");
+const config = await this.api.memory.retrieve("config");</code></pre>
+    </div>
+
+    <h2>Context Management</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Adding Context</div>
+      <pre><code>await this.api.memory.addContext("User logged in", { userId: 123 });
+await this.api.memory.addContext("Error occurred", { type: "error" });
+
+// Search context
+const errors = await this.api.memory.search("error");
+const userContext = await this.api.memory.getByMetadata({ userId: 123 });</code></pre>
+    </div>
+
+    <h2>Agent State Persistence</h2>
+
+    <p>
+      Use memory to persist agent state between executions:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">State Persistence</div>
+      <pre><code>async execute(): Promise&lt;void&gt; {
+  // Load previous state
+  const state = await this.api.memory.retrieve("agentState") || { count: 0 };
+  
+  // Update state
+  state.count++;
+  state.lastRun = Date.now();
+  
+  // Save state
+  await this.api.memory.store("agentState", state);
+}</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <ul>
+      <li>Use meaningful keys for stored data</li>
+      <li>Include metadata for better searchability</li>
+      <li>Store state as JSON objects</li>
+      <li>Clean up old data periodically</li>
+      <li>Use transactions for multiple related operations</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers the event system for inter-agent communication.
+    </p>
+  </div>
+</body>
+</html>

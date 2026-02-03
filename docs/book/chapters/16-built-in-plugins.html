@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 16: Built-in Plugins Reference - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 16</div>
+    <h1 class="chapter-title">Built-in Plugins Reference</h1>
+  </div>
+
+  <div class="content">
+    <h2>Git Plugin</h2>
+
+    <p>
+      Git operations plugin. Methods: <code>init</code>, <code>clone</code>, <code>status</code>, <code>add</code>, <code>commit</code>, <code>push</code>, <code>pull</code>, <code>branch</code>, <code>checkout</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Git Plugin Usage</div>
+      <pre><code>const status = await this.api.git?.status();
+await this.api.git?.add(["."]);
+await this.api.git?.commit("Message");
+await this.api.git?.push();
+await this.api.git?.clone("https://github.com/user/repo.git", "dir");
+const branches = await this.api.git?.branch();</code></pre>
+    </div>
+
+    <h2>Shell Plugin</h2>
+
+    <p>
+      Shell command execution. Methods: <code>exec</code>, <code>execAsync</code>, <code>which</code>, <code>env</code>, <code>cwd</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Shell Plugin Usage</div>
+      <pre><code>const result = await this.api.shell?.exec("ls", ["-la"]);
+const cwd = await this.api.shell?.cwd();
+const env = await this.api.shell?.env();
+const gitPath = await this.api.shell?.which("git");</code></pre>
+    </div>
+
+    <h2>Scrape Plugin</h2>
+
+    <p>
+      Web scraping to markdown. Method: <code>scrape_to_markdown</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Scrape Plugin Usage</div>
+      <pre><code>const result = await this.api.scrape?.scrape_to_markdown(
+  "https://example.com",
+  { instructions: "Extract titles and links" }
+);
+console.log(result?.markdown);</code></pre>
+    </div>
+
+    <h2>Torrent Plugin</h2>
+
+    <p>
+      Torrent search and management. Methods: <code>search</code>, <code>add</code>, <code>list</code>, <code>status</code>, <code>pause</code>, <code>resume</code>, <code>remove</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Torrent Plugin Usage</div>
+      <pre><code>const results = await this.api.torrent?.search("ubuntu", { limit: 10 });
+if (results && results.length > 0) {
+  const torrent = await this.api.torrent?.add(results[0].magnet);
+  const status = await this.api.torrent?.status(torrent?.infoHash || "");
+  await this.api.torrent?.pause(torrent?.infoHash || "");
+  await this.api.torrent?.resume(torrent?.infoHash || "");
+}</code></pre>
+    </div>
+
+    <h2>Realm Plugin</h2>
+
+    <p>
+      Peer-to-peer communication. Covered in detail in Part 3 (Realm chapters). Methods: <code>init</code>, <code>disconnect</code>, <code>sendMessage</code>, <code>beam</code>, <code>query</code>, <code>getPeerStatus</code>, <code>sendMedia</code>.
+    </p>
+
+    <h2>Telegram Plugin</h2>
+
+    <p>
+      Telegram Bot API integration for sending messages, polling updates, and managing bots. Methods: <code>initBot</code>, <code>sendMessage</code>, <code>sendPhoto</code>, <code>getUpdates</code>, <code>joinChannel</code>, <code>setWebhook</code>, <code>onMessage</code>, <code>getBotInfo</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Telegram Plugin Usage</div>
+      <pre><code>// Initialize bot
+const botId = await this.api.telegram?.initBot("YOUR_BOT_TOKEN", {
+  webhookUrl: "https://example.com/webhook" // Optional
+});
+
+// Send a message
+await this.api.telegram?.sendMessage(botId, "@channel", "Hello from Ronin!", {
+  parseMode: "Markdown"
+});
+
+// Send a photo
+await this.api.telegram?.sendPhoto(botId, "@channel", "https://example.com/image.jpg", "Caption");
+
+// Handle incoming messages
+this.api.telegram?.onMessage(botId, (update) => {
+  if (update.message?.text) {
+    console.log("Received:", update.message.text);
+  }
+});
+
+// Get bot info
+const info = await this.api.telegram?.getBotInfo(botId);
+console.log(`Bot: @${info?.username}`);</code></pre>
+    </div>
+
+    <h2>Discord Plugin</h2>
+
+    <p>
+      Discord Bot API integration for sending messages, handling events, and managing bots. Methods: <code>initBot</code>, <code>sendMessage</code>, <code>getMessages</code>, <code>onMessage</code>, <code>onReady</code>, <code>joinGuild</code>, <code>getChannel</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Discord Plugin Usage</div>
+      <pre><code>// Initialize bot
+const clientId = await this.api.discord?.initBot("YOUR_DISCORD_TOKEN", {
+  intents: [/* custom intents */] // Optional
+});
+
+// Send a message
+await this.api.discord?.sendMessage(clientId, "channel-id", "Hello from Ronin!", {
+  embed: {
+    title: "Title",
+    description: "Description",
+    color: 0x00ff00
+  }
+});
+
+// Handle incoming messages
+this.api.discord?.onMessage(clientId, (message) => {
+  console.log(`${message.author.username}: ${message.content}`);
+});
+
+// Handle ready event
+this.api.discord?.onReady(clientId, () => {
+  console.log("Discord bot is ready!");
+});
+
+// Get channel info
+const channel = await this.api.discord?.getChannel(clientId, "channel-id");
+console.log(`Channel: ${channel?.name}`);</code></pre>
+    </div>
+
+    <h2>LangChain Plugin</h2>
+
+    <p>
+      LangChain integration for chains, agents, and graph-based workflows. Methods: <code>runChain</code>, <code>runAgent</code>, <code>buildAgentCreationGraph</code>, <code>runAnalysisChain</code>, <code>buildResearchGraph</code>.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">LangChain Plugin Usage</div>
+      <pre><code>// Run a simple chain
+const result = await this.api.langchain?.runChain(
+  "Translate '{text}' to {language}",
+  { text: "Hello", language: "Spanish" }
+);
+
+// Run an agent with tools
+const agentResult = await this.api.langchain?.runAgent(
+  "Check git status and commit if there are changes",
+  [], // Additional tools (Ronin plugins are automatically included)
+  this.api
+);
+
+// Build agent creation graph
+const graph = await this.api.langchain?.buildAgentCreationGraph(
+  { isCancelled: false },
+  this.api
+);
+const result = await graph.invoke({ task: "Monitor log files" });
+
+// Run analysis chain
+const analysis = await this.api.langchain?.runAnalysisChain(
+  "Analyze recent git commits",
+  undefined,
+  this.api
+);
+
+// Build research graph
+const researchGraph = await this.api.langchain?.buildResearchGraph(this.api);
+const research = await researchGraph.invoke({ query: "Latest AI developments" });</code></pre>
+    </div>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand plugins, the next part covers AI integration and function calling, showing how to use AI models and enable agents to intelligently use tools.
+    </p>
+  </div>
+</body>
+</html>

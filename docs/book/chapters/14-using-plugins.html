@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 14: Using Plugins - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 14</div>
+    <h1 class="chapter-title">Using Plugins</h1>
+  </div>
+
+  <div class="content">
+    <h2>Direct API Access</h2>
+
+    <p>
+      For commonly used plugins, use direct API access for better type safety and cleaner code.
+    </p>
+
+    <h3>Git Plugin</h3>
+    <div class="code-example">
+      <div class="code-example-title">Git Operations</div>
+      <pre><code>const status = await this.api.git?.status();
+if (!status?.clean) {
+  await this.api.git?.add(["."]);
+  await this.api.git?.commit("Auto-commit");
+}
+
+await this.api.git?.clone("https://github.com/user/repo.git", "repo-dir");
+const branches = await this.api.git?.branch();</code></pre>
+    </div>
+
+    <h3>Shell Plugin</h3>
+    <div class="code-example">
+      <div class="code-example-title">Shell Operations</div>
+      <pre><code>const result = await this.api.shell?.exec("ls", ["-la"]);
+const cwd = await this.api.shell?.cwd();
+const env = await this.api.shell?.env();
+const gitPath = await this.api.shell?.which("git");</code></pre>
+    </div>
+
+    <h3>Scrape Plugin</h3>
+    <div class="code-example">
+      <div class="code-example-title">Web Scraping</div>
+      <pre><code>const result = await this.api.scrape?.scrape_to_markdown(
+  "https://example.com",
+  { instructions: "Extract titles and links" }
+);
+console.log(result?.markdown);</code></pre>
+    </div>
+
+    <h3>Torrent Plugin</h3>
+    <div class="code-example">
+      <div class="code-example-title">Torrent Operations</div>
+      <pre><code>const results = await this.api.torrent?.search("ubuntu", { limit: 10 });
+if (results && results.length > 0) {
+  const torrent = await this.api.torrent?.add(results[0].magnet);
+  const status = await this.api.torrent?.status(torrent?.infoHash || "");
+}</code></pre>
+    </div>
+
+    <h2>Generic Plugin API</h2>
+
+    <p>
+      Use the generic API for plugins that don't have direct API access:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Generic Plugin Calls</div>
+      <pre><code>// Check if plugin exists
+if (this.api.plugins.has("custom-plugin")) {
+  const result = await this.api.plugins.call("custom-plugin", "method", arg1, arg2);
+}
+
+// List all plugins
+const plugins = this.api.plugins.list();
+console.log("Available plugins:", plugins);</code></pre>
+    </div>
+
+    <h2>Function Calling with Plugins</h2>
+
+    <p>
+      Plugins are automatically available as tools for AI function calling:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">AI Function Calling</div>
+      <pre><code>const { toolCalls } = await this.api.ai.callTools(
+  "Check git status and commit if there are changes",
+  [] // Plugin tools are automatically included
+);
+
+// Execute tool calls
+for (const toolCall of toolCalls) {
+  const [pluginName, methodName] = toolCall.name.split("_");
+  const result = await this.api.plugins.call(
+    pluginName,
+    methodName,
+    ...(toolCall.arguments.args || [])
+  );
+}</code></pre>
+    </div>
+
+    <h2>Error Handling</h2>
+
+    <p>
+      Always handle errors when using plugins:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Error Handling</div>
+      <pre><code>try {
+  const status = await this.api.git?.status();
+  if (!status) {
+    console.warn("Git plugin not available");
+    return;
+  }
+  // Use status
+} catch (error) {
+  console.error("Git operation failed:", error);
+}</code></pre>
+    </div>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers creating your own plugins, including plugin structure, method signatures, and best practices.
+    </p>
+  </div>
+</body>
+</html>

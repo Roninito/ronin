@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 7: Setting Up Realm - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 7</div>
+    <h1 class="chapter-title">Setting Up Realm</h1>
+  </div>
+
+  <div class="content">
+    <h2>Installing Realm Server</h2>
+
+    <p>
+      The Realm Discovery Server is a separate project located alongside Ronin. To set it up:
+    </p>
+
+    <h3>1. Navigate to Realm Server Directory</h3>
+    <pre><code>cd ../realm-server</code></pre>
+
+    <p>
+      Or from the Ronin directory:
+    </p>
+    <pre><code>cd ../../realm-server</code></pre>
+
+    <h3>2. Install Dependencies</h3>
+    <pre><code>bun install</code></pre>
+
+    <h3>3. Start the Server</h3>
+    <pre><code>bun run src/index.ts</code></pre>
+
+    <p>
+      The server will run on port 3033 by default.
+    </p>
+
+    <h3>4. Configure Environment Variables (Optional)</h3>
+    <pre><code>PORT=3033 DB_PATH=realm.db bun run src/index.ts</code></pre>
+
+    <h4>Environment Variables</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>PORT</code></td>
+          <td>Server port</td>
+          <td><code>3033</code></td>
+        </tr>
+        <tr>
+          <td><code>DB_PATH</code></td>
+          <td>SQLite database path</td>
+          <td><code>realm.db</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Connecting Ronin to Realm</h2>
+
+    <h3>Using the CLI</h3>
+    <p>
+      Connect Ronin to Realm using the <code>realm connect</code> command:
+    </p>
+
+    <pre><code>ronin realm connect --url ws://localhost:3033 --callsign Leerie</code></pre>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--url &lt;url&gt;</code> - Realm Discovery Server WebSocket URL (required)</li>
+      <li><code>--callsign &lt;name&gt;</code> - Your call sign (required)</li>
+      <li><code>--token &lt;token&gt;</code> - Optional authentication token</li>
+    </ul>
+
+    <h3>From Agent Code</h3>
+    <p>
+      Initialize Realm in your agent:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Initialize Realm</div>
+      <pre><code>await this.api.realm?.init("ws://realm.example.com:3033", "Leerie", {
+  token: "optional-auth-token",
+  localWsPort: 4000,
+  heartbeatInterval: 30000,
+  stunServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  turnServers: [],
+});</code></pre>
+    </div>
+
+    <h2>Configuration Options</h2>
+
+    <h3>Init Options</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>token</code></td>
+          <td>Authentication token</td>
+          <td><code>undefined</code></td>
+        </tr>
+        <tr>
+          <td><code>localWsPort</code></td>
+          <td>Local WebSocket server port</td>
+          <td><code>4000</code></td>
+        </tr>
+        <tr>
+          <td><code>heartbeatInterval</code></td>
+          <td>Heartbeat interval in milliseconds</td>
+          <td><code>30000</code></td>
+        </tr>
+        <tr>
+          <td><code>stunServers</code></td>
+          <td>STUN server configuration</td>
+          <td><code>[{ urls: "stun:stun.l.google.com:19302" }]</code></td>
+        </tr>
+        <tr>
+          <td><code>turnServers</code></td>
+          <td>TURN server configuration</td>
+          <td><code>[]</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>STUN/TURN Servers</h3>
+    <p>
+      STUN (Session Traversal Utilities for NAT) servers help peers discover their public IP addresses. TURN (Traversal Using Relays around NAT) servers relay traffic when direct connections fail.
+    </p>
+
+    <h4>Public STUN Servers</h4>
+    <ul>
+      <li><code>stun:stun.l.google.com:19302</code> (Google)</li>
+      <li><code>stun:stun1.l.google.com:19302</code> (Google)</li>
+      <li><code>stun:stun.stunprotocol.org:3478</code> (STUN Protocol)</li>
+    </ul>
+
+    <h4>Custom TURN Servers</h4>
+    <p>
+      For production deployments, consider setting up your own TURN server for better reliability and control.
+    </p>
+
+    <h2>Security Considerations</h2>
+
+    <h3>Token Authentication</h3>
+    <p>
+      Use token-based authentication to restrict access to your Realm server:
+    </p>
+
+    <ol>
+      <li>Generate a secure token</li>
+      <li>Configure the Realm server to require tokens</li>
+      <li>Pass the token when connecting: <code>ronin realm connect --url ws://... --callsign Leerie --token your-token</code></li>
+    </ol>
+
+    <h3>Network Security</h3>
+    <ul>
+      <li>Use HTTPS/WSS for production deployments</li>
+      <li>Restrict access to the Realm server using firewall rules</li>
+      <li>Validate peer call signs before accepting connections</li>
+      <li>Consider rate limiting to prevent abuse</li>
+    </ul>
+
+    <h3>Peer Validation</h3>
+    <p>
+      Validate peer call signs in your agents before accepting connections or processing messages:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Peer Validation Example</div>
+      <pre><code>const allowedPeers = ["Tyro", "Alice", "Bob"];
+
+this.api.events.on("realm:message", (data: { from: string; content: string }) => {
+  if (!allowedPeers.includes(data.from)) {
+    console.warn(`Rejected message from unknown peer: ${data.from}`);
+    return;
+  }
+  // Process message
+});</code></pre>
+    </div>
+
+    <h2>Verifying Setup</h2>
+
+    <h3>Check Realm Server</h3>
+    <pre><code>curl http://localhost:3033/health</code></pre>
+
+    <h3>List Online Peers</h3>
+    <pre><code>curl http://localhost:3033/api/peers</code></pre>
+
+    <h3>Discover a Peer</h3>
+    <pre><code>ronin realm discover Tyro</code></pre>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Realm Plugin Not Found</h3>
+    <p>
+      <strong>Problem:</strong> <code>Realm plugin not found</code>
+    </p>
+    <p>
+      <strong>Solution:</strong>
+    </p>
+    <ul>
+      <li>Ensure <code>plugins/realm.ts</code> exists</li>
+      <li>Check plugin directory path: <code>--plugin-dir ./plugins</code></li>
+    </ul>
+
+    <h3>WebRTC Not Available</h3>
+    <p>
+      <strong>Problem:</strong> <code>WebRTC not available</code>
+    </p>
+    <p>
+      <strong>Solution:</strong>
+    </p>
+    <ul>
+      <li>WebRTC APIs may not be available in Bun/Node.js</li>
+      <li>WebSocket connections will still work for same-network peers</li>
+      <li>For WebRTC, consider using browser environment or <code>wrtc</code> package</li>
+    </ul>
+
+    <h3>Peer Offline</h3>
+    <p>
+      <strong>Problem:</strong> <code>Peer offline</code>
+    </p>
+    <p>
+      <strong>Solution:</strong>
+    </p>
+    <ul>
+      <li>Check Realm server is running</li>
+      <li>Verify peer has connected: <code>ronin realm discover &lt;callsign&gt;</code></li>
+      <li>Check network connectivity and firewall settings</li>
+    </ul>
+
+    <h3>Connection Timeouts</h3>
+    <p>
+      <strong>Problem:</strong> Connection timeouts when connecting to peers
+    </p>
+    <p>
+      <strong>Solution:</strong>
+    </p>
+    <ul>
+      <li>Ensure Realm server is accessible</li>
+      <li>Check firewall allows WebSocket connections</li>
+      <li>Verify external IP detection is working (check <code>api.ipify.org</code> access)</li>
+      <li>Configure STUN/TURN servers if behind NAT</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that Realm is set up, the next chapter covers using Realm in your agents, including the API reference, event handling, and practical examples.
+    </p>
+  </div>
+</body>
+</html>

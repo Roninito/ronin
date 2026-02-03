@@ -28,7 +28,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
     dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
+    pluginDir: options.pluginDir || config.pluginDir,
   });
 
   // Load agents

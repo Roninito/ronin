@@ -8,6 +8,7 @@ import { aiCommand } from "./commands/ai.js";
 import { statusCommand } from "./commands/status.js";
 import { createPluginCommand } from "./commands/create-plugin.js";
 import { createAgentCommand } from "./commands/create-agent.js";
+import { cancelAgentCreationCommand } from "./commands/cancel-agent-creation.js";
 import { listPluginsCommand } from "./commands/list-plugins.js";
 import { pluginInfoCommand } from "./commands/plugin-info.js";
 import { askCommand } from "./commands/ask.js";
@@ -127,6 +128,20 @@ async function main() {
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
         console.log("Available: ronin create plugin <name>, ronin create agent [description]");
+        process.exit(1);
+      }
+      break;
+
+    case "cancel":
+      if (args[0] === "agent-creation") {
+        const taskId = args[1];
+        await cancelAgentCreationCommand({
+          taskId,
+          port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
+        });
+      } else {
+        console.error(`❌ Unknown cancel command: ${args[0]}`);
+        console.log("Available: ronin cancel agent-creation [taskId]");
         process.exit(1);
       }
       break;
@@ -292,6 +307,8 @@ Commands:
   create plugin <name> Create a new plugin template
   create agent [desc]  AI-powered agent creation (interactive)
                         Use --local to create in ~/.ronin/agents
+  cancel agent-creation [taskId] Cancel active agent creation
+                        Omit taskId to cancel all active creations
   plugins list       List all loaded plugins
   plugins info <name> Show detailed plugin information
   ask [model] [question] Ask questions about Ronin (interactive)

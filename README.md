@@ -39,8 +39,13 @@ bun run ronin create plugin my-plugin
 bun run ronin create agent "monitor log files and alert on errors"
 bun run ronin create agent "backup database" --local  # Create in local directory
 
+# Cancel agent creation if needed
+bun run ronin cancel agent-creation
+
 # Ask questions about Ronin
 bun run ronin ask "how do plugins work?"
+bun run ronin ask grok "explain agent scheduling"  # Use Grok
+bun run ronin ask gemini "how to create plugins"  # Use Gemini
 bun run ronin ask  # Interactive mode
 
 # Start all agents (schedules them and keeps running)
@@ -75,8 +80,8 @@ See [AGENTS.md](./AGENTS.md) for detailed documentation on writing agent files.
 
 Ronin includes a plugin system for extending functionality:
 
-- **Built-in Plugins**: Git, Shell, Scrape, and Torrent plugins included
-- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*` for type-safe, ergonomic access
+- **Built-in Plugins**: Git, Shell, Scrape, Torrent, Telegram, Discord, Realm, LangChain, Grok, Gemini, Hyprland, and Web-Scraper plugins included
+- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*` for type-safe, ergonomic access
 - **Auto-discovery**: Plugins automatically loaded from `plugins/` directory
 - **Function Calling**: Plugins available as tools for AI function calling
 - **CLI Tools**: Create and manage plugins via CLI
@@ -86,6 +91,17 @@ Ronin includes a plugin system for extending functionality:
 // Clean, type-safe direct API
 const status = await this.api.git?.status();
 await this.api.shell?.exec("ls", ["-la"]);
+
+// Telegram bot
+const botId = await this.api.telegram?.initBot("YOUR_TOKEN");
+await this.api.telegram?.sendMessage(botId, "@channel", "Hello!");
+
+// Discord bot
+const clientId = await this.api.discord?.initBot("YOUR_TOKEN");
+await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
+
+// LangChain integration
+const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });
 
 // Or use generic API for any plugin
 await this.api.plugins.call("custom-plugin", "method");

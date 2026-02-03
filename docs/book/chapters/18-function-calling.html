@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 18: Function Calling - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 18</div>
+    <h1 class="chapter-title">Function Calling</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+
+    <p>
+      Function calling enables AI agents to use plugins as tools. The AI decides which tools to use based on the prompt, making agents more autonomous and adaptive.
+    </p>
+
+    <h2>How It Works</h2>
+
+    <ol>
+      <li>Plugin tools are automatically converted to tool definitions</li>
+      <li>Agent calls <code>api.ai.callTools()</code> with a prompt</li>
+      <li>AI returns tool calls based on the prompt</li>
+      <li>Tool calls are executed via <code>api.plugins.call()</code></li>
+      <li>Results can be used in subsequent AI calls</li>
+    </ol>
+
+    <h2>Basic Usage</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Simple Tool Calling</div>
+      <pre><code>const { toolCalls, message } = await this.api.ai.callTools(
+  "Check git status and tell me what files have changed",
+  [] // Plugin tools are automatically included
+);
+
+// Execute tool calls
+for (const toolCall of toolCalls) {
+  const [pluginName, methodName] = toolCall.name.split("_");
+  const result = await this.api.plugins.call(
+    pluginName,
+    methodName,
+    ...(toolCall.arguments.args || [])
+  );
+  console.log(`Tool ${toolCall.name} result:`, result);
+}</code></pre>
+    </div>
+
+    <h2>Multi-Step Tool Calling</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Multi-Step Operations</div>
+      <pre><code>const prompt = "Check git status, and if there are changes, commit them";
+const { toolCalls } = await this.api.ai.callTools(prompt, []);
+
+const results = [];
+for (const toolCall of toolCalls) {
+  const [pluginName, methodName] = toolCall.name.split("_");
+  const result = await this.api.plugins.call(
+    pluginName,
+    methodName,
+    ...(toolCall.arguments.args || [])
+  );
+  results.push({ tool: toolCall.name, result });
+}
+
+// Continue conversation with results
+const followUp = await this.api.ai.chat([
+  { role: "user", content: prompt },
+  { role: "assistant", content: JSON.stringify(results) },
+  { role: "user", content: "Summarize what was done" },
+]);</code></pre>
+    </div>
+
+    <h2>Custom Tools</h2>
+
+    <p>
+      You can also define custom tools (not from plugins):
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Custom Tool</div>
+      <pre><code>const customTool = {
+  type: "function",
+  function: {
+    name: "calculate",
+    description: "Perform a calculation",
+    parameters: {
+      type: "object",
+      properties: {
+        expression: { type: "string", description: "Math expression" }
+      },
+      required: ["expression"]
+    }
+  }
+};
+
+const { toolCalls } = await this.api.ai.callTools(
+  "Calculate 2 + 2",
+  [customTool]
+);</code></pre>
+    </div>
+
+    <h2>Error Handling</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Error Handling</div>
+      <pre><code>for (const toolCall of toolCalls) {
+  try {
+    const [pluginName, methodName] = toolCall.name.split("_");
+    const result = await this.api.plugins.call(
+      pluginName,
+      methodName,
+      ...(toolCall.arguments.args || [])
+    );
+    console.log(`✅ ${toolCall.name}:`, result);
+  } catch (error) {
+    console.error(`❌ ${toolCall.name} failed:`, error);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <ul>
+      <li>Be specific in prompts about what tools to use</li>
+      <li>Always handle tool execution errors</li>
+      <li>Validate tool results before using</li>
+      <li>Set iteration limits for tool call loops</li>
+      <li>Log tool calls for debugging</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next part covers advanced topics including memory management, event systems, production deployment, and troubleshooting.
+    </p>
+  </div>
+</body>
+</html>

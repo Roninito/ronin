@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 10: Agent Scheduling - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 10</div>
+    <h1 class="chapter-title">Agent Scheduling</h1>
+  </div>
+
+  <div class="content">
+    <h2>Cron Expression Format</h2>
+
+    <p>
+      Ronin uses a 5-field cron expression format: <code>minute hour day month weekday</code>
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Range</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>minute</td>
+          <td>0-59</td>
+          <td>Minute of the hour</td>
+        </tr>
+        <tr>
+          <td>hour</td>
+          <td>0-23</td>
+          <td>Hour of the day (24-hour format)</td>
+        </tr>
+        <tr>
+          <td>day</td>
+          <td>1-31</td>
+          <td>Day of the month</td>
+        </tr>
+        <tr>
+          <td>month</td>
+          <td>1-12</td>
+          <td>Month of the year</td>
+        </tr>
+        <tr>
+          <td>weekday</td>
+          <td>0-6</td>
+          <td>Day of the week (0=Sunday, 6=Saturday)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Pattern Syntax</h2>
+
+    <h3>Wildcard (*)</h3>
+    <p>
+      Matches every value in that field.
+    </p>
+    <pre><code>"* * * * *"  // Every minute</code></pre>
+
+    <h3>Specific Value (N)</h3>
+    <p>
+      Matches a specific value.
+    </p>
+    <pre><code>"0 9 * * *"  // At 9:00 AM every day
+"30 14 * * *"  // At 2:30 PM every day</code></pre>
+
+    <h3>Interval (*/N)</h3>
+    <p>
+      Matches every N units, starting from 0.
+    </p>
+    <pre><code>"*/5 * * * *"   // Every 5 minutes
+"0 */6 * * *"   // Every 6 hours (at :00 minutes)
+"*/15 * * * *"  // Every 15 minutes</code></pre>
+
+    <h2>Common Examples</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cron Expression</th>
+          <th>Description</th>
+          <th>Frequency</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>"* * * * *"</code></td>
+          <td>Every minute</td>
+          <td>1,440 times/day</td>
+        </tr>
+        <tr>
+          <td><code>"*/5 * * * *"</code></td>
+          <td>Every 5 minutes</td>
+          <td>288 times/day</td>
+        </tr>
+        <tr>
+          <td><code>"0 * * * *"</code></td>
+          <td>Every hour</td>
+          <td>24 times/day</td>
+        </tr>
+        <tr>
+          <td><code>"0 */6 * * *"</code></td>
+          <td>Every 6 hours</td>
+          <td>4 times/day</td>
+        </tr>
+        <tr>
+          <td><code>"0 9 * * *"</code></td>
+          <td>Daily at 9 AM</td>
+          <td>Once/day</td>
+        </tr>
+        <tr>
+          <td><code>"0 9 * * 1-5"</code></td>
+          <td>Weekdays at 9 AM</td>
+          <td>5 times/week</td>
+        </tr>
+        <tr>
+          <td><code>"0 0 1 * *"</code></td>
+          <td>First day of month at midnight</td>
+          <td>Once/month</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>File Watching</h2>
+
+    <p>
+      Use glob patterns to watch files for changes:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">File Watching Examples</div>
+      <pre><code>export default class FileWatcherAgent extends BaseAgent {
+  // Watch all .log files recursively
+  static watch = ["**/*.log"];
+  
+  // Watch JSON files in data directory
+  static watch = ["data/**/*.json"];
+  
+  // Watch specific file
+  static watch = ["config.json"];
+  
+  // Watch multiple patterns
+  static watch = ["**/*.log", "data/**/*.json", "config.json"];
+
+  async onFileChange(path: string, event: "create" | "update" | "delete"): Promise&lt;void&gt; {
+    console.log(`File ${event}: ${path}`);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Webhook Endpoints</h2>
+
+    <p>
+      Expose HTTP webhook endpoints for your agents:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Webhook Agent</div>
+      <pre><code>export default class WebhookAgent extends BaseAgent {
+  static webhook = "/webhook/my-agent";
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("Webhook received:", payload);
+    // Process webhook payload
+  }
+}</code></pre>
+    </div>
+
+    <p>
+      The webhook server runs on port 3000 by default (configurable via <code>WEBHOOK_PORT</code> environment variable). Send POST requests to trigger the agent:
+    </p>
+
+    <pre><code>curl -X POST http://localhost:3000/webhook/my-agent \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'</code></pre>
+
+    <h2>Manual Execution</h2>
+
+    <p>
+      Run agents manually using the CLI:
+    </p>
+
+    <pre><code>ronin run my-agent</code></pre>
+
+    <p>
+      This bypasses the scheduler and runs the agent immediately, useful for testing and debugging.
+    </p>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Choose Appropriate Intervals</h3>
+    <ul>
+      <li>High-frequency tasks: <code>"*/5 * * * *"</code> or <code>"*/10 * * * *"</code></li>
+      <li>Regular tasks: <code>"0 */6 * * *"</code> or <code>"0 0 * * *"</code></li>
+      <li>Low-frequency tasks: <code>"0 0 * * 0"</code> (weekly) or <code>"0 0 1 * *"</code> (monthly)</li>
+    </ul>
+
+    <h3>2. Avoid Over-Scheduling</h3>
+    <p>
+      Don't schedule agents to run too frequently. Consider the impact on system resources and external APIs.
+    </p>
+
+    <h3>3. Use Specific Times for Important Tasks</h3>
+    <p>
+      Use specific times (e.g., <code>"0 9 * * *"</code>) for important tasks that need to run at predictable times.
+    </p>
+
+    <h3>4. Test Your Schedule</h3>
+    <p>
+      Test with a short interval first, then switch to production schedule:
+    </p>
+
+    <pre><code>// Testing
+static schedule = "*/1 * * * *";  // Every minute
+
+// Production
+static schedule = "0 */6 * * *";  // Every 6 hours</code></pre>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter provides a complete reference for the Agent API, covering all available methods and their usage.
+    </p>
+  </div>
+</body>
+</html>

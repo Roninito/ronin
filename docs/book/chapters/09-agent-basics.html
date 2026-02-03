@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 9: Agent Basics - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 9</div>
+    <h1 class="chapter-title">Agent Basics</h1>
+  </div>
+
+  <div class="content">
+    <h2>What is an Agent?</h2>
+
+    <p>
+      An agent in Ronin is a TypeScript/JavaScript class file that extends <code>BaseAgent</code> and implements an <code>execute()</code> method. Agents are placed in the <code>agents/</code> directory and are automatically discovered and loaded by Ronin.
+    </p>
+
+    <p>
+      Agents receive a comprehensive <code>api</code> object that provides access to AI, memory, files, database, HTTP, events, and plugins. This unified interface makes it easy to build powerful automation systems.
+    </p>
+
+    <h2>Agent Structure</h2>
+
+    <p>
+      Each agent must:
+    </p>
+
+    <ol>
+      <li>Export a default class that extends <code>BaseAgent</code></li>
+      <li>Implement the <code>execute()</code> method</li>
+      <li>Optionally define static properties for scheduling, file watching, or webhooks</li>
+    </ol>
+
+    <h2>Basic Agent Template</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Basic Agent Structure</div>
+      <pre><code>import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class MyAgent extends BaseAgent {
+  // Optional: Schedule using cron expression
+  static schedule = "0 */6 * * *"; // Every 6 hours
+  
+  // Optional: Watch files for changes
+  static watch = ["**/*.log", "data/**/*.json"];
+  
+  // Optional: HTTP webhook path
+  static webhook = "/webhook/my-agent";
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    // Your agent logic here
+    // Access API via this.api
+    const response = await this.api.ai.complete("Hello!");
+    await this.api.memory.store("key", response);
+  }
+
+  // Optional: Handle file changes
+  async onFileChange(path: string, event: "create" | "update" | "delete"): Promise&lt;void&gt; {
+    console.log(`File ${event}: ${path}`);
+  }
+
+  // Optional: Handle webhook requests
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("Webhook received:", payload);
+  }
+}</code></pre>
+    </div>
+
+    <h2>BaseAgent Class</h2>
+
+    <p>
+      All agents extend <code>BaseAgent</code>, which provides:
+    </p>
+
+    <ul>
+      <li>Access to the <code>api</code> object via <code>this.api</code></li>
+      <li>Lifecycle management</li>
+      <li>Integration with the scheduler, file watchers, and webhooks</li>
+    </ul>
+
+    <h2>The execute() Method</h2>
+
+    <p>
+      The <code>execute()</code> method is where your agent's main logic lives. It's called:
+    </p>
+
+    <ul>
+      <li>On schedule (if <code>static schedule</code> is defined)</li>
+      <li>When watched files change (if <code>static watch</code> is defined)</li>
+      <li>When a webhook is received (if <code>static webhook</code> is defined)</li>
+      <li>Manually via <code>ronin run &lt;agent-name&gt;</code></li>
+    </ul>
+
+    <h2>Static Properties</h2>
+
+    <h3>schedule</h3>
+    <p>
+      Define a cron expression to schedule agent execution:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Scheduled Agent</div>
+      <pre><code>export default class ScheduledAgent extends BaseAgent {
+  static schedule = "0 */6 * * *"; // Every 6 hours
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Running scheduled task...");
+  }
+}</code></pre>
+    </div>
+
+    <h3>watch</h3>
+    <p>
+      Watch files for changes using glob patterns:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">File Watching Agent</div>
+      <pre><code>export default class FileWatcherAgent extends BaseAgent {
+  static watch = ["**/*.log", "data/**/*.json"];
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("File change detected!");
+  }
+
+  async onFileChange(path: string, event: "create" | "update" | "delete"): Promise&lt;void&gt; {
+    console.log(`File ${event}: ${path}`);
+  }
+}</code></pre>
+    </div>
+
+    <h3>webhook</h3>
+    <p>
+      Expose an HTTP webhook endpoint:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Webhook Agent</div>
+      <pre><code>export default class WebhookAgent extends BaseAgent {
+  static webhook = "/webhook/my-agent";
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Webhook triggered!");
+  }
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("Webhook received:", payload);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Lifecycle Hooks</h2>
+
+    <h3>onFileChange</h3>
+    <p>
+      Called when a watched file changes. Receives the file path and event type (create, update, or delete).
+    </p>
+
+    <h3>onWebhook</h3>
+    <p>
+      Called when a webhook request is received. Receives the request payload.
+    </p>
+
+    <h2>Accessing the API</h2>
+
+    <p>
+      Agents access system capabilities through <code>this.api</code>:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Using the API</div>
+      <pre><code>async execute(): Promise&lt;void&gt; {
+  // AI operations
+  const response = await this.api.ai.complete("Hello!");
+  
+  // Memory operations
+  await this.api.memory.store("key", "value");
+  const value = await this.api.memory.retrieve("key");
+  
+  // File operations
+  const content = await this.api.files.read("./file.txt");
+  await this.api.files.write("./output.txt", "content");
+  
+  // Database operations
+  const rows = await this.api.db.query("SELECT * FROM table");
+  
+  // HTTP operations
+  const data = await this.api.http.get("https://api.example.com/data");
+  
+  // Plugin operations
+  const result = await this.api.plugins.call("git", "status");
+  
+  // Direct plugin APIs (when available)
+  const gitStatus = await this.api.git?.status();
+}</code></pre>
+    </div>
+
+    <h2>Error Handling</h2>
+
+    <p>
+      Always handle errors in your agent code:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Error Handling</div>
+      <pre><code>async execute(): Promise&lt;void&gt; {
+  try {
+    const response = await this.api.ai.complete("Hello!");
+    await this.api.memory.store("lastResponse", response);
+  } catch (error) {
+    console.error("Agent execution failed:", error);
+    // Don't throw - let the scheduler continue
+  }
+}</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Keep execute() Focused</h3>
+    <p>
+      Keep the <code>execute()</code> method focused on a single task. Break complex agents into smaller, focused agents.
+    </p>
+
+    <h3>2. Handle Errors Gracefully</h3>
+    <p>
+      Always wrap operations in try-catch blocks. Don't let errors crash the agent system.
+    </p>
+
+    <h3>3. Use Memory for State</h3>
+    <p>
+      Use the memory API to persist state between executions. This allows agents to build up knowledge over time.
+    </p>
+
+    <h3>4. Log Important Events</h3>
+    <p>
+      Use <code>console.log</code> to log important events. This helps with debugging and monitoring.
+    </p>
+
+    <h3>5. Make Agents Idempotent</h3>
+    <p>
+      Design agents to be idempotent—running them multiple times should produce the same result. This makes them more reliable.
+    </p>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers agent scheduling in detail, including cron expressions, file watching patterns, and webhook configuration.
+    </p>
+  </div>
+</body>
+</html>

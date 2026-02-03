@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 22: Troubleshooting & Debugging - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 22</div>
+    <h1 class="chapter-title">Troubleshooting & Debugging</h1>
+  </div>
+
+  <div class="content">
+    <h2>Common Issues</h2>
+
+    <h3>Agent Not Running</h3>
+    <ul>
+      <li>Check that <code>static schedule</code> is defined correctly</li>
+      <li>Verify cron expression has exactly 5 fields</li>
+      <li>Ensure Ronin server is running</li>
+      <li>Check console logs for registration messages</li>
+    </ul>
+
+    <h3>Ollama Connection Error</h3>
+    <ul>
+      <li>Verify Ollama is running: <code>curl http://localhost:11434/api/tags</code></li>
+      <li>Check <code>OLLAMA_URL</code> environment variable</li>
+      <li>Start Ollama: <code>ollama serve</code></li>
+    </ul>
+
+    <h3>Plugin Not Found</h3>
+    <ul>
+      <li>Check file is in <code>plugins/</code> directory</li>
+      <li>Verify default export exists</li>
+      <li>Check console for error messages</li>
+    </ul>
+
+    <h3>Memory/Database Issues</h3>
+    <ul>
+      <li>Check database file permissions</li>
+      <li>Verify database path is correct</li>
+      <li>Check disk space</li>
+    </ul>
+
+    <h2>Debugging Agents</h2>
+
+    <h3>Manual Execution</h3>
+    <pre><code>ronin run my-agent</code></pre>
+
+    <h3>Logging</h3>
+    <div class="code-example">
+      <div class="code-example-title">Debug Logging</div>
+      <pre><code>async execute(): Promise&lt;void&gt; {
+  console.log("Agent starting...");
+  try {
+    const result = await this.api.ai.complete("Hello");
+    console.log("Result:", result);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Network Issues</h2>
+
+    <ul>
+      <li>Check firewall settings</li>
+      <li>Verify ports are accessible</li>
+      <li>Test network connectivity</li>
+      <li>Check DNS resolution</li>
+    </ul>
+
+    <h2>Getting Help</h2>
+
+    <ul>
+      <li>Check documentation: <code>ronin docs</code></li>
+      <li>Ask questions: <code>ronin ask "your question"</code></li>
+      <li>Review logs for error messages</li>
+      <li>Check GitHub issues</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The appendices provide complete reference material including API details, configuration options, example code, and a glossary.
+    </p>
+  </div>
+</body>
+</html>

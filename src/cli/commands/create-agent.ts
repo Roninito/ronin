@@ -58,11 +58,60 @@ async function readInput(prompt: string): Promise<string> {
 }
 
 /**
- * Create agent command: AI-powered interactive agent creation
+ * Try to emit event via HTTP to running Ronin instance
+ */
+async function emitEventViaHTTP(event: string, data: unknown): Promise<boolean> {
+  const port = process.env.WEBHOOK_PORT ? parseInt(process.env.WEBHOOK_PORT) : 3000;
+  try {
+    const response = await fetch(`http://localhost:${port}/api/events/emit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, data }),
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create agent command: Event-driven agent creation via orchestrator
  */
 export async function createAgentCommand(
   options: CreateAgentOptions
 ): Promise<void> {
+  const description = options.description;
+
+  console.log("🤖 AI Agent Creator");
+  console.log("==================\n");
+
+  // Get initial description if not provided
+  let userDescription = description;
+  if (!userDescription) {
+    userDescription = await readInput(
+      "What would you like your agent to do? "
+    );
+    if (!userDescription) {
+      console.error("❌ Description is required");
+      process.exit(1);
+    }
+  }
+
+  // Try to emit event to running Ronin instance
+  const eventEmitted = await emitEventViaHTTP("create_agent", { task: userDescription });
+  
+  if (eventEmitted) {
+    console.log("✅ Agent creation request sent to orchestrator");
+    console.log("   The orchestrator will handle agent creation asynchronously");
+    console.log("   Check the Ronin logs for progress updates");
+    return;
+  }
+
+  // Fallback: Ronin not running, use direct creation (legacy mode)
+  console.log("⚠️  Ronin instance not running. Using direct creation mode.");
+  console.log("   For event-driven creation, start Ronin first: ronin start\n");
+
   // Use local directory (~/.ronin/agents) if --local flag is set or no agentDir specified
   let agentDir: string;
   if (options.local) {
@@ -70,7 +119,6 @@ export async function createAgentCommand(
   } else {
     agentDir = options.agentDir || ensureDefaultAgentDir();
   }
-  const description = options.description;
 
   // Check if Ollama is available
   try {
@@ -80,21 +128,6 @@ export async function createAgentCommand(
       dbPath: options.dbPath,
       pluginDir: options.pluginDir,
     });
-
-    console.log("🤖 AI Agent Creator");
-    console.log("==================\n");
-
-    // Get initial description if not provided
-    let userDescription = description;
-    if (!userDescription) {
-      userDescription = await readInput(
-        "What would you like your agent to do? "
-      );
-      if (!userDescription) {
-        console.error("❌ Description is required");
-        process.exit(1);
-      }
-    }
 
     // Generate agent name
     let agentName = extractAgentName(userDescription);

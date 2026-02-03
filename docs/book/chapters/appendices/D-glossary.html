@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix D: Glossary - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Appendix D</div>
+    <h1 class="chapter-title">Glossary</h1>
+  </div>
+
+  <div class="content">
+    <h2>Key Terms and Concepts</h2>
+
+    <dl>
+      <dt>Agent</dt>
+      <dd>A TypeScript/JavaScript class that extends BaseAgent and implements an execute() method. Agents are the executable units of work in Ronin.</dd>
+
+      <dt>BaseAgent</dt>
+      <dd>The base class that all agents extend. Provides access to the API and lifecycle management.</dd>
+
+      <dt>Cron Expression</dt>
+      <dd>A time-based schedule expression using the format: minute hour day month weekday.</dd>
+
+      <dt>Call Sign</dt>
+      <dd>A unique identifier for a Ronin instance in the Realm network.</dd>
+
+      <dt>Function Calling</dt>
+      <dd>The ability for AI agents to use plugins as tools, making intelligent decisions about which tools to use.</dd>
+
+      <dt>Memory</dt>
+      <dd>SQLite-based persistent storage for agent state and conversation history.</dd>
+
+      <dt>Plugin</dt>
+      <dd>A reusable module that extends Ronin's capabilities. Plugins are automatically discovered and made available to agents.</dd>
+
+      <dt>Realm</dt>
+      <dd>A peer-to-peer communication system that enables Ronin instances to communicate with each other.</dd>
+
+      <dt>Realm Discovery Server</dt>
+      <dd>A central registry for peer discovery in the Realm network.</dd>
+
+      <dt>Tool</dt>
+      <dd>A plugin method that has been converted to a tool definition for AI function calling.</dd>
+
+      <dt>Webhook</dt>
+      <dd>An HTTP endpoint that triggers an agent when a POST request is received.</dd>
+    </dl>
+  </div>
+</body>
+</html>

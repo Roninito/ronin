@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 21: Production Deployment - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 21</div>
+    <h1 class="chapter-title">Production Deployment</h1>
+  </div>
+
+  <div class="content">
+    <h2>Running as a Daemon</h2>
+
+    <p>
+      See Chapter 5 for detailed instructions on running Ronin as a daemon on Linux (systemd), macOS (launchd), and Windows (NSSM).
+    </p>
+
+    <h2>Monitoring and Logging</h2>
+
+    <h3>Status Endpoint</h3>
+    <pre><code>curl http://localhost:3000/status</code></pre>
+
+    <h3>Health Check</h3>
+    <pre><code>curl http://localhost:3000/health</code></pre>
+
+    <h3>Logging</h3>
+    <p>
+      Use console.log for important events. When running as a daemon, logs are written to configured log files.
+    </p>
+
+    <h2>Error Handling Strategies</h2>
+
+    <ul>
+      <li>Wrap operations in try-catch blocks</li>
+      <li>Don't let errors crash the agent system</li>
+      <li>Log errors for debugging</li>
+      <li>Use memory to track error states</li>
+      <li>Implement retry logic for transient failures</li>
+    </ul>
+
+    <h2>Performance Optimization</h2>
+
+    <ul>
+      <li>Choose appropriate schedule intervals</li>
+      <li>Avoid over-scheduling agents</li>
+      <li>Use efficient database queries</li>
+      <li>Cache frequently accessed data</li>
+      <li>Monitor resource usage</li>
+    </ul>
+
+    <h2>Security Considerations</h2>
+
+    <ul>
+      <li>Secure API keys (use environment variables or secrets manager)</li>
+      <li>Validate inputs in plugins</li>
+      <li>Restrict file system access</li>
+      <li>Use authentication for webhooks</li>
+      <li>Only load trusted plugins</li>
+      <li>Keep dependencies updated</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The final chapter covers troubleshooting common issues and debugging techniques.
+    </p>
+  </div>
+</body>
+</html>

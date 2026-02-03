@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix A: API Reference - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Appendix A</div>
+    <h1 class="chapter-title">API Reference</h1>
+  </div>
+
+  <div class="content">
+    <h2>Complete API Method Signatures</h2>
+
+    <p>
+      This appendix provides complete API method signatures and type definitions. For detailed usage examples, see the relevant chapters.
+    </p>
+
+    <h2>api.ai</h2>
+    <pre><code>complete(prompt: string, options?: AIOptions): Promise&lt;string&gt;
+stream(prompt: string, options?: AIOptions): AsyncIterable&lt;string&gt;
+chat(messages: Message[], options?: AIOptions): Promise&lt;Message&gt;
+callTools(prompt: string, tools: Tool[], options?: AIOptions): Promise&lt;ToolCallResult&gt;</code></pre>
+
+    <h2>api.memory</h2>
+    <pre><code>store(key: string, value: unknown): Promise&lt;void&gt;
+retrieve(key: string): Promise&lt;unknown&gt;
+search(query: string, limit?: number): Promise&lt;Memory[]&gt;
+addContext(text: string, metadata?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
+getRecent(limit?: number): Promise&lt;Memory[]&gt;
+getByMetadata(metadata: Record&lt;string, unknown&gt;): Promise&lt;Memory[]&gt;</code></pre>
+
+    <h2>api.files</h2>
+    <pre><code>read(path: string): Promise&lt;string&gt;
+write(path: string, content: string): Promise&lt;void&gt;
+list(dir: string, pattern?: string): Promise&lt;string[]&gt;</code></pre>
+
+    <h2>api.db</h2>
+    <pre><code>query&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T[]&gt;
+execute(sql: string, params?: unknown[]): Promise&lt;void&gt;
+transaction&lt;T&gt;(fn: (tx: Transaction) => Promise&lt;T&gt;): Promise&lt;T&gt;</code></pre>
+
+    <h2>api.http</h2>
+    <pre><code>get(url: string, options?: RequestOptions): Promise&lt;unknown&gt;
+post(url: string, data: unknown, options?: RequestOptions): Promise&lt;unknown&gt;</code></pre>
+
+    <h2>api.events</h2>
+    <pre><code>emit(event: string, data: unknown): void
+on(event: string, handler: (data: unknown) => void): void
+off(event: string, handler: (data: unknown) => void): void</code></pre>
+
+    <h2>api.plugins</h2>
+    <pre><code>call(pluginName: string, method: string, ...args: unknown[]): Promise&lt;unknown&gt;
+has(pluginName: string): boolean
+list(): string[]</code></pre>
+
+    <h2>api.telegram</h2>
+    <pre><code>initBot(token: string, options?: { webhookUrl?: string }): Promise&lt;string&gt;
+sendMessage(botId: string, chatId: string | number, text: string, options?: { parseMode?: "HTML" | "Markdown" | "MarkdownV2" }): Promise&lt;void&gt;
+sendPhoto(botId: string, chatId: string | number, photo: string | Buffer, caption?: string): Promise&lt;void&gt;
+getUpdates(botId: string, options?: { limit?: number; offset?: number }): Promise&lt;TelegramUpdate[]&gt;
+joinChannel(botId: string, channelId: string): Promise&lt;void&gt;
+setWebhook(botId: string, url: string): Promise&lt;void&gt;
+onMessage(botId: string, callback: (update: TelegramUpdate) => void): void
+getBotInfo(botId: string): Promise&lt;{ id: number; username: string; first_name: string; ... }&gt;</code></pre>
+
+    <h2>api.discord</h2>
+    <pre><code>initBot(token: string, options?: { intents?: number[] }): Promise&lt;string&gt;
+sendMessage(clientId: string, channelId: string, content: string, options?: { embed?: {...} }): Promise&lt;void&gt;
+getMessages(clientId: string, channelId: string, options?: { limit?: number; before?: string }): Promise&lt;DiscordMessage[]&gt;
+onMessage(clientId: string, callback: (message: DiscordMessage) => void): void
+onReady(clientId: string, callback: () => void): void
+joinGuild(clientId: string, inviteCode: string): Promise&lt;{ code: string; guild?: {...}; channel?: {...} }&gt;
+getChannel(clientId: string, channelId: string): Promise&lt;{ id: string; name: string; type: string; guildId: string | null }&gt;</code></pre>
+
+    <h2>api.langchain</h2>
+    <pre><code>runChain(promptTemplate: string, input: Record&lt;string, any&gt;, api?: AgentAPI): Promise&lt;string&gt;
+runAgent(query: string, tools?: any[], api?: AgentAPI): Promise&lt;any&gt;
+buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise&lt;any&gt;
+runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise&lt;string&gt;
+buildResearchGraph(api?: AgentAPI): Promise&lt;any&gt;</code></pre>
+
+    <h2>Type Definitions</h2>
+
+    <h3>AgentAPI</h3>
+    <pre><code>interface AgentAPI {
+  ai: AIAPI;
+  memory: MemoryAPI;
+  files: FilesAPI;
+  db: DatabaseAPI;
+  http: HTTPAPI;
+  events: EventsAPI;
+  plugins: PluginsAPI;
+  git?: GitAPI;
+  shell?: ShellAPI;
+  scrape?: ScrapeAPI;
+  torrent?: TorrentAPI;
+  telegram?: TelegramAPI;
+  discord?: DiscordAPI;
+  realm?: RealmAPI;
+  langchain?: LangChainAPI;
+}</code></pre>
+
+    <h2>Return Types</h2>
+
+    <p>
+      Most API methods return Promises that resolve to the operation result. Error handling should be done with try-catch blocks.
+    </p>
+  </div>
+</body>
+</html>

@@ -21,6 +21,9 @@ await this.api.git?.status();
 - `api.shell.*` - Shell commands (exec, execAsync, which, env, cwd)
 - `api.scrape.*` - Web scraping (scrape_to_markdown)
 - `api.torrent.*` - Torrent operations (search, add, list, status, pause, resume, remove)
+- `api.telegram.*` - Telegram Bot API (initBot, sendMessage, sendPhoto, getUpdates, joinChannel, setWebhook, onMessage, getBotInfo)
+- `api.discord.*` - Discord Bot API (initBot, sendMessage, getMessages, onMessage, onReady, joinGuild, getChannel)
+- `api.langchain.*` - LangChain integration (runChain, runAgent, buildAgentCreationGraph, runAnalysisChain, buildResearchGraph)
 
 **Benefits:**
 - ✅ Full TypeScript autocomplete and type checking
@@ -83,7 +86,7 @@ Methods can be:
 
 ### ✨ Direct API Access (Recommended)
 
-For commonly used plugins (`git`, `shell`, `scrape`, `torrent`), you can use direct API access with full TypeScript support:
+For commonly used plugins (`git`, `shell`, `scrape`, `torrent`, `telegram`, `discord`, `langchain`), you can use direct API access with full TypeScript support:
 
 ```typescript
 export default class MyAgent extends BaseAgent {
@@ -104,6 +107,17 @@ export default class MyAgent extends BaseAgent {
 
     // Torrent operations
     const torrents = await this.api.torrent?.search("ubuntu");
+
+    // Telegram operations
+    const botId = await this.api.telegram?.initBot("YOUR_BOT_TOKEN");
+    await this.api.telegram?.sendMessage(botId, "@channel", "Hello!");
+
+    // Discord operations
+    const clientId = await this.api.discord?.initBot("YOUR_DISCORD_TOKEN");
+    await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
+
+    // LangChain operations
+    const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });
   }
 }
 ```
@@ -158,6 +172,21 @@ export default class MyAgent extends BaseAgent {
 ```
 
 ## Built-in Plugins
+
+Ronin includes 12 built-in plugins:
+
+1. **git** - Git operations
+2. **shell** - Shell command execution
+3. **scrape** - Web scraping to markdown
+4. **torrent** - Torrent search and management
+5. **telegram** - Telegram Bot API integration
+6. **discord** - Discord Bot API integration
+7. **realm** - Peer-to-peer communication
+8. **langchain** - LangChain integration for chains, agents, and graphs
+9. **grok** - Grok (xAI) API integration
+10. **gemini** - Google Gemini API integration
+11. **hyprland** - Hyprland window manager configuration
+12. **web-scraper** - Advanced web scraping (alias for scrape)
 
 ### Torrent Plugin
 
@@ -316,6 +345,130 @@ When using `api.ai.callTools(...)`, this plugin becomes available as the tool na
 - `scrape_scrape_to_markdown`
 
 The tool call passes an `args` array under `toolCall.arguments.args`.
+
+### Telegram Plugin
+
+**Methods**:
+- `initBot(token, options?)` - Initialize a Telegram bot with token
+- `sendMessage(botId, chatId, text, options?)` - Send a text message
+- `sendPhoto(botId, chatId, photo, caption?)` - Send a photo
+- `getUpdates(botId, options?)` - Get recent updates/messages
+- `joinChannel(botId, channelId)` - Join a channel or group
+- `setWebhook(botId, url)` - Set webhook URL for receiving updates
+- `onMessage(botId, callback)` - Register message handler callback
+- `getBotInfo(botId)` - Get bot information
+
+**Example (Direct API - Recommended)**:
+```typescript
+// Initialize bot
+const botId = await this.api.telegram?.initBot("YOUR_BOT_TOKEN", {
+  webhookUrl: "https://example.com/webhook" // Optional
+});
+
+// Send a message
+await this.api.telegram?.sendMessage(botId, "@channel", "Hello from Ronin!", {
+  parseMode: "Markdown"
+});
+
+// Send a photo
+await this.api.telegram?.sendPhoto(botId, "@channel", "https://example.com/image.jpg", "Caption");
+
+// Handle incoming messages
+this.api.telegram?.onMessage(botId, (update) => {
+  if (update.message?.text) {
+    console.log("Received:", update.message.text);
+  }
+});
+
+// Get bot info
+const info = await this.api.telegram?.getBotInfo(botId);
+console.log(`Bot: @${info?.username}`);
+```
+
+### Discord Plugin
+
+**Methods**:
+- `initBot(token, options?)` - Initialize a Discord bot client
+- `sendMessage(clientId, channelId, content, options?)` - Send a message to a channel
+- `getMessages(clientId, channelId, options?)` - Get recent messages from a channel
+- `onMessage(clientId, callback)` - Register message event handler
+- `onReady(clientId, callback)` - Register ready event handler
+- `joinGuild(clientId, inviteCode)` - Get invite information
+- `getChannel(clientId, channelId)` - Get channel information
+
+**Example (Direct API - Recommended)**:
+```typescript
+// Initialize bot
+const clientId = await this.api.discord?.initBot("YOUR_DISCORD_TOKEN", {
+  intents: [/* custom intents */] // Optional
+});
+
+// Send a message
+await this.api.discord?.sendMessage(clientId, "channel-id", "Hello from Ronin!", {
+  embed: {
+    title: "Title",
+    description: "Description",
+    color: 0x00ff00
+  }
+});
+
+// Handle incoming messages
+this.api.discord?.onMessage(clientId, (message) => {
+  console.log(`${message.author.username}: ${message.content}`);
+});
+
+// Handle ready event
+this.api.discord?.onReady(clientId, () => {
+  console.log("Discord bot is ready!");
+});
+
+// Get channel info
+const channel = await this.api.discord?.getChannel(clientId, "channel-id");
+console.log(`Channel: ${channel?.name}`);
+```
+
+### LangChain Plugin
+
+**Methods**:
+- `runChain(promptTemplate, input, api?)` - Execute a simple LangChain chain
+- `runAgent(query, tools?, api?)` - Execute a LangChain agent with tools
+- `buildAgentCreationGraph(cancellationToken?, api?)` - Build LangGraph for agent creation workflow
+- `runAnalysisChain(input, dataSource?, api?)` - Run analysis chain for chat queries
+- `buildResearchGraph(api?)` - Build research graph for multi-step research workflows
+
+**Example (Direct API - Recommended)**:
+```typescript
+// Run a simple chain
+const result = await this.api.langchain?.runChain(
+  "Translate '{text}' to {language}",
+  { text: "Hello", language: "Spanish" }
+);
+
+// Run an agent with tools
+const agentResult = await this.api.langchain?.runAgent(
+  "Check git status and commit if there are changes",
+  [], // Additional tools (Ronin plugins are automatically included)
+  this.api
+);
+
+// Build agent creation graph
+const graph = await this.api.langchain?.buildAgentCreationGraph(
+  { isCancelled: false },
+  this.api
+);
+const result = await graph.invoke({ task: "Monitor log files" });
+
+// Run analysis chain
+const analysis = await this.api.langchain?.runAnalysisChain(
+  "Analyze recent git commits",
+  undefined,
+  this.api
+);
+
+// Build research graph
+const researchGraph = await this.api.langchain?.buildResearchGraph(this.api);
+const research = await researchGraph.invoke({ query: "Latest AI developments" });
+```
 
 ## Best Practices
 

@@ -1,11 +1,14 @@
 import type { AgentMetadata } from "../types/agent.js";
 import type { FilesAPI } from "../api/files.js";
 import type { HTTPAPI } from "../api/http.js";
+import type { EventsAPI } from "../api/events.js";
 import { CronScheduler } from "./CronScheduler.js";
+import { join } from "path";
 
 export interface RegistryOptions {
   files: FilesAPI;
   http: HTTPAPI;
+  events?: EventsAPI;
 }
 
 /**
@@ -19,11 +22,13 @@ export class AgentRegistry {
   private webhookServer: ReturnType<typeof Bun.serve> | null = null;
   private files: FilesAPI;
   private http: HTTPAPI;
+  private events?: EventsAPI;
   private scheduler: CronScheduler;
 
   constructor(options: RegistryOptions) {
     this.files = options.files;
     this.http = options.http;
+    this.events = options.events;
     this.scheduler = new CronScheduler();
   }
 
@@ -187,6 +192,44 @@ export class AgentRegistry {
           return Response.json({ status: "ok", running: true }, {
             headers: { "Content-Type": "application/json" },
           });
+        }
+
+        // Serve font files
+        if (path.startsWith("/fonts/")) {
+          try {
+            const fontPath = join(process.cwd(), "public", path);
+            const file = Bun.file(fontPath);
+            if (await file.exists()) {
+              const ext = path.split(".").pop()?.toLowerCase();
+              const contentType = ext === "otf" ? "font/otf" : ext === "ttf" ? "font/ttf" : ext === "woff" ? "font/woff" : ext === "woff2" ? "font/woff2" : "application/octet-stream";
+              return new Response(file, {
+                headers: {
+                  "Content-Type": contentType,
+                  "Cache-Control": "public, max-age=31536000, immutable",
+                },
+              });
+            }
+          } catch {
+            // Fall through to 404
+          }
+        }
+
+        // Event emission endpoint
+        if (path === "/api/events/emit" && req.method === "POST") {
+          if (!this.events) {
+            return Response.json({ error: "Events API not available" }, { status: 500 });
+          }
+          try {
+            const body = await req.json();
+            const { event, data } = body;
+            if (!event) {
+              return Response.json({ error: "Event name required" }, { status: 400 });
+            }
+            this.events.emit(event, data || {});
+            return Response.json({ success: true, event, data });
+          } catch (error) {
+            return Response.json({ error: "Invalid JSON" }, { status: 400 });
+          }
         }
 
         // Check HTTP API registered routes (agents can register routes via this.api.http.registerRoute)

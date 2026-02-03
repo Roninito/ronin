@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 15: Creating Plugins - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 15</div>
+    <h1 class="chapter-title">Creating Plugins</h1>
+  </div>
+
+  <div class="content">
+    <h2>Using the CLI</h2>
+
+    <p>
+      The easiest way to create a new plugin is using the CLI:
+    </p>
+
+    <pre><code>ronin create plugin my-plugin</code></pre>
+
+    <p>
+      This creates a template file at <code>plugins/my-plugin.ts</code> with the basic structure.
+    </p>
+
+    <h2>Plugin Structure</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Basic Plugin Template</div>
+      <pre><code>import type { Plugin } from "@ronin/plugins/base.js";
+
+const myPlugin: Plugin = {
+  name: "my-plugin",
+  description: "Description of what this plugin does",
+  methods: {
+    methodName: async (arg1: string, arg2?: number) => {
+      // Implementation
+      return { result: "success" };
+    },
+  },
+};
+
+export default myPlugin;</code></pre>
+    </div>
+
+    <h2>Required Fields</h2>
+
+    <h3>name</h3>
+    <p>
+      Unique plugin identifier. Use lowercase, alphanumeric characters and hyphens.
+    </p>
+
+    <h3>description</h3>
+    <p>
+      Human-readable description of what the plugin does.
+    </p>
+
+    <h3>methods</h3>
+    <p>
+      Object containing method functions. Each method can be synchronous or asynchronous and accept any number of arguments.
+    </p>
+
+    <h2>Method Signatures</h2>
+
+    <p>
+      Methods can be:
+    </p>
+
+    <ul>
+      <li>Synchronous: <code>(args) => value</code></li>
+      <li>Asynchronous: <code>async (args) => Promise&lt;value&gt;</code></li>
+      <li>Accept any number of arguments</li>
+      <li>Return any type</li>
+    </ul>
+
+    <h2>Example: Custom Plugin</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Hyprland Plugin Example</div>
+      <pre><code>import type { Plugin } from "@ronin/plugins/base.js";
+import { readFile, writeFile } from "fs/promises";
+
+const hyprlandPlugin: Plugin = {
+  name: "hyprland",
+  description: "Manage Hyprland window manager configuration",
+  methods: {
+    readConfig: async (path?: string) => {
+      const configPath = path || "~/.config/hypr/hyprland.conf";
+      const content = await readFile(configPath, "utf-8");
+      return { content };
+    },
+    
+    writeConfig: async (content: string, path?: string) => {
+      const configPath = path || "~/.config/hypr/hyprland.conf";
+      await writeFile(configPath, content, "utf-8");
+      return { success: true };
+    },
+    
+    reload: async () => {
+      const { exec } = await import("@ronin/plugins/shell.js");
+      return exec("hyprctl", ["reload"]);
+    },
+  },
+};
+
+export default hyprlandPlugin;</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Error Handling</h3>
+    <p>
+      Always handle errors in plugin methods:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Error Handling</div>
+      <pre><code>methods: {
+  safeOperation: async (input: string) => {
+    try {
+      // Operation
+      return { success: true, result: output };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+}</code></pre>
+    </div>
+
+    <h3>2. Type Safety</h3>
+    <p>
+      Use TypeScript types for method parameters:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Type Safety</div>
+      <pre><code>methods: {
+  processData: async (data: { id: number; name: string }) => {
+    // Type-safe implementation
+  },
+}</code></pre>
+    </div>
+
+    <h3>3. Documentation</h3>
+    <p>
+      Document what each method does:
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Documentation</div>
+      <pre><code>methods: {
+  /**
+   * Process data and return result
+   * @param data Input data to process
+   * @returns Processed result
+   */
+  processData: async (data: unknown) => {
+    // Implementation
+  },
+}</code></pre>
+    </div>
+
+    <h3>4. Idempotency</h3>
+    <p>
+      Make methods idempotent when possible—calling them multiple times should produce the same result.
+    </p>
+
+    <h3>5. Security</h3>
+    <p>
+      Validate inputs, especially for shell commands or file operations.
+    </p>
+
+    <h2>Plugin Discovery</h2>
+
+    <p>
+      Plugins are automatically discovered from the <code>plugins/</code> directory. No registration needed—just create the file and it will be loaded.
+    </p>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter provides a complete reference for all built-in plugins, including their methods, parameters, and usage examples.
+    </p>
+  </div>
+</body>
+</html>

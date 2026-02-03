@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 8: Using Realm - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 8</div>
+    <h1 class="chapter-title">Using Realm</h1>
+  </div>
+
+  <div class="content">
+    <h2>API Reference</h2>
+
+    <h3>realm.init(discoveryUrl, callSign, options?)</h3>
+    <p>
+      Initialize Realm connection to the discovery server.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Initialize Realm</div>
+      <pre><code>await api.realm?.init("ws://realm.example.com:3033", "Leerie", {
+  token: "optional-auth-token",
+  localWsPort: 4000,
+  heartbeatInterval: 30000,
+  stunServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  turnServers: [],
+});</code></pre>
+    </div>
+
+    <h4>Parameters</h4>
+    <ul>
+      <li><code>discoveryUrl</code> - WebSocket URL of the Realm Discovery Server</li>
+      <li><code>callSign</code> - Your unique call sign</li>
+      <li><code>options</code> - Optional configuration (see Chapter 7)</li>
+    </ul>
+
+    <h3>realm.disconnect()</h3>
+    <p>
+      Disconnect from Realm and cleanup all connections.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Disconnect</div>
+      <pre><code>await api.realm?.disconnect();</code></pre>
+    </div>
+
+    <h3>realm.sendMessage(to, content)</h3>
+    <p>
+      Send a text message to a peer.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Send Message</div>
+      <pre><code>await api.realm?.sendMessage("Tyro", "Hello!");</code></pre>
+    </div>
+
+    <h4>Parameters</h4>
+    <ul>
+      <li><code>to</code> - Call sign of the target peer</li>
+      <li><code>content</code> - Message content (string)</li>
+    </ul>
+
+    <h3>realm.beam(target, eventType, payload)</h3>
+    <p>
+      Beam (fire-and-forget) data to peer(s).
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Beam to Single Peer</div>
+      <pre><code>await api.realm?.beam("Tyro", "fishing-data", {
+  location: "NY Harbor",
+  species: "Bass"
+});</code></pre>
+    </div>
+
+    <div class="code-example">
+      <div class="code-example-title">Beam to Multiple Peers</div>
+      <pre><code>await api.realm?.beam(["Tyro", "Alice"], "group-update", {
+  message: "Hello all"
+});</code></pre>
+    </div>
+
+    <h4>Parameters</h4>
+    <ul>
+      <li><code>target</code> - Call sign or array of call signs</li>
+      <li><code>eventType</code> - Event type identifier</li>
+      <li><code>payload</code> - Data payload (any serializable object)</li>
+    </ul>
+
+    <h3>realm.query(target, queryType, payload, timeout?)</h3>
+    <p>
+      Query a peer and wait for response.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Query Peer</div>
+      <pre><code>const status = await api.realm?.query("Tyro", "get-status", {}, 5000);</code></pre>
+    </div>
+
+    <h4>Parameters</h4>
+    <ul>
+      <li><code>target</code> - Call sign of the target peer</li>
+      <li><code>queryType</code> - Query type identifier</li>
+      <li><code>payload</code> - Query payload</li>
+      <li><code>timeout</code> - Timeout in milliseconds (default: 5000)</li>
+    </ul>
+
+    <h3>realm.getPeerStatus(callSign)</h3>
+    <p>
+      Check if a peer is online.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Get Peer Status</div>
+      <pre><code>const status = await api.realm?.getPeerStatus("Tyro");
+// { online: true, wsAddress: "ws://192.168.1.100:4000" }</code></pre>
+    </div>
+
+    <h3>realm.sendMedia(to, stream)</h3>
+    <p>
+      Send media stream (audio/video) via WebRTC. Requires browser MediaStream API.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Send Media</div>
+      <pre><code>// Requires browser MediaStream API
+const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+await api.realm?.sendMedia("Tyro", stream);</code></pre>
+    </div>
+
+    <h2>Event Handling</h2>
+
+    <p>
+      Realm emits events via <code>api.events</code>. Listen for these events to handle incoming messages and data.
+    </p>
+
+    <h3>realm:message</h3>
+    <p>
+      Incoming text message event.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Handle Incoming Messages</div>
+      <pre><code>api.events.on("realm:message", (data: { from: string; content: string }) => {
+  console.log(`Message from ${data.from}: ${data.content}`);
+});</code></pre>
+    </div>
+
+    <h3>realm:beam:&lt;eventType&gt;</h3>
+    <p>
+      Incoming beam data event. The event type is included in the event name.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Handle Incoming Beams</div>
+      <pre><code>api.events.on("realm:beam:fishing-data", (payload) => {
+  console.log("Fishing data:", payload);
+});</code></pre>
+    </div>
+
+    <h3>realm:query:&lt;queryType&gt;</h3>
+    <p>
+      Incoming query event. Handle queries and respond.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Handle Incoming Queries</div>
+      <pre><code>api.events.on("realm:query:get-status", async (data) => {
+  const status = await getMyStatus();
+  // Response is handled automatically by Realm
+  return status;
+});</code></pre>
+    </div>
+
+    <h2>Connection Strategies</h2>
+
+    <h3>1. WebSocket First</h3>
+    <p>
+      Realm attempts direct WebSocket connection using peer's registered address. This is the fastest and most efficient method when peers are on the same network.
+    </p>
+
+    <h3>2. WebRTC Fallback</h3>
+    <p>
+      If WebSocket fails (NAT/firewall), Realm automatically falls back to WebRTC. This requires STUN/TURN server configuration but works across different networks.
+    </p>
+
+    <h3>3. Message Queuing</h3>
+    <p>
+      Messages are queued if peer is offline and sent when connection is established. This ensures reliable message delivery even when peers are temporarily unavailable.
+    </p>
+
+    <h2>Example: Voice Messaging Agent</h2>
+
+    <p>
+      The voice messaging agent demonstrates using Realm for voice-activated messaging:
+    </p>
+
+    <h3>Features</h3>
+    <ul>
+      <li>Receives messages via Realm</li>
+      <li>Queues messages until user is available</li>
+      <li>Parses voice commands (template for STT integration)</li>
+      <li>Relays messages (template for TTS integration)</li>
+    </ul>
+
+    <h3>Usage</h3>
+    <div class="code-example">
+      <div class="code-example-title">Voice Messaging Agent</div>
+      <pre><code>// In your agent
+const agent = new VoiceMessagingAgent(api);
+
+// Handle voice command (when STT is integrated)
+await agent.handleVoiceCommand("Hey Ronin, send Tyro a message: I'll be there around 3");</code></pre>
+    </div>
+
+    <h2>Complete Messaging Flow</h2>
+
+    <h3>Agent A (Leerie)</h3>
+    <div class="code-example">
+      <div class="code-example-title">Send Message</div>
+      <pre><code>await api.realm?.init("ws://realm.example.com:3033", "Leerie");
+await api.realm?.sendMessage("Tyro", "Hello from Leerie!");</code></pre>
+    </div>
+
+    <h3>Agent B (Tyro)</h3>
+    <div class="code-example">
+      <div class="code-example-title">Receive Message</div>
+      <pre><code>api.events.on("realm:message", (data) => {
+  console.log(`Received: ${data.content} from ${data.from}`);
+});</code></pre>
+    </div>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Initialize Once</h3>
+    <p>
+      Initialize Realm once at startup, typically in your agent's constructor or a setup method.
+    </p>
+
+    <h3>2. Handle Errors</h3>
+    <p>
+      Always handle errors when sending messages or querying peers. Network issues can cause operations to fail.
+    </p>
+
+    <h3>3. Validate Peers</h3>
+    <p>
+      Validate peer call signs before processing messages or accepting connections.
+    </p>
+
+    <h3>4. Use Appropriate Methods</h3>
+    <ul>
+      <li>Use <code>sendMessage</code> for text communication</li>
+      <li>Use <code>beam</code> for fire-and-forget data</li>
+      <li>Use <code>query</code> when you need a response</li>
+    </ul>
+
+    <h3>5. Clean Up</h3>
+    <p>
+      Disconnect from Realm when shutting down to free resources and notify peers.
+    </p>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Messages Not Received</h3>
+    <ul>
+      <li>Check that both peers are connected to Realm</li>
+      <li>Verify call signs are correct</li>
+      <li>Check event listeners are registered</li>
+      <li>Verify network connectivity</li>
+    </ul>
+
+    <h3>Connection Failures</h3>
+    <ul>
+      <li>Check Realm server is running</li>
+      <li>Verify WebSocket URL is correct</li>
+      <li>Check firewall settings</li>
+      <li>Configure STUN/TURN servers if behind NAT</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand how to use Realm, the next part covers writing agents. You'll learn how to create agents, use the API, and build powerful automation systems.
+    </p>
+  </div>
+</body>
+</html>

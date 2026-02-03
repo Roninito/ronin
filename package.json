@@ -1,6 +1,6 @@
 {
   "name": "ronin",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files",
   "module": "src/index.ts",
   "type": "module",
@@ -20,10 +20,15 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@langchain/community": "^0.3.0",
+    "@langchain/core": "^0.3.0",
     "cheerio": "^1.1.2",
     "discord.js": "^14.15.3",
     "grammy": "^1.23.1",
+    "langchain": "^0.3.0",
+    "langgraph": "^0.2.0",
     "turndown": "^7.2.2",
-    "webtorrent": "^1.9.5"
+    "webtorrent": "^1.9.5",
+    "zod": "^3.23.0"
   }
 }

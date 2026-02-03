@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 5: Configuration & Environment - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 5</div>
+    <h1 class="chapter-title">Configuration & Environment</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+
+    <p>
+      Ronin can be configured through environment variables, a config file, or CLI options. Understanding these configuration methods will help you customize Ronin for your environment and use cases.
+    </p>
+
+    <h2>Environment Variables</h2>
+
+    <h3>AI Configuration</h3>
+
+    <h4>Ollama</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>OLLAMA_URL</code></td>
+          <td>Ollama API URL</td>
+          <td><code>http://localhost:11434</code></td>
+        </tr>
+        <tr>
+          <td><code>OLLAMA_MODEL</code></td>
+          <td>Ollama model name</td>
+          <td><code>qwen3:1.7b</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Remote AI Providers</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Required</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>GROK_API_KEY</code></td>
+          <td>Grok (xAI) API key</td>
+          <td>For Grok usage</td>
+        </tr>
+        <tr>
+          <td><code>GEMINI_API_KEY</code></td>
+          <td>Google Gemini API key</td>
+          <td>For Gemini usage</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Server Ports</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>WEBHOOK_PORT</code></td>
+          <td>Webhook server port (also used for Fishy server and status endpoint)</td>
+          <td><code>3000</code></td>
+        </tr>
+        <tr>
+          <td><code>PORT</code></td>
+          <td>General server port</td>
+          <td><code>3000</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Directories</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>RONIN_EXTERNAL_AGENT_DIR</code></td>
+          <td>External agent directory</td>
+          <td><code>~/.ronin/agents</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Database Paths</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>FISHY_DATA_DIR</code></td>
+          <td>Fishy data directory</td>
+          <td><code>~/.ronin/data</code></td>
+        </tr>
+        <tr>
+          <td><code>FISHY_DB_PATH</code></td>
+          <td>Fishing database path</td>
+          <td><code>~/.ronin/data/fishing.db</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Config File Management</h2>
+
+    <p>
+      Ronin stores configuration in <code>~/.ronin/config.json</code>. Use the <code>ronin config</code> command to manage settings:
+    </p>
+
+    <h3>Setting Configuration</h3>
+    <pre><code># Set external agent directory
+ronin config --external-agent-dir ~/my-agents
+
+# Set API keys
+ronin config --grok-api-key sk-xxxxx
+ronin config --gemini-api-key AIxxxxx</code></pre>
+
+    <h3>Viewing Configuration</h3>
+    <pre><code>ronin config --show</code></pre>
+
+    <h3>Removing Configuration</h3>
+    <pre><code># Remove API keys
+ronin config --grok-api-key ""
+ronin config --gemini-api-key ""
+
+# Remove external agent directory
+ronin config --external-agent-dir ""</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">⚠️ Important</div>
+      <p>
+        Environment variables take precedence over config file settings. This allows you to override config file values when needed.
+      </p>
+    </div>
+
+    <h2>Agent Directories</h2>
+
+    <h3>Local vs External</h3>
+    <p>
+      Ronin supports two agent directories:
+    </p>
+
+    <ul>
+      <li><strong>Local directory:</strong> Default <code>./agents</code> in the project root. Can be overridden with <code>--agent-dir</code>.</li>
+      <li><strong>External directory:</strong> Default <code>~/.ronin/agents</code>. Can be set via <code>RONIN_EXTERNAL_AGENT_DIR</code> or <code>ronin config --external-agent-dir</code>.</li>
+    </ul>
+
+    <p>
+      When you run <code>ronin start</code>, agents from both directories are discovered and loaded. This allows you to:
+    </p>
+
+    <ul>
+      <li>Share agents across multiple projects</li>
+      <li>Keep agents in a centralized location</li>
+      <li>Separate agent code from project code</li>
+    </ul>
+
+    <h3>Setting External Agent Directory</h3>
+    <pre><code># Using config command (recommended)
+ronin config --external-agent-dir ~/my-agents
+
+# Or using environment variable
+export RONIN_EXTERNAL_AGENT_DIR=~/my-agents</code></pre>
+
+    <h2>Database Configuration</h2>
+
+    <h3>Default Database</h3>
+    <p>
+      By default, Ronin creates <code>ronin.db</code> in the project root. This SQLite database stores:
+    </p>
+
+    <ul>
+      <li>Agent memories (key-value storage)</li>
+      <li>Conversation history</li>
+      <li>Agent state</li>
+    </ul>
+
+    <h3>Custom Database Path</h3>
+    <p>
+      Specify a custom database path using the <code>--db-path</code> CLI option:
+    </p>
+
+    <pre><code>ronin start --db-path /path/to/custom.db
+ronin run my-agent --db-path /path/to/custom.db</code></pre>
+
+    <h2>Server Ports and Endpoints</h2>
+
+    <h3>Webhook Server</h3>
+    <p>
+      The webhook server runs on port 3000 by default. Change it using:
+    </p>
+
+    <pre><code>export WEBHOOK_PORT=3001
+ronin start</code></pre>
+
+    <h3>Available Endpoints</h3>
+    <ul>
+      <li><code>GET /health</code> - Health check endpoint</li>
+      <li><code>GET /status</code> - Runtime status</li>
+      <li><code>POST /webhook/&lt;agent-name&gt;</code> - Agent webhook endpoints</li>
+      <li><code>GET /fishy</code> - Fishy web interface (if Fishy agent is loaded)</li>
+      <li><code>GET /fishy/api/fish</code> - Fishy API endpoint</li>
+    </ul>
+
+    <h2>Running as a Daemon</h2>
+
+    <p>
+      For production deployments, you may want to run Ronin as a background service that starts automatically on system boot.
+    </p>
+
+    <h3>Linux (systemd)</h3>
+
+    <h4>1. Create Service File</h4>
+    <pre><code>sudo nano /etc/systemd/system/ronin.service</code></pre>
+
+    <h4>2. Add Service Configuration</h4>
+    <pre><code>[Unit]
+Description=Ronin AI Agent System
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/path/to/ronin
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="OLLAMA_URL=http://localhost:11434"
+Environment="OLLAMA_MODEL=qwen3:1.7b"
+Environment="GROK_API_KEY=your-grok-key"
+Environment="GEMINI_API_KEY=your-gemini-key"
+ExecStart=/usr/local/bin/bun run ronin start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+
+    <h4>3. Enable and Start</h4>
+    <pre><code>sudo systemctl daemon-reload
+sudo systemctl enable ronin
+sudo systemctl start ronin</code></pre>
+
+    <h4>4. Check Status</h4>
+    <pre><code>sudo systemctl status ronin
+sudo journalctl -u ronin -f  # View logs</code></pre>
+
+    <h3>macOS (launchd)</h3>
+
+    <h4>1. Create Plist File</h4>
+    <pre><code>nano ~/Library/LaunchAgents/com.ronin.agent.plist</code></pre>
+
+    <h4>2. Add Configuration</h4>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
+&lt;plist version="1.0"&gt;
+&lt;dict&gt;
+  &lt;key&gt;Label&lt;/key&gt;
+  &lt;string&gt;com.ronin.agent&lt;/string&gt;
+  &lt;key&gt;ProgramArguments&lt;/key&gt;
+  &lt;array&gt;
+    &lt;string&gt;/usr/local/bin/bun&lt;/string&gt;
+    &lt;string&gt;run&lt;/string&gt;
+    &lt;string&gt;ronin&lt;/string&gt;
+    &lt;string&gt;start&lt;/string&gt;
+  &lt;/array&gt;
+  &lt;key&gt;WorkingDirectory&lt;/key&gt;
+  &lt;string&gt;/path/to/ronin&lt;/string&gt;
+  &lt;key&gt;RunAtLoad&lt;/key&gt;
+  &lt;true/&gt;
+  &lt;key&gt;KeepAlive&lt;/key&gt;
+  &lt;true/&gt;
+  &lt;key&gt;StandardOutPath&lt;/key&gt;
+  &lt;string&gt;/tmp/ronin.log&lt;/string&gt;
+  &lt;key&gt;StandardErrorPath&lt;/key&gt;
+  &lt;string&gt;/tmp/ronin.error.log&lt;/string&gt;
+  &lt;key&gt;EnvironmentVariables&lt;/key&gt;
+  &lt;dict&gt;
+    &lt;key&gt;OLLAMA_URL&lt;/key&gt;
+    &lt;string&gt;http://localhost:11434&lt;/string&gt;
+    &lt;key&gt;OLLAMA_MODEL&lt;/key&gt;
+    &lt;string&gt;qwen3:1.7b&lt;/string&gt;
+    &lt;key&gt;GROK_API_KEY&lt;/key&gt;
+    &lt;string&gt;your-grok-key&lt;/string&gt;
+    &lt;key&gt;GEMINI_API_KEY&lt;/key&gt;
+    &lt;string&gt;your-gemini-key&lt;/string&gt;
+  &lt;/dict&gt;
+&lt;/dict&gt;
+&lt;/plist&gt;</code></pre>
+
+    <h4>3. Load and Start</h4>
+    <pre><code>launchctl load ~/Library/LaunchAgents/com.ronin.agent.plist
+launchctl start com.ronin.agent</code></pre>
+
+    <h3>Windows (NSSM)</h3>
+
+    <h4>1. Download NSSM</h4>
+    <p>
+      Download from <a href="https://nssm.cc/download">nssm.cc</a> and extract to a folder.
+    </p>
+
+    <h4>2. Create Service</h4>
+    <pre><code># Open Command Prompt or PowerShell as Administrator
+nssm install RoninAgent "C:\path\to\bun.exe" "run ronin start"
+
+# Set working directory
+nssm set RoninAgent AppDirectory "C:\path\to\ronin"
+
+# Set environment variables
+nssm set RoninAgent AppEnvironmentExtra "OLLAMA_URL=http://localhost:11434" "OLLAMA_MODEL=qwen3:1.7b" "GROK_API_KEY=your-grok-key" "GEMINI_API_KEY=your-gemini-key"
+
+# Set output files
+nssm set RoninAgent AppStdout "C:\path\to\ronin\ronin.log"
+nssm set RoninAgent AppStderr "C:\path\to\ronin\ronin.error.log"
+
+# Configure auto-restart
+nssm set RoninAgent AppRestartDelay 10000
+nssm set RoninAgent AppExit Default Restart</code></pre>
+
+    <h4>3. Start Service</h4>
+    <pre><code>nssm start RoninAgent</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">⚠️ Important</div>
+      <p>
+        When running as a daemon, environment variables from your shell profile are not automatically loaded. You must set them in the service configuration (systemd, launchd, or NSSM).
+      </p>
+    </div>
+
+    <h2>Verifying Configuration</h2>
+
+    <h3>Check Configuration</h3>
+    <pre><code>ronin config --show</code></pre>
+
+    <h3>Test Agent Execution</h3>
+    <pre><code>ronin run example-agent</code></pre>
+
+    <h3>Check Webhook Server</h3>
+    <pre><code>curl http://localhost:3000/health</code></pre>
+
+    <h3>List Routes</h3>
+    <pre><code>ronin listRoutes</code></pre>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Use Config File for Persistent Settings</h3>
+    <p>
+      Use <code>ronin config</code> for settings that should persist across sessions, such as API keys and directory paths.
+    </p>
+
+    <h3>2. Use Environment Variables for Overrides</h3>
+    <p>
+      Use environment variables when you need to temporarily override config file settings or when running in different environments.
+    </p>
+
+    <h3>3. Keep Sensitive Data Secure</h3>
+    <p>
+      API keys stored in the config file are readable by anyone with access to <code>~/.ronin/config.json</code>. Consider using environment variables or a secrets manager for production deployments.
+    </p>
+
+    <h3>4. Document Your Configuration</h3>
+    <p>
+      Keep a record of your configuration settings, especially when running as a daemon. This makes troubleshooting and migration easier.
+    </p>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand configuration, the next part covers Realm—Ronin's peer-to-peer communication system. You'll learn how to set up Realm and enable communication between Ronin instances.
+    </p>
+  </div>
+</body>
+</html>

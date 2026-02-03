@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 12: Agent Examples - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 12</div>
+    <h1 class="chapter-title">Agent Examples</h1>
+  </div>
+
+  <div class="content">
+    <h2>Simple Example Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Basic Agent</div>
+      <pre><code>import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class ExampleAgent extends BaseAgent {
+  static schedule = "0 */6 * * *"; // Every 6 hours
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("🤖 Example agent executing...");
+    
+    const response = await this.api.ai.complete("Say hello!");
+    console.log("AI Response:", response);
+    
+    await this.api.memory.store("lastGreeting", response);
+    console.log("✅ Example agent completed");
+  }
+}</code></pre>
+    </div>
+
+    <h2>Scheduled Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Scheduled Daily Backup</div>
+      <pre><code>export default class BackupAgent extends BaseAgent {
+  static schedule = "0 2 * * *"; // Daily at 2 AM
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Starting backup...");
+    
+    const timestamp = new Date().toISOString();
+    const backupFile = `backup-${timestamp}.tar.gz`;
+    
+    // Create backup using shell plugin
+    await this.api.shell?.exec("tar", ["-czf", backupFile, "./data"]);
+    
+    await this.api.memory.store("lastBackup", {
+      file: backupFile,
+      timestamp: Date.now()
+    });
+    
+    console.log("✅ Backup completed:", backupFile);
+  }
+}</code></pre>
+    </div>
+
+    <h2>File-Watching Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Log Monitor Agent</div>
+      <pre><code>export default class LogMonitorAgent extends BaseAgent {
+  static watch = ["logs/**/*.log"];
+
+  async onFileChange(path: string, event: "create" | "update" | "delete"): Promise&lt;void&gt; {
+    if (event === "update") {
+      const content = await this.api.files.read(path);
+      
+      // Check for errors
+      if (content.includes("ERROR") || content.includes("FATAL")) {
+        console.error(`⚠️ Error detected in ${path}`);
+        
+        // Send alert via Realm (if available)
+        await this.api.realm?.sendMessage("Admin", `Error in ${path}`);
+        
+        // Store in memory
+        await this.api.memory.addContext(`Error in ${path}: ${content}`, {
+          type: "error",
+          file: path
+        });
+      }
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h2>Webhook-Triggered Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Webhook Processing Agent</div>
+      <pre><code>export default class WebhookAgent extends BaseAgent {
+  static webhook = "/webhook/process";
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    const data = payload as { type: string; data: unknown };
+    
+    console.log(`Processing webhook: ${data.type}`);
+    
+    switch (data.type) {
+      case "user.created":
+        await this.handleUserCreated(data.data);
+        break;
+      case "order.placed":
+        await this.handleOrderPlaced(data.data);
+        break;
+      default:
+        console.warn(`Unknown webhook type: ${data.type}`);
+    }
+  }
+
+  private async handleUserCreated(data: unknown): Promise&lt;void&gt; {
+    // Process user creation
+    await this.api.memory.store("lastUserCreated", data);
+  }
+
+  private async handleOrderPlaced(data: unknown): Promise&lt;void&gt; {
+    // Process order
+    await this.api.memory.store("lastOrder", data);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Complex Agent with Multiple Features</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Git Auto-Commit Agent</div>
+      <pre><code>export default class GitAutoCommitAgent extends BaseAgent {
+  static schedule = "0 */4 * * *"; // Every 4 hours
+  static watch = ["src/**/*.ts", "src/**/*.tsx"];
+
+  async execute(): Promise&lt;void&gt; {
+    if (!this.api.git) {
+      console.warn("Git plugin not available");
+      return;
+    }
+
+    try {
+      const status = await this.api.git.status();
+      
+      if (!status.clean) {
+        console.log("Uncommitted changes detected");
+        
+        // Stage all changes
+        await this.api.git.add(["."]);
+        
+        // Generate commit message using AI
+        const commitMessage = await this.generateCommitMessage(status);
+        
+        // Commit
+        await this.api.git.commit(commitMessage);
+        
+        console.log(`✅ Committed: ${commitMessage}`);
+        
+        await this.api.memory.store("lastCommit", {
+          message: commitMessage,
+          timestamp: Date.now()
+        });
+      } else {
+        console.log("No changes to commit");
+      }
+    } catch (error) {
+      console.error("Git operation failed:", error);
+    }
+  }
+
+  async onFileChange(path: string): Promise&lt;void&gt; {
+    // Optionally trigger commit on file change
+    // await this.execute();
+  }
+
+  private async generateCommitMessage(status: unknown): Promise&lt;string&gt; {
+    const prompt = `Generate a concise git commit message for these changes: ${JSON.stringify(status)}`;
+    const response = await this.api.ai.complete(prompt);
+    return response.trim();
+  }
+}</code></pre>
+    </div>
+
+    <h2>Tool Calling Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">AI-Powered Tool Calling</div>
+      <pre><code>export default class ToolCallingAgent extends BaseAgent {
+  static schedule = "0 * * * *"; // Every hour
+
+  async execute(): Promise&lt;void&gt; {
+    const prompt = "Check git status and tell me what files have changed";
+    
+    const { toolCalls, message } = await this.api.ai.callTools(prompt, []);
+    
+    console.log("AI Response:", message.content);
+    
+    // Execute tool calls
+    for (const toolCall of toolCalls) {
+      const [pluginName, methodName] = toolCall.name.split("_");
+      
+      try {
+        const result = await this.api.plugins.call(
+          pluginName,
+          methodName,
+          ...(toolCall.arguments.args || [])
+        );
+        
+        console.log(`✅ ${toolCall.name}:`, result);
+      } catch (error) {
+        console.error(`❌ ${toolCall.name} failed:`, error);
+      }
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h2>Realm Communication Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Distributed Status Agent</div>
+      <pre><code>export default class StatusAgent extends BaseAgent {
+  static schedule = "*/5 * * * *"; // Every 5 minutes
+
+  constructor(api: AgentAPI) {
+    super(api);
+    
+    // Listen for status requests
+    this.api.events.on("realm:query:get-status", async () => {
+      return {
+        status: "online",
+        timestamp: Date.now(),
+        agents: await this.getAgentCount()
+      };
+    });
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    if (!this.api.realm) {
+      console.warn("Realm not initialized");
+      return;
+    }
+
+    // Broadcast status to all peers
+    await this.api.realm.beam(["Tyro", "Alice"], "status-update", {
+      status: "online",
+      timestamp: Date.now()
+    });
+  }
+
+  private async getAgentCount(): Promise&lt;number&gt; {
+    // Implementation to get agent count
+    return 5;
+  }
+}</code></pre>
+    </div>
+
+    <h2>LangChain Integration Agent</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Research Agent Using LangChain</div>
+      <pre><code>import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class ResearchAgent extends BaseAgent {
+  static schedule = "0 9 * * *"; // Daily at 9 AM
+
+  async execute(): Promise&lt;void&gt; {
+    if (!this.api.langchain) {
+      console.warn("LangChain plugin not available");
+      return;
+    }
+
+    // Build research graph
+    const researchGraph = await this.api.langchain.buildResearchGraph(this.api);
+    
+    // Run research workflow
+    const result = await researchGraph.invoke({
+      query: "Latest developments in AI and machine learning"
+    });
+
+    // Store results in memory
+    await this.api.memory.store("latest-research", result.synthesis);
+    
+    console.log("Research completed:", result.synthesis);
+  }
+}</code></pre>
+    </div>
+
+    <h2>Theme System Usage</h2>
+
+    <div class="code-example">
+      <div class="code-example-title">Agent with Themed UI</div>
+      <pre><code>import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+import { getThemeCSS, getAdobeCleanFontFaceCSS } from "../src/utils/theme.js";
+
+export default class ThemedAgent extends BaseAgent {
+  static webhook = "/themed-agent";
+
+  async onWebhook(): Promise&lt;void&gt; {
+    const html = `
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+  &lt;style&gt;
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Adobe Clean', 'Inter', sans-serif;
+      padding: var(--spacing-lg);
+    }
+    
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--spacing-md);
+    }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="card"&gt;
+    &lt;h1&gt;Themed Agent Interface&lt;/h1&gt;
+    &lt;p&gt;This uses Ronin's theme system for consistent styling.&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+    `;
+
+    return html;
+  }
+}</code></pre>
+    </div>
+
+    <h2>Best Practices Demonstrated</h2>
+
+    <ul>
+      <li><strong>Error Handling:</strong> All examples include try-catch blocks</li>
+      <li><strong>Logging:</strong> Important events are logged</li>
+      <li><strong>Memory Usage:</strong> State is persisted using the memory API</li>
+      <li><strong>Plugin Checks:</strong> Plugins are checked before use</li>
+      <li><strong>Focused Logic:</strong> Each agent has a clear, single purpose</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand how to write agents, the next part covers plugins—how to use them, create them, and extend Ronin's capabilities.
+    </p>
+  </div>
+</body>
+</html>

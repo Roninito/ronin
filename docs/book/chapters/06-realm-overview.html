@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 6: Realm Overview - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 6</div>
+    <h1 class="chapter-title">Realm Overview</h1>
+  </div>
+
+  <div class="content">
+    <h2>What is Realm?</h2>
+
+    <p>
+      Realm enables peer-to-peer communication between Ronin instances using WebSocket connections with WebRTC fallback for NAT traversal. It allows agents running on different machines to send messages, share data, and coordinate actions seamlessly.
+    </p>
+
+    <p>
+      Think of Realm as the network layer for Ronin—it provides the infrastructure for distributed agent systems where multiple Ronin instances can discover each other, establish connections, and exchange information.
+    </p>
+
+    <h2>Architecture</h2>
+
+    <p>
+      Realm consists of three main components:
+    </p>
+
+    <h3>1. Realm Discovery Server</h3>
+    <p>
+      A separate project located at <code>../realm-server/</code>, the Realm Discovery Server acts as a central registry for peer discovery. It:
+    </p>
+    <ul>
+      <li>Registers Ronin instances with their call signs and WebSocket addresses</li>
+      <li>Tracks online/offline status via periodic heartbeats</li>
+      <li>Provides peer discovery queries</li>
+      <li>Relays WebRTC signaling between peers</li>
+      <li>Stores peer registry in SQLite database</li>
+    </ul>
+
+    <h3>2. Realm Plugin</h3>
+    <p>
+      The Realm plugin (<code>plugins/realm.ts</code>) provides the Ronin-side implementation:
+    </p>
+    <ul>
+      <li>Connects to the Realm Discovery Server</li>
+      <li>Manages peer connections</li>
+      <li>Handles message sending and receiving</li>
+      <li>Provides WebRTC fallback for NAT traversal</li>
+      <li>Emits events for incoming messages and data</li>
+    </ul>
+
+    <h3>3. Agents Using Realm</h3>
+    <p>
+      Agents can use Realm through the <code>api.realm</code> interface:
+    </p>
+    <ul>
+      <li>Initialize Realm connection</li>
+      <li>Send messages to peers</li>
+      <li>Receive messages via events</li>
+      <li>Beam data (fire-and-forget)</li>
+      <li>Query peers (request-response)</li>
+    </ul>
+
+    <h2>Use Cases</h2>
+
+    <h3>Distributed Agent Systems</h3>
+    <p>
+      Run agents on multiple machines and have them communicate. For example, a monitoring agent on one machine can alert a notification agent on another machine.
+    </p>
+
+    <h3>Data Sharing</h3>
+    <p>
+      Share data between Ronin instances. An agent processing data on one machine can send results to another machine for further processing or storage.
+    </p>
+
+    <h3>Coordination</h3>
+    <p>
+      Coordinate actions across multiple Ronin instances. Agents can query each other's status, request actions, or synchronize state.
+    </p>
+
+    <h3>Voice Messaging</h3>
+    <p>
+      The voice messaging agent demonstrates using Realm for voice-activated messaging between Ronin instances. Users can send voice commands that are relayed to other instances.
+    </p>
+
+    <h2>WebSocket vs WebRTC</h2>
+
+    <h3>WebSocket (Primary)</h3>
+    <p>
+      Realm attempts direct WebSocket connections first using peer's registered address. This works well when:
+    </p>
+    <ul>
+      <li>Peers are on the same network</li>
+      <li>No NAT/firewall restrictions</li>
+      <li>Direct IP access is available</li>
+    </ul>
+
+    <h3>WebRTC (Fallback)</h3>
+    <p>
+      If WebSocket fails due to NAT or firewall restrictions, Realm automatically falls back to WebRTC. WebRTC:
+    </p>
+    <ul>
+      <li>Uses STUN servers for NAT traversal</li>
+      <li>Can use TURN servers for strict NATs</li>
+      <li>Provides encrypted connections</li>
+      <li>Works across different networks</li>
+    </ul>
+
+    <h3>Connection Strategy</h3>
+    <ol>
+      <li><strong>WebSocket First:</strong> Attempts direct WebSocket connection using peer's registered address</li>
+      <li><strong>WebRTC Fallback:</strong> If WebSocket fails (NAT/firewall), automatically falls back to WebRTC</li>
+      <li><strong>Message Queuing:</strong> Messages are queued if peer is offline and sent when connection is established</li>
+    </ol>
+
+    <h2>Key Concepts</h2>
+
+    <h3>Call Signs</h3>
+    <p>
+      Each Ronin instance registers with a unique call sign (e.g., "Leerie", "Tyro"). Call signs are used to identify and address peers. Choose call signs that are:
+    </p>
+    <ul>
+      <li>Unique within your Realm network</li>
+      <li>Easy to remember and type</li>
+      <li>Descriptive of the instance's purpose (optional)</li>
+    </ul>
+
+    <h3>Discovery</h3>
+    <p>
+      Peers discover each other through the Realm Discovery Server. When you want to connect to a peer, you query the server for their information, then establish a direct connection.
+    </p>
+
+    <h3>Messages</h3>
+    <p>
+      Text messages are the primary communication method. They're simple, reliable, and work well for most use cases.
+    </p>
+
+    <h3>Beams</h3>
+    <p>
+      Beams are fire-and-forget data transmissions. Use them when you don't need a response, such as broadcasting status updates or sending sensor data.
+    </p>
+
+    <h3>Queries</h3>
+    <p>
+      Queries are request-response operations. Use them when you need information back from a peer, such as querying status or requesting data.
+    </p>
+
+    <h2>Security Considerations</h2>
+
+    <ul>
+      <li><strong>Token Authentication:</strong> Use token-based authentication for Realm registration</li>
+      <li><strong>WebRTC Encryption:</strong> WebRTC connections are encrypted by default</li>
+      <li><strong>Rate Limiting:</strong> Consider rate limiting on Realm server</li>
+      <li><strong>Peer Validation:</strong> Validate peer call signs before accepting connections</li>
+      <li><strong>Network Security:</strong> Be aware that Realm exposes network endpoints</li>
+    </ul>
+
+    <h2>Limitations</h2>
+
+    <ul>
+      <li><strong>Browser vs Node.js:</strong> WebRTC APIs may not be available in Bun/Node.js environments</li>
+      <li><strong>STUN/TURN:</strong> May require configuration for strict NATs</li>
+      <li><strong>Discovery Server:</strong> Requires a running Realm Discovery Server</li>
+      <li><strong>Network Requirements:</strong> Peers must be able to reach the discovery server</li>
+    </ul>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      The next chapter covers setting up Realm, including installing and starting the Realm Discovery Server, connecting Ronin to Realm, and configuring options.
+    </p>
+  </div>
+</body>
+</html>

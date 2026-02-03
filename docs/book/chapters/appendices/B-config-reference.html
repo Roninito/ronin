@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix B: Configuration Reference - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Appendix B</div>
+    <h1 class="chapter-title">Configuration Reference</h1>
+  </div>
+
+  <div class="content">
+    <h2>Environment Variables</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>OLLAMA_URL</code></td>
+          <td>Ollama API URL</td>
+          <td><code>http://localhost:11434</code></td>
+        </tr>
+        <tr>
+          <td><code>OLLAMA_MODEL</code></td>
+          <td>Ollama model name</td>
+          <td><code>qwen3:1.7b</code></td>
+        </tr>
+        <tr>
+          <td><code>GROK_API_KEY</code></td>
+          <td>Grok API key</td>
+          <td>-</td>
+        </tr>
+        <tr>
+          <td><code>GEMINI_API_KEY</code></td>
+          <td>Gemini API key</td>
+          <td>-</td>
+        </tr>
+        <tr>
+          <td><code>WEBHOOK_PORT</code></td>
+          <td>Webhook server port</td>
+          <td><code>3000</code></td>
+        </tr>
+        <tr>
+          <td><code>PORT</code></td>
+          <td>General server port</td>
+          <td><code>3000</code></td>
+        </tr>
+        <tr>
+          <td><code>RONIN_EXTERNAL_AGENT_DIR</code></td>
+          <td>External agent directory</td>
+          <td><code>~/.ronin/agents</code></td>
+        </tr>
+        <tr>
+          <td><code>FISHY_DATA_DIR</code></td>
+          <td>Fishy data directory</td>
+          <td><code>~/.ronin/data</code></td>
+        </tr>
+        <tr>
+          <td><code>FISHY_DB_PATH</code></td>
+          <td>Fishing database path</td>
+          <td><code>~/.ronin/data/fishing.db</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Config File Format</h2>
+
+    <p>
+      Configuration is stored in <code>~/.ronin/config.json</code>:
+    </p>
+
+    <pre><code>{
+  "agentDir": "./agents",
+  "externalAgentDir": "~/.ronin/agents",
+  "grokApiKey": "sk-xxxxx",
+  "geminiApiKey": "AIxxxxx"
+}</code></pre>
+
+    <h2>CLI Options</h2>
+
+    <p>
+      See Chapter 4 (CLI Reference) for complete CLI options documentation.
+    </p>
+
+    <h2>Default Values</h2>
+
+    <p>
+      All configuration options have sensible defaults. See the environment variables table above for default values.
+    </p>
+  </div>
+</body>
+</html>

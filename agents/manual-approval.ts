@@ -119,7 +119,7 @@ export default class ManualApprovalAgent extends BaseAgent {
         id: targetPlanId,
         approvedAt: Date.now(),
         approvedBy: "manual",
-      });
+      }, "manual-approval");
 
       console.log(`[manual-approval] Plan approved: ${targetPlanId}`);
       
@@ -165,7 +165,7 @@ export default class ManualApprovalAgent extends BaseAgent {
         id: targetPlanId,
         reason: reason || "Rejected manually",
         rejectedAt: Date.now(),
-      });
+      }, "manual-approval");
 
       console.log(`[manual-approval] Plan rejected: ${targetPlanId}`);
       
@@ -211,7 +211,7 @@ export default class ManualApprovalAgent extends BaseAgent {
         id: targetPlanId,
         reason: reason || "Blocked manually",
         blockedAt: Date.now(),
-      });
+      }, "manual-approval");
 
       console.log(`[manual-approval] Plan blocked: ${targetPlanId}`);
       

@@ -68,7 +68,7 @@ export default class AgentCreatorOrchestrator extends BaseAgent {
             taskId,
             path: agentPath,
             success: true,
-          });
+          }, "agent-creator-orchestrator");
         } else {
           console.error(`❌ Agent creation failed for ${taskId}`);
           if (result.errors) {
@@ -79,7 +79,7 @@ export default class AgentCreatorOrchestrator extends BaseAgent {
             taskId,
             success: false,
             errors: result.errors,
-          });
+          }, "agent-creator-orchestrator");
         }
       })
       .catch((err: Error) => {
@@ -93,7 +93,7 @@ export default class AgentCreatorOrchestrator extends BaseAgent {
           taskId,
           success: false,
           error: err.message,
-        });
+        }, "agent-creator-orchestrator");
       })
       .finally(() => {
         this.activeCreations.delete(taskId);

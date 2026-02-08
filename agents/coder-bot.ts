@@ -157,7 +157,7 @@ export default class CoderBotAgent extends BaseAgent {
       status: "starting",
       message: "Initializing CLI execution...",
       timestamp: Date.now(),
-    });
+    }, "coder-bot");
 
     try {
       // Load config
@@ -192,7 +192,7 @@ export default class CoderBotAgent extends BaseAgent {
         cli,
         workspace,
         timestamp: Date.now(),
-      });
+      }, "coder-bot");
 
       // Execute CLI
       const cliOptions = config.cliOptions?.[cli] || {};
@@ -218,7 +218,7 @@ export default class CoderBotAgent extends BaseAgent {
           executedBy: cli,
           workspace,
           completedAt: Date.now(),
-        });
+        }, "coder-bot");
 
         console.log(`[coder-bot] ✅ PlanCompleted: ${planId}`);
       } else {
@@ -240,7 +240,7 @@ export default class CoderBotAgent extends BaseAgent {
         error: errorMessage,
         failedAt: Date.now(),
         failedBy: "coder-bot",
-      });
+      }, "coder-bot");
 
       console.error(`[coder-bot] ❌ PlanFailed: ${planId}`, errorMessage);
     }

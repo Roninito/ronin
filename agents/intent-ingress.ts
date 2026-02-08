@@ -106,7 +106,7 @@ export default class IntentIngressAgent extends BaseAgent {
     };
 
     // Emit the event
-    this.api.events.emit("PlanProposed", payload);
+    this.api.events.emit("PlanProposed", payload, "intent-ingress");
     console.log(`[intent-ingress] Emitted PlanProposed: ${id}`);
 
     // Send acknowledgment

@@ -153,7 +153,7 @@ export default class TodoAgent extends BaseAgent {
         cardId: card.id,
         title: payload.title,
         column: "To Do",
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanProposed:", error);
     }
@@ -192,7 +192,7 @@ export default class TodoAgent extends BaseAgent {
         cardId: card.id,
         from: "To Do",
         to: "Doing",
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanApproved:", error);
     }
@@ -238,7 +238,7 @@ export default class TodoAgent extends BaseAgent {
         from: "Doing",
         to: "Done",
         result: payload.result,
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanCompleted:", error);
     }
@@ -277,7 +277,7 @@ export default class TodoAgent extends BaseAgent {
         planId: payload.id,
         cardId: card.id,
         reason: payload.reason,
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanRejected:", error);
     }
@@ -314,7 +314,7 @@ export default class TodoAgent extends BaseAgent {
         planId: payload.id,
         cardId: card.id,
         reason: payload.reason,
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanBlocked:", error);
     }
@@ -365,7 +365,7 @@ export default class TodoAgent extends BaseAgent {
         planId: payload.id,
         cardId: card.id,
         error: payload.error,
-      });
+      }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanFailed:", error);
     }

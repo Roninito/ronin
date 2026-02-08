@@ -6,8 +6,21 @@ export class EventsAPI {
 
   /**
    * Emit an event
+   * @param event Event type name
+   * @param data Event payload data
+   * @param source Source agent name (REQUIRED - e.g., 'todo', 'coder-bot')
+   * @throws Error if source is not provided
    */
-  emit(event: string, data: unknown): void {
+  emit(event: string, data: unknown, source: string): void {
+    // STRICT: source parameter is REQUIRED
+    if (!source || typeof source !== 'string') {
+      throw new Error(
+        `EventsAPI.emit() requires source parameter. ` +
+        `Usage: emit("${event}", data, "agent-name")`
+      );
+    }
+
+    // Notify event handlers
     const eventHandlers = this.handlers.get(event);
     if (eventHandlers) {
       for (const handler of eventHandlers) {
@@ -17,6 +30,34 @@ export class EventsAPI {
           console.error(`Error in event handler for ${event}:`, error);
         }
       }
+    }
+
+    // Capture for event monitor (non-blocking)
+    this.captureEvent(event, data, source).catch((err) => {
+      console.error('[EventsAPI] Failed to capture event:', err);
+    });
+  }
+
+  /**
+   * Capture event for event monitor
+   * @private
+   */
+  private async captureEvent(
+    event: string,
+    data: unknown,
+    source: string
+  ): Promise<void> {
+    try {
+      // Beam to event-monitor agent
+      // This is fire-and-forget, errors are logged but don't block
+      this.beam('event-monitor', 'capture', {
+        timestamp: Date.now(),
+        type: event,
+        source,
+        payload: data,
+      });
+    } catch {
+      // Silently fail - event monitor is optional
     }
   }
 
@@ -63,7 +104,17 @@ export class EventsAPI {
   beam(targets: string | string[], eventType: string, payload: unknown): void {
     const targetArray = Array.isArray(targets) ? targets : [targets];
     targetArray.forEach((target) => {
-      this.emit(`target:${target}:${eventType}`, payload);
+      // Note: beam uses internal routing, source is not required here
+      const eventHandlers = this.handlers.get(`target:${target}:${eventType}`);
+      if (eventHandlers) {
+        for (const handler of eventHandlers) {
+          try {
+            handler(payload);
+          } catch (error) {
+            console.error(`Error in beam handler for ${target}:${eventType}:`, error);
+          }
+        }
+      }
     });
   }
 
@@ -119,7 +170,16 @@ export class EventsAPI {
    * @param error Error message (if any)
    */
   reply(requestId: string, data: unknown, error: string | null = null): void {
-    this.emit(`response:${requestId}`, { data, error, requestId });
+    // Note: reply uses internal routing, source is not required here
+    const eventHandlers = this.handlers.get(`response:${requestId}`);
+    if (eventHandlers) {
+      for (const handler of eventHandlers) {
+        try {
+          handler({ data, error, requestId });
+        } catch (err) {
+          console.error(`Error in reply handler for ${requestId}:`, err);
+        }
+      }
+    }
   }
 }
-

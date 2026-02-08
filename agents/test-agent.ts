@@ -70,7 +70,7 @@ export default class TestAgent extends BaseAgent {
       console.log("   Event received:", data);
       eventReceived = true;
     });
-    this.api.events.emit("test_event", { message: "Hello from event!" });
+    this.api.events.emit("test_event", { message: "Hello from event!" }, "test-agent");
     console.log("   Event emitted and received:", eventReceived);
     console.log("   ✅ Events test passed\n");
 

@@ -33,13 +33,15 @@ export default class IntentIngressAgent extends BaseAgent {
    */
   private async initializeBot(): Promise<void> {
     try {
-      // Get bot token from environment or memory
-      const botToken = process.env.TELEGRAM_BOT_TOKEN || 
+      // Get bot token from config, environment, or memory (in that order)
+      const configTelegram = this.api.config.getTelegram();
+      const botToken = configTelegram.botToken || 
+        process.env.TELEGRAM_BOT_TOKEN || 
         await this.api.memory.retrieve("telegram_bot_token");
       
       if (!botToken || typeof botToken !== "string") {
         console.log("[intent-ingress] No Telegram bot token configured");
-        console.log("[intent-ingress] Set TELEGRAM_BOT_TOKEN or use memory store");
+        console.log("[intent-ingress] Set telegram.botToken in config, TELEGRAM_BOT_TOKEN env var, or use memory store");
         return;
       }
 

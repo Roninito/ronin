@@ -40,9 +40,11 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
       return;
     }
 
-    // Get Telegram bot token from memory or env
-    const token = (process.env.TELEGRAM_BOT_TOKEN ||
-      (await this.api.memory.retrieve("telegram_bot_token"))) as string | undefined;
+    // Get Telegram bot token from centralized config, env, or memory
+    const configTelegram = this.api.config.getTelegram();
+    const token = configTelegram.botToken ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      (await this.api.memory.retrieve("telegram_bot_token")) as string | undefined;
 
     if (!token) {
       console.error("[telegram-subscription] Telegram bot token not configured");

@@ -71,15 +71,21 @@ export default class RSSToTelegramAgent extends BaseAgent {
   }
 
   /**
-   * Get Telegram bot token from config, memory, or env (in that order)
+   * Get Telegram bot token from centralized config, env, or memory (in that order)
    */
   private async getBotToken(): Promise<string | undefined> {
-    // Check environment variable first (highest priority)
+    // Check centralized config service first
+    const configTelegram = this.api.config.getTelegram();
+    if (configTelegram.botToken) {
+      return configTelegram.botToken;
+    }
+
+    // Check environment variable
     if (process.env.TELEGRAM_BOT_TOKEN) {
       return process.env.TELEGRAM_BOT_TOKEN;
     }
 
-    // Check config file
+    // Legacy: Check old config format for backward compatibility
     try {
       const config = await this.loadConfig();
       if (config.telegramBotToken && typeof config.telegramBotToken === "string") {
@@ -94,15 +100,21 @@ export default class RSSToTelegramAgent extends BaseAgent {
   }
 
   /**
-   * Get Telegram chat ID from config, memory, or env (in that order)
+   * Get Telegram chat ID from centralized config, env, or memory (in that order)
    */
   private async getChatId(): Promise<string | number | undefined> {
-    // Check environment variable first (highest priority)
+    // Check centralized config service first
+    const configTelegram = this.api.config.getTelegram();
+    if (configTelegram.chatId) {
+      return configTelegram.chatId;
+    }
+
+    // Check environment variable
     if (process.env.TELEGRAM_CHAT_ID) {
       return process.env.TELEGRAM_CHAT_ID;
     }
 
-    // Check config file
+    // Legacy: Check old config format for backward compatibility
     try {
       const config = await this.loadConfig();
       if (config.telegramChatId !== undefined) {

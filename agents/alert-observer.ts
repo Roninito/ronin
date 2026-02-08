@@ -23,9 +23,13 @@ export default class AlertObserverAgent extends BaseAgent {
    */
   private async initializeBot(): Promise<void> {
     try {
-      const botToken = process.env.TELEGRAM_BOT_TOKEN || 
+      // Get config from centralized config service first, then fallback to env/memory
+      const configTelegram = this.api.config.getTelegram();
+      const botToken = configTelegram.botToken || 
+        process.env.TELEGRAM_BOT_TOKEN || 
         await this.api.memory.retrieve("telegram_bot_token");
-      const chatId = process.env.TELEGRAM_CHAT_ID ||
+      const chatId = configTelegram.chatId ||
+        process.env.TELEGRAM_CHAT_ID ||
         await this.api.memory.retrieve("telegram_chat_id");
       
       if (!botToken || !chatId) {

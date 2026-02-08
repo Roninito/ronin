@@ -37,12 +37,14 @@ export default class DiscordBridgeAgent extends BaseAgent {
       return;
     }
 
-    // Get Discord bot token from memory or env
-    const token = (process.env.DISCORD_BOT_TOKEN ||
-      (await this.api.memory.retrieve("discord_bot_token"))) as string | undefined;
+    // Get Discord bot token from centralized config, env, or memory
+    const configDiscord = this.api.config.getDiscord();
+    const token = configDiscord.botToken ||
+      process.env.DISCORD_BOT_TOKEN ||
+      (await this.api.memory.retrieve("discord_bot_token")) as string | undefined;
 
     if (!token) {
-      console.error("[discord-bridge] Discord bot token not configured. Set DISCORD_BOT_TOKEN env var or store in memory as 'discord_bot_token'");
+      console.error("[discord-bridge] Discord bot token not configured. Set discord.botToken in config, DISCORD_BOT_TOKEN env var, or store in memory as 'discord_bot_token'");
       return;
     }
 
@@ -198,9 +200,11 @@ This bot is part of the Ronin agent system.
       return;
     }
 
-    // Get Telegram chat ID
-    const telegramChatId = (process.env.TELEGRAM_CHAT_ID ||
-      (await this.api.memory.retrieve("telegram_chat_id"))) as string | number | undefined;
+    // Get Telegram chat ID from centralized config, env, or memory
+    const configTelegram = this.api.config.getTelegram();
+    const telegramChatId = configTelegram.chatId ||
+      process.env.TELEGRAM_CHAT_ID ||
+      (await this.api.memory.retrieve("telegram_chat_id")) as string | number | undefined;
 
     if (!telegramChatId) {
       try {

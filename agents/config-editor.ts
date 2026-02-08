@@ -681,6 +681,24 @@ export default class ConfigEditorAgent extends BaseAgent {
   </div>
 
   <script>
+    // Theme configuration (injected from server)
+    const roninTheme = {
+      colors: {
+        background: '#1a1a1a',
+        backgroundSecondary: '#242424',
+        backgroundTertiary: '#2d2d2d',
+        textPrimary: '#e0e0e0',
+        textSecondary: '#a0a0a0',
+        textTertiary: '#707070',
+        accent: '#4a9eff',
+        accentHover: '#3a8eef',
+        border: '#3a3a3a'
+      },
+      borderRadius: {
+        md: '6px'
+      }
+    };
+    
     let currentConfig = {};
     let currentTab = 'form';
 

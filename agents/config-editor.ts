@@ -690,7 +690,7 @@ export default class ConfigEditorAgent extends BaseAgent {
         const res = await fetch('/config/api/current');
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
-          throw new Error(errorData.error || `HTTP ${res.status}`);
+          throw new Error(errorData.error || 'HTTP ' + res.status);
         }
         currentConfig = await res.json();
         if (!currentConfig || Object.keys(currentConfig).length === 0) {

@@ -1127,6 +1127,63 @@ export default class TodoAgent extends BaseAgent {
       color: ${roninTheme.colors.warning};
     }
 
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .badge {
+      font-size: 0.625rem;
+      font-weight: 600;
+      padding: 0.125rem 0.375rem;
+      border-radius: ${roninTheme.borderRadius.sm};
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .badge-build {
+      background: #28a745;
+      color: white;
+    }
+
+    .badge-auto {
+      background: #fd7e14;
+      color: white;
+    }
+
+    .badge-cli {
+      font-weight: 700;
+    }
+
+    .badge-qwen {
+      background: #dc3545;
+      color: white;
+    }
+
+    .badge-cursor {
+      background: #007bff;
+      color: white;
+    }
+
+    .badge-opencode {
+      background: #6f42c1;
+      color: white;
+    }
+
+    .badge-gemini {
+      background: #20c997;
+      color: white;
+    }
+
+    .badge-app {
+      background: ${roninTheme.colors.backgroundTertiary};
+      color: ${roninTheme.colors.textSecondary};
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.625rem;
+    }
+
     .add-card-column-btn {
       width: 100%;
       padding: 0.5rem;
@@ -1578,9 +1635,21 @@ export default class TodoAgent extends BaseAgent {
     }
 
     const hasDeps = card.dependencies && card.dependencies.length > 0;
+    
+    // Extract special tags for badges
+    const hasBuild = labels.includes('build');
+    const hasAuto = labels.includes('auto');
+    const cliTag = labels.find((l: string) => ['qwen', 'cursor', 'opencode', 'gemini'].includes(l));
+    const appTag = labels.find((l: string) => l.startsWith('app-'));
 
     return `
       <div class="card" draggable="true" data-card-id="${card.id}">
+        <div class="card-badges">
+          ${hasBuild ? '<span class="badge badge-build" title="Auto-execute on approval">BUILD</span>' : ''}
+          ${hasAuto ? '<span class="badge badge-auto" title="Execute immediately">AUTO</span>' : ''}
+          ${cliTag ? `<span class="badge badge-cli badge-${cliTag}">${cliTag}</span>` : ''}
+          ${appTag ? `<span class="badge badge-app">${appTag.replace('app-', '')}</span>` : ''}
+        </div>
         <div class="card-title">${this.escapeHtml(card.title)}</div>
         <div class="card-meta">
           <span class="priority priority-${card.priority}" title="${card.priority} priority"></span>

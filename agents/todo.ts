@@ -49,11 +49,358 @@ interface CardWithDependencies extends Card {
  * Provides /todo UI and /api/todo endpoints for task management
  */
 export default class TodoAgent extends BaseAgent {
+  private defaultBoardId: string | null = null;
+
   constructor(api: AgentAPI) {
     super(api);
     this.initializeDatabase();
     this.registerRoutes();
+    this.registerEventHandlers();
     console.log("✅ Todo agent ready. Kanban boards available at /todo");
+    console.log("📋 Listening for plan events...");
+  }
+
+  /**
+   * Register event handlers for plan workflow
+   * This agent is the state authority for tasks
+   */
+  private registerEventHandlers(): void {
+    // PlanProposed → Create task in "To Do"
+    this.api.events.on("PlanProposed", (data: unknown) => {
+      const payload = data as {
+        id: string;
+        title: string;
+        description: string;
+        tags: string[];
+        source: string;
+        proposedAt: number;
+      };
+      this.handlePlanProposed(payload);
+    });
+
+    // PlanApproved → Move to "Doing"
+    this.api.events.on("PlanApproved", (data: unknown) => {
+      const payload = data as { id: string; approvedAt?: number };
+      this.handlePlanApproved(payload);
+    });
+
+    // PlanCompleted → Move to "Done"
+    this.api.events.on("PlanCompleted", (data: unknown) => {
+      const payload = data as { id: string; result?: string; completedAt?: number };
+      this.handlePlanCompleted(payload);
+    });
+
+    // PlanRejected → Archive/Delete
+    this.api.events.on("PlanRejected", (data: unknown) => {
+      const payload = data as { id: string; reason?: string; rejectedAt?: number };
+      this.handlePlanRejected(payload);
+    });
+
+    // PlanBlocked → Add blocked label
+    this.api.events.on("PlanBlocked", (data: unknown) => {
+      const payload = data as { id: string; reason?: string; blockedAt?: number };
+      this.handlePlanBlocked(payload);
+    });
+
+    console.log("[todo] Event handlers registered");
+  }
+
+  /**
+   * Handle PlanProposed: Create task in "To Do"
+   */
+  private async handlePlanProposed(payload: {
+    id: string;
+    title: string;
+    description: string;
+    tags: string[];
+    source: string;
+    proposedAt: number;
+  }): Promise<void> {
+    try {
+      // Ensure default board exists
+      const board = await this.ensureDefaultBoard();
+      
+      // Get "To Do" column
+      const todoColumn = await this.getColumnByName(board.id, "To Do");
+      if (!todoColumn) {
+        console.error("[todo] To Do column not found");
+        return;
+      }
+
+      // Create card with plan ID as external reference
+      const card = await this.createCard(
+        todoColumn.id,
+        board.id,
+        payload.title,
+        payload.description,
+        "medium",
+        [...payload.tags, "plan", payload.source],
+        undefined,
+        payload.id // Store plan ID for reference
+      );
+
+      console.log(`[todo] PlanProposed: Created card ${card.id} for plan ${payload.id}`);
+      
+      // Emit event for observers
+      this.api.events.emit("TaskCreated", {
+        planId: payload.id,
+        cardId: card.id,
+        title: payload.title,
+        column: "To Do",
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanProposed:", error);
+    }
+  }
+
+  /**
+   * Handle PlanApproved: Move to "Doing"
+   */
+  private async handlePlanApproved(payload: {
+    id: string;
+    approvedAt?: number;
+  }): Promise<void> {
+    try {
+      // Find card by plan ID (stored in description or we need to track mapping)
+      const card = await this.findCardByPlanId(payload.id);
+      if (!card) {
+        console.error(`[todo] PlanApproved: Card not found for plan ${payload.id}`);
+        return;
+      }
+
+      // Get "Doing" column
+      const doingColumn = await this.getColumnByName(card.board_id, "Doing");
+      if (!doingColumn) {
+        console.error("[todo] Doing column not found");
+        return;
+      }
+
+      // Move card
+      await this.moveCardToColumn(card.id, doingColumn.id);
+      
+      console.log(`[todo] PlanApproved: Moved card ${card.id} to Doing`);
+      
+      // Emit event
+      this.api.events.emit("TaskMoved", {
+        planId: payload.id,
+        cardId: card.id,
+        from: "To Do",
+        to: "Doing",
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanApproved:", error);
+    }
+  }
+
+  /**
+   * Handle PlanCompleted: Move to "Done"
+   */
+  private async handlePlanCompleted(payload: {
+    id: string;
+    result?: string;
+    completedAt?: number;
+  }): Promise<void> {
+    try {
+      const card = await this.findCardByPlanId(payload.id);
+      if (!card) {
+        console.error(`[todo] PlanCompleted: Card not found for plan ${payload.id}`);
+        return;
+      }
+
+      // Get "Done" column
+      const doneColumn = await this.getColumnByName(card.board_id, "Done");
+      if (!doneColumn) {
+        console.error("[todo] Done column not found");
+        return;
+      }
+
+      // Move card
+      await this.moveCardToColumn(card.id, doneColumn.id);
+      
+      // Update description with result
+      if (payload.result) {
+        const newDescription = `${card.description || ""}\n\n---\n✅ Completed:\n${payload.result}`;
+        await this.updateCard(card.id, { description: newDescription });
+      }
+      
+      console.log(`[todo] PlanCompleted: Moved card ${card.id} to Done`);
+      
+      // Emit event
+      this.api.events.emit("TaskMoved", {
+        planId: payload.id,
+        cardId: card.id,
+        from: "Doing",
+        to: "Done",
+        result: payload.result,
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanCompleted:", error);
+    }
+  }
+
+  /**
+   * Handle PlanRejected: Delete/archive
+   */
+  private async handlePlanRejected(payload: {
+    id: string;
+    reason?: string;
+    rejectedAt?: number;
+  }): Promise<void> {
+    try {
+      const card = await this.findCardByPlanId(payload.id);
+      if (!card) {
+        console.error(`[todo] PlanRejected: Card not found for plan ${payload.id}`);
+        return;
+      }
+
+      // Add rejected label and move to archive or delete
+      const labels = JSON.parse(card.labels || "[]");
+      labels.push("rejected");
+      if (payload.reason) {
+        labels.push("reason:" + payload.reason.substring(0, 20));
+      }
+      
+      await this.updateCard(card.id, { labels: JSON.stringify(labels) });
+      
+      // Optionally delete or move to archive column
+      // For now, we just label it
+      console.log(`[todo] PlanRejected: Marked card ${card.id} as rejected`);
+      
+      // Emit event
+      this.api.events.emit("TaskRejected", {
+        planId: payload.id,
+        cardId: card.id,
+        reason: payload.reason,
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanRejected:", error);
+    }
+  }
+
+  /**
+   * Handle PlanBlocked: Add blocked label
+   */
+  private async handlePlanBlocked(payload: {
+    id: string;
+    reason?: string;
+    blockedAt?: number;
+  }): Promise<void> {
+    try {
+      const card = await this.findCardByPlanId(payload.id);
+      if (!card) {
+        console.error(`[todo] PlanBlocked: Card not found for plan ${payload.id}`);
+        return;
+      }
+
+      // Add blocked label
+      const labels = JSON.parse(card.labels || "[]");
+      labels.push("blocked");
+      if (payload.reason) {
+        labels.push("blocked:" + payload.reason.substring(0, 20));
+      }
+      
+      await this.updateCard(card.id, { labels: JSON.stringify(labels) });
+      
+      console.log(`[todo] PlanBlocked: Marked card ${card.id} as blocked`);
+      
+      // Emit event
+      this.api.events.emit("TaskBlocked", {
+        planId: payload.id,
+        cardId: card.id,
+        reason: payload.reason,
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanBlocked:", error);
+    }
+  }
+
+  /**
+   * Ensure default board exists (for plan workflow)
+   */
+  private async ensureDefaultBoard(): Promise<Board> {
+    if (this.defaultBoardId) {
+      const board = await this.getBoard(this.defaultBoardId);
+      if (board) return board;
+    }
+
+    // Check if "Plans" board exists
+    const boards = await this.getBoards();
+    const plansBoard = boards.find(b => b.name === "Plans");
+    
+    if (plansBoard) {
+      this.defaultBoardId = plansBoard.id;
+      return plansBoard;
+    }
+
+    // Create new board
+    const newBoard = await this.createBoard("Plans", "Auto-generated board for plan workflow");
+    this.defaultBoardId = newBoard.id;
+    return newBoard;
+  }
+
+  /**
+   * Get column by name within a board
+   */
+  private async getColumnByName(boardId: string, name: string): Promise<Column | null> {
+    const columns = await this.getColumns(boardId);
+    return columns.find(c => c.name === name) || null;
+  }
+
+  /**
+   * Find card by plan ID (stored in card metadata or description)
+   */
+  private async findCardByPlanId(planId: string): Promise<Card | null> {
+    // Search for card with plan ID in description
+    const cards = await this.api.db.query<Card>(
+      `SELECT * FROM kanban_cards WHERE description LIKE ?`,
+      [`%${planId}%`]
+    );
+    return cards[0] || null;
+  }
+
+  /**
+   * Move card to a different column
+   */
+  private async moveCardToColumn(cardId: string, columnId: string): Promise<void> {
+    const now = Date.now();
+    await this.api.db.execute(
+      `UPDATE kanban_cards SET column_id = ?, updated_at = ? WHERE id = ?`,
+      [columnId, now, cardId]
+    );
+  }
+
+  /**
+   * Update card fields
+   */
+  private async updateCard(cardId: string, updates: Partial<Card>): Promise<void> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    
+    if (updates.title !== undefined) {
+      sets.push("title = ?");
+      values.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      sets.push("description = ?");
+      values.push(updates.description);
+    }
+    if (updates.labels !== undefined) {
+      sets.push("labels = ?");
+      values.push(updates.labels);
+    }
+    if (updates.column_id !== undefined) {
+      sets.push("column_id = ?");
+      values.push(updates.column_id);
+    }
+    
+    sets.push("updated_at = ?");
+    values.push(Date.now());
+    values.push(cardId);
+
+    await this.api.db.execute(
+      `UPDATE kanban_cards SET ${sets.join(", ")} WHERE id = ?`,
+      values
+    );
   }
 
   /**
@@ -282,10 +629,17 @@ export default class TodoAgent extends BaseAgent {
     description?: string,
     priority: 'low' | 'medium' | 'high' = 'medium',
     labels: string[] = [],
-    dueDate?: number
+    dueDate?: number,
+    planId?: string
   ): Promise<Card> {
     const id = crypto.randomUUID();
     const now = Date.now();
+
+    // Include plan ID in description if provided
+    let finalDescription = description || null;
+    if (planId) {
+      finalDescription = `[plan:${planId}] ${description || ""}`;
+    }
 
     // Get max position in column
     const maxPos = await this.api.db.query<{ max_pos: number }>(
@@ -297,12 +651,12 @@ export default class TodoAgent extends BaseAgent {
     await this.api.db.execute(
       `INSERT INTO kanban_cards (id, column_id, board_id, title, description, position, priority, labels, due_date, created_at, updated_at) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, columnId, boardId, title, description || null, position, priority, JSON.stringify(labels), dueDate || null, now, now]
+      [id, columnId, boardId, title, finalDescription, position, priority, JSON.stringify(labels), dueDate || null, now, now]
     );
 
     return {
       id, column_id: columnId, board_id: boardId, title,
-      description: description || null, position, priority,
+      description: finalDescription, position, priority,
       labels: JSON.stringify(labels), due_date: dueDate || null,
       created_at: now, updated_at: now
     };

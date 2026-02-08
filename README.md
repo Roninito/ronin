@@ -128,6 +128,43 @@ const { toolCalls } = await this.api.ai.callTools(
 
 See [docs/TOOL_CALLING.md](./docs/TOOL_CALLING.md) for detailed guide.
 
+## Plan Workflow (Event-Sourced)
+
+Ronin includes a powerful event-driven workflow system for managing plans and tasks:
+
+**Architecture:**
+- **Intent Ingress** - Captures plans from Telegram (#ronin #plan)
+- **Todo Agent** - State authority, manages kanban board
+- **Coder Bot** - Pure reactor, executes approved plans
+- **Observers** - Alert and log all events
+- **Manual Approval** - API for human approval
+
+**Key Principles:**
+- ✅ No shared state (all communication via events)
+- ✅ Single state authority (Todo Agent owns kanban)
+- ✅ Pure reactors (Coder Bot never touches state)
+- ✅ Observable everything (all transitions emit events)
+
+**Quick Example:**
+```bash
+# 1. Send plan via Telegram
+"#ronin #plan Create user auth system"
+
+# 2. View in kanban
+curl http://localhost:3000/todo
+
+# 3. Approve via API
+curl -X POST http://localhost:3000/api/plans/approve \
+  -H "Content-Type: application/json" \
+  -d '{"planId": "plan-123"}'
+
+# 4. Coder Bot executes, Todo updates, Alerts sent
+```
+
+**Events:** PlanProposed → PlanApproved → PlanCompleted/Failed
+
+See [docs/PLAN_WORKFLOW.md](./docs/PLAN_WORKFLOW.md) for complete documentation.
+
 ## Configuration
 
 ### Environment Variables

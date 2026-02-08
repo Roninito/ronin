@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plan Workflow Agents - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Plan Workflow Agents</h1>
+      
+      <p class="lead">
+        A set of agents implementing an event-sourced workflow for plan management. This architecture 
+        decouples intent from execution using events, making the system composable, observable, and maintainable.
+      </p>
+
+      <h2>Architecture Overview</h2>
+      
+      <p>
+        The plan workflow uses an event-driven architecture where:
+      </p>
+      
+      <ul>
+        <li><strong>Intent Ingress</strong> captures plans from Telegram</li>
+        <li><strong>Todo Agent</strong> maintains the single source of truth (kanban board)</li>
+        <li><strong>Coder Bot</strong> executes approved plans</li>
+        <li><strong>Observers</strong> log events and send alerts</li>
+        <li><strong>Manual Approval</strong> provides API for human approval</li>
+      </ul>
+
+      <h2>Key Principles</h2>
+
+      <h3>1. No Shared State</h3>
+      <p>
+        All communication happens through events. Agents don't share data structures, making them 
+        loosely coupled and independently deployable.
+      </p>
+
+      <h3>2. Single State Authority</h3>
+      <p>
+        The Todo Agent is the only entity that mutates task state. All other agents emit events 
+        that the Todo Agent consumes.
+      </p>
+
+      <h3>3. Pure Reactors</h3>
+      <p>
+        The Coder Bot executes work but never touches state directly. It only emits completion events.
+      </p>
+
+      <h3>4. Observable Everything</h3>
+      <p>
+        All state transitions emit events that observers can listen to. This enables logging, 
+        alerting, and debugging without modifying the core workflow.
+      </p>
+
+      <h2>Agents</h2>
+
+      <h3>Intent Ingress Agent</h3>
+      <p>
+        Captures plans from Telegram messages containing <code>#ronin #plan</code> tags and emits 
+        <code>PlanProposed</code> events.
+      </p>
+
+      <h4>Usage</h4>
+      <pre><code>Send Telegram message:
+"#ronin #plan Create user authentication system"</code></pre>
+
+      <h4>Configuration</h4>
+      <ul>
+        <li><code>TELEGRAM_BOT_TOKEN</code> - Bot token from @BotFather</li>
+        <li><code>TELEGRAM_CHAT_ID</code> - Chat ID for acknowledgments</li>
+      </ul>
+
+      <h4>Emits</h4>
+      <ul>
+        <li><code>PlanProposed</code> - When a plan is received</li>
+      </ul>
+
+      <h3>Todo Agent (State Authority)</h3>
+      <p>
+        Manages the kanban board and is the sole state mutator. Creates "Plans" board automatically 
+        and moves cards between columns based on events.
+      </p>
+
+      <h4>Listens For</h4>
+      <ul>
+        <li><code>PlanProposed</code> → Creates card in "To Do"</li>
+        <li><code>PlanApproved</code> → Moves card to "Doing"</li>
+        <li><code>PlanCompleted</code> → Moves card to "Done"</li>
+        <li><code>PlanRejected</code> → Adds rejected label</li>
+        <li><code>PlanBlocked</code> → Adds blocked label</li>
+      </ul>
+
+      <h4>Emits</h4>
+      <ul>
+        <li><code>TaskCreated</code></li>
+        <li><code>TaskMoved</code></li>
+        <li><code>TaskRejected</code></li>
+        <li><code>TaskBlocked</code></li>
+      </ul>
+
+      <h4>UI</h4>
+      <p>Access the kanban board at <code>http://localhost:3000/todo</code></p>
+
+      <h3>Coder Bot Agent</h3>
+      <p>
+        Pure reactor that executes work when plans are approved. Currently has placeholder 
+        implementation - replace with actual Cursor/AI/shell integration.
+      </p>
+
+      <h4>Listens For</h4>
+      <ul>
+        <li><code>PlanApproved</code></li>
+      </ul>
+
+      <h4>Emits</h4>
+      <ul>
+        <li><code>PlanCompleted</code> - On success</li>
+        <li><code>PlanFailed</code> - On failure</li>
+      </ul>
+
+      <h4>Integration Options</h4>
+      <pre><code>// Cursor
+await this.api.shell.execAsync(
+  `cursor --agent "${plan.description}"`
+);
+
+// AI
+await this.api.ai.complete(
+  `Execute: ${plan.description}`
+);
+
+// Shell
+await this.api.shell.execAsync(
+  plan.description
+);</code></pre>
+
+      <h3>Manual Approval Agent</h3>
+      <p>
+        Provides HTTP API endpoints for manual plan management. Enables human approval/rejection 
+        of plans before execution.
+      </p>
+
+      <h4>Endpoints</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Method</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/api/plans</code></td>
+            <td>GET</td>
+            <td>List pending plans</td>
+          </tr>
+          <tr>
+            <td><code>/api/plans/approve</code></td>
+            <td>POST</td>
+            <td>Approve a plan</td>
+          </tr>
+          <tr>
+            <td><code>/api/plans/reject</code></td>
+            <td>POST</td>
+            <td>Reject a plan</td>
+          </tr>
+          <tr>
+            <td><code>/api/plans/block</code></td>
+            <td>POST</td>
+            <td>Block a plan</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>Example Requests</h4>
+      <pre><code># List pending plans
+curl http://localhost:3000/api/plans
+
+# Approve a plan
+curl -X POST http://localhost:3000/api/plans/approve \
+  -H "Content-Type: application/json" \
+  -d '{"planId": "plan-1234567890"}'
+
+# Reject with reason
+curl -X POST http://localhost:3000/api/plans/reject \
+  -H "Content-Type: application/json" \
+  -d '{"planId": "plan-1234567890", "reason": "Out of scope"}'</code></pre>
+
+      <h3>Alert Observer Agent</h3>
+      <p>
+        Sends Telegram notifications for all plan events. Keeps stakeholders informed of 
+        plan progress without modifying the workflow.
+      </p>
+
+      <h4>Listens For</h4>
+      <p>All plan events: Proposed, Approved, Completed, Failed, Rejected, Blocked</p>
+
+      <h4>Configuration</h4>
+      <ul>
+        <li><code>TELEGRAM_BOT_TOKEN</code></li>
+        <li><code>TELEGRAM_CHAT_ID</code></li>
+      </ul>
+
+      <h3>Log Observer Agent</h3>
+      <p>
+        Logs all events to file for audit trail and debugging. Creates structured JSON logs 
+        at <code>~/.ronin/logs/plan-events.log</code>.
+      </p>
+
+      <h4>Log Format</h4>
+      <pre><code>{"timestamp":1707312345678,"eventType":"PlanProposed",
+  "payload":{"id":"plan-123","title":"..."},"source":"log-observer"}</code></pre>
+
+      <h2>Event Types</h2>
+
+      <h3>Plan Events</h3>
+      <ul>
+        <li><code>PlanProposed</code> - New plan created</li>
+        <li><code>PlanApproved</code> - Plan approved for execution</li>
+        <li><code>PlanRejected</code> - Plan rejected</li>
+        <li><code>PlanBlocked</code> - Plan blocked</li>
+        <li><code>PlanCompleted</code> - Plan finished successfully</li>
+        <li><code>PlanFailed</code> - Plan execution failed</li>
+      </ul>
+
+      <h3>Task Events</h3>
+      <ul>
+        <li><code>TaskCreated</code> - Task created in kanban</li>
+        <li><code>TaskMoved</code> - Task moved between columns</li>
+        <li><code>TaskRejected</code> - Task marked rejected</li>
+        <li><code>TaskBlocked</code> - Task marked blocked</li>
+      </ul>
+
+      <h2>Workflow Examples</h2>
+
+      <h3>Manual Approval Workflow</h3>
+      <ol>
+        <li>Send Telegram: <code>#ronin #plan Refactor auth module</code></li>
+        <li>Review in Todo board at <code>/todo</code></li>
+        <li>Approve via API: <code>POST /api/plans/approve</code></li>
+        <li>Coder Bot executes</li>
+        <li>Receive completion notification</li>
+      </ol>
+
+      <h3>Auto-Approval (Future)</h3>
+      <p>
+        Add a ConfidenceGateAgent that auto-approves plans meeting criteria:
+      </p>
+      <pre><code>this.api.events.on("PlanProposed", (plan) => {
+  if (plan.confidence > 0.8 && plan.risk === "low") {
+    this.api.events.emit("PlanApproved", { id: plan.id });
+  }
+});</code></pre>
+
+      <h2>Best Practices</h2>
+
+      <ul>
+        <li><strong>Never mutate state directly</strong> - Always emit events</li>
+        <li><strong>Handle failures gracefully</strong> - Emit PlanFailed on errors</li>
+        <li><strong>Log everything</strong> - Use Log Observer for debugging</li>
+        <li><strong>Notify stakeholders</strong> - Alert Observer keeps team informed</li>
+        <li><strong>Start simple</strong> - Manual approval before auto-approval</li>
+        <li><strong>Test events</strong> - Verify event flow before adding complexity</li>
+      </ul>
+
+      <h2>See Also</h2>
+
+      <ul>
+        <li><a href="../../../PLAN_WORKFLOW.md">Complete Workflow Documentation</a></li>
+        <li><a href="../04-todo-agent.html">Todo Agent Details</a></li>
+        <li>Event System - Chapter 3 in Part 4</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

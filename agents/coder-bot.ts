@@ -1,28 +1,89 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
+import { join } from "path";
+import { homedir } from "os";
+import { mkdir, writeFile, readFile } from "fs/promises";
+import { existsSync } from "fs";
 
 interface PlanApprovedPayload {
   id: string;
   title?: string;
   description?: string;
+  tags?: string[];
   approvedAt?: number;
   approvedBy?: string;
+}
+
+interface CLIConfig {
+  defaultCLI: string;
+  defaultAppsDirectory: string;
+  apps: Record<string, string>;
+  cliOptions: Record<string, { timeout?: number; model?: string }>;
+}
+
+interface CLIResult {
+  success: boolean;
+  output: string;
+  error?: string;
 }
 
 /**
  * Coder Bot Agent
  * 
- * Pure reactor - listens for PlanApproved events
- * Executes work (via AI/cursor/whatever)
- * Emits PlanCompleted or PlanFailed
+ * Enhanced reactor with tag-driven CLI execution
+ * - Parses tags: #build, #auto, #qwen, #cursor, #app-name
+ * - Sequential execution queue
+ * - Progress events (PlanInProgress)
+ * - Saves output to ~/.ronin/cli/builds/
  * 
  * NEVER touches Kanban - only emits events
  */
 export default class CoderBotAgent extends BaseAgent {
+  private executionQueue: string[] = [];
+  private isExecuting = false;
+  private cliPlugins: Record<string, string> = {
+    qwen: "qwen-cli",
+    cursor: "cursor-cli",
+    opencode: "opencode-cli",
+    gemini: "gemini-cli",
+  };
+  private cliStatus: Record<string, boolean> = {};
+
   constructor(api: AgentAPI) {
     super(api);
     this.registerEventHandlers();
+    this.checkCLIInstallations();
     console.log("🤖 Coder Bot ready. Listening for PlanApproved events...");
+  }
+
+  /**
+   * Check CLI installations at startup
+   */
+  private async checkCLIInstallations(): Promise<void> {
+    console.log("[coder-bot] Checking CLI installations...");
+
+    for (const [cli, pluginName] of Object.entries(this.cliPlugins)) {
+      if (this.api.plugins.has(pluginName)) {
+        try {
+          const installed = await this.api.plugins.call(pluginName, "checkInstallation");
+          this.cliStatus[cli] = installed;
+          
+          if (installed) {
+            console.log(`[coder-bot] ✅ ${cli} installed`);
+          } else {
+            const instructions = await this.api.plugins.call(pluginName, "getInstallInstructions");
+            console.log(`[coder-bot] ⚠️  ${cli} not installed`);
+            console.log(instructions.split("\n").map((line: string) => `    ${line}`).join("\n"));
+          }
+        } catch (error) {
+          console.error(`[coder-bot] ❌ Error checking ${cli}:`, error);
+          this.cliStatus[cli] = false;
+        }
+      } else {
+        console.log(`[coder-bot] ⚠️  ${cli} plugin not loaded`);
+        this.cliStatus[cli] = false;
+      }
+    }
   }
 
   /**
@@ -38,112 +99,252 @@ export default class CoderBotAgent extends BaseAgent {
   }
 
   /**
-   * Handle PlanApproved: Execute the work
+   * Handle PlanApproved: Queue and execute
    */
   private async handlePlanApproved(payload: PlanApprovedPayload): Promise<void> {
     console.log(`[coder-bot] Received PlanApproved: ${payload.id}`);
-    console.log(`[coder-bot] Title: ${payload.title || "N/A"}`);
+
+    // Check for #build tag
+    const hasBuildTag = payload.tags?.includes("build");
+    if (!hasBuildTag) {
+      console.log(`[coder-bot] No #build tag, skipping execution for ${payload.id}`);
+      return;
+    }
+
+    // Add to queue
+    this.executionQueue.push(payload.id);
+    console.log(`[coder-bot] Added ${payload.id} to queue. Queue length: ${this.executionQueue.length}`);
+
+    // Process queue
+    await this.processQueue(payload);
+  }
+
+  /**
+   * Process execution queue sequentially
+   */
+  private async processQueue(payload: PlanApprovedPayload): Promise<void> {
+    if (this.isExecuting) {
+      console.log(`[coder-bot] Queue busy, waiting...`);
+      return;
+    }
+
+    this.isExecuting = true;
 
     try {
-      // Check if we have enough context to work with
-      if (!payload.description) {
-        throw new Error("No description provided for plan");
+      await this.executePlan(payload);
+    } finally {
+      this.isExecuting = false;
+      
+      // Process next if any
+      if (this.executionQueue.length > 0) {
+        const nextId = this.executionQueue[0];
+        console.log(`[coder-bot] Processing next: ${nextId}`);
+        // Note: In a real implementation, we'd need to retrieve the full payload
+        // For now, this is a simplified version
+      }
+    }
+  }
+
+  /**
+   * Execute a plan
+   */
+  private async executePlan(payload: PlanApprovedPayload): Promise<void> {
+    const planId = payload.id;
+
+    // Emit starting progress
+    this.api.events.emit("PlanInProgress", {
+      id: planId,
+      status: "starting",
+      message: "Initializing CLI execution...",
+      timestamp: Date.now(),
+    });
+
+    try {
+      // Load config
+      const config = await this.loadConfig();
+
+      // Determine CLI from tags or config
+      const cliTag = payload.tags?.find((tag) => this.cliPlugins[tag]);
+      const pluginName = cliTag
+        ? this.cliPlugins[cliTag]
+        : `${config.defaultCLI || "qwen"}-cli`;
+
+      // Check CLI is available
+      if (!this.api.plugins.has(pluginName)) {
+        throw new Error(`CLI plugin not found: ${pluginName}`);
       }
 
-      // Execute the work
-      const result = await this.executeWork(payload);
+      const cli = cliTag || config.defaultCLI || "qwen";
+      if (!this.cliStatus[cli]) {
+        const instructions = await this.api.plugins.call(pluginName, "getInstallInstructions");
+        throw new Error(`${cli} CLI not installed.\n${instructions}`);
+      }
 
-      // Emit completion
-      this.api.events.emit("PlanCompleted", {
-        id: payload.id,
-        result,
-        completedAt: Date.now(),
-        completedBy: "coder-bot",
+      // Determine workspace from #app-* tag
+      const appTag = payload.tags?.find((tag) => tag.startsWith("app-"));
+      const workspace = await this.resolveWorkspace(appTag, config);
+
+      // Emit executing progress
+      this.api.events.emit("PlanInProgress", {
+        id: planId,
+        status: "executing",
+        message: `Running ${cli} CLI...`,
+        cli,
+        workspace,
+        timestamp: Date.now(),
       });
 
-      console.log(`[coder-bot] ✅ PlanCompleted emitted for ${payload.id}`);
+      // Execute CLI
+      const cliOptions = config.cliOptions?.[cli] || {};
+      const result = (await this.api.plugins.call(
+        pluginName,
+        "execute",
+        payload.description || "",
+        {
+          workspace,
+          ...cliOptions,
+        }
+      )) as CLIResult;
+
+      // Save output to file
+      const outputPath = await this.saveOutput(planId, result);
+
+      if (result.success) {
+        // Emit completed
+        this.api.events.emit("PlanCompleted", {
+          id: planId,
+          result: result.output,
+          outputPath,
+          executedBy: cli,
+          workspace,
+          completedAt: Date.now(),
+        });
+
+        console.log(`[coder-bot] ✅ PlanCompleted: ${planId}`);
+      } else {
+        throw new Error(result.error || "CLI execution failed");
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Emit failure
+
+      // Save error output
+      await this.saveOutput(planId, {
+        success: false,
+        output: "",
+        error: errorMessage,
+      });
+
+      // Emit failed
       this.api.events.emit("PlanFailed", {
-        id: payload.id,
+        id: planId,
         error: errorMessage,
         failedAt: Date.now(),
         failedBy: "coder-bot",
       });
 
-      console.error(`[coder-bot] ❌ PlanFailed emitted for ${payload.id}:`, errorMessage);
+      console.error(`[coder-bot] ❌ PlanFailed: ${planId}`, errorMessage);
     }
   }
 
   /**
-   * Execute the actual work
-   * This is where you'd integrate with Cursor, AI APIs, etc.
+   * Load configuration from ~/.ronin/config.json
    */
-  private async executeWork(payload: PlanApprovedPayload): Promise<string> {
-    console.log(`[coder-bot] Executing work for: ${payload.title}`);
-    console.log(`[coder-bot] Description: ${payload.description?.substring(0, 100)}...`);
+  private async loadConfig(): Promise<CLIConfig> {
+    const configPath = join(homedir(), ".ronin", "config.json");
+    const defaults: CLIConfig = {
+      defaultCLI: "qwen",
+      defaultAppsDirectory: join(homedir(), ".ronin", "apps"),
+      apps: {},
+      cliOptions: {
+        qwen: { model: "qwen3:1.7b", timeout: 300000 },
+        cursor: { timeout: 60000 },
+        opencode: { timeout: 120000 },
+        gemini: { model: "gemini-pro", timeout: 60000 },
+      },
+    };
 
-    // TODO: Replace with actual implementation
-    // Options:
-    // 1. Call Cursor agent via CLI
-    // 2. Use AI API (Ollama, Grok, Gemini)
-    // 3. Execute shell commands
-    // 4. Trigger external CI/CD
+    if (!existsSync(configPath)) {
+      return defaults;
+    }
 
-    // For now, simulate work
-    await this.simulateWork();
-
-    // Return result
-    return `Work completed for: ${payload.title}\nDescription: ${payload.description}`;
-  }
-
-  /**
-   * Simulate work execution
-   * Replace this with actual implementation
-   */
-  private async simulateWork(): Promise<void> {
-    // Simulate async work
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // In real implementation:
-    // - Call Cursor: cursor --agent "do something"
-    // - Or use AI: this.api.ai.complete(prompt)
-    // - Or shell: this.api.shell.exec("npm run build")
-  }
-
-  /**
-   * Alternative: Execute via AI
-   */
-  private async executeViaAI(description: string): Promise<string> {
-    const prompt = `Execute this task: ${description}\n\nProvide a summary of what was done.`;
-    
     try {
-      const response = await this.api.ai.complete(prompt, {
-        maxTokens: 500,
-      });
-      return response;
-    } catch (error) {
-      throw new Error(`AI execution failed: ${error}`);
+      const content = await readFile(configPath, "utf-8");
+      const config = JSON.parse(content);
+      return { ...defaults, ...config };
+    } catch {
+      return defaults;
     }
   }
 
   /**
-   * Alternative: Execute via shell command
+   * Resolve workspace from app tag or default
    */
-  private async executeViaShell(command: string): Promise<string> {
-    try {
-      const result = await this.api.shell.execAsync(command);
-      return `Shell execution completed:\n${result}`;
-    } catch (error) {
-      throw new Error(`Shell execution failed: ${error}`);
+  private async resolveWorkspace(
+    appTag: string | undefined,
+    config: CLIConfig
+  ): Promise<string> {
+    if (!appTag) {
+      return process.cwd();
     }
+
+    const appName = appTag.replace("app-", "");
+
+    // 1. Check config.apps
+    if (config.apps?.[appName]) {
+      return config.apps[appName];
+    }
+
+    // 2. Check defaultAppsDirectory
+    const appsDir = config.defaultAppsDirectory || join(homedir(), ".ronin", "apps");
+    const appPath = join(appsDir, appName);
+
+    if (existsSync(appPath)) {
+      return appPath;
+    }
+
+    // 3. Create if doesn't exist
+    await mkdir(appPath, { recursive: true });
+    console.log(`[coder-bot] Created app workspace: ${appPath}`);
+    return appPath;
+  }
+
+  /**
+   * Save CLI output to file
+   */
+  private async saveOutput(
+    planId: string,
+    result: CLIResult
+  ): Promise<string> {
+    const buildsDir = join(homedir(), ".ronin", "cli", "builds", planId);
+    await mkdir(buildsDir, { recursive: true });
+
+    // Save output
+    const outputPath = join(buildsDir, "output.log");
+    await writeFile(outputPath, result.output || "", "utf-8");
+
+    // Save result metadata
+    const resultPath = join(buildsDir, "result.json");
+    await writeFile(
+      resultPath,
+      JSON.stringify(
+        {
+          planId,
+          success: result.success,
+          timestamp: Date.now(),
+          outputPath,
+          error: result.error,
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+
+    return outputPath;
   }
 
   async execute(): Promise<void> {
     // This agent is event-driven
-    // Work happens in event handlers
     console.log("[coder-bot] Running...");
   }
 }

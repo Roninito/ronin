@@ -127,6 +127,12 @@ export default class ConfigEditorAgent extends BaseAgent {
    * Initialize directories and load current config
    */
   private async initialize(): Promise<void> {
+    // Ensure .ronin directory exists
+    const roninDir = join(homedir(), '.ronin');
+    if (!existsSync(roninDir)) {
+      await mkdir(roninDir, { recursive: true });
+    }
+
     // Ensure history directory exists
     if (!existsSync(this.historyDir)) {
       await mkdir(this.historyDir, { recursive: true });
@@ -682,11 +688,19 @@ export default class ConfigEditorAgent extends BaseAgent {
     async function loadConfig() {
       try {
         const res = await fetch('/config/api/current');
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(errorData.error || `HTTP ${res.status}`);
+        }
         currentConfig = await res.json();
+        if (!currentConfig || Object.keys(currentConfig).length === 0) {
+          throw new Error('Empty configuration received');
+        }
         renderForm();
         document.getElementById('jsonTextarea').value = JSON.stringify(currentConfig, null, 2);
       } catch (err) {
-        showError('Failed to load configuration');
+        console.error('[config-editor] Failed to load:', err);
+        showError('Failed to load configuration: ' + err.message);
       }
     }
 
@@ -810,6 +824,10 @@ export default class ConfigEditorAgent extends BaseAgent {
    * Handle get config
    */
   private async handleGetConfig(req: Request): Promise<Response> {
+    // Ensure config is loaded (lazy initialization)
+    if (Object.keys(this.currentConfig).length === 0) {
+      await this.loadConfig();
+    }
     return Response.json(this.currentConfig);
   }
 

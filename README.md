@@ -47,6 +47,7 @@ bun run ronin ask "how do plugins work?"
 bun run ronin ask grok "explain agent scheduling"  # Use Grok
 bun run ronin ask gemini "how to create plugins"  # Use Gemini
 bun run ronin ask  # Interactive mode
+bun run ronin ask "question" --ask-model qwen3:1.7b  # Use specific Ollama model
 
 # Start all agents (schedules them and keeps running)
 bun run ronin start
@@ -80,8 +81,8 @@ See [AGENTS.md](./AGENTS.md) for detailed documentation on writing agent files.
 
 Ronin includes a plugin system for extending functionality:
 
-- **Built-in Plugins**: Git, Shell, Scrape, Torrent, Telegram, Discord, Realm, LangChain, Grok, Gemini, Hyprland, and Web-Scraper plugins included
-- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*` for type-safe, ergonomic access
+- **Built-in Plugins**: Git, Shell, Scrape, Torrent, Telegram, Discord, Realm, LangChain, RAG, Grok, Gemini, Hyprland, and Web-Scraper plugins included
+- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*`, `api.rag.*` for type-safe, ergonomic access
 - **Auto-discovery**: Plugins automatically loaded from `plugins/` directory
 - **Function Calling**: Plugins available as tools for AI function calling
 - **CLI Tools**: Create and manage plugins via CLI
@@ -102,6 +103,11 @@ await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
 
 // LangChain integration
 const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });
+
+// RAG (Retrieval-Augmented Generation)
+await this.api.rag?.init("my-docs");
+await this.api.rag?.addDocuments("my-docs", [{ content: "Document text..." }]);
+const ragResult = await this.api.rag?.query("my-docs", "What is this about?", {}, this.api);
 
 // Or use generic API for any plugin
 await this.api.plugins.call("custom-plugin", "method");
@@ -207,10 +213,27 @@ This allows you to store agents outside the project folder. Agents from both the
 ### CLI Options
 
 - `--agent-dir <dir>` - Agent directory (default: `./agents`)
-- `--plugin-dir <dir>` - Plugin directory (default: `./plugins`)
+- `--plugin-dir <dir>` - Built-in plugin directory (default: `./plugins`)
+- `--user-plugin-dir <dir>` - User plugins directory (default: `~/.ronin/plugins`)
 - `--ollama-url <url>` - Ollama API URL
 - `--ollama-model <name>` - Ollama model name
+- `--ask-model <name>` - Ollama model specifically for `ask` command (e.g., `qwen3:1.7b`)
 - `--db-path <path>` - Database file path (default: `ronin.db`)
+
+### Ask Command Options
+
+The `ask` command supports using different AI models:
+
+**Remote models:**
+- `bun run ronin ask grok "question"` - Use Grok (xAI)
+- `bun run ronin ask gemini "question"` - Use Gemini (Google)
+
+**Local Ollama models:**
+- `bun run ronin ask "question"` - Use default Ollama model
+- `bun run ronin ask "question" --ask-model qwen3:1.7b` - Use specific Ollama model
+- `bun run ronin ask "question" --ask-model llama3.2:3b` - Use another model
+
+**Note:** The `--ask-model` flag overrides the default Ollama model only for the ask command, making it easy to use a lightweight model for quick questions while keeping a more capable model for other operations.
 
 ## Project Structure
 
@@ -271,6 +294,93 @@ When you run `bun run ronin start`, agents from both:
 - External directory: `~/.ronin/agents` (default, or custom path set via `RONIN_EXTERNAL_AGENT_DIR` or config file)
 
 will be discovered and loaded. The external directory is optional - if it doesn't exist or isn't set, only local agents will be loaded.
+
+### Plugin System
+
+Ronin uses a dual-plugin system similar to agents:
+
+**Built-in plugins:** Located in `./plugins` (project-specific)
+- Managed and updated with the codebase
+- Safe to modify during development
+- Version controlled with the project
+
+**User plugins:** Located in `~/.ronin/plugins` (user-specific)
+- Survive codebase updates
+- Override built-in plugins with the same name
+- Not tracked in version control
+- Perfect for customizations and private plugins
+
+**How it works:**
+When loading plugins, Ronin checks both directories. If a plugin exists in both:
+- The **user plugin** takes precedence and overrides the built-in
+- Only the user version is loaded
+
+**Initialize user directories:**
+
+```bash
+# Create ~/.ronin/ structure with agents/ and plugins/ directories
+bun run ronin config --init
+```
+
+**Create a user plugin:**
+
+```bash
+# Create a custom plugin in the user directory
+cat > ~/.ronin/plugins/my-custom.ts << 'EOF'
+import type { Plugin } from "@ronin/plugins/base.js";
+
+export default {
+  name: "my-custom",
+  description: "My custom plugin",
+  methods: {
+    hello: () => "Hello from my custom plugin!",
+  },
+} as Plugin;
+EOF
+```
+
+**View plugin directories:**
+
+```bash
+bun run ronin config --show
+```
+
+### User Configuration
+
+Ronin stores user configuration and sensitive data in `~/.ronin/`:
+
+```
+~/.ronin/
+├── config.json           # Main configuration (API keys, paths)
+├── agents/               # User agents (shared across projects)
+├── plugins/              # User plugins (override built-ins)
+├── data/                 # Application data
+└── ai-models.json        # AI model registry
+```
+
+**Benefits:**
+- ✅ **Safe updates:** User configs and plugins survive codebase updates
+- ✅ **Sensitive data:** API keys, tokens stored outside the project
+- ✅ **Portability:** Move your customizations between installations
+- ✅ **Version control:** Keep sensitive data out of git
+
+**Set configuration values:**
+
+```bash
+# Initialize user directories
+bun run ronin config --init
+
+# Show current configuration
+bun run ronin config --show
+
+# Set API keys (stored in ~/.ronin/config.json)
+bun run ronin config --grok-api-key sk-xxxxx
+bun run ronin config --gemini-api-key AIxxxxx
+
+# Set custom directories
+bun run ronin config --external-agent-dir ~/my-agents
+bun run ronin config --user-plugin-dir ~/my-plugins
+```
 
 ### Documentation
 

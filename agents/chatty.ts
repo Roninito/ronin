@@ -28,7 +28,7 @@ interface ChatMessage {
  * that understands Ronin's architecture, agents, plugins, and routes
  */
 export default class ChattyAgent extends BaseAgent {
-  private model = process.env.OLLAMA_MODEL || "qwen3:1.7b";
+  private model = process.env.OLLAMA_MODEL || "qwen3:4b";
   private roninContext: {
     agents: Array<{ name: string; description?: string }>;
     plugins: string[];
@@ -885,9 +885,16 @@ export default class ChattyAgent extends BaseAgent {
       currentMessages.push(userMessage);
       renderHistory(currentMessages);
       
-      // Create AbortController with 60 second timeout
+      // Create AbortController with timeout that resets on each chunk
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const STREAM_TIMEOUT_MS = 300000; // 5 minutes
+      let timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+      
+      // Helper to reset timeout on activity
+      const resetTimeout = () => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
+      };
       
       // Create assistant message placeholder
       const assistantMessage = { role: 'assistant', content: '' };
@@ -912,6 +919,10 @@ export default class ChattyAgent extends BaseAgent {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          
+          // Reset timeout on each chunk received - stream is still active
+          resetTimeout();
+          
           aiResponse += decoder.decode(value, { stream: true });
           
           // Update last message with streaming content
@@ -935,7 +946,7 @@ export default class ChattyAgent extends BaseAgent {
         currentMessages.pop();
         
         if (error.name === 'AbortError') {
-          const errorMsg = { role: 'assistant', content: 'Sorry, the request timed out after 60 seconds. Please try again.' };
+          const errorMsg = { role: 'assistant', content: 'Sorry, the request timed out after 5 minutes of inactivity. Please try again.' };
           currentMessages.push(errorMsg);
         } else {
           const errorMsg = { role: 'assistant', content: 'Sorry, I encountered an error: ' + error.message };
@@ -1091,10 +1102,10 @@ export default class ChattyAgent extends BaseAgent {
         async start(controller) {
           try {
             // Include system message - don't slice it off!
-            // Set timeout to 60 seconds for chat responses
+            // Set timeout to 5 minutes for chat responses
             for await (const chunk of api.ai.streamChat(aiMessages, {
               model: model,
-              timeoutMs: 60000, // 60 seconds timeout
+              timeoutMs: 300000, // 5 minutes timeout
             })) {
               controller.enqueue(new TextEncoder().encode(chunk));
             }

@@ -8,15 +8,15 @@ import type {
 } from "../types/api.js";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:1.7b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b";
 const DEFAULT_OLLAMA_TIMEOUT_MS = (() => {
   const raw =
     process.env.OLLAMA_TIMEOUT_MS ||
     process.env.RONIN_AI_TIMEOUT_MS ||
     process.env.RONIN_OLLAMA_TIMEOUT_MS;
   const parsed = raw ? parseInt(raw, 10) : NaN;
-  // Default: 90 seconds (based on testing - complex prompts need more time)
-  return Number.isFinite(parsed) ? parsed : 90_000;
+  // Default: 5 minutes (based on testing - complex prompts need more time)
+  return Number.isFinite(parsed) ? parsed : 300_000;
 })();
 
 async function fetchWithTimeout(
@@ -155,10 +155,21 @@ export class AIAPI {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    const chunkTimeoutMs = getTimeoutMs(options); // Use same timeout for per-chunk reads
+
+    // Helper to read with timeout - prevents hanging on stalled streams
+    const readWithTimeout = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+      return Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("Stream read timed out - no data received")), chunkTimeoutMs)
+        )
+      ]);
+    };
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
@@ -268,10 +279,21 @@ export class AIAPI {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    const chunkTimeoutMs = getTimeoutMs(options); // Use same timeout for per-chunk reads
+
+    // Helper to read with timeout - prevents hanging on stalled streams
+    const readWithTimeout = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+      return Promise.race([
+        reader.read(),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("Stream read timed out - no data received")), chunkTimeoutMs)
+        )
+      ]);
+    };
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Manager Agent - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Email Manager Agent</h1>
+      
+      <p class="lead">
+        The Email Manager agent provides a web-based interface and HTTP API for managing email 
+        accounts and operations. It integrates with the email plugin and the Ronin event system 
+        to enable inter-agent communication for email management.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Email Manager agent (<code>email-manager.ts</code>) acts as a bridge between the 
+        email plugin and other agents, providing:
+      </p>
+      <ul>
+        <li>A beautiful web management UI at <code>/email/</code></li>
+        <li>REST API endpoints for all email operations</li>
+        <li>Event system integration for inter-agent communication</li>
+        <li>Automatic account initialization and monitoring setup</li>
+      </ul>
+
+      <h2>Features</h2>
+
+      <h3>Web Management UI</h3>
+      <p>
+        Access the management interface at <code>http://localhost:3000/email/</code>. The UI provides:
+      </p>
+      <ul>
+        <li>Account management (add, remove, view status)</li>
+        <li>Inbox viewing with unread indicators</li>
+        <li>Email detail view</li>
+        <li>Compose new emails</li>
+        <li>Reply to emails</li>
+        <li>Delete emails</li>
+        <li>Real-time monitoring status</li>
+      </ul>
+
+      <h3>HTTP API Endpoints</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Method</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/email/</code></td>
+            <td>GET</td>
+            <td>Management UI (HTML)</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts</code></td>
+            <td>GET</td>
+            <td>List all accounts</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts</code></td>
+            <td>POST</td>
+            <td>Add new account</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id</code></td>
+            <td>DELETE</td>
+            <td>Remove account</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/inbox</code></td>
+            <td>GET</td>
+            <td>Get inbox emails</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/send</code></td>
+            <td>POST</td>
+            <td>Send email</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId</code></td>
+            <td>GET</td>
+            <td>Get email details</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId/reply</code></td>
+            <td>POST</td>
+            <td>Reply to email</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId/forward</code></td>
+            <td>POST</td>
+            <td>Forward email</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId</code></td>
+            <td>DELETE</td>
+            <td>Delete email</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId/mark-read</code></td>
+            <td>POST</td>
+            <td>Mark as read</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/messages/:msgId/mark-unread</code></td>
+            <td>POST</td>
+            <td>Mark as unread</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/search?q=query</code></td>
+            <td>GET</td>
+            <td>Search emails</td>
+          </tr>
+          <tr>
+            <td><code>/email/accounts/:id/folders</code></td>
+            <td>GET</td>
+            <td>List folders</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Event System Integration</h2>
+
+      <h3>Emitting Events</h3>
+      <p>
+        The agent emits the following events when email operations occur:
+      </p>
+      <ul>
+        <li><strong><code>email:new</code></strong> - When a new email arrives</li>
+        <li><strong><code>email:sent</code></strong> - When an email is sent</li>
+        <li><strong><code>email:deleted</code></strong> - When an email is deleted</li>
+        <li><strong><code>email:error</code></strong> - When an error occurs</li>
+      </ul>
+
+      <h3>Listening for Commands</h3>
+      <p>
+        The agent listens for targeted commands from other agents via the event system:
+      </p>
+      <pre><code>// Other agents can command the email agent
+this.api.events.beam("email-manager", "email:command", {
+  action: "reply" | "delete" | "forward" | "send" | "mark-read" | "mark-unread",
+  accountId: string,
+  messageId?: string,
+  payload?: { ... }
+});</code></pre>
+
+      <h3>Command Actions</h3>
+
+      <h4>Reply to Email</h4>
+      <pre><code>this.api.events.beam("email-manager", "email:command", {
+  action: "reply",
+  accountId: "account-id",
+  messageId: "message-uid",
+  payload: {
+    body: "Thank you for your email!",
+    quote: true,
+    replyAll: false
+  }
+});</code></pre>
+
+      <h4>Delete Email</h4>
+      <pre><code>this.api.events.beam("email-manager", "email:command", {
+  action: "delete",
+  accountId: "account-id",
+  messageId: "message-uid",
+  payload: {
+    permanent: false  // Move to trash
+  }
+});</code></pre>
+
+      <h4>Send Email</h4>
+      <pre><code>this.api.events.beam("email-manager", "email:command", {
+  action: "send",
+  accountId: "account-id",
+  payload: {
+    to: "recipient@example.com",
+    subject: "Automated Email",
+    body: "This email was sent by an AI agent",
+    cc: ["cc@example.com"],
+    bcc: ["bcc@example.com"]
+  }
+});</code></pre>
+
+      <h4>Forward Email</h4>
+      <pre><code>this.api.events.beam("email-manager", "email:command", {
+  action: "forward",
+  accountId: "account-id",
+  messageId: "message-uid",
+  payload: {
+    to: "forward@example.com",
+    body: "FYI"
+  }
+});</code></pre>
+
+      <h4>Mark as Read/Unread</h4>
+      <pre><code>// Mark as read
+this.api.events.beam("email-manager", "email:command", {
+  action: "mark-read",
+  accountId: "account-id",
+  messageId: "message-uid"
+});
+
+// Mark as unread
+this.api.events.beam("email-manager", "email:command", {
+  action: "mark-unread",
+  accountId: "account-id",
+  messageId: "message-uid"
+});</code></pre>
+
+      <h2>Query System</h2>
+      <p>
+        Use the query system for request/response patterns:
+      </p>
+      <pre><code>try {
+  const result = await this.api.events.query(
+    "email-manager",
+    "email:command",
+    {
+      action: "send",
+      accountId: "account-id",
+      payload: {
+        to: "test@example.com",
+        subject: "Test",
+        body: "Test message"
+      }
+    },
+    5000 // timeout in ms
+  );
+  console.log("Email sent successfully:", result);
+} catch (error) {
+  console.error("Failed to send email:", error);
+}</code></pre>
+
+      <h2>Initialization</h2>
+      <p>
+        When the agent starts, it automatically:
+      </p>
+      <ol>
+        <li>Loads all configured email accounts</li>
+        <li>Starts monitoring for each account</li>
+        <li>Registers new email handlers that emit events</li>
+        <li>Sets up HTTP routes for the management UI and API</li>
+      </ol>
+
+      <h2>Example: AI Email Assistant</h2>
+      <p>
+        Here's how another agent can use the email manager:
+      </p>
+      <pre><code>import { BaseAgent } from "@ronin/agent";
+
+export default class EmailAssistantAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Listen for new emails
+    this.api.events.on("email:new", async (data: any) => {
+      const { accountId, email } = data;
+      
+      // Analyze email with AI
+      const analysis = await this.api.ai.complete(
+        `Analyze this email and determine if it needs a response:\n\n` +
+        `From: ${email.from[0]?.address}\n` +
+        `Subject: ${email.subject}\n` +
+        `Body: ${email.snippet}\n\n` +
+        `Should I respond? If yes, draft a professional response.`
+      );
+      
+      // If AI suggests responding, send reply
+      if (analysis.includes("Yes") || analysis.includes("respond")) {
+        const response = await this.api.ai.complete(
+          `Draft a professional email response to:\n\n` +
+          `Subject: ${email.subject}\n` +
+          `Content: ${email.snippet}\n\n` +
+          `Write a concise, professional response.`
+        );
+        
+        // Send reply via email manager
+        this.api.events.beam("email-manager", "email:command", {
+          action: "reply",
+          accountId,
+          messageId: email.id,
+          payload: {
+            body: response,
+            quote: true
+          }
+        });
+      }
+    });
+  }
+}</code></pre>
+
+      <h2>File Location</h2>
+      <p>
+        The Email Manager agent is located at:
+      </p>
+      <pre><code>~/.ronin/agents/email-manager.ts</code></pre>
+
+      <h2>Configuration</h2>
+      <p>
+        The agent uses the email plugin for all operations. Account configurations are stored in:
+      </p>
+      <pre><code>~/.ronin/data/email-accounts.json</code></pre>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../plugins/07-email-plugin.html">Email Plugin</a> - Core email functionality</li>
+        <li><a href="../../EMAIL.md">Email Plugin & Agent Guide</a> - Detailed documentation</li>
+        <li><a href="../../book/chapters/20-event-system.html">Event System</a> - Inter-agent communication</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,30 +1,84 @@
-import { readdir } from "fs/promises";
-import { join, extname } from "path";
+import { readdir, copyFile, mkdir } from "fs/promises";
+import { join, extname, basename, dirname } from "path";
+import { existsSync } from "fs";
 import type { Plugin, PluginMetadata } from "./base.js";
 
 export interface PluginLoaderOptions {
-  pluginDir?: string;
+  builtinPluginDir?: string;
+  userPluginDir?: string;
 }
 
 /**
- * Discovers and loads plugins from a directory
+ * Discovers and loads plugins from multiple directories
+ * User plugins in ~/.ronin/plugins take precedence over built-in plugins
  */
 export class PluginLoader {
-  private pluginDir: string;
+  private builtinPluginDir: string;
+  private userPluginDir: string | null;
 
-  constructor(pluginDir: string = "./plugins") {
-    this.pluginDir = pluginDir;
+  constructor(
+    builtinPluginDir: string = "./plugins",
+    userPluginDir: string | null = null
+  ) {
+    this.builtinPluginDir = builtinPluginDir;
+    this.userPluginDir = userPluginDir;
   }
 
   /**
-   * Discover all plugin files in the plugin directory (recursively)
+   * Discover all plugin files from both built-in and user directories
+   * User plugins override built-in plugins with the same name
    */
   async discoverPlugins(): Promise<string[]> {
-    const files: string[] = [];
-    await this.discoverRecursive(this.pluginDir, files);
-    return files.filter(
+    const builtinFiles: string[] = [];
+    const userFiles: string[] = [];
+
+    // Discover built-in plugins
+    await this.discoverRecursive(this.builtinPluginDir, builtinFiles);
+
+    // Discover user plugins (if user directory is set and different from builtin)
+    if (this.userPluginDir && this.userPluginDir !== this.builtinPluginDir) {
+      await this.discoverRecursive(this.userPluginDir, userFiles);
+    }
+
+    // Combine files, with user plugins taking precedence
+    const allFiles = [...builtinFiles, ...userFiles];
+    
+    // Remove duplicates based on filename (user plugins override built-in)
+    const seenNames = new Set<string>();
+    const uniqueFiles: string[] = [];
+    
+    // Process user files first (they take precedence)
+    for (const file of userFiles) {
+      const name = this.getPluginName(file);
+      if (name && !seenNames.has(name)) {
+        seenNames.add(name);
+        uniqueFiles.push(file);
+      }
+    }
+    
+    // Then add built-in files that haven't been overridden
+    for (const file of builtinFiles) {
+      const name = this.getPluginName(file);
+      if (name && !seenNames.has(name)) {
+        seenNames.add(name);
+        uniqueFiles.push(file);
+      }
+    }
+
+    return uniqueFiles.filter(
       (file) => !file.includes(".test.") && !file.includes(".spec.")
     );
+  }
+
+  /**
+   * Get plugin name from file path (used for deduplication)
+   */
+  private getPluginName(filePath: string): string | null {
+    const ext = extname(filePath);
+    if (ext === ".ts" || ext === ".js") {
+      return basename(filePath, ext);
+    }
+    return null;
   }
 
   /**
@@ -108,7 +162,8 @@ export class PluginLoader {
   }
 
   /**
-   * Load all plugins from the plugin directory
+   * Load all plugins from both directories
+   * User plugins override built-in plugins
    */
   async loadAllPlugins(): Promise<PluginMetadata[]> {
     const files = await this.discoverPlugins();
@@ -122,6 +177,37 @@ export class PluginLoader {
     }
 
     return plugins;
+  }
+
+  /**
+   * Copy built-in plugins to user directory on first run
+   * This allows users to customize built-in plugins
+   */
+  async copyBuiltinsToUser(userPluginDir: string): Promise<void> {
+    try {
+      // Ensure user plugin directory exists
+      if (!existsSync(userPluginDir)) {
+        await mkdir(userPluginDir, { recursive: true });
+      }
+
+      // Discover built-in plugins
+      const builtinFiles: string[] = [];
+      await this.discoverRecursive(this.builtinPluginDir, builtinFiles);
+
+      // Copy each plugin to user directory
+      for (const file of builtinFiles) {
+        const filename = basename(file);
+        const userPath = join(userPluginDir, filename);
+        
+        // Only copy if user doesn't already have this plugin
+        if (!existsSync(userPath)) {
+          await copyFile(file, userPath);
+          console.log(`📋 Copied built-in plugin to user directory: ${filename}`);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to copy built-in plugins to user directory:", error);
+    }
   }
 }
 

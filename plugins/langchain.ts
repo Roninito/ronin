@@ -5,10 +5,10 @@ import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { StateGraph, END } from "langgraph";
+import { StateGraph, END } from "@langchain/langgraph";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:1.7b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b";
 
 /**
  * LangChain integration plugin for Ronin

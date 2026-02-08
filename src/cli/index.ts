@@ -48,6 +48,7 @@ async function main() {
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
       });
       break;
 
@@ -185,6 +186,7 @@ async function main() {
       await askCommand({
         question: question || undefined,
         model: model || getArg("--model", args),
+        askModel: getArg("--ask-model", args),
         agentDir: getArg("--agent-dir", args),
         pluginDir: getArg("--plugin-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
@@ -198,9 +200,15 @@ async function main() {
       await configCommand({
         agentDir: getArg("--agent-dir", args),
         externalAgentDir: getArg("--external-agent-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        init: args.includes("--init"),
         grokApiKey: getArg("--grok-api-key", args),
         geminiApiKey: getArg("--gemini-api-key", args),
         geminiModel: getArg("--gemini-model", args),
+        realmUrl: getArg("--realm-url", args),
+        realmCallsign: getArg("--realm-callsign", args),
+        realmToken: getArg("--realm-token", args),
+        realmLocalPort: getArg("--realm-local-port", args),
         show: args.includes("--show"),
       });
       break;
@@ -221,7 +229,8 @@ async function main() {
         const callsign = getArg("--callsign", args) || getArg("--call-sign", args);
         if (!url || !callsign) {
           console.error("❌ --url and --callsign required");
-          console.log("Usage: ronin realm connect --url ws://realm.example.com:3000 --callsign Leerie");
+          console.log("Usage: ronin realm connect --url wss://realm.afiwi.net --callsign Leerie");
+          console.log("   Or for local: ronin realm connect --url ws://localhost:3033 --callsign Leerie");
           process.exit(1);
         }
         await realmConnectCommand({
@@ -315,15 +324,21 @@ Commands:
                         Models: local (default), grok, gemini
                         Example: ronin ask grok "question"
                         Example: ronin ask gemini "question"
-  config              Manage configuration (agent directories, etc.)
+                        Use --ask-model <model> for specific Ollama model:
+                        Example: ronin ask "question" --ask-model qwen3:1.7b
+  config              Manage configuration (agent directories, Realm, etc.)
+                        ronin config --init
                         ronin config --show
                         ronin config --external-agent-dir <path>
+                        ronin config --user-plugin-dir <path>
+                        ronin config --realm-url <url> --realm-callsign <callsign>
   docs [doc]          View documentation in browser
                         ronin docs CLI
                         ronin docs --list
                         ronin docs --terminal
   realm connect      Connect to Realm discovery server
-                        ronin realm connect --url ws://realm.example.com:3000 --callsign Leerie
+                        ronin realm connect --url wss://realm.afiwi.net --callsign Leerie
+                        ronin realm connect --url ws://localhost:3033 --callsign Leerie
   realm status       Show Realm connection status
   realm discover     Discover a peer by call sign
                         ronin realm discover Tyro
@@ -332,8 +347,10 @@ Commands:
 Options:
   --agent-dir <dir>     Agent directory (default: ./agents)
   --plugin-dir <dir>    Plugin directory (default: ./plugins)
+  --user-plugin-dir <dir>  User plugins directory (default: ~/.ronin/plugins)
   --ollama-url <url>    Ollama API URL (default: http://localhost:11434)
   --ollama-model <name> Ollama model name (default: qwen3:1.7b)
+  --ask-model <name>    Ollama model for ask command only (e.g., qwen3:1.7b)
   --db-path <path>      Database file path (default: ronin.db)
   --port <number>       Server port (listRoutes only; default: 3000)
 

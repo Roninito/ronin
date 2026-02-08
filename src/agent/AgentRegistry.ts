@@ -132,9 +132,11 @@ export class AgentRegistry {
    */
   private startWebhookServer(): void {
     const port = process.env.WEBHOOK_PORT ? parseInt(process.env.WEBHOOK_PORT) : 3000;
+    const idleTimeout = process.env.HTTP_IDLE_TIMEOUT ? parseInt(process.env.HTTP_IDLE_TIMEOUT) : 60;
     
     this.webhookServer = Bun.serve({
       port,
+      idleTimeout, // Timeout in seconds for long-running requests (default: 60s)
       fetch: async (req) => {
         const url = new URL(req.url);
         const path = url.pathname;
@@ -233,10 +235,23 @@ export class AgentRegistry {
         }
 
         // Check HTTP API registered routes (agents can register routes via this.api.http.registerRoute)
+        // Helper to safely call route handlers with error handling
+        const safeRouteHandler = async (handler: (req: Request) => Response | Promise<Response>, routePath: string): Promise<Response> => {
+          try {
+            return await handler(req);
+          } catch (error) {
+            console.error(`${req.method} - ${routePath} failed`, error);
+            return new Response(
+              JSON.stringify({ error: "Internal server error", message: String(error) }),
+              { status: 500, headers: { "Content-Type": "application/json" } }
+            );
+          }
+        };
+
         // Check exact match first
         const httpRouteHandler = this.http.getRouteHandler(path);
         if (httpRouteHandler) {
-          return httpRouteHandler(req);
+          return safeRouteHandler(httpRouteHandler, path);
         }
 
         // Check for routes with trailing slash
@@ -244,23 +259,30 @@ export class AgentRegistry {
           const pathWithoutSlash = path.slice(0, -1);
           const httpRouteHandlerNoSlash = this.http.getRouteHandler(pathWithoutSlash);
           if (httpRouteHandlerNoSlash) {
-            return httpRouteHandlerNoSlash(req);
+            return safeRouteHandler(httpRouteHandlerNoSlash, pathWithoutSlash);
           }
         } else if (!path.endsWith("/")) {
           const pathWithSlash = path + "/";
           const httpRouteHandlerWithSlash = this.http.getRouteHandler(pathWithSlash);
           if (httpRouteHandlerWithSlash) {
-            return httpRouteHandlerWithSlash(req);
+            return safeRouteHandler(httpRouteHandlerWithSlash, pathWithSlash);
           }
         }
 
         // Check for prefix matches (e.g., /fishy/api/fish/123 should match /fishy/api/fish/)
         // Only match if the registered path ends with / and the request path starts with it
         // This allows routes like /fishy/api/fish/ to handle /fishy/api/fish/123
+        // IMPORTANT: Use longest matching prefix to avoid /blog/ matching before /blog/api/admin/posts/
+        let longestMatch: { path: string; handler: (req: Request) => Response | Promise<Response> } | null = null;
         for (const [registeredPath, handler] of this.http.getAllRoutes()) {
           if (registeredPath.endsWith("/") && path.startsWith(registeredPath) && registeredPath !== "/") {
-            return handler(req);
+            if (!longestMatch || registeredPath.length > longestMatch.path.length) {
+              longestMatch = { path: registeredPath, handler };
+            }
           }
+        }
+        if (longestMatch) {
+          return safeRouteHandler(longestMatch.handler, longestMatch.path);
         }
 
         // Agent webhook routes

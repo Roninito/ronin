@@ -407,5 +407,221 @@ export interface AgentAPI {
     runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise<string>;
     buildResearchGraph(api?: AgentAPI): Promise<any>;
   };
+
+  /**
+   * RAG operations (if rag plugin is loaded)
+   */
+  rag?: {
+    init(namespace: string, options?: {
+      embeddingModel?: string;
+      chunkSize?: number;
+      chunkOverlap?: number;
+    }): Promise<{ success: boolean; namespace: string; dbPath: string }>;
+
+    addDocuments(
+      namespace: string,
+      documents: Array<{ content: string; metadata?: Record<string, unknown> }>,
+      options?: {
+        embeddingModel?: string;
+        chunkSize?: number;
+        chunkOverlap?: number;
+      }
+    ): Promise<{ documentIds: string[]; chunksCreated: number }>;
+
+    search(
+      namespace: string,
+      query: string,
+      limit?: number,
+      options?: { embeddingModel?: string }
+    ): Promise<Array<{
+      documentId: string;
+      chunkIndex: number;
+      chunkText: string;
+      score: number;
+      metadata?: Record<string, unknown>;
+    }>>;
+
+    query(
+      namespace: string,
+      query: string,
+      options?: {
+        limit?: number;
+        embeddingModel?: string;
+        temperature?: number;
+        systemPrompt?: string;
+      },
+      api?: AgentAPI
+    ): Promise<{
+      response: string;
+      sources: Array<{
+        documentId: string;
+        chunkText: string;
+        score: number;
+      }>;
+    }>;
+
+    removeDocuments(namespace: string, documentIds: string[]): Promise<{ removed: number }>;
+
+    listDocuments(namespace: string, limit?: number): Promise<Array<{
+      id: string;
+      content: string;
+      metadata?: Record<string, unknown>;
+      createdAt: number;
+      chunkCount: number;
+    }>>;
+
+    getStats(namespace: string): Promise<{
+      documentCount: number;
+      chunkCount: number;
+      dbPath: string;
+    }>;
+
+    clearNamespace(namespace: string): Promise<{ cleared: boolean }>;
+  };
+
+  /**
+   * Email operations (if email plugin is loaded)
+   */
+  email?: {
+    addAccount(config: {
+      name: string;
+      email: string;
+      imap: {
+        host: string;
+        port: number;
+        secure: boolean;
+        auth: { user: string; pass: string };
+      };
+      smtp: {
+        host: string;
+        port: number;
+        secure: boolean;
+        auth: { user: string; pass: string };
+      };
+    }): Promise<{ id: string; email: string; name: string }>;
+
+    removeAccount(accountId: string): Promise<{ success: boolean }>;
+
+    listAccounts(): Promise<Array<{
+      id: string;
+      name: string;
+      email: string;
+      isMonitoring: boolean;
+      createdAt: number;
+    }>>;
+
+    getInbox(accountId: string, options?: { limit?: number; offset?: number }): Promise<Array<{
+      id: string;
+      uid: number;
+      from: Array<{ name?: string; address: string }>;
+      to: Array<{ name?: string; address: string }>;
+      cc?: Array<{ name?: string; address: string }>;
+      subject: string;
+      date: Date;
+      snippet: string;
+      body?: string;
+      html?: string;
+      flags: string[];
+    }>>;
+
+    getEmail(accountId: string, messageId: string): Promise<{
+      id: string;
+      uid: number;
+      from: Array<{ name?: string; address: string }>;
+      to: Array<{ name?: string; address: string }>;
+      cc?: Array<{ name?: string; address: string }>;
+      subject: string;
+      date: Date;
+      snippet: string;
+      body?: string;
+      html?: string;
+      flags: string[];
+    }>;
+
+    sendEmail(
+      accountId: string,
+      to: string | string[],
+      subject: string,
+      body: string,
+      options?: {
+        cc?: string | string[];
+        bcc?: string | string[];
+        html?: boolean;
+        replyTo?: string;
+        attachments?: Array<{
+          filename: string;
+          content: string | Buffer;
+          contentType?: string;
+        }>;
+      }
+    ): Promise<{ messageId: string; success: boolean }>;
+
+    replyToEmail(
+      accountId: string,
+      messageId: string,
+      body: string,
+      options?: {
+        html?: boolean;
+        replyAll?: boolean;
+        quote?: boolean;
+      }
+    ): Promise<{ messageId: string; success: boolean }>;
+
+    forwardEmail(
+      accountId: string,
+      messageId: string,
+      to: string | string[],
+      body?: string
+    ): Promise<{ messageId: string; success: boolean }>;
+
+    deleteEmail(
+      accountId: string,
+      messageId: string,
+      options?: { permanent?: boolean }
+    ): Promise<{ success: boolean }>;
+
+    markRead(accountId: string, messageId: string): Promise<{ success: boolean }>;
+
+    markUnread(accountId: string, messageId: string): Promise<{ success: boolean }>;
+
+    searchEmails(
+      accountId: string,
+      query: string,
+      options?: { limit?: number; folder?: string }
+    ): Promise<Array<{
+      id: string;
+      uid: number;
+      from: Array<{ name?: string; address: string }>;
+      to: Array<{ name?: string; address: string }>;
+      subject: string;
+      date: Date;
+      snippet: string;
+      flags: string[];
+    }>>;
+
+    startMonitoring(accountId: string): Promise<{ success: boolean }>;
+
+    stopMonitoring(accountId: string): Promise<{ success: boolean }>;
+
+    onNewEmail(accountId: string, callback: (email: {
+      id: string;
+      uid: number;
+      from: Array<{ name?: string; address: string }>;
+      to: Array<{ name?: string; address: string }>;
+      subject: string;
+      date: Date;
+      snippet: string;
+      body?: string;
+      flags: string[];
+    }) => void): void;
+
+    offNewEmail(accountId: string, callback: (email: unknown) => void): void;
+
+    listFolders(accountId: string): Promise<Array<{
+      name: string;
+      path: string;
+      specialUse?: string;
+    }>>;
+  };
 }
 

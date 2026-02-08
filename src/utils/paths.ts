@@ -19,3 +19,57 @@ export function ensureRoninDataDir(): string {
   }
   return dataDir;
 }
+
+/**
+ * Default user plugins directory
+ */
+export function getUserPluginDir(): string {
+  return join(homedir(), ".ronin", "plugins");
+}
+
+/**
+ * Ensure the user plugins directory exists
+ */
+export function ensureUserPluginDir(): string {
+  const pluginDir = getUserPluginDir();
+  if (!existsSync(pluginDir)) {
+    mkdirSync(pluginDir, { recursive: true });
+  }
+  return pluginDir;
+}
+
+/**
+ * Default user configs directory
+ */
+export function getUserConfigDir(): string {
+  return join(homedir(), ".ronin", "configs");
+}
+
+/**
+ * Ensure the user configs directory exists
+ */
+export function ensureUserConfigDir(): string {
+  const configDir = getUserConfigDir();
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
+  }
+  return configDir;
+}
+
+/**
+ * Ronin base directory in home
+ */
+export function getRoninDir(): string {
+  return join(homedir(), ".ronin");
+}
+
+/**
+ * Ensure the Ronin base directory exists
+ */
+export function ensureRoninDir(): string {
+  const dir = getRoninDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}

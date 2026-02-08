@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord URL Aggregator Agent - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Discord URL Aggregator Agent</h1>
+      
+      <p class="lead">
+        The Discord URL Aggregator agent monitors Discord channels for URLs, automatically extracts 
+        them from messages, and stores them in a searchable database. It provides a web interface 
+        and API for viewing and managing collected URLs.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Discord URL Aggregator agent (<code>discord-url-aggregator.ts</code>) listens to Discord 
+        messages in real-time and extracts any URLs found. It provides:
+      </p>
+      <ul>
+        <li>Real-time URL extraction from Discord messages</li>
+        <li>Channel filtering to monitor specific channels or all channels</li>
+        <li>Web interface at <code>/discord-urls</code> for browsing collected URLs</li>
+        <li>REST API for programmatic access</li>
+        <li>Persistent storage in SQLite database</li>
+        <li>Dynamic channel management via API</li>
+      </ul>
+
+      <h2>Features</h2>
+
+      <h3>URL Extraction</h3>
+      <p>
+        The agent automatically detects URLs in Discord messages using regex pattern matching. 
+        It extracts:
+      </p>
+      <ul>
+        <li>HTTP and HTTPS URLs</li>
+        <li>Unique URLs (duplicates are filtered)</li>
+        <li>URLs from all message content</li>
+      </ul>
+      <p>
+        Bot messages are automatically ignored to prevent self-referencing loops.
+      </p>
+
+      <h3>Channel Filtering</h3>
+      <p>
+        The agent supports flexible channel monitoring:
+      </p>
+      <ul>
+        <li><strong>All channels</strong> - Monitor all channels the bot has access to (default)</li>
+        <li><strong>Specific channels</strong> - Monitor only configured channel IDs</li>
+        <li><strong>Dynamic management</strong> - Add/remove channels via API without restart</li>
+      </ul>
+
+      <h3>Web Management UI</h3>
+      <p>
+        Access the management interface at <code>http://localhost:3000/discord-urls</code>. The UI provides:
+      </p>
+      <ul>
+        <li>Beautiful, modern interface with Ronin theme</li>
+        <li>List of all collected URLs with metadata</li>
+        <li>Connection status indicator</li>
+        <li>URL count display</li>
+        <li>Author and timestamp information for each URL</li>
+        <li>Clickable links that open in new tabs</li>
+      </ul>
+
+      <h3>HTTP API Endpoints</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Method</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>/discord-urls</code></td>
+            <td>GET</td>
+            <td>Management UI (HTML)</td>
+          </tr>
+          <tr>
+            <td><code>/api/discord-urls</code></td>
+            <td>GET</td>
+            <td>Get list of URLs (supports <code>?limit=N</code> query param)</td>
+          </tr>
+          <tr>
+            <td><code>/api/discord-urls</code></td>
+            <td>DELETE</td>
+            <td>Delete a URL (requires <code>?id=url-id</code> query param)</td>
+          </tr>
+          <tr>
+            <td><code>/api/discord-urls/channels</code></td>
+            <td>GET</td>
+            <td>List monitored channel IDs</td>
+          </tr>
+          <tr>
+            <td><code>/api/discord-urls/channels</code></td>
+            <td>POST</td>
+            <td>Add a channel to monitor (body: <code>{"channelId": "123456789"}</code>)</td>
+          </tr>
+          <tr>
+            <td><code>/api/discord-urls/channels</code></td>
+            <td>DELETE</td>
+            <td>Remove a channel from monitoring (requires <code>?channelId=123456789</code>)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Configuration</h2>
+
+      <h3>Environment Variables</h3>
+      <p>
+        Configure the agent using environment variables:
+      </p>
+      <ul>
+        <li><strong><code>DISCORD_BOT_TOKEN</code></strong> (required) - Discord bot token from Discord Developer Portal</li>
+        <li><strong><code>DISCORD_CHANNEL_IDS</code></strong> (optional) - Comma-separated list of channel IDs to monitor</li>
+      </ul>
+
+      <h3>Setting Up Discord Bot</h3>
+      <ol>
+        <li>Go to <a href="https://discord.com/developers/applications">Discord Developer Portal</a></li>
+        <li>Create a new application or select an existing one</li>
+        <li>Go to the "Bot" section</li>
+        <li>Create a bot and copy the token</li>
+        <li>Under "Privileged Gateway Intents", enable:
+          <ul>
+            <li><strong>MESSAGE CONTENT INTENT</strong> (required for reading message content)</li>
+          </ul>
+        </li>
+        <li>Invite the bot to your server with appropriate permissions</li>
+      </ol>
+
+      <h3>Getting Channel IDs</h3>
+      <ol>
+        <li>Enable Developer Mode in Discord:
+          <ul>
+            <li>User Settings → Advanced → Enable Developer Mode</li>
+          </ul>
+        </li>
+        <li>Right-click on a channel → Copy Channel ID</li>
+        <li>Add to <code>DISCORD_CHANNEL_IDS</code> environment variable (comma-separated)</li>
+      </ol>
+
+      <h3>Example Configuration</h3>
+      <pre><code># .env file
+DISCORD_BOT_TOKEN=your_bot_token_here
+DISCORD_CHANNEL_IDS=123456789012345678,987654321098765432,555555555555555555</code></pre>
+
+      <h2>Database Schema</h2>
+      <p>
+        URLs are stored in a SQLite database with the following schema:
+      </p>
+      <pre><code>CREATE TABLE discord_urls (
+  id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  message_content TEXT,
+  author_id TEXT NOT NULL,
+  author_username TEXT NOT NULL,
+  channel_id TEXT NOT NULL,
+  guild_id TEXT,
+  message_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_discord_urls_created_at ON discord_urls(created_at);
+CREATE INDEX idx_discord_urls_url ON discord_urls(url);</code></pre>
+
+      <h2>API Usage Examples</h2>
+
+      <h3>Get All URLs</h3>
+      <pre><code>curl http://localhost:3000/api/discord-urls?limit=50</code></pre>
+      <p>Response:</p>
+      <pre><code>{
+  "count": 50,
+  "connected": true,
+  "urls": [
+    {
+      "id": "uuid-here",
+      "url": "https://example.com",
+      "message_content": "Check this out: https://example.com",
+      "author_id": "123456789",
+      "author_username": "username",
+      "channel_id": "987654321",
+      "guild_id": "555555555",
+      "message_id": "111111111",
+      "created_at": 1234567890123
+    }
+  ]
+}</code></pre>
+
+      <h3>Add Channel to Monitor</h3>
+      <pre><code>curl -X POST http://localhost:3000/api/discord-urls/channels \
+  -H "Content-Type: application/json" \
+  -d '{"channelId": "123456789012345678"}'</code></pre>
+
+      <h3>Remove Channel from Monitoring</h3>
+      <pre><code>curl -X DELETE "http://localhost:3000/api/discord-urls/channels?channelId=123456789012345678"</code></pre>
+
+      <h3>List Monitored Channels</h3>
+      <pre><code>curl http://localhost:3000/api/discord-urls/channels</code></pre>
+      <p>Response:</p>
+      <pre><code>{
+  "monitoredChannels": ["123456789", "987654321"],
+  "count": 2,
+  "mode": "filtered"
+}</code></pre>
+
+      <h3>Delete a URL</h3>
+      <pre><code>curl -X DELETE "http://localhost:3000/api/discord-urls?id=url-uuid-here"</code></pre>
+
+      <h2>Initialization</h2>
+      <p>
+        When the agent starts, it automatically:
+      </p>
+      <ol>
+        <li>Initializes the SQLite database and creates tables if needed</li>
+        <li>Loads monitored channel IDs from environment variables and memory</li>
+        <li>Connects to Discord using the bot token</li>
+        <li>Registers message handlers for URL extraction</li>
+        <li>Sets up HTTP routes for the web UI and API</li>
+        <li>Logs connection status and monitored channels</li>
+      </ol>
+
+      <h2>Behavior</h2>
+
+      <h3>Message Processing</h3>
+      <p>
+        For each Discord message received:
+      </p>
+      <ol>
+        <li>Skip if message is from a bot</li>
+        <li>Check if channel is in monitored list (if filtering is enabled)</li>
+        <li>Extract URLs using regex pattern matching</li>
+        <li>Filter duplicates</li>
+        <li>Save each unique URL to database with metadata</li>
+        <li>Log the extraction</li>
+      </ol>
+
+      <h3>Channel Monitoring Modes</h3>
+      <ul>
+        <li><strong>All Channels Mode</strong> - When no channels are configured, monitors all channels the bot can access</li>
+        <li><strong>Filtered Mode</strong> - When channels are configured, only processes messages from those channels</li>
+      </ul>
+
+      <h2>Example: Integration with Other Agents</h2>
+      <p>
+        Other agents can query the collected URLs via the API:
+      </p>
+      <pre><code>import { BaseAgent } from "../src/agent/index.js";
+
+export default class UrlAnalyzerAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Fetch recent URLs
+    const response = await fetch("http://localhost:3000/api/discord-urls?limit=10");
+    const data = await response.json();
+    
+    for (const urlData of data.urls) {
+      // Analyze each URL
+      const analysis = await this.api.ai.complete(
+        `Analyze this URL and summarize its content:\n${urlData.url}`
+      );
+      
+      console.log(`URL: ${urlData.url}`);
+      console.log(`Analysis: ${analysis}`);
+      console.log(`Found by: ${urlData.author_username}`);
+    }
+  }
+}</code></pre>
+
+      <h2>File Location</h2>
+      <p>
+        The Discord URL Aggregator agent is located at:
+      </p>
+      <pre><code>agents/discord-url-aggregator.ts</code></pre>
+
+      <h2>Dependencies</h2>
+      <p>
+        This agent requires:
+      </p>
+      <ul>
+        <li>Discord plugin (built-in)</li>
+        <li>Database plugin (built-in)</li>
+        <li>HTTP plugin (built-in)</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../plugins/06-discord-plugin.html">Discord Plugin</a> - Core Discord functionality</li>
+        <li><a href="02-telegram-bot.html">Telegram Bot Agent</a> - Similar agent for Telegram</li>
+        <li><a href="../../book/chapters/20-event-system.html">Event System</a> - Inter-agent communication</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

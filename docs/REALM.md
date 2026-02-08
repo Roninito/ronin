@@ -34,9 +34,39 @@ The server will run on port 3033 by default.
 
 ### 2. Connect Ronin to Realm
 
+**Option A: Auto-connect on startup (Recommended)**
+
+Configure Realm settings, and Ronin will automatically connect when you run `ronin start`:
+
 ```bash
-ronin realm connect --url ws://localhost:3033 --callsign Leerie
+# Configure Realm URL and call sign
+ronin config --realm-url wss://realm.afiwi.net
+ronin config --realm-callsign Leerie
+
+# Optional: Set authentication token
+ronin config --realm-token your-token-here
+
+# Optional: Set local WebSocket port (default: 4000)
+# If 4000 is in use, Realm will automatically try 4001, 4002, etc.
+ronin config --realm-local-port 4000
+
+# Now start Ronin - it will automatically connect to Realm
+ronin start
 ```
+
+**Option B: Manual connection**
+
+Connect manually using the `realm connect` command:
+
+```bash
+# Connect to local server
+ronin realm connect --url ws://localhost:3033 --callsign Leerie
+
+# Or connect to production server
+ronin realm connect --url wss://realm.afiwi.net --callsign Leerie
+```
+
+**Note:** With auto-connect configured, you don't need to manually run `realm connect` - Realm will connect automatically when you start Ronin.
 
 ### 3. Discover Peers
 
@@ -50,7 +80,7 @@ In your agent code:
 
 ```typescript
 // Initialize Realm (usually done once at startup)
-await this.api.realm?.init("ws://realm.example.com:3000", "Leerie");
+await this.api.realm?.init("wss://realm.afiwi.net", "Leerie");
 
 // Send a message
 await this.api.realm?.sendMessage("Tyro", "I'll be there around 3 on Thursday");
@@ -75,7 +105,7 @@ const response = await this.api.realm?.query("Tyro", "get-status", {});
 Initialize Realm connection.
 
 ```typescript
-await api.realm?.init("ws://realm.example.com:3000", "Leerie", {
+await api.realm?.init("wss://realm.afiwi.net", "Leerie", {
   token: "optional-auth-token",
   localWsPort: 4000,
   heartbeatInterval: 30000,
@@ -205,11 +235,23 @@ WebRTC is used as a fallback when direct WebSocket connections fail. Note:
 - Check firewall allows WebSocket connections
 - Verify external IP detection is working (check `api.ipify.org` access)
 
+### Port Already in Use
+- If port 4000 (or your configured port) is in use, Realm will automatically try ports 4001-4010
+- You'll see a message: `[realm] Port 4000 in use, using port 4001 instead`
+- To use a specific port, configure it: `ronin config --realm-local-port 4001`
+- To check what's using a port: `lsof -i :4000` (macOS/Linux)
+
+### Auto-connect Not Working
+- Verify configuration: `ronin config --show`
+- Ensure both `realmUrl` and `realmCallsign` are set
+- Check connection status in startup logs when running `ronin start`
+- If connection fails, startup will continue without Realm (non-blocking)
+
 ## Example: Complete Messaging Flow
 
 ```typescript
 // Agent A (Leerie)
-await api.realm?.init("ws://realm.example.com:3000", "Leerie");
+await api.realm?.init("wss://realm.afiwi.net", "Leerie");
 await api.realm?.sendMessage("Tyro", "Hello from Leerie!");
 
 // Agent B (Tyro) - receives via event

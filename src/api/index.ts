@@ -14,6 +14,7 @@ export interface APIOptions {
   ollamaModel?: string;
   dbPath?: string;
   pluginDir?: string;
+  userPluginDir?: string;
 }
 
 /**
@@ -24,9 +25,10 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const db = new DatabaseAPI(options.dbPath);
   const pluginsAPI = new PluginsAPI();
 
-  // Load plugins from plugins directory
-  const pluginDir = options.pluginDir || "./plugins";
-  const pluginLoader = new PluginLoader(pluginDir);
+  // Load plugins from both built-in and user directories
+  const builtinPluginDir = options.pluginDir || "./plugins";
+  const userPluginDir = options.userPluginDir || null;
+  const pluginLoader = new PluginLoader(builtinPluginDir, userPluginDir);
   const plugins = await pluginLoader.loadAllPlugins();
 
   // Register all loaded plugins
@@ -140,6 +142,18 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     buildResearchGraph: langchainPlugin.plugin.methods.buildResearchGraph as NonNullable<AgentAPI["langchain"]>["buildResearchGraph"],
   } : undefined;
 
+  const ragPlugin = plugins.find(p => p.name === "rag");
+  const ragAPI: AgentAPI["rag"] = ragPlugin ? {
+    init: ragPlugin.plugin.methods.init as NonNullable<AgentAPI["rag"]>["init"],
+    addDocuments: ragPlugin.plugin.methods.addDocuments as NonNullable<AgentAPI["rag"]>["addDocuments"],
+    search: ragPlugin.plugin.methods.search as NonNullable<AgentAPI["rag"]>["search"],
+    query: ragPlugin.plugin.methods.query as NonNullable<AgentAPI["rag"]>["query"],
+    removeDocuments: ragPlugin.plugin.methods.removeDocuments as NonNullable<AgentAPI["rag"]>["removeDocuments"],
+    listDocuments: ragPlugin.plugin.methods.listDocuments as NonNullable<AgentAPI["rag"]>["listDocuments"],
+    getStats: ragPlugin.plugin.methods.getStats as NonNullable<AgentAPI["rag"]>["getStats"],
+    clearNamespace: ragPlugin.plugin.methods.clearNamespace as NonNullable<AgentAPI["rag"]>["clearNamespace"],
+  } : undefined;
+
   const api: AgentAPI = {
     ai: aiAPI,
     memory: {
@@ -170,6 +184,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(discordAPI && { discord: discordAPI }),
     ...(realmAPI && { realm: realmAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
+    ...(ragAPI && { rag: ragAPI }),
   };
 
   return api;

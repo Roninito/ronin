@@ -22,9 +22,12 @@ interface BotInstance {
   bot: Bot;
   isPolling: boolean;
   messageHandlers: Set<(update: TelegramUpdate) => void>;
+  token: string;
 }
 
 const bots: Map<string, BotInstance> = new Map();
+// Track tokens to prevent duplicate bot instances
+const tokenToBotId: Map<string, string> = new Map();
 
 /**
  * Telegram plugin for interacting with Telegram Bot API
@@ -47,8 +50,35 @@ const telegramPlugin: Plugin = {
         throw new Error("Telegram bot token is required");
       }
 
+      // Check if a bot with this token already exists
+      const existingBotId = tokenToBotId.get(token);
+      if (existingBotId) {
+        const existingInstance = bots.get(existingBotId);
+        if (existingInstance) {
+          console.log(`[telegram] Bot with this token already initialized: ${existingBotId}`);
+          return existingBotId;
+        } else {
+          // Clean up stale entry
+          tokenToBotId.delete(token);
+        }
+      }
+
       const botId = `telegram_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const bot = new Bot(token);
+
+      // Add error handler for 409 conflicts
+      bot.catch((err) => {
+        if (err.error_code === 409) {
+          console.error(
+            `[telegram] Error 409: Another bot instance is already polling with this token. ` +
+            `This usually means multiple instances are running. ` +
+            `Consider stopping other instances or using webhook mode instead.`
+          );
+          // Don't crash, but log the error
+          return;
+        }
+        console.error(`[telegram] Unhandled bot error:`, err);
+      });
 
       // Validate token by getting bot info
       try {
@@ -64,6 +94,7 @@ const telegramPlugin: Plugin = {
         bot,
         isPolling: false,
         messageHandlers: new Set(),
+        token,
       };
 
       // Configure webhook if provided
@@ -78,12 +109,30 @@ const telegramPlugin: Plugin = {
         }
       } else {
         // Start polling if no webhook
-        bot.start();
-        instance.isPolling = true;
-        console.log(`[telegram] Started polling for bot ${botId}`);
+        try {
+          bot.start();
+          instance.isPolling = true;
+          console.log(`[telegram] Started polling for bot ${botId}`);
+        } catch (error: any) {
+          // Handle 409 error specifically
+          if (error?.error_code === 409) {
+            console.error(
+              `[telegram] Failed to start polling: Another instance is already running with this token. ` +
+              `Please stop other instances or use webhook mode.`
+            );
+            // Clean up the bot instance
+            bots.delete(botId);
+            throw new Error(
+              `Bot is already running in another instance. ` +
+              `Error 409: ${error?.description || "Conflict: terminated by other getUpdates request"}`
+            );
+          }
+          throw error;
+        }
       }
 
       bots.set(botId, instance);
+      tokenToBotId.set(token, botId);
       return botId;
     },
 
@@ -114,9 +163,26 @@ const telegramPlugin: Plugin = {
           parse_mode: options?.parseMode,
         });
       } catch (error) {
-        throw new Error(
-          `Failed to send message: ${error instanceof Error ? error.message : String(error)}`
-        );
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        
+        // Provide helpful error messages for common issues
+        if (errorMsg.includes("chat not found")) {
+          throw new Error(
+            `Failed to send message: Chat not found (${chatId}). ` +
+            `Make sure the bot is added to the chat/channel and the chat ID is correct. ` +
+            `For channels, add the bot as an administrator.`
+          );
+        } else if (errorMsg.includes("bot was kicked")) {
+          throw new Error(
+            `Failed to send message: Bot was kicked from the chat (${chatId}).`
+          );
+        } else if (errorMsg.includes("bot was blocked")) {
+          throw new Error(
+            `Failed to send message: Bot was blocked by the user (${chatId}).`
+          );
+        }
+        
+        throw new Error(`Failed to send message: ${errorMsg}`);
       }
     },
 
@@ -170,7 +236,18 @@ const telegramPlugin: Plugin = {
           offset: options?.offset,
         });
         return updates as TelegramUpdate[];
-      } catch (error) {
+      } catch (error: any) {
+        // Handle 409 error specifically
+        if (error?.error_code === 409) {
+          console.error(
+            `[telegram] Error 409: Another bot instance is polling with this token. ` +
+            `Make sure only one instance is running.`
+          );
+          throw new Error(
+            `Conflict: Another bot instance is already polling. ` +
+            `Error 409: ${error?.description || "terminated by other getUpdates request"}`
+          );
+        }
         throw new Error(
           `Failed to get updates: ${error instanceof Error ? error.message : String(error)}`
         );
@@ -386,7 +463,65 @@ const telegramPlugin: Plugin = {
         );
       }
     },
+
+    /**
+     * Stop a bot instance and clean up resources
+     * @param botId ID from initBot
+     */
+    stopBot: async (botId: string): Promise<void> => {
+      const instance = bots.get(botId);
+      if (!instance) {
+        throw new Error(`Bot not initialized: ${botId}`);
+      }
+
+      try {
+        if (instance.isPolling) {
+          await instance.bot.stop();
+          instance.isPolling = false;
+          console.log(`[telegram] Stopped polling for bot ${botId}`);
+        }
+        
+        // Clean up token mapping
+        tokenToBotId.delete(instance.token);
+        bots.delete(botId);
+        console.log(`[telegram] Bot ${botId} cleaned up`);
+      } catch (error) {
+        console.error(`[telegram] Error stopping bot ${botId}:`, error);
+        throw new Error(
+          `Failed to stop bot: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
   },
 };
+
+// Cleanup on process exit
+process.on("SIGINT", async () => {
+  console.log("[telegram] Cleaning up bots on SIGINT...");
+  for (const [botId, instance] of bots.entries()) {
+    try {
+      if (instance.isPolling) {
+        await instance.bot.stop();
+      }
+    } catch (error) {
+      console.error(`[telegram] Error stopping bot ${botId}:`, error);
+    }
+  }
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("[telegram] Cleaning up bots on SIGTERM...");
+  for (const [botId, instance] of bots.entries()) {
+    try {
+      if (instance.isPolling) {
+        await instance.bot.stop();
+      }
+    } catch (error) {
+      console.error(`[telegram] Error stopping bot ${botId}:`, error);
+    }
+  }
+  process.exit(0);
+});
 
 export default telegramPlugin;

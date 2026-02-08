@@ -8,9 +8,16 @@ import { homedir } from "os";
 export interface ConfigOptions {
   agentDir?: string;
   externalAgentDir?: string;
+  pluginDir?: string;
+  userPluginDir?: string;
+  init?: boolean;
   grokApiKey?: string;
   geminiApiKey?: string;
   geminiModel?: string;
+  realmUrl?: string;
+  realmCallsign?: string;
+  realmToken?: string;
+  realmLocalPort?: string;
   show?: boolean;
 }
 
@@ -59,6 +66,31 @@ export function ensureDefaultExternalAgentDir(): string {
     mkdirSync(agentDir, { recursive: true });
   }
   return agentDir;
+}
+
+/**
+ * Get the default local plugins directory
+ */
+export function getDefaultPluginDir(): string {
+  return join(process.cwd(), "plugins");
+}
+
+/**
+ * Get the default user plugins directory
+ */
+export function getDefaultUserPluginDir(): string {
+  return join(homedir(), ".ronin", "plugins");
+}
+
+/**
+ * Ensure the default user plugins directory exists
+ */
+export function ensureDefaultUserPluginDir(): string {
+  const pluginDir = getDefaultUserPluginDir();
+  if (!existsSync(pluginDir)) {
+    mkdirSync(pluginDir, { recursive: true });
+  }
+  return pluginDir;
 }
 
 /**
@@ -137,7 +169,7 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       console.log("   (no configuration set)");
     } else {
       for (const [key, value] of Object.entries(config)) {
-        if (key === "grokApiKey" || key === "geminiApiKey") {
+        if (key === "grokApiKey" || key === "geminiApiKey" || key === "realmToken") {
           console.log(`   ${key}: ${maskValue(value)}`);
         } else if (key === "geminiModel") {
           console.log(`   ${key}: ${value} (default: gemini-pro if not set)`);
@@ -175,6 +207,11 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     } else {
       console.log(`   WEBHOOK_PORT: (not set, using default: ${webhookPort})`);
     }
+    
+    console.log("\nDirectories:");
+    console.log(`   Built-in plugins: ${getDefaultPluginDir()}`);
+    console.log(`   User plugins: ${getDefaultUserPluginDir()}`);
+    console.log(`   External agents: ${config.externalAgentDir || getDefaultExternalAgentDir()}`);
     
     console.log("\nCurrent working directory:");
     console.log(`   ${process.cwd()}`);
@@ -286,34 +323,174 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     return;
   }
 
+  if (options.userPluginDir !== undefined) {
+    // Set user plugin directory
+    const config = await loadConfig();
+    
+    if (options.userPluginDir === "") {
+      // Remove user plugin directory override
+      delete config.userPluginDir;
+      await saveConfig(config);
+      console.log("✅ Removed user plugin directory configuration");
+      console.log("\n💡 Will use default: ~/.ronin/plugins");
+    } else {
+      // Validate path
+      if (!existsSync(options.userPluginDir)) {
+        console.error(`❌ Directory does not exist: ${options.userPluginDir}`);
+        console.log("\n💡 Create the directory first, or use an existing path");
+        process.exit(1);
+      }
+      
+      config.userPluginDir = options.userPluginDir;
+      await saveConfig(config);
+      
+      console.log(`✅ User plugin directory set to: ${options.userPluginDir}`);
+      console.log("\n💡 User plugins in this directory will override built-in plugins");
+      console.log("💡 This setting is stored in ~/.ronin/config.json");
+    }
+    
+    return;
+  }
+
+  if (options.init) {
+    // Initialize user directories
+    const agentDir = ensureDefaultExternalAgentDir();
+    const pluginDir = ensureDefaultUserPluginDir();
+    const configPath = getConfigPath();
+    
+    console.log("\n🔧 Initializing Ronin user directories...\n");
+    console.log(`✅ Agents directory: ${agentDir}`);
+    console.log(`✅ Plugins directory: ${pluginDir}`);
+    console.log(`✅ Config file: ${configPath}`);
+    console.log("\n📋 Your user directories are ready!");
+    console.log("\n💡 To create your first agent:");
+    console.log("   ronin create agent \"My custom agent\"");
+    console.log("\n💡 To add a custom plugin:");
+    console.log(`   Create a .ts file in: ${pluginDir}`);
+    
+    return;
+  }
+
+  if (options.realmUrl !== undefined) {
+    const config = await loadConfig();
+    
+    if (options.realmUrl === "") {
+      delete config.realmUrl;
+      await saveConfig(config);
+      console.log("✅ Removed Realm URL from configuration");
+    } else {
+      config.realmUrl = options.realmUrl;
+      await saveConfig(config);
+      console.log(`✅ Realm URL set to: ${options.realmUrl}`);
+      console.log("\n💡 The URL is stored in ~/.ronin/config.json");
+      console.log("💡 Use 'ronin config --realm-callsign <callsign>' to set your call sign");
+    }
+    return;
+  }
+
+  if (options.realmCallsign !== undefined) {
+    const config = await loadConfig();
+    
+    if (options.realmCallsign === "") {
+      delete config.realmCallsign;
+      await saveConfig(config);
+      console.log("✅ Removed Realm call sign from configuration");
+    } else {
+      config.realmCallsign = options.realmCallsign;
+      await saveConfig(config);
+      console.log(`✅ Realm call sign set to: ${options.realmCallsign}`);
+      console.log("\n💡 The call sign is stored in ~/.ronin/config.json");
+      console.log("💡 Use 'ronin config --realm-url <url>' to set the Realm server URL");
+    }
+    return;
+  }
+
+  if (options.realmToken !== undefined) {
+    const config = await loadConfig();
+    
+    if (options.realmToken === "") {
+      delete config.realmToken;
+      await saveConfig(config);
+      console.log("✅ Removed Realm token from configuration");
+    } else {
+      config.realmToken = options.realmToken;
+      await saveConfig(config);
+      console.log("✅ Realm token saved to configuration");
+      console.log("\n💡 The token is stored in ~/.ronin/config.json");
+    }
+    return;
+  }
+
+  if (options.realmLocalPort !== undefined) {
+    const config = await loadConfig();
+    
+    if (options.realmLocalPort === "") {
+      delete config.realmLocalPort;
+      await saveConfig(config);
+      console.log("✅ Removed Realm local port from configuration");
+      console.log("\n💡 Will use default port: 4000");
+    } else {
+      const port = parseInt(options.realmLocalPort);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        console.error(`❌ Invalid port number: ${options.realmLocalPort}`);
+        console.log("\n💡 Port must be between 1 and 65535");
+        process.exit(1);
+      }
+      config.realmLocalPort = options.realmLocalPort;
+      await saveConfig(config);
+      console.log(`✅ Realm local port set to: ${port}`);
+      console.log("\n💡 The port is stored in ~/.ronin/config.json");
+      console.log("💡 If the port is in use, Realm will automatically try the next available port");
+    }
+    return;
+  }
+
   // No options provided, show help
   console.log(`
 📋 Ronin Configuration
 
 Usage:
   ronin config --show                    Show current configuration
+  ronin config --init                    Initialize user directories (~/.ronin/)
   ronin config --agent-dir <path>        Set local agent directory
   ronin config --external-agent-dir <path>  Set external agent directory
   ronin config --external-agent-dir ""   Remove external agent directory
+  ronin config --user-plugin-dir <path>  Set user plugin directory
+  ronin config --user-plugin-dir ""      Remove user plugin directory
   ronin config --grok-api-key <key>      Set Grok API key
   ronin config --grok-api-key ""         Remove Grok API key
   ronin config --gemini-api-key <key>     Set Gemini API key
   ronin config --gemini-api-key ""        Remove Gemini API key
   ronin config --gemini-model <model>     Set Gemini model (e.g., gemini-1.5-pro)
   ronin config --gemini-model ""          Remove Gemini model (use default)
+  ronin config --realm-url <url>          Set Realm discovery server URL
+  ronin config --realm-url ""             Remove Realm URL
+  ronin config --realm-callsign <callsign> Set Realm call sign
+  ronin config --realm-callsign ""        Remove Realm call sign
+  ronin config --realm-token <token>      Set Realm authentication token
+  ronin config --realm-token ""           Remove Realm token
+  ronin config --realm-local-port <port>  Set Realm local WebSocket port
+  ronin config --realm-local-port ""      Remove Realm local port (use default: 4000)
 
 Examples:
+  ronin config --init                    Initialize user directories
   ronin config --show
   ronin config --external-agent-dir ~/my-agents
   ronin config --agent-dir ./custom-agents
+  ronin config --user-plugin-dir ~/my-plugins
   ronin config --grok-api-key sk-xxxxx
   ronin config --gemini-api-key AIxxxxx
   ronin config --gemini-model gemini-1.5-flash
+  ronin config --realm-url wss://realm.afiwi.net
+  ronin config --realm-callsign Roninito
+  ronin config --realm-local-port 4001
 
 Note: 
   - API keys can also be set via environment variables (takes precedence)
   - External agent directory can also be set via RONIN_EXTERNAL_AGENT_DIR
+  - User plugins in ~/.ronin/plugins override built-in plugins
   - Configuration is stored in ~/.ronin/config.json
+  - Once Realm URL and call sign are configured, 'ronin start' will automatically connect
 `);
 }
 

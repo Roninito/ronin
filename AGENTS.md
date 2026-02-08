@@ -82,6 +82,44 @@ Agents receive an `api` object with the following capabilities:
 - `on(event, handler)` - Listen to events
 - `off(event, handler)` - Remove event listener
 
+### `api.plugins`
+- `call(pluginName, method, ...args)` - Call a plugin method
+- `has(pluginName)` - Check if plugin is loaded
+- `list()` - List all loaded plugins
+
+### Plugin Direct APIs
+
+Many plugins have direct API access for type-safe usage:
+
+- `api.git.*` - Git operations
+- `api.shell.*` - Shell commands
+- `api.scrape.*` - Web scraping
+- `api.torrent.*` - Torrent management
+- `api.telegram.*` - Telegram Bot API
+- `api.discord.*` - Discord Bot API
+- `api.langchain.*` - LangChain integration
+- `api.rag.*` - RAG (Retrieval-Augmented Generation) for document storage and semantic search
+- `api.email.*` - Email management
+
+**Example with RAG:**
+```typescript
+async execute(): Promise<void> {
+  // Initialize RAG namespace
+  await this.api.rag?.init("my-docs");
+  
+  // Add documents
+  await this.api.rag?.addDocuments("my-docs", [
+    { content: "Document content here..." }
+  ]);
+  
+  // Query with RAG
+  const result = await this.api.rag?.query("my-docs", "What is this about?", {}, this.api);
+  console.log(result.response);
+}
+```
+
+See [docs/PLUGINS.md](docs/PLUGINS.md) for complete plugin documentation and [docs/RAG.md](docs/RAG.md) for RAG-specific documentation.
+
 ## Cron Schedule Format
 
 > 📖 **For a comprehensive guide with detailed examples, tables, and troubleshooting, see [CRON_SCHEDULING.md](docs/CRON_SCHEDULING.md)**

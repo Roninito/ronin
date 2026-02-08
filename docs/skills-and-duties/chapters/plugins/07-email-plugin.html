@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Email Plugin</h1>
+      
+      <p class="lead">
+        The Email plugin provides comprehensive email management capabilities for Ronin agents, 
+        supporting multiple email accounts with IMAP (incoming) and SMTP (outgoing) protocols.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Email plugin enables agents to connect to multiple email accounts, monitor inboxes, 
+        send emails, reply, forward, delete, and search messages. It integrates seamlessly with 
+        the Ronin event system, allowing other agents to respond to email events and command 
+        email operations.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Multiple Account Support</strong>: Connect and manage multiple email accounts simultaneously</li>
+        <li><strong>IMAP Integration</strong>: Monitor inboxes, fetch emails, search, and manage messages</li>
+        <li><strong>SMTP Integration</strong>: Send emails, reply, forward with full attachment support</li>
+        <li><strong>Real-time Monitoring</strong>: IMAP IDLE support for instant new email notifications</li>
+        <li><strong>Event System Integration</strong>: Emit and listen to email events for inter-agent communication</li>
+        <li><strong>Folder Management</strong>: List and navigate email folders/mailboxes</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Account Management</h3>
+      
+      <h4><code>addAccount(config)</code></h4>
+      <p>Add a new email account with IMAP and SMTP configuration.</p>
+      <pre><code>const account = await this.api.email?.addAccount({
+  name: "Work Email",
+  email: "user@example.com",
+  imap: {
+    host: "imap.example.com",
+    port: 993,
+    secure: true,
+    auth: { user: "user@example.com", pass: "password" }
+  },
+  smtp: {
+    host: "smtp.example.com",
+    port: 587,
+    secure: false,
+    auth: { user: "user@example.com", pass: "password" }
+  }
+});</code></pre>
+
+      <h4><code>removeAccount(accountId)</code></h4>
+      <p>Remove an email account and stop monitoring.</p>
+
+      <h4><code>listAccounts()</code></h4>
+      <p>List all configured accounts (without sensitive data).</p>
+
+      <h3>Reading Emails</h3>
+
+      <h4><code>getInbox(accountId, options?)</code></h4>
+      <p>Fetch emails from the inbox. Returns an array of email messages.</p>
+      <pre><code>const emails = await this.api.email?.getInbox(accountId, { limit: 20 });</code></pre>
+
+      <h4><code>getEmail(accountId, messageId)</code></h4>
+      <p>Get full details of a single email including body content.</p>
+
+      <h4><code>searchEmails(accountId, query, options?)</code></h4>
+      <p>Search emails by subject, body, or sender.</p>
+
+      <h3>Sending Emails</h3>
+
+      <h4><code>sendEmail(accountId, to, subject, body, options?)</code></h4>
+      <p>Send an email via SMTP. Supports CC, BCC, HTML, attachments, and reply-to.</p>
+      <pre><code>await this.api.email?.sendEmail(
+  accountId,
+  "recipient@example.com",
+  "Hello from Ronin",
+  "This is an automated email.",
+  {
+    cc: ["cc@example.com"],
+    html: false
+  }
+);</code></pre>
+
+      <h4><code>replyToEmail(accountId, messageId, body, options?)</code></h4>
+      <p>Reply to an existing email. Supports reply-all and quoted original message.</p>
+
+      <h4><code>forwardEmail(accountId, messageId, to, body?)</code></h4>
+      <p>Forward an email to other recipients.</p>
+
+      <h3>Email Management</h3>
+
+      <h4><code>deleteEmail(accountId, messageId, options?)</code></h4>
+      <p>Delete or trash an email. Can permanently delete or move to trash.</p>
+
+      <h4><code>markRead(accountId, messageId)</code></h4>
+      <p>Mark an email as read.</p>
+
+      <h4><code>markUnread(accountId, messageId)</code></h4>
+      <p>Mark an email as unread.</p>
+
+      <h3>Monitoring</h3>
+
+      <h4><code>startMonitoring(accountId)</code></h4>
+      <p>Start IMAP IDLE monitoring for real-time new email notifications.</p>
+
+      <h4><code>stopMonitoring(accountId)</code></h4>
+      <p>Stop monitoring an account.</p>
+
+      <h4><code>onNewEmail(accountId, callback)</code></h4>
+      <p>Register a callback function for new email notifications.</p>
+      <pre><code>this.api.email?.onNewEmail(accountId, (email) => {
+  console.log(`New email: ${email.subject}`);
+  // Process email with AI, auto-respond, etc.
+});</code></pre>
+
+      <h4><code>listFolders(accountId)</code></h4>
+      <p>List all folders/mailboxes for an account.</p>
+
+      <h2>Event System Integration</h2>
+
+      <p>
+        The email plugin emits events that other agents can listen to:
+      </p>
+
+      <ul>
+        <li><strong><code>email:new</code></strong> - Emitted when a new email arrives</li>
+        <li><strong><code>email:sent</code></strong> - Emitted when an email is sent</li>
+        <li><strong><code>email:deleted</code></strong> - Emitted when an email is deleted</li>
+        <li><strong><code>email:error</code></strong> - Emitted when an error occurs</li>
+      </ul>
+
+      <h3>Listening for Email Events</h3>
+      <pre><code>// Listen for new emails
+this.api.events.on("email:new", (data) => {
+  const { accountId, email } = data as any;
+  console.log(`New email from ${email.from[0]?.address}: ${email.subject}`);
+});</code></pre>
+
+      <h2>Common Email Provider Settings</h2>
+
+      <h3>Gmail</h3>
+      <ul>
+        <li><strong>IMAP:</strong> imap.gmail.com:993 (SSL)</li>
+        <li><strong>SMTP:</strong> smtp.gmail.com:587 (STARTTLS)</li>
+        <li><strong>Note:</strong> Requires an App Password instead of regular password</li>
+      </ul>
+
+      <h3>Outlook/Hotmail</h3>
+      <ul>
+        <li><strong>IMAP:</strong> outlook.office365.com:993 (SSL)</li>
+        <li><strong>SMTP:</strong> smtp.office365.com:587 (STARTTLS)</li>
+      </ul>
+
+      <h3>Yahoo Mail</h3>
+      <ul>
+        <li><strong>IMAP:</strong> imap.mail.yahoo.com:993 (SSL)</li>
+        <li><strong>SMTP:</strong> smtp.mail.yahoo.com:587 (STARTTLS)</li>
+      </ul>
+
+      <h2>Example Usage</h2>
+
+      <pre><code>// Add account and start monitoring
+const account = await this.api.email?.addAccount({
+  name: "Gmail",
+  email: "user@gmail.com",
+  imap: {
+    host: "imap.gmail.com",
+    port: 993,
+    secure: true,
+    auth: { user: "user@gmail.com", pass: "app-password" }
+  },
+  smtp: {
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: { user: "user@gmail.com", pass: "app-password" }
+  }
+});
+
+// Start monitoring
+await this.api.email?.startMonitoring(account?.id || "");
+
+// Register handler
+this.api.email?.onNewEmail(account?.id || "", (email) => {
+  console.log(`New email: ${email.subject}`);
+});
+
+// Get inbox
+const emails = await this.api.email?.getInbox(account?.id || "", { limit: 10 });
+
+// Send email
+await this.api.email?.sendEmail(
+  account?.id || "",
+  "recipient@example.com",
+  "Hello",
+  "This is a test email"
+);</code></pre>
+
+      <h2>Data Storage</h2>
+      <p>
+        Account configurations are stored in <code>~/.ronin/data/email-accounts.json</code>. 
+        Passwords are stored in plain text - consider using environment variables or encryption 
+        for production use.
+      </p>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Use app-specific passwords when available (Gmail, etc.)</li>
+        <li>Store sensitive credentials in environment variables for production</li>
+        <li>Ensure IMAP/SMTP connections use SSL/TLS</li>
+        <li>Be mindful of email provider rate limits</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../EMAIL.md">Email Plugin & Agent Guide</a> - Detailed documentation</li>
+        <li><a href="../agents/01-email-manager.html">Email Manager Agent</a> - Management agent</li>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

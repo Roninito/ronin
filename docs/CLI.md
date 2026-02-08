@@ -44,6 +44,7 @@ ronin start --ollama-model llama2
 ```
 
 **What it does:**
+- Automatically connects to Realm discovery server if configured (see Configuration section)
 - Discovers agents from local and external directories
 - Registers scheduled agents with cron scheduler
 - Sets up file watchers for agents with `watch` property
@@ -360,6 +361,14 @@ ronin config [options]
 - `--gemini-api-key <key>` - Set Gemini API key
 - `--gemini-api-key ""` - Remove Gemini API key
 - `--gemini-model <model>` - Set Gemini model name (e.g., `gemini-1.5-pro`)
+- `--realm-url <url>` - Set Realm discovery server URL (e.g., `wss://realm.afiwi.net`)
+- `--realm-url ""` - Remove Realm URL
+- `--realm-callsign <callsign>` - Set Realm call sign for this instance
+- `--realm-callsign ""` - Remove Realm call sign
+- `--realm-token <token>` - Set Realm authentication token (optional)
+- `--realm-token ""` - Remove Realm token
+- `--realm-local-port <port>` - Set local WebSocket port (default: 4000)
+- `--realm-local-port ""` - Remove Realm local port (use default: 4000)
 
 **Examples:**
 ```bash
@@ -376,12 +385,21 @@ ronin config --gemini-api-key AIxxxxx
 # Set Gemini model
 ronin config --gemini-model gemini-1.5-pro
 
+# Configure Realm for auto-connect on startup
+ronin config --realm-url wss://realm.afiwi.net
+ronin config --realm-callsign Roninito
+ronin config --realm-token abc123  # optional
+ronin config --realm-local-port 4001  # optional, if 4000 is in use
+
 # Remove API keys
 ronin config --grok-api-key ""
 ronin config --gemini-api-key ""
 ```
 
-**Note:** Environment variables take precedence over config file settings.
+**Note:** 
+- Environment variables take precedence over config file settings.
+- Once Realm URL and call sign are configured, `ronin start` will automatically connect to Realm on startup.
+- If the configured local port is in use, Realm will automatically try the next available port (4001, 4002, etc.).
 
 ### Fishy Agent
 
@@ -460,11 +478,14 @@ ronin realm connect --url <url> --callsign <callsign> [options]
 
 **Examples:**
 ```bash
-# Connect to Realm server
-ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie
+# Connect to production Realm server
+ronin realm connect --url wss://realm.afiwi.net --callsign Leerie
+
+# Connect to local Realm server
+ronin realm connect --url ws://localhost:3033 --callsign Leerie
 
 # Connect with authentication token
-ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie --token abc123
+ronin realm connect --url wss://realm.afiwi.net --callsign Leerie --token abc123
 ```
 
 ### `realm status`

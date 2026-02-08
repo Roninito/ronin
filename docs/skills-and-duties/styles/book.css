@@ -1,0 +1,464 @@
+/* Ronin & Realm Book Stylesheet */
+
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #2563eb;
+  --secondary-color: #1e40af;
+  --text-color: #1f2937;
+  --text-light: #6b7280;
+  --bg-color: #ffffff;
+  --bg-light: #f9fafb;
+  --border-color: #e5e7eb;
+  --code-bg: #f3f4f6;
+  --code-border: #d1d5db;
+  --accent-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  
+  --line-height: 1.6;
+  --line-height-tight: 1.4;
+  --spacing-unit: 1rem;
+}
+
+body {
+  font-family: var(--font-serif);
+  font-size: 11pt;
+  line-height: var(--line-height);
+  color: var(--text-color);
+  background: var(--bg-color);
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: var(--text-color);
+  page-break-after: avoid;
+}
+
+h1 {
+  font-size: 24pt;
+  margin-top: 0;
+  border-bottom: 3px solid var(--primary-color);
+  padding-bottom: 0.3em;
+}
+
+h2 {
+  font-size: 18pt;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.2em;
+  margin-top: 2em;
+}
+
+h3 {
+  font-size: 14pt;
+  margin-top: 1.5em;
+}
+
+h4 {
+  font-size: 12pt;
+}
+
+h5, h6 {
+  font-size: 11pt;
+}
+
+p {
+  margin-bottom: 1em;
+  text-align: justify;
+  orphans: 3;
+  widows: 3;
+}
+
+/* Links */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:visited {
+  color: var(--secondary-color);
+}
+
+/* Code Blocks */
+code {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  background: var(--code-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  border: 1px solid var(--code-border);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  line-height: 1.4;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  font-size: inherit;
+}
+
+/* Lists */
+ul, ol {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+
+li {
+  margin-bottom: 0.5em;
+}
+
+ul ul, ol ol, ul ol, ol ul {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 0.5em;
+  text-align: left;
+}
+
+th {
+  background: var(--bg-light);
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+tr:nth-child(even) {
+  background: var(--bg-light);
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--primary-color);
+  padding-left: 1em;
+  margin: 1em 0;
+  font-style: italic;
+  color: var(--text-light);
+}
+
+/* Images and Diagrams */
+img {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+/* Page Layout */
+.page {
+  min-height: 100vh;
+  padding: 2cm;
+  page-break-after: always;
+}
+
+/* Table of Contents */
+.toc {
+  page-break-after: always;
+}
+
+.toc h1 {
+  margin-bottom: 1em;
+}
+
+.toc ul {
+  list-style: none;
+  margin-left: 0;
+}
+
+.toc li {
+  margin-bottom: 0.5em;
+}
+
+.toc a {
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.toc a:hover {
+  color: var(--primary-color);
+}
+
+.toc-level-1 {
+  font-weight: 600;
+  margin-top: 0.5em;
+}
+
+.toc-level-2 {
+  margin-left: 1em;
+  font-size: 10pt;
+}
+
+.toc-level-3 {
+  margin-left: 2em;
+  font-size: 9pt;
+}
+
+/* Chapter Headers */
+.chapter-header {
+  page-break-before: always;
+  margin-bottom: 2em;
+}
+
+.chapter-number {
+  font-size: 12pt;
+  color: var(--text-light);
+  font-weight: 400;
+  margin-bottom: 0.5em;
+}
+
+.chapter-title {
+  font-size: 28pt;
+  margin-bottom: 0.5em;
+}
+
+.part-title {
+  font-size: 32pt;
+  text-align: center;
+  margin: 2em 0;
+  page-break-before: always;
+  color: var(--primary-color);
+}
+
+/* Sections */
+.section {
+  margin-bottom: 2em;
+}
+
+/* Code Examples */
+.code-example {
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+.code-example-title {
+  font-family: var(--font-sans);
+  font-size: 10pt;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  color: var(--text-light);
+}
+
+/* Callouts */
+.callout {
+  border-left: 4px solid var(--accent-color);
+  background: var(--bg-light);
+  padding: 1em;
+  margin: 1em 0;
+  page-break-inside: avoid;
+}
+
+.callout-warning {
+  border-left-color: var(--warning-color);
+}
+
+.callout-error {
+  border-left-color: var(--error-color);
+}
+
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 0.5em;
+  font-family: var(--font-sans);
+}
+
+/* Diagrams */
+.diagram {
+  margin: 2em 0;
+  text-align: center;
+  page-break-inside: avoid;
+}
+
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: letter;
+    margin: 2cm;
+  }
+  
+  body {
+    font-size: 10pt;
+  }
+  
+  h1 {
+    font-size: 20pt;
+    page-break-after: avoid;
+  }
+  
+  h2 {
+    font-size: 16pt;
+    page-break-after: avoid;
+  }
+  
+  h3 {
+    font-size: 12pt;
+    page-break-after: avoid;
+  }
+  
+  pre, code {
+    font-size: 8pt;
+  }
+  
+  .page {
+    padding: 0;
+  }
+  
+  a {
+    color: var(--text-color);
+    text-decoration: underline;
+  }
+  
+  a[href^="http"]:after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: var(--text-light);
+  }
+  
+  .no-print {
+    display: none;
+  }
+  
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+  
+  /* Avoid breaking */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  
+  pre, blockquote, table, img {
+    page-break-inside: avoid;
+  }
+  
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+}
+
+/* Screen Styles */
+@media screen {
+  body {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2em;
+    font-size: 12pt;
+  }
+  
+  .navigation {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 250px;
+    background: var(--bg-light);
+    padding: 1em;
+    border-left: 1px solid var(--border-color);
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .content {
+    margin-right: 270px;
+  }
+}
+
+/* Utility Classes */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mt-1 { margin-top: 0.5em; }
+.mt-2 { margin-top: 1em; }
+.mt-3 { margin-top: 1.5em; }
+.mb-1 { margin-bottom: 0.5em; }
+.mb-2 { margin-bottom: 1em; }
+.mb-3 { margin-bottom: 1.5em; }
+
+.highlight {
+  background: #fef3c7;
+  padding: 0.1em 0.2em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2em 0.5em;
+  border-radius: 3px;
+  font-size: 9pt;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.badge-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.badge-success {
+  background: var(--accent-color);
+  color: white;
+}
+
+.badge-warning {
+  background: var(--warning-color);
+  color: white;
+}
+
+/* Syntax Highlighting (basic) */
+.hljs-keyword { color: #d73a49; }
+.hljs-string { color: #032f62; }
+.hljs-comment { color: #6a737d; font-style: italic; }
+.hljs-function { color: #6f42c1; }
+.hljs-number { color: #005cc5; }
+.hljs-type { color: #e36209; }

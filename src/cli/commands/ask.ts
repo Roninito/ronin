@@ -11,6 +11,7 @@ import type { ToolCall } from "../../types/api.js";
 export interface AskOptions {
   question?: string;
   model?: string; // Model name (e.g., "grok", "gemini", or "local" for default)
+  askModel?: string; // Specific Ollama model for ask command (e.g., "qwen3:1.7b")
   agentDir?: string;
   pluginDir?: string;
   ollamaUrl?: string;
@@ -47,11 +48,14 @@ export async function askCommand(options: AskOptions = {}): Promise<void> {
   const remoteModels = ["grok", "gemini"];
   const isRemoteModel = options.model && remoteModels.includes(options.model.toLowerCase());
   
+  // Determine which Ollama model to use (askModel takes precedence)
+  const ollamaModel = options.askModel || options.ollamaModel;
+  
   if (isRemoteModel) {
     // Route to remote model handler
     const api = await createAPI({
       ollamaUrl: options.ollamaUrl,
-      ollamaModel: options.ollamaModel,
+      ollamaModel,
       dbPath: options.dbPath,
       pluginDir,
     });
@@ -61,9 +65,14 @@ export async function askCommand(options: AskOptions = {}): Promise<void> {
 
   // Use local Ollama model (default)
   try {
+    // Show which model is being used
+    if (ollamaModel) {
+      console.log(`🤖 Using model: ${ollamaModel}`);
+    }
+
     const api = await createAPI({
       ollamaUrl: options.ollamaUrl,
-      ollamaModel: options.ollamaModel,
+      ollamaModel,
       dbPath: options.dbPath,
       pluginDir,
     });

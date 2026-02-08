@@ -258,13 +258,32 @@ const realmPlugin: Plugin = {
         };
 
         discoveryWs.addEventListener("message", handler);
-        discoveryWs.send(
-          JSON.stringify({
-            type: "getPeer",
-            target: callSign,
-            requestId,
-          })
-        );
+        
+        // Wait for WebSocket to be open before sending
+        if (discoveryWs.readyState === WebSocket.OPEN) {
+          discoveryWs.send(
+            JSON.stringify({
+              type: "getPeer",
+              target: callSign,
+              requestId,
+            })
+          );
+        } else if (discoveryWs.readyState === WebSocket.CONNECTING) {
+          // Wait for connection then send
+          discoveryWs.addEventListener("open", () => {
+            discoveryWs?.send(
+              JSON.stringify({
+                type: "getPeer",
+                target: callSign,
+                requestId,
+              })
+            );
+          }, { once: true });
+        } else {
+          // WebSocket is closed/closing
+          resolve({ online: false, error: "Discovery WebSocket not connected" });
+          return;
+        }
 
         // Timeout after 5 seconds
         setTimeout(() => {
@@ -336,45 +355,68 @@ async function fetchExternalIp(): Promise<string> {
 function startLocalWsServer(): void {
   if (localWsServer || !config) return;
 
-  const port = config.localWsPort!;
-  localWsServer = Bun.serve({
-    port,
-    fetch: (req, server) => {
-      if (server.upgrade(req)) {
-        return;
-      }
-      return new Response("Not a WebSocket endpoint", { status: 400 });
-    },
-    websocket: {
-      open: (ws) => {
-        // Peer will identify themselves in first message
-        console.log("[realm] Incoming peer connection");
-      },
-      message: (ws, message) => {
-        try {
-          const data = JSON.parse(message.toString()) as RealmMessage;
-          handleIncomingMessage(ws, data);
-        } catch (error) {
-          console.error("[realm] Error handling incoming message:", error);
-        }
-      },
-      close: (ws) => {
-        // Find and remove connection
-        for (const [callSign, conn] of peerConnections.entries()) {
-          if (conn.ws === ws) {
-            peerConnections.delete(callSign);
-            console.log(`[realm] Peer disconnected: ${callSign}`);
-            break;
-          }
-        }
-      },
-      error: (ws, error) => {
-        console.error("[realm] WebSocket error:", error);
-      },
-    },
-  });
+  const basePort = config.localWsPort!;
+  let port = basePort;
+  let attempts = 0;
+  const maxAttempts = 10;
 
-  console.log(`[realm] Local WebSocket server running on port ${port}`);
+  while (attempts < maxAttempts) {
+    try {
+      localWsServer = Bun.serve({
+        port,
+        fetch: (req, server) => {
+          if (server.upgrade(req)) {
+            return;
+          }
+          return new Response("Not a WebSocket endpoint", { status: 400 });
+        },
+        websocket: {
+          open: (ws) => {
+            // Peer will identify themselves in first message
+            console.log("[realm] Incoming peer connection");
+          },
+          message: (ws, message) => {
+            try {
+              const data = JSON.parse(message.toString()) as RealmMessage;
+              handleIncomingMessage(ws, data);
+            } catch (error) {
+              console.error("[realm] Error handling incoming message:", error);
+            }
+          },
+          close: (ws) => {
+            // Find and remove connection
+            for (const [callSign, conn] of peerConnections.entries()) {
+              if (conn.ws === ws) {
+                peerConnections.delete(callSign);
+                console.log(`[realm] Peer disconnected: ${callSign}`);
+                break;
+              }
+            }
+          },
+          error: (ws, error) => {
+            console.error("[realm] WebSocket error:", error);
+          },
+        },
+      });
+
+      if (port !== basePort) {
+        console.log(`[realm] Port ${basePort} in use, using port ${port} instead`);
+      }
+      console.log(`[realm] Local WebSocket server running on port ${port}`);
+      // Update config with actual port used
+      config.localWsPort = port;
+      return;
+    } catch (error: any) {
+      // Check if it's a port conflict error
+      if (error?.code === 'EADDRINUSE' && attempts < maxAttempts - 1) {
+        port++;
+        attempts++;
+        continue;
+      }
+      // If it's not a port conflict or we've exhausted attempts, throw
+      throw new Error(`Failed to start local WebSocket server: ${error?.message || String(error)}`);
+    }
+  }
 }
 
 /**
@@ -435,6 +477,11 @@ function startHeartbeats(): void {
 
   heartbeatTimer = setInterval(async () => {
     if (!config || !discoveryWs) return;
+    
+    // Check if WebSocket is still open
+    if (discoveryWs.readyState !== WebSocket.OPEN) {
+      return;
+    }
 
     const freshIp = await fetchExternalIp();
     if (freshIp !== currentExternalIp) {
@@ -620,7 +667,7 @@ async function createWebRTCConnection(
 
   // Handle ICE candidates
   pc.onicecandidate = (event) => {
-    if (event.candidate && discoveryWs) {
+    if (event.candidate && discoveryWs && discoveryWs.readyState === WebSocket.OPEN) {
       discoveryWs.send(
         JSON.stringify({
           type: "webrtc-signal",
@@ -691,7 +738,7 @@ function handleWebRTCSignal(msg: RealmMessage): void {
     };
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && discoveryWs) {
+      if (event.candidate && discoveryWs && discoveryWs.readyState === WebSocket.OPEN) {
         discoveryWs.send(
           JSON.stringify({
             type: "webrtc-signal",
@@ -709,7 +756,7 @@ function handleWebRTCSignal(msg: RealmMessage): void {
       }).then((answer) => {
         return pc.setLocalDescription(answer);
       }).then(() => {
-        if (discoveryWs && msg.from) {
+        if (discoveryWs && discoveryWs.readyState === WebSocket.OPEN && msg.from) {
           discoveryWs.send(
             JSON.stringify({
               type: "webrtc-signal",
@@ -763,9 +810,9 @@ function handleIncomingMessage(source: WebSocket | RTCDataChannel, msg: RealmMes
             requestId: msg.requestId,
             payload: response,
           };
-          if (source instanceof WebSocket) {
+          if (source instanceof WebSocket && source.readyState === WebSocket.OPEN) {
             source.send(JSON.stringify(responseMsg));
-          } else {
+          } else if (source instanceof RTCDataChannel && source.readyState === "open") {
             source.send(JSON.stringify(responseMsg));
           }
         }).catch((error) => {
@@ -774,9 +821,9 @@ function handleIncomingMessage(source: WebSocket | RTCDataChannel, msg: RealmMes
             requestId: msg.requestId,
             error: error.message,
           };
-          if (source instanceof WebSocket) {
+          if (source instanceof WebSocket && source.readyState === WebSocket.OPEN) {
             source.send(JSON.stringify(responseMsg));
-          } else {
+          } else if (source instanceof RTCDataChannel && source.readyState === "open") {
             source.send(JSON.stringify(responseMsg));
           }
         });

@@ -53,6 +53,9 @@ const discordPlugin: Plugin = {
       const clientId = `discord_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       // Default intents for basic bot functionality
+      // Note: MessageContent is a privileged intent that must be enabled in Discord Developer Portal
+      // If you get "Used disallowed intents" error, enable MessageContent intent at:
+      // https://discord.com/developers/applications -> Your Bot -> Bot -> Privileged Gateway Intents
       const defaultIntents = [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
@@ -68,8 +71,8 @@ const discordPlugin: Plugin = {
         readyHandlers: new Set(),
       };
 
-      // Set up ready handler
-      client.once("ready", () => {
+      // Set up ready handler (using clientReady to avoid deprecation warning in discord.js v15)
+      client.once("clientReady", () => {
         console.log(`[discord] Bot logged in as ${client.user?.tag}`);
         instance.readyHandlers.forEach((handler) => {
           try {
@@ -110,8 +113,25 @@ const discordPlugin: Plugin = {
         console.log(`[discord] Bot initialized: ${clientId}`);
         return clientId;
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Provide helpful guidance for common Discord errors
+        if (errorMessage.includes("disallowed intents") || errorMessage.includes("intents")) {
+          throw new Error(
+            `Failed to initialize Discord bot: Used disallowed intents.\n` +
+            `To fix this:\n` +
+            `1. Go to https://discord.com/developers/applications\n` +
+            `2. Select your bot application\n` +
+            `3. Go to "Bot" section\n` +
+            `4. Under "Privileged Gateway Intents", enable:\n` +
+            `   - MESSAGE CONTENT INTENT (required for reading message content)\n` +
+            `5. Save changes and restart the bot\n` +
+            `\nIf you don't need to read message content, you can remove MessageContent intent from the code.`
+          );
+        }
+        
         throw new Error(
-          `Failed to initialize Discord bot: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to initialize Discord bot: ${errorMessage}`
         );
       }
     },

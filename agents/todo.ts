@@ -102,6 +102,12 @@ export default class TodoAgent extends BaseAgent {
       this.handlePlanBlocked(payload);
     });
 
+    // PlanFailed → Move to "Failed" column
+    this.api.events.on("PlanFailed", (data: unknown) => {
+      const payload = data as { id: string; error?: string; failedAt?: number };
+      this.handlePlanFailed(payload);
+    });
+
     console.log("[todo] Event handlers registered");
   }
 
@@ -315,6 +321,76 @@ export default class TodoAgent extends BaseAgent {
   }
 
   /**
+   * Handle PlanFailed: Move to "Failed" column
+   */
+  private async handlePlanFailed(payload: {
+    id: string;
+    error?: string;
+    failedAt?: number;
+  }): Promise<void> {
+    try {
+      const card = await this.findCardByPlanId(payload.id);
+      if (!card) {
+        console.error(`[todo] PlanFailed: Card not found for plan ${payload.id}`);
+        return;
+      }
+
+      // Get or create "Failed" column
+      const failedColumn = await this.getOrCreateColumn(card.board_id, "Failed", 3);
+      if (!failedColumn) {
+        console.error("[todo] Failed to get/create Failed column");
+        return;
+      }
+
+      // Move card to Failed
+      await this.moveCardToColumn(card.id, failedColumn.id);
+
+      // Update description with error
+      if (payload.error) {
+        const newDescription = `${card.description || ""}\n\n---\n❌ Failed:\n${payload.error}`;
+        await this.updateCard(card.id, { description: newDescription });
+      }
+
+      // Add failed label
+      const labels = JSON.parse(card.labels || "[]");
+      if (!labels.includes("failed")) {
+        labels.push("failed");
+      }
+      await this.updateCard(card.id, { labels: JSON.stringify(labels) });
+
+      console.log(`[todo] PlanFailed: Moved card ${card.id} to Failed column`);
+
+      // Emit event
+      this.api.events.emit("TaskFailed", {
+        planId: payload.id,
+        cardId: card.id,
+        error: payload.error,
+      });
+    } catch (error) {
+      console.error("[todo] Failed to handle PlanFailed:", error);
+    }
+  }
+
+  /**
+   * Get or create a column by name
+   */
+  private async getOrCreateColumn(boardId: string, name: string, position?: number): Promise<Column | null> {
+    // Try to find existing column
+    const existing = await this.getColumnByName(boardId, name);
+    if (existing) return existing;
+
+    // Create new column
+    try {
+      const columns = await this.getColumns(boardId);
+      const newPosition = position !== undefined ? position : columns.length;
+      return await this.createColumn(boardId, name, newPosition);
+    } catch (error) {
+      console.error(`[todo] Failed to create column ${name}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Ensure default board exists (for plan workflow)
    */
   private async ensureDefaultBoard(): Promise<Board> {
@@ -508,10 +584,11 @@ export default class TodoAgent extends BaseAgent {
       [id, name, description || null, now, now]
     );
 
-    // Create default columns: To Do, Doing, Done
+    // Create default columns: To Do, Doing, Done, Failed
     await this.createColumn(id, "To Do", 0);
     await this.createColumn(id, "Doing", 1);
     await this.createColumn(id, "Done", 2);
+    await this.createColumn(id, "Failed", 3);
 
     return { id, name, description: description || null, created_at: now, updated_at: now };
   }
@@ -815,300 +892,11 @@ export default class TodoAgent extends BaseAgent {
   // ==================== Route Handlers ====================
 
   private async handleBoardsList(req: Request): Promise<Response> {
-   try {
+    // Single board mode - always redirect to the Plans board
+    const board = await this.ensureDefaultBoard();
     const url = new URL(req.url);
-    const boardId = url.searchParams.get("board");
-
-    if (boardId) {
-      return this.handleBoardView(req);
-    }
-
-    const boards = await this.getBoards();
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kanban Boards - Ronin Todo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .header {
-      margin-bottom: 3rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .header h1 {
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 300;
-    }
-
-    .create-btn {
-      background: ${roninTheme.colors.accent};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      padding: 0.75rem 1.5rem;
-      border-radius: ${roninTheme.borderRadius.md};
-      cursor: pointer;
-      font-size: 0.875rem;
-      transition: all 0.3s;
-    }
-
-    .create-btn:hover {
-      background: ${roninTheme.colors.accentHover};
-      border-color: ${roninTheme.colors.borderHover};
-    }
-
-    .boards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .board-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: 1.5rem;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      text-decoration: none;
-      color: inherit;
-      display: block;
-    }
-
-    .board-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
-      transform: translateY(-2px);
-    }
-
-    .board-name {
-      font-size: 1.25rem;
-      font-weight: 500;
-      color: ${roninTheme.colors.textPrimary};
-      margin-bottom: 0.5rem;
-    }
-
-    .board-description {
-      color: ${roninTheme.colors.textSecondary};
-      font-size: 0.875rem;
-      line-height: 1.5;
-      margin-bottom: 1rem;
-    }
-
-    .board-meta {
-      display: flex;
-      gap: 1rem;
-      font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 4rem 2rem;
-      color: ${roninTheme.colors.textTertiary};
-    }
-
-    .empty-state h2 {
-      font-size: 1.5rem;
-      margin-bottom: 0.5rem;
-      color: ${roninTheme.colors.textSecondary};
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-      padding: 2rem;
-    }
-
-    .modal.active {
-      display: flex;
-    }
-
-    .modal-content {
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: 2rem;
-      max-width: 500px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      margin-bottom: 1.5rem;
-    }
-
-    .modal-header h2 {
-      font-size: 1.5rem;
-      font-weight: 400;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
-    }
-
-    .form-group input,
-    .form-group textarea {
-      width: 100%;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      padding: 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
-      font-family: inherit;
-      font-size: 0.875rem;
-    }
-
-    .form-group input:focus,
-    .form-group textarea:focus {
-      outline: none;
-      border-color: ${roninTheme.colors.borderHover};
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 1rem;
-      justify-content: flex-end;
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: ${roninTheme.colors.textSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-    }
-
-    .btn-secondary:hover {
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textPrimary};
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Kanban Boards</h1>
-      <button class="create-btn" onclick="openModal()">+ New Board</button>
-    </div>
-
-    ${boards.length === 0 ? `
-      <div class="empty-state">
-        <h2>No boards yet</h2>
-        <p>Create your first board to get started</p>
-      </div>
-    ` : `
-      <div class="boards-grid">
-        ${boards.map(board => `
-          <a href="/todo/?board=${board.id}" class="board-card">
-            <div class="board-name">${this.escapeHtml(board.name)}</div>
-            ${board.description ? `<div class="board-description">${this.escapeHtml(board.description)}</div>` : ''}
-            <div class="board-meta">
-              <span>Created ${new Date(board.created_at).toLocaleDateString()}</span>
-            </div>
-          </a>
-        `).join('')}
-      </div>
-    `}
-  </div>
-
-  <div class="modal" id="createModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Create New Board</h2>
-      </div>
-      <form id="createForm">
-        <div class="form-group">
-          <label for="boardName">Name</label>
-          <input type="text" id="boardName" required placeholder="My Project">
-        </div>
-        <div class="form-group">
-          <label for="boardDescription">Description (optional)</label>
-          <textarea id="boardDescription" rows="3" placeholder="What is this board about?"></textarea>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="create-btn">Create Board</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script>
-    function openModal() {
-      document.getElementById('createModal').classList.add('active');
-    }
-
-    function closeModal() {
-      document.getElementById('createModal').classList.remove('active');
-    }
-
-    document.getElementById('createForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('boardName').value;
-      const description = document.getElementById('boardDescription').value;
-
-      try {
-        const res = await fetch('/api/todo/boards', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, description })
-        });
-
-        if (res.ok) {
-          window.location.reload();
-        } else {
-          alert('Failed to create board');
-        }
-      } catch (err) {
-        alert('Error: ' + err.message);
-      }
-    });
-
-    // Close modal on backdrop click
-    document.getElementById('createModal').addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) closeModal();
-    });
-  </script>
-</body>
-</html>`;
-
-    return new Response(html, { headers: { "Content-Type": "text/html" } });
-   } catch (error) {
-    console.error('[Todo] Boards list error:', error);
-    return new Response(`<h1>Error</h1><pre>${String(error)}</pre>`, { status: 500, headers: { "Content-Type": "text/html" } });
-   }
+    url.searchParams.set("board", board.id);
+    return this.handleBoardView(new Request(url.toString()));
   }
 
   private async handleBoardView(req: Request): Promise<Response> {

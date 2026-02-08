@@ -210,6 +210,14 @@ async function main() {
         realmToken: getArg("--realm-token", args),
         realmLocalPort: getArg("--realm-local-port", args),
         show: args.includes("--show"),
+        edit: args.includes("--edit"),
+        setPassword: args.includes("--set-password"),
+        backup: args.includes("--backup"),
+        listBackups: args.includes("--list-backups"),
+        restore: getArg("--restore", args),
+        export: getArg("--export", args),
+        importPath: getArg("--import", args),
+        validate: args.includes("--validate"),
       });
       break;
 

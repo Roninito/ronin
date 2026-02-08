@@ -7,6 +7,7 @@ import { PluginsAPI } from "./plugins.js";
 import { MemoryStore } from "../memory/index.js";
 import { PluginLoader } from "../plugins/PluginLoader.js";
 import { pluginsToTools } from "../plugins/toolGenerator.js";
+import { getConfigService } from "../config/ConfigService.js";
 import type { AgentAPI } from "../types/api.js";
 
 export interface APIOptions {
@@ -21,6 +22,10 @@ export interface APIOptions {
  * Build the API object that gets passed to agents
  */
 export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
+  // Initialize configuration service first
+  const configService = getConfigService();
+  await configService.load();
+  
   const memoryStore = new MemoryStore(options.dbPath);
   const db = new DatabaseAPI(options.dbPath);
   const pluginsAPI = new PluginsAPI();
@@ -176,6 +181,24 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     http: new HTTPAPI(),
     events: eventsAPI,
     plugins: pluginsAPI,
+    config: {
+      get: <T>(path: string) => configService.get<T>(path as any),
+      getAll: () => configService.getAll(),
+      getTelegram: () => configService.getTelegram(),
+      getDiscord: () => configService.getDiscord(),
+      getAI: () => configService.getAI(),
+      getGemini: () => configService.getGemini(),
+      getGrok: () => configService.getGrok(),
+      getSystem: () => configService.getSystem(),
+      getCLIOptions: () => configService.getCLIOptions(),
+      getEventMonitor: () => configService.getEventMonitor(),
+      getBlogBoy: () => configService.getBlogBoy(),
+      getConfigEditor: () => configService.getConfigEditor(),
+      getRssToTelegram: () => configService.getRssToTelegram(),
+      getRealm: () => configService.getRealm(),
+      isFromEnv: (path: string) => configService.isFromEnv(path as any),
+      reload: () => configService.reload(),
+    },
     ...(gitAPI && { git: gitAPI }),
     ...(shellAPI && { shell: shellAPI }),
     ...(scrapeAPI && { scrape: scrapeAPI }),

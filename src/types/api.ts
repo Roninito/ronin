@@ -623,5 +623,28 @@ export interface AgentAPI {
       specialUse?: string;
     }>>;
   };
+
+  /**
+   * Configuration access
+   * Provides centralized access to all configuration settings
+   */
+  config: {
+    get<T>(path: string): T;
+    getAll(): import("../config/types.js").FullConfig;
+    getTelegram(): import("../config/types.js").TelegramConfig;
+    getDiscord(): import("../config/types.js").DiscordConfig;
+    getAI(): import("../config/types.js").AIConfig;
+    getGemini(): import("../config/types.js").GeminiConfig;
+    getGrok(): import("../config/types.js").GrokConfig;
+    getSystem(): import("../config/types.js").SystemConfig;
+    getCLIOptions(): import("../config/types.js").CLIOptions;
+    getEventMonitor(): import("../config/types.js").EventMonitorConfig;
+    getBlogBoy(): import("../config/types.js").BlogBoyConfig;
+    getConfigEditor(): import("../config/types.js").ConfigEditorConfig;
+    getRssToTelegram(): import("../config/types.js").RssToTelegramConfig;
+    getRealm(): import("../config/types.js").RealmConfig;
+    isFromEnv(path: string): boolean;
+    reload(): Promise<void>;
+  };
 }
 

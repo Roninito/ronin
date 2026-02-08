@@ -107,6 +107,37 @@ export default class ConfigEditorAgent extends BaseAgent {
           }
         }
       }
+    },
+    discord: {
+      type: 'nested',
+      description: 'Discord Bot Configuration',
+      helpText: 'Configure Discord bot integration and monitored channels',
+      fields: {
+        enabled: { 
+          type: 'boolean', 
+          default: false,
+          description: 'Enable Discord bot'
+        },
+        botToken: { 
+          type: 'string', 
+          default: '',
+          description: 'Discord Bot Token',
+          helpText: 'Get from Discord Developer Portal: https://discord.com/developers/applications'
+        },
+        channelIds: { 
+          type: 'array',
+          itemType: 'string',
+          default: [],
+          description: 'Channel IDs to monitor',
+          helpText: 'Comma-separated list of Discord channel IDs'
+        },
+        clientId: { 
+          type: 'string', 
+          default: '',
+          description: 'Discord Application Client ID',
+          helpText: 'Optional: Auto-populated after bot initialization'
+        }
+      }
     }
   };
 
@@ -187,6 +218,12 @@ export default class ConfigEditorAgent extends BaseAgent {
           thresholdPerHour: 100,
           rate: 10
         }
+      },
+      discord: {
+        enabled: false,
+        botToken: '',
+        channelIds: [],
+        clientId: ''
       }
     };
   }

@@ -1,0 +1,83 @@
+{
+  "configVersion": "1.0.0",
+  "defaultCLI": "qwen",
+  "defaultAppsDirectory": "/Users/ronin/.ronin/apps",
+  "apps": {},
+  "cliOptions": {
+    "qwen": {
+      "model": "qwen3:1.7b",
+      "timeout": 300000
+    },
+    "cursor": {
+      "timeout": 60000
+    },
+    "opencode": {
+      "timeout": 120000
+    },
+    "gemini": {
+      "model": "gemini-pro",
+      "timeout": 60000
+    }
+  },
+  "eventMonitor": {
+    "enabled": true,
+    "retentionHours": 24,
+    "maxPayloadSize": 500,
+    "autoRefreshSeconds": 30,
+    "pageSize": 50,
+    "sampling": {
+      "enabled": true,
+      "thresholdPerHour": 100,
+      "rate": 10
+    }
+  },
+  "discord": {
+    "enabled": false,
+    "botToken": "",
+    "channelIds": [],
+    "clientId": ""
+  },
+  "telegram": {
+    "botToken": "8548226570:AAFNQLuR3IF2lIc2Y5UzhPg319QTTuWZub8",
+    "chatId": "T2RoninBot"
+  },
+  "ai": {
+    "ollamaUrl": "http://localhost:11434",
+    "ollamaModel": "qwen3:4b",
+    "ollamaTimeoutMs": 300000,
+    "ollamaEmbeddingModel": "nomic-embed-text"
+  },
+  "gemini": {
+    "apiKey": "",
+    "model": "gemini-pro",
+    "apiVersion": "v1beta",
+    "debug": false
+  },
+  "grok": {
+    "apiKey": ""
+  },
+  "system": {
+    "dataDir": "/Users/ronin/.ronin/data",
+    "webhookPort": 3000,
+    "httpIdleTimeout": 60,
+    "externalAgentDir": "/Users/ronin/.ronin/agents",
+    "userPluginDir": "/Users/ronin/.ronin/plugins"
+  },
+  "blogBoy": {
+    "aiTimeoutMs": 300000
+  },
+  "configEditor": {
+    "password": "roninpass"
+  },
+  "rssToTelegram": {
+    "enabled": false
+  },
+  "realm": {
+    "url": "wss://realm.afiwi.net",
+    "callsign": "Roninito",
+    "token": "",
+    "localPort": 4000
+  },
+  "pluginDir": "/Users/ronin/Desktop/Bun Apps/ronin/plugins",
+  "geminiModel": "gemini-3-pro-preview"
+}

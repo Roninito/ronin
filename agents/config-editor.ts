@@ -138,6 +138,218 @@ export default class ConfigEditorAgent extends BaseAgent {
           helpText: 'Optional: Auto-populated after bot initialization'
         }
       }
+    },
+    telegram: {
+      type: 'nested',
+      description: 'Telegram Bot Configuration',
+      helpText: 'Configure Telegram bot for notifications and messaging',
+      fields: {
+        botToken: {
+          type: 'string',
+          default: '',
+          description: 'Telegram Bot Token',
+          helpText: 'Get from @BotFather on Telegram'
+        },
+        chatId: {
+          type: 'string',
+          default: '',
+          description: 'Default Chat ID',
+          helpText: 'Chat ID for sending messages (can be channel, group, or user ID)'
+        }
+      }
+    },
+    ai: {
+      type: 'nested',
+      description: 'AI/Ollama Configuration',
+      helpText: 'Configure local AI model settings',
+      fields: {
+        ollamaUrl: {
+          type: 'string',
+          default: 'http://localhost:11434',
+          description: 'Ollama Server URL',
+          helpText: 'URL of your Ollama instance'
+        },
+        ollamaModel: {
+          type: 'string',
+          default: 'qwen3:4b',
+          description: 'Default AI Model',
+          helpText: 'Model name for AI completions'
+        },
+        ollamaTimeoutMs: {
+          type: 'number',
+          default: 300000,
+          min: 1000,
+          max: 3600000,
+          description: 'Request Timeout (ms)',
+          helpText: 'Maximum time to wait for AI responses'
+        },
+        ollamaEmbeddingModel: {
+          type: 'string',
+          default: 'nomic-embed-text',
+          description: 'Embedding Model',
+          helpText: 'Model for text embeddings (used by RAG)'
+        }
+      }
+    },
+    gemini: {
+      type: 'nested',
+      description: 'Google Gemini Configuration',
+      helpText: 'Configure Google Gemini AI API',
+      fields: {
+        apiKey: {
+          type: 'string',
+          default: '',
+          description: 'API Key',
+          helpText: 'Get from https://aistudio.google.com/app/apikey'
+        },
+        model: {
+          type: 'string',
+          default: 'gemini-pro',
+          description: 'Model',
+          helpText: 'Gemini model to use'
+        },
+        apiVersion: {
+          type: 'select',
+          options: ['v1', 'v1beta'],
+          default: 'v1beta',
+          description: 'API Version',
+          helpText: 'Gemini API version'
+        },
+        debug: {
+          type: 'boolean',
+          default: false,
+          description: 'Debug Mode',
+          helpText: 'Enable debug logging for Gemini API calls'
+        }
+      }
+    },
+    grok: {
+      type: 'nested',
+      description: 'Grok/X AI Configuration',
+      helpText: 'Configure xAI Grok API',
+      fields: {
+        apiKey: {
+          type: 'string',
+          default: '',
+          description: 'API Key',
+          helpText: 'Get from https://x.ai'
+        }
+      }
+    },
+    system: {
+      type: 'nested',
+      description: 'System Settings',
+      helpText: 'Configure system-wide settings',
+      fields: {
+        dataDir: {
+          type: 'path',
+          default: join(homedir(), '.ronin', 'data'),
+          description: 'Data Directory',
+          helpText: 'Location for databases and persistent data'
+        },
+        webhookPort: {
+          type: 'number',
+          default: 3000,
+          min: 1,
+          max: 65535,
+          description: 'Webhook Port',
+          helpText: 'Port for HTTP webhook server'
+        },
+        httpIdleTimeout: {
+          type: 'number',
+          default: 60,
+          min: 1,
+          max: 3600,
+          description: 'HTTP Idle Timeout (seconds)',
+          helpText: 'Timeout for idle HTTP connections'
+        },
+        externalAgentDir: {
+          type: 'path',
+          default: join(homedir(), '.ronin', 'agents'),
+          description: 'External Agent Directory',
+          helpText: 'Directory for external/user agents'
+        },
+        userPluginDir: {
+          type: 'path',
+          default: join(homedir(), '.ronin', 'plugins'),
+          description: 'User Plugin Directory',
+          helpText: 'Directory for user plugins (overrides built-in)'
+        }
+      }
+    },
+    blogBoy: {
+      type: 'nested',
+      description: 'Blog Boy Settings',
+      helpText: 'Configure blog content generation',
+      fields: {
+        aiTimeoutMs: {
+          type: 'number',
+          default: 300000,
+          min: 1000,
+          max: 3600000,
+          description: 'AI Timeout (ms)',
+          helpText: 'Timeout for AI blog post generation'
+        }
+      }
+    },
+    configEditor: {
+      type: 'nested',
+      description: 'Config Editor Settings',
+      helpText: 'Web-based configuration editor settings',
+      fields: {
+        password: {
+          type: 'string',
+          default: 'roninpass',
+          description: 'Editor Password',
+          helpText: 'Password for accessing the config editor UI'
+        }
+      }
+    },
+    rssToTelegram: {
+      type: 'nested',
+      description: 'RSS to Telegram Settings',
+      helpText: 'Configure RSS feed forwarding to Telegram',
+      fields: {
+        enabled: {
+          type: 'boolean',
+          default: false,
+          description: 'Enable RSS to Telegram',
+          helpText: 'Forward RSS feeds to Telegram'
+        }
+      }
+    },
+    realm: {
+      type: 'nested',
+      description: 'Realm P2P Configuration',
+      helpText: 'Configure Realm peer-to-peer communication',
+      fields: {
+        url: {
+          type: 'string',
+          default: '',
+          description: 'Discovery Server URL',
+          helpText: 'WebSocket URL of Realm discovery server'
+        },
+        callsign: {
+          type: 'string',
+          default: '',
+          description: 'Call Sign',
+          helpText: 'Your unique identifier in the Realm network'
+        },
+        token: {
+          type: 'string',
+          default: '',
+          description: 'Auth Token',
+          helpText: 'Optional authentication token for Realm'
+        },
+        localPort: {
+          type: 'number',
+          default: 4000,
+          min: 1024,
+          max: 65535,
+          description: 'Local WebSocket Port',
+          helpText: 'Port for local WebSocket server'
+        }
+      }
     }
   };
 
@@ -145,7 +357,10 @@ export default class ConfigEditorAgent extends BaseAgent {
     super(api);
     this.configPath = join(homedir(), '.ronin', 'config.json');
     this.historyDir = join(homedir(), '.ronin', 'config.history');
-    this.password = process.env.CONFIG_EDITOR_PASSWORD || 'roninpass';
+    
+    // Use config service with env var fallback
+    const configEditor = this.api.config.getConfigEditor();
+    this.password = process.env.CONFIG_EDITOR_PASSWORD || configEditor.password || 'roninpass';
     
     this.initialize();
     this.registerRoutes();
@@ -224,7 +439,50 @@ export default class ConfigEditorAgent extends BaseAgent {
         botToken: '',
         channelIds: [],
         clientId: ''
-      }
+      },
+      telegram: {
+        botToken: '',
+        chatId: ''
+      },
+      ai: {
+        ollamaUrl: 'http://localhost:11434',
+        ollamaModel: 'qwen3:4b',
+        ollamaTimeoutMs: 300000,
+        ollamaEmbeddingModel: 'nomic-embed-text'
+      },
+      gemini: {
+        apiKey: '',
+        model: 'gemini-pro',
+        apiVersion: 'v1beta',
+        debug: false
+      },
+      grok: {
+        apiKey: ''
+      },
+      system: {
+        dataDir: join(homedir(), '.ronin', 'data'),
+        webhookPort: 3000,
+        httpIdleTimeout: 60,
+        externalAgentDir: join(homedir(), '.ronin', 'agents'),
+        userPluginDir: join(homedir(), '.ronin', 'plugins')
+      },
+      blogBoy: {
+        aiTimeoutMs: 300000
+      },
+      configEditor: {
+        password: 'roninpass'
+      },
+      rssToTelegram: {
+        enabled: false
+      },
+      realm: {
+        url: '',
+        callsign: '',
+        token: '',
+        localPort: 4000
+      },
+      pluginDir: join(process.cwd(), 'plugins'),
+      geminiModel: 'gemini-3-pro-preview'
     };
   }
 

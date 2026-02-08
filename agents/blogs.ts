@@ -35,15 +35,20 @@ export default class BlogsAgent extends BaseAgent {
   private adminPasswordHash: string | null = null;
   private readonly DEFAULT_PASSWORD = "admin";
   private readonly SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
-  private readonly AI_TIMEOUT_MS = (() => {
-    const raw = process.env.BLOG_BOY_AI_TIMEOUT_MS || process.env.RONIN_AI_TIMEOUT_MS;
-    const parsed = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(parsed) ? parsed : 300_000; // 5 minutes
-  })();
+  private AI_TIMEOUT_MS: number;
   private readonly AI_MAX_TOKENS = 1800;
 
   constructor(api: AgentAPI) {
     super(api);
+    // Use centralized config with env fallback
+    const configBlogBoy = this.api.config.getBlogBoy();
+    const configAI = this.api.config.getAI();
+    const raw = configBlogBoy.aiTimeoutMs || 
+      process.env.BLOG_BOY_AI_TIMEOUT_MS || 
+      process.env.RONIN_AI_TIMEOUT_MS;
+    const parsed = raw ? parseInt(String(raw), 10) : NaN;
+    this.AI_TIMEOUT_MS = Number.isFinite(parsed) ? parsed : 300_000; // 5 minutes
+    
     this.initializeDatabase();
     this.registerRoutes();
     console.log("📝 Blogs agent ready. Blog available at /blog");
@@ -1465,7 +1470,8 @@ The article should:
 Focus on explaining the topic in the context of Ronin and how it relates to the current setup.`;
 
     // Generate article using AI
-    const model = process.env.OLLAMA_MODEL || "qwen3:4b";
+    const configAI = this.api.config.getAI();
+    const model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:4b";
     console.log(`[Blog] 🤖 Starting AI generation with model: ${model}`);
     console.log(`[Blog]   Timeout: ${this.AI_TIMEOUT_MS / 1000}s, Max tokens: ${this.AI_MAX_TOKENS}`);
     

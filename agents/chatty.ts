@@ -28,7 +28,7 @@ interface ChatMessage {
  * that understands Ronin's architecture, agents, plugins, and routes
  */
 export default class ChattyAgent extends BaseAgent {
-  private model = process.env.OLLAMA_MODEL || "qwen3:4b";
+  private model: string;
   private roninContext: {
     agents: Array<{ name: string; description?: string }>;
     plugins: string[];
@@ -38,6 +38,9 @@ export default class ChattyAgent extends BaseAgent {
 
   constructor(api: AgentAPI) {
     super(api);
+    // Use centralized config with env fallback
+    const configAI = this.api.config.getAI();
+    this.model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:4b";
     this.initializeDatabase();
     this.registerRoutes();
     console.log("💬 Chatty agent ready. Chat interface available at /chat");

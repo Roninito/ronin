@@ -59,7 +59,13 @@ export default class DiscordUrlAggregatorAgent extends BaseAgent {
    * Load monitored channel IDs from environment or memory
    */
   private async loadMonitoredChannels(): Promise<void> {
-    // Try environment variable first (comma-separated list)
+    // Try centralized config service first
+    const configDiscord = this.api.config.getDiscord();
+    if (configDiscord.channelIds && configDiscord.channelIds.length > 0) {
+      configDiscord.channelIds.forEach(id => this.monitoredChannels.add(id));
+    }
+
+    // Try environment variable (comma-separated list)
     const envChannels = process.env.DISCORD_CHANNEL_IDS;
     if (envChannels) {
       const channelIds = envChannels.split(",").map(id => id.trim()).filter(id => id);
@@ -128,10 +134,14 @@ export default class DiscordUrlAggregatorAgent extends BaseAgent {
    * Connect to Discord using the direct discord API
    */
   private async connectToDiscord(): Promise<void> {
-    const token = process.env.DISCORD_BOT_TOKEN;
+    // Get token from centralized config, env, or memory
+    const configDiscord = this.api.config.getDiscord();
+    const token = configDiscord.botToken || 
+      process.env.DISCORD_BOT_TOKEN ||
+      (await this.api.memory.retrieve("discord_bot_token")) as string | undefined;
 
     if (!token) {
-      console.warn("[Discord URLs] ⚠️ DISCORD_BOT_TOKEN not set in environment");
+      console.warn("[Discord URLs] ⚠️ Discord bot token not configured. Set discord.botToken in config or DISCORD_BOT_TOKEN env var");
       return;
     }
 

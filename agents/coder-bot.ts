@@ -250,30 +250,15 @@ export default class CoderBotAgent extends BaseAgent {
    * Load configuration from ~/.ronin/config.json
    */
   private async loadConfig(): Promise<CLIConfig> {
-    const configPath = join(homedir(), ".ronin", "config.json");
-    const defaults: CLIConfig = {
-      defaultCLI: "qwen",
-      defaultAppsDirectory: join(homedir(), ".ronin", "apps"),
-      apps: {},
-      cliOptions: {
-        qwen: { model: "qwen3:1.7b", timeout: 300000 },
-        cursor: { timeout: 60000 },
-        opencode: { timeout: 120000 },
-        gemini: { model: "gemini-pro", timeout: 60000 },
-      },
+    // Use centralized config service
+    const config = this.api.config.getAll();
+    
+    return {
+      defaultCLI: config.defaultCLI,
+      defaultAppsDirectory: config.defaultAppsDirectory,
+      apps: config.apps,
+      cliOptions: config.cliOptions,
     };
-
-    if (!existsSync(configPath)) {
-      return defaults;
-    }
-
-    try {
-      const content = await readFile(configPath, "utf-8");
-      const config = JSON.parse(content);
-      return { ...defaults, ...config };
-    } catch {
-      return defaults;
-    }
   }
 
   /**

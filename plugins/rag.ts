@@ -3,9 +3,28 @@ import type { AgentAPI } from "../src/types/api.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
 import { join } from "path";
 import { Database } from "bun:sqlite";
+import { getConfigService } from "../src/config/ConfigService.js";
 
-const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_EMBEDDING_MODEL = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
+// Configurable defaults - will be overridden by ConfigService when available
+const getDefaults = () => {
+  try {
+    const configService = getConfigService();
+    const configAI = configService.getAI();
+    return {
+      ollamaUrl: configAI.ollamaUrl,
+      embeddingModel: configAI.ollamaEmbeddingModel,
+      model: configAI.ollamaModel,
+    };
+  } catch {
+    // Fallback to env vars if config service not initialized
+    return {
+      ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
+      embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text",
+      model: process.env.OLLAMA_MODEL || "qwen3:4b",
+    };
+  }
+};
+
 const DEFAULT_CHUNK_SIZE = 500;
 const DEFAULT_CHUNK_OVERLAP = 50;
 
@@ -56,12 +75,14 @@ function getDatabase(namespace: string): Database {
 /**
  * Generate embedding for text using Ollama
  */
-async function generateEmbedding(text: string, model: string = DEFAULT_EMBEDDING_MODEL): Promise<number[]> {
-  const response = await fetch(`${DEFAULT_OLLAMA_URL}/api/embeddings`, {
+async function generateEmbedding(text: string, model?: string): Promise<number[]> {
+  const defaults = getDefaults();
+  const embeddingModel = model || defaults.embeddingModel;
+  const response = await fetch(`${defaults.ollamaUrl}/api/embeddings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model,
+      model: embeddingModel,
       prompt: text,
     }),
   });
@@ -177,7 +198,8 @@ const ragPlugin: Plugin = {
       }
     ): Promise<{ documentIds: string[]; chunksCreated: number }> => {
       const db = getDatabase(namespace);
-      const embeddingModel = options?.embeddingModel || DEFAULT_EMBEDDING_MODEL;
+      const defaults = getDefaults();
+      const embeddingModel = options?.embeddingModel || defaults.embeddingModel;
       const chunkSize = options?.chunkSize || DEFAULT_CHUNK_SIZE;
       const chunkOverlap = options?.chunkOverlap || DEFAULT_CHUNK_OVERLAP;
 
@@ -255,7 +277,8 @@ const ragPlugin: Plugin = {
       metadata?: Record<string, unknown>;
     }>> => {
       const db = getDatabase(namespace);
-      const embeddingModel = options?.embeddingModel || DEFAULT_EMBEDDING_MODEL;
+      const defaults = getDefaults();
+      const embeddingModel = options?.embeddingModel || defaults.embeddingModel;
 
       // Generate query embedding
       const queryEmbedding = await generateEmbedding(query, embeddingModel);
@@ -387,11 +410,12 @@ ANSWER:`;
         });
       } else {
         // Fallback to direct Ollama call if no API provided
-        const ollamaResponse = await fetch(`${DEFAULT_OLLAMA_URL}/api/generate`, {
+        const defaults = getDefaults();
+        const ollamaResponse = await fetch(`${defaults.ollamaUrl}/api/generate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: process.env.OLLAMA_MODEL || "qwen3:4b",
+            model: defaults.model,
             prompt,
             stream: false,
             options: {

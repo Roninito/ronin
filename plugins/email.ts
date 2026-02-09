@@ -2,6 +2,7 @@ import type { Plugin } from "../src/plugins/base.js";
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { getConfigService } from "../src/config/ConfigService.js";
 
 /**
  * Email account configuration
@@ -70,8 +71,15 @@ const accounts: Map<string, AccountInstance> = new Map();
 
 // File path for persistent storage
 const getAccountsFilePath = (): string => {
-  const dataDir = process.env.RONIN_DATA_DIR || `${process.env.HOME}/.ronin/data`;
-  return `${dataDir}/email-accounts.json`;
+  try {
+    const configService = getConfigService();
+    const dataDir = configService.getSystem().dataDir;
+    return `${dataDir}/email-accounts.json`;
+  } catch {
+    // Fallback if config service not initialized
+    const dataDir = process.env.RONIN_DATA_DIR || `${process.env.HOME}/.ronin/data`;
+    return `${dataDir}/email-accounts.json`;
+  }
 };
 
 /**

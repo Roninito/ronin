@@ -68,11 +68,35 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
     const lastUpdateId = ((await this.api.memory.retrieve("telegram_last_update_id")) as number) || 0;
 
     try {
-      // Get updates
-      const updates = await this.api.telegram.getUpdates(botId, {
-        limit: 100,
-        offset: lastUpdateId + 1,
-      });
+      // Get updates - if bot ID is invalid, reinitialize
+      let updates;
+      try {
+        updates = await this.api.telegram.getUpdates(botId, {
+          limit: 100,
+          offset: lastUpdateId + 1,
+        });
+      } catch (error: any) {
+        // If bot not initialized, try to reinitialize
+        if (error?.message?.includes("Bot not initialized")) {
+          console.log("[telegram-subscription] Bot not initialized, reinitializing...");
+          try {
+            botId = await this.api.telegram.initBot(token);
+            await this.api.memory.store("telegram_bot_id", botId);
+            console.log(`[telegram-subscription] Reinitialized Telegram bot: ${botId}`);
+            
+            // Retry getting updates
+            updates = await this.api.telegram.getUpdates(botId, {
+              limit: 100,
+              offset: lastUpdateId + 1,
+            });
+          } catch (initError) {
+            console.error(`[telegram-subscription] Failed to reinitialize bot:`, initError);
+            return;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       if (updates.length === 0) {
         console.log("[telegram-subscription] No new updates");

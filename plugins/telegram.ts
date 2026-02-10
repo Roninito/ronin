@@ -340,6 +340,8 @@ const telegramPlugin: Plugin = {
 
       // Set up Grammy handler if not already set up
       instance.bot.on("message", (ctx: Context) => {
+        console.log(`[telegram] Received message from ${ctx.message?.from?.username || 'unknown'}: "${ctx.message?.text?.substring(0, 50) || 'no text'}"`);
+        
         const update: TelegramUpdate = {
           update_id: ctx.update.update_id,
           message: ctx.message
@@ -360,6 +362,7 @@ const telegramPlugin: Plugin = {
             : undefined,
         };
 
+        console.log(`[telegram] Calling ${instance.messageHandlers.size} message handler(s)`);
         instance.messageHandlers.forEach((handler) => {
           try {
             handler(update);

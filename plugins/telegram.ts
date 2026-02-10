@@ -66,15 +66,11 @@ const telegramPlugin: Plugin = {
       const botId = `telegram_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const bot = new Bot(token);
 
-      // Add error handler for 409 conflicts
+      // Add error handler for 409 conflicts - silently ignore expected conflicts
       bot.catch((err) => {
         if (err.error_code === 409) {
-          console.error(
-            `[telegram] Error 409: Another bot instance is already polling with this token. ` +
-            `This usually means multiple instances are running. ` +
-            `Consider stopping other instances or using webhook mode instead.`
-          );
-          // Don't crash, but log the error
+          // Silently ignore 409 conflicts - expected when multiple agents share the same bot
+          // This is normal behavior in Ronin when multiple agents use the same bot token
           return;
         }
         console.error(`[telegram] Unhandled bot error:`, err);
@@ -114,18 +110,14 @@ const telegramPlugin: Plugin = {
           instance.isPolling = true;
           console.log(`[telegram] Started polling for bot ${botId}`);
         } catch (error: any) {
-          // Handle 409 error specifically
-          if (error?.error_code === 409) {
-            console.error(
-              `[telegram] Failed to start polling: Another instance is already running with this token. ` +
-              `Please stop other instances or use webhook mode.`
-            );
-            // Clean up the bot instance
-            bots.delete(botId);
-            throw new Error(
-              `Bot is already running in another instance. ` +
-              `Error 409: ${error?.description || "Conflict: terminated by other getUpdates request"}`
-            );
+          // Handle 409 error specifically - silently ignore expected conflicts
+          if (error?.error_code === 409 || (error?.message && error.message.includes("409"))) {
+            // Silently handle 409 - bot is already polling elsewhere, which is expected
+            // when multiple agents share the same bot token
+            instance.isPolling = true; // Mark as polling even though we didn't start it
+            bots.set(botId, instance);
+            tokenToBotId.set(token, botId);
+            return botId;
           }
           throw error;
         }

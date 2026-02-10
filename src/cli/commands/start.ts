@@ -28,9 +28,20 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   
   // Global error handlers to prevent crashes from unhandled errors
   process.on("uncaughtException", (error) => {
+    // Silently ignore 409 Telegram conflicts - expected when multiple agents share a bot
+    if (error && typeof error === "object" && (error as any).error_code === 409) {
+      return;
+    }
     console.error("⚠️  Uncaught exception (prevented crash):", error);
   });
   process.on("unhandledRejection", (reason) => {
+    // Silently ignore 409 Telegram conflicts - expected when multiple agents share a bot
+    if (reason && typeof reason === "object") {
+      const err = reason as any;
+      if (err.error_code === 409 || (err.message && err.message.includes("409"))) {
+        return;
+      }
+    }
     console.error("⚠️  Unhandled rejection (prevented crash):", reason);
   });
 

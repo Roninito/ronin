@@ -39,7 +39,7 @@
   },
   "telegram": {
     "botToken": "8548226570:AAFNQLuR3IF2lIc2Y5UzhPg319QTTuWZub8",
-    "chatId": "T2RoninBot"
+    "chatId": "-1003717630857"
   },
   "ai": {
     "ollamaUrl": "http://localhost:11434",

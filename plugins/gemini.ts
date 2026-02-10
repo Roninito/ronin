@@ -1,4 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
+import { getConfigService } from "../src/config/ConfigService.js";
 
 /**
  * Gemini AI Plugin - Remote streaming AI calls using Google Gemini API
@@ -26,51 +27,78 @@ interface GeminiChatOptions {
 }
 
 /**
+ * Get Gemini configuration from centralized ConfigService
+ */
+async function getGeminiConfig(options: GeminiChatOptions = {}) {
+  let apiKey: string | undefined;
+  let model: string | undefined;
+  let apiVersion: string | undefined;
+  let debug = false;
+  
+  // First try centralized ConfigService
+  try {
+    const configService = getConfigService();
+    const configGemini = configService.getGemini();
+    apiKey = configGemini.apiKey || undefined;
+    model = options.model || configGemini.model || undefined;
+    apiVersion = configGemini.apiVersion;
+    debug = configGemini.debug;
+  } catch {
+    // ConfigService not initialized
+  }
+  
+  // Fallback to environment variables
+  if (!apiKey) {
+    apiKey = process.env.GEMINI_API_KEY;
+  }
+  if (!model) {
+    model = process.env.GEMINI_MODEL;
+  }
+  if (!apiVersion) {
+    apiVersion = process.env.GEMINI_API_VERSION;
+  }
+  if (!debug) {
+    debug = !!process.env.DEBUG_GEMINI;
+  }
+  
+  // Try legacy config file
+  if (!apiKey || !model) {
+    try {
+      const { loadConfig } = await import("../src/cli/commands/config.js");
+      const config = await loadConfig();
+      if (!apiKey) apiKey = config.geminiApiKey;
+      if (!model) model = config.geminiModel;
+    } catch {
+      // Config file not available
+    }
+  }
+  
+  // Default values
+  model = model || "gemini-1.5-flash";
+  apiVersion = apiVersion || "v1beta";
+  
+  return { apiKey, model, apiVersion, debug };
+}
+
+/**
  * Stream chat completion from Gemini
  */
 async function* streamGeminiChat(
   messages: GeminiMessage[],
   options: GeminiChatOptions = {}
 ): AsyncIterable<string> {
-  // Try to get API key from environment or config
-  let apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Try loading from config file
-    const { loadConfig } = await import("../src/cli/commands/config.js");
-    const config = await loadConfig();
-    apiKey = config.geminiApiKey;
-  }
+  const { apiKey, model, apiVersion, debug } = await getGeminiConfig(options);
   
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is required. Set it via environment variable or: ronin config --gemini-api-key <key>");
-  }
-
-  // Get model from options, environment variable, config file, or use default
-  let model = options.model;
-  if (!model) {
-    model = process.env.GEMINI_MODEL;
-    if (!model) {
-      // Try loading from config file
-      const { loadConfig } = await import("../src/cli/commands/config.js");
-      const config = await loadConfig();
-      model = config.geminiModel;
-    }
-    // Default model - try gemini-1.5-flash first (fast), fallback options: gemini-1.5-pro, gemini-3-pro-preview
-    // Note: Model availability depends on your API key and region
-    model = model || "gemini-1.5-flash";
+    throw new Error("GEMINI_API_KEY is required. Set it via config (gemini.apiKey), environment variable (GEMINI_API_KEY), or: ronin config --gemini-api-key <key>");
   }
   
   // Extract system instruction if present
   const systemInstruction = messages.find(m => m.role === "system")?.content;
 
-  // Use v1beta API by default (matches Google's documentation examples)
-  // Can override via GEMINI_API_VERSION environment variable (v1 or v1beta)
-  const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
-  
   // Convert messages to Gemini format
-  // For v1 API, include system instruction in contents; for v1beta, handle separately
   let contents = messages
-    .filter(m => m.role !== "system") // System messages handled separately
+    .filter(m => m.role !== "system")
     .map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
@@ -90,7 +118,7 @@ async function* streamGeminiChat(
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:streamGenerateContent`;
   
   // Debug: Log the URL being used (without API key)
-  if (process.env.DEBUG_GEMINI) {
+  if (debug) {
     console.error(`[DEBUG] Gemini API URL: ${url}`);
     console.error(`[DEBUG] Model: ${model}, API Version: ${apiVersion}`);
   }
@@ -126,7 +154,6 @@ async function* streamGeminiChat(
         const errorJson = JSON.parse(errorText);
         if (errorJson.error?.message) {
           errorMessage += ` - ${errorJson.error.message}`;
-          // Include model and API version in error for debugging
           errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
         } else {
           errorMessage += ` - ${errorText}`;
@@ -140,42 +167,31 @@ async function* streamGeminiChat(
     throw new Error(errorMessage);
   }
 
-  if (!response.body) {
-    throw new Error("No response body for streaming");
+  // Stream the response
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("No response body");
   }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      // Parse the chunk
+      const chunk = new TextDecoder().decode(value);
+      const lines = chunk.split("\n").filter(line => line.trim());
 
       for (const line of lines) {
-        if (line.trim() && line.startsWith("data: ")) {
-          const data = line.slice(6); // Remove "data: " prefix
-          try {
-            const json = JSON.parse(data);
-            const candidates = json.candidates;
-            if (candidates && candidates.length > 0) {
-              const content = candidates[0].content;
-              if (content && content.parts) {
-                for (const part of content.parts) {
-                  if (part.text) {
-                    yield part.text;
-                  }
-                }
-              }
-            }
-          } catch {
-            // Skip invalid JSON lines
+        try {
+          const data = JSON.parse(line);
+          // Extract text from the response
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            yield text;
           }
+        } catch {
+          // Ignore parse errors for incomplete chunks
         }
       }
     }
@@ -191,45 +207,18 @@ async function geminiChat(
   messages: GeminiMessage[],
   options: GeminiChatOptions = {}
 ): Promise<string> {
-  // Try to get API key from environment or config
-  let apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Try loading from config file
-    const { loadConfig } = await import("../src/cli/commands/config.js");
-    const config = await loadConfig();
-    apiKey = config.geminiApiKey;
-  }
+  const { apiKey, model, apiVersion, debug } = await getGeminiConfig(options);
   
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is required. Set it via environment variable or: ronin config --gemini-api-key <key>");
-  }
-
-  // Get model from options, environment variable, config file, or use default
-  let model = options.model;
-  if (!model) {
-    model = process.env.GEMINI_MODEL;
-    if (!model) {
-      // Try loading from config file
-      const { loadConfig } = await import("../src/cli/commands/config.js");
-      const config = await loadConfig();
-      model = config.geminiModel;
-    }
-    // Default model - try gemini-1.5-flash first (fast), fallback options: gemini-1.5-pro, gemini-3-pro-preview
-    // Note: Model availability depends on your API key and region
-    model = model || "gemini-1.5-flash";
+    throw new Error("GEMINI_API_KEY is required. Set it via config (gemini.apiKey), environment variable (GEMINI_API_KEY), or: ronin config --gemini-api-key <key>");
   }
   
   // Extract system instruction if present
   const systemInstruction = messages.find(m => m.role === "system")?.content;
 
-  // Use v1beta API by default (matches Google's documentation examples)
-  // Can override via GEMINI_API_VERSION environment variable (v1 or v1beta)
-  const apiVersion = process.env.GEMINI_API_VERSION || "v1beta";
-  
   // Convert messages to Gemini format
-  // For v1 API, include system instruction in contents; for v1beta, handle separately
   let contents = messages
-    .filter(m => m.role !== "system") // System messages handled separately
+    .filter(m => m.role !== "system")
     .map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
@@ -249,7 +238,7 @@ async function geminiChat(
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent`;
   
   // Debug: Log the URL being used (without API key)
-  if (process.env.DEBUG_GEMINI) {
+  if (debug) {
     console.error(`[DEBUG] Gemini API URL: ${url}`);
     console.error(`[DEBUG] Model: ${model}, API Version: ${apiVersion}`);
   }
@@ -285,7 +274,6 @@ async function geminiChat(
         const errorJson = JSON.parse(errorText);
         if (errorJson.error?.message) {
           errorMessage += ` - ${errorJson.error.message}`;
-          // Include model and API version in error for debugging
           errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
         } else {
           errorMessage += ` - ${errorText}`;
@@ -296,83 +284,34 @@ async function geminiChat(
     } else {
       errorMessage += ` (Model: ${model}, API: ${apiVersion})`;
     }
-    
-    // If it's a 404, suggest trying a different model
-    if (response.status === 404) {
-      errorMessage += `\n💡 Tip: Try a different model: bun run ronin config --gemini-model gemini-1.5-pro`;
-      errorMessage += `\n   Or: bun run ronin config --gemini-model gemini-3-pro-preview`;
-    }
-    
     throw new Error(errorMessage);
   }
 
   const data = await response.json();
-  const candidates = data.candidates;
-  if (candidates && candidates.length > 0) {
-    const content = candidates[0].content;
-    if (content && content.parts) {
-      return content.parts.map((part: { text?: string }) => part.text || "").join("");
-    }
-  }
-  return "";
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
+/**
+ * Gemini plugin definition
+ */
 const geminiPlugin: Plugin = {
   name: "gemini",
-  description: "Remote AI calls using Google Gemini API with streaming support. Requires GEMINI_API_KEY environment variable.",
+  description: "Google Gemini AI for streaming and non-streaming chat completions",
   methods: {
-    chat: Object.assign(
-      async (
-        messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        options?: { model?: string; temperature?: number; maxOutputTokens?: number }
-      ): Promise<string> => {
-        return await geminiChat(messages, options);
-      },
-      {
-        description: "Chat completion using Gemini API (non-streaming)",
-        parameters: {
-          type: "object",
-          properties: {
-            messages: {
-              type: "array",
-              description: "Array of message objects with role and content",
-            },
-            options: {
-              type: "object",
-              description: "Optional settings: model (gemini-pro, gemini-1.5-pro-latest, gemini-1.5-flash-latest, etc.), temperature, maxOutputTokens",
-            },
-          },
-          required: ["messages"],
-        },
-      }
-    ),
-    streamChat: Object.assign(
-      function (
-        messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-        options?: { model?: string; temperature?: number; maxOutputTokens?: number }
-      ): AsyncIterable<string> {
-        return streamGeminiChat(messages, options);
-      },
-      {
-        description: "Stream chat completion using Gemini API",
-        parameters: {
-          type: "object",
-          properties: {
-            messages: {
-              type: "array",
-              description: "Array of message objects with role and content",
-            },
-            options: {
-              type: "object",
-              description: "Optional settings: model (gemini-pro, gemini-1.5-pro-latest, gemini-1.5-flash-latest, etc.), temperature, maxOutputTokens",
-            },
-          },
-          required: ["messages"],
-        },
-      }
-    ),
+    /**
+     * Stream chat completion
+     */
+    streamChat: async (messages: GeminiMessage[], options?: GeminiChatOptions) => {
+      return streamGeminiChat(messages, options);
+    },
+
+    /**
+     * Non-streaming chat completion
+     */
+    chat: async (messages: GeminiMessage[], options?: GeminiChatOptions) => {
+      return geminiChat(messages, options);
+    },
   },
 };
 
 export default geminiPlugin;
-

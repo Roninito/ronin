@@ -1,4 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
+import { getConfigService } from "../src/config/ConfigService.js";
 
 /**
  * Grok AI Plugin - Remote streaming AI calls using Grok API
@@ -20,23 +21,48 @@ interface GrokChatOptions {
 }
 
 /**
+ * Get Grok API key from centralized ConfigService
+ */
+async function getApiKey(): Promise<string | undefined> {
+  // Try centralized ConfigService first
+  try {
+    const configService = getConfigService();
+    const configGrok = configService.getGrok();
+    if (configGrok.apiKey) {
+      return configGrok.apiKey;
+    }
+  } catch {
+    // ConfigService not available
+  }
+  
+  // Fallback to environment variable
+  let apiKey = process.env.GROK_API_KEY;
+  if (!apiKey) {
+    // Try loading from legacy config file
+    try {
+      const { loadConfig } = await import("../src/cli/commands/config.js");
+      const config = await loadConfig();
+      apiKey = config.grokApiKey;
+    } catch {
+      // Config file not available
+    }
+  }
+  
+  return apiKey;
+}
+
+/**
  * Stream chat completion from Grok
  */
 async function* streamGrokChat(
   messages: GrokMessage[],
   options: GrokChatOptions = {}
 ): AsyncIterable<string> {
-  // Try to get API key from environment or config
-  let apiKey = process.env.GROK_API_KEY;
-  if (!apiKey) {
-    // Try loading from config file
-    const { loadConfig } = await import("../src/cli/commands/config.js");
-    const config = await loadConfig();
-    apiKey = config.grokApiKey;
-  }
+  // Try to get API key from centralized config
+  const apiKey = await getApiKey();
   
   if (!apiKey) {
-    throw new Error("GROK_API_KEY is required. Set it via environment variable or: ronin config --grok-api-key <key>");
+    throw new Error("GROK_API_KEY is required. Set it via config (grok.apiKey), environment variable (GROK_API_KEY), or: ronin config --grok-api-key <key>");
   }
 
   const model = options.model || "grok-beta";
@@ -110,17 +136,11 @@ async function grokChat(
   messages: GrokMessage[],
   options: GrokChatOptions = {}
 ): Promise<string> {
-  // Try to get API key from environment or config
-  let apiKey = process.env.GROK_API_KEY;
-  if (!apiKey) {
-    // Try loading from config file
-    const { loadConfig } = await import("../src/cli/commands/config.js");
-    const config = await loadConfig();
-    apiKey = config.grokApiKey;
-  }
+  // Try to get API key from centralized config
+  const apiKey = await getApiKey();
   
   if (!apiKey) {
-    throw new Error("GROK_API_KEY is required. Set it via environment variable or: ronin config --grok-api-key <key>");
+    throw new Error("GROK_API_KEY is required. Set it via config (grok.apiKey), environment variable (GROK_API_KEY), or: ronin config --grok-api-key <key>");
   }
 
   const model = options.model || "grok-beta";

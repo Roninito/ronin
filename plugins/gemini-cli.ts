@@ -2,8 +2,28 @@ import type { Plugin } from "../src/plugins/base.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { existsSync } from "fs";
+import { getConfigService } from "../src/config/ConfigService.js";
 
 const execAsync = promisify(exec);
+
+/**
+ * Get Gemini API key from ConfigService or environment
+ */
+async function getApiKey(): Promise<string | undefined> {
+  // Try ConfigService first
+  try {
+    const configService = getConfigService();
+    const configGemini = configService.getGemini();
+    if (configGemini.apiKey) {
+      return configGemini.apiKey;
+    }
+  } catch {
+    // ConfigService not available
+  }
+  
+  // Fallback to environment variable
+  return process.env.GEMINI_API_KEY;
+}
 
 interface GeminiCLIOptions {
   instruction: string;
@@ -82,11 +102,12 @@ For more information: https://ai.google.dev/docs
       }
 
       // Check for API key
-      if (!process.env.GEMINI_API_KEY) {
+      const apiKey = await getApiKey();
+      if (!apiKey) {
         return {
           success: false,
           output: "",
-          error: "GEMINI_API_KEY environment variable not set. Get one at https://aistudio.google.com/app/apikey",
+          error: "GEMINI_API_KEY not configured. Set it via config (gemini.apiKey), environment variable (GEMINI_API_KEY), or: ronin config --gemini-api-key <key>",
         };
       }
 
@@ -114,7 +135,7 @@ For more information: https://ai.google.dev/docs
           cwd: workspace,
           env: {
             ...process.env,
-            GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+            GEMINI_API_KEY: apiKey,
           },
         });
 

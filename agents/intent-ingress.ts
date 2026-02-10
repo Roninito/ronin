@@ -359,7 +359,15 @@ export default class IntentIngressAgent extends BaseAgent {
         temperature: 0.7,
       });
 
-      const assistantContent = response.content || "I'm not sure how to respond to that.";
+      const assistantContent = response.content || `I'm here to help you with Ronin! 
+
+You can:
+• Chat with me about how Ronin works
+• Create agents: @ronin create-agent AgentName that does X
+• Fix bugs: @ronin fix description of the issue  
+• Create tasks: @ronin task description
+
+What would you like to do?`;
 
       // Add assistant response to session
       session.messages.push({
@@ -639,12 +647,38 @@ ${agentList}
 Available Plugins:
 ${pluginList}
 
+IMPORTANT - How to Help Users Create Things:
+When a user wants to create an agent, fix a bug, or make a task, you CANNOT do it directly in chat. You must guide them to use the proper commands:
+
+1. **Creating Agents**: If user says "create an agent that..." or "make an agent to..."
+   → Reply: "I'll help you create that agent! Please use this command:
+   
+   @ronin create-agent [AgentName] that [description]
+   
+   For example: @ronin create-agent DiskMonitor that checks disk space and alerts at 90%"
+
+2. **Fixing Bugs**: If user says "fix the auth bug" or "there's an error in..."
+   → Reply: "I can help fix that! Please use:
+   
+   @ronin fix [description of the issue]"
+
+3. **Creating Tasks**: If user says "create a task to..." or "I need to..."
+   → Reply: "I'll create a task for you! Please use:
+   
+   @ronin task [description]
+   
+   Or use hashtags: #ronin #plan [description]"
+
+4. **General Chat**: For questions about how things work, explanations, or discussions
+   → Answer normally without mentioning commands
+
 Guidelines:
 - Be helpful and concise
-- If users want to create agents, suggest using @ronin create-agent
-- If they want to fix bugs, suggest @ronin fix
+- ALWAYS guide users to use @ronin commands when they want to CREATE something
+- Explain what will happen after they use the command (task created, agent built, etc.)
 - Answer questions about Ronin's architecture and capabilities
-- Be friendly and professional`;
+- Be friendly and professional
+- DO NOT attempt to write code or create files in chat mode - that's what the commands are for`;
   }
 
   /**

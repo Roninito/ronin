@@ -178,11 +178,18 @@ export default class IntentIngressAgent extends BaseAgent {
    */
   private handleTelegramMessage(msg: { 
     text?: string; 
-    chat: { id: number; type?: string }; 
+    chat?: { id: number; type?: string }; 
     message_id: number;
     from?: { username?: string; first_name?: string; id: number };
   }): void {
     const text = msg.text || "";
+    
+    // Check if chat exists
+    if (!msg.chat) {
+      console.log(`[intent-ingress] Ignoring message without chat context`);
+      return;
+    }
+    
     const chatType = msg.chat.type || "private";
     const isPrivateChat = chatType === "private";
     

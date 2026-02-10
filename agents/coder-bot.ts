@@ -28,15 +28,18 @@ interface CLIResult {
 }
 
 /**
- * Coder Bot Agent
+ * Coder Bot Agent - Silent Execution Model
  * 
- * Enhanced reactor with tag-driven CLI execution
- * - Parses tags: #build, #auto, #qwen, #cursor, #app-name
- * - Sequential execution queue
- * - Progress events (PlanInProgress)
- * - Saves output to ~/.ronin/cli/builds/
+ * Executes plans without user interaction using sensible defaults.
+ * All decisions and results are logged to the task description.
  * 
- * NEVER touches Kanban - only emits events
+ * Workflow:
+ * 1. Receives PlanApproved with #create or #build tag
+ * 2. Enhances prompt with sensible defaults
+ * 3. Executes CLI (no blocking, no questions)
+ * 4. Appends results to task description
+ * 5. Triggers hot reload for agents
+ * 6. Reports success/failure
  */
 export default class CoderBotAgent extends BaseAgent {
   private executionQueue: string[] = [];
@@ -48,12 +51,13 @@ export default class CoderBotAgent extends BaseAgent {
     gemini: "gemini-cli",
   };
   private cliStatus: Record<string, boolean> = {};
+  private maxRetries = 1;
 
   constructor(api: AgentAPI) {
     super(api);
     this.registerEventHandlers();
     this.checkCLIInstallations();
-    console.log("🤖 Coder Bot ready. Listening for PlanApproved events...");
+    console.log("🤖 Coder Bot ready. Silent execution mode enabled.");
   }
 
   /**
@@ -71,9 +75,7 @@ export default class CoderBotAgent extends BaseAgent {
           if (installed) {
             console.log(`[coder-bot] ✅ ${cli} installed`);
           } else {
-            const instructions = await this.api.plugins.call(pluginName, "getInstallInstructions");
             console.log(`[coder-bot] ⚠️  ${cli} not installed`);
-            console.log(instructions.split("\n").map((line: string) => `    ${line}`).join("\n"));
           }
         } catch (error) {
           console.error(`[coder-bot] ❌ Error checking ${cli}:`, error);
@@ -104,10 +106,10 @@ export default class CoderBotAgent extends BaseAgent {
   private async handlePlanApproved(payload: PlanApprovedPayload): Promise<void> {
     console.log(`[coder-bot] Received PlanApproved: ${payload.id}`);
 
-    // Check for #build tag
-    const hasBuildTag = payload.tags?.includes("build");
+    // Check for #create or #build tag
+    const hasBuildTag = payload.tags?.includes("build") || payload.tags?.includes("create");
     if (!hasBuildTag) {
-      console.log(`[coder-bot] No #build tag, skipping execution for ${payload.id}`);
+      console.log(`[coder-bot] No #create or #build tag, skipping execution for ${payload.id}`);
       return;
     }
 
@@ -131,7 +133,7 @@ export default class CoderBotAgent extends BaseAgent {
     this.isExecuting = true;
 
     try {
-      await this.executePlan(payload);
+      await this.executePlanWithRetry(payload);
     } finally {
       this.isExecuting = false;
       
@@ -139,8 +141,28 @@ export default class CoderBotAgent extends BaseAgent {
       if (this.executionQueue.length > 0) {
         const nextId = this.executionQueue[0];
         console.log(`[coder-bot] Processing next: ${nextId}`);
-        // Note: In a real implementation, we'd need to retrieve the full payload
-        // For now, this is a simplified version
+      }
+    }
+  }
+
+  /**
+   * Execute a plan with retry logic
+   */
+  private async executePlanWithRetry(payload: PlanApprovedPayload, attempt: number = 1): Promise<void> {
+    try {
+      await this.executePlan(payload, attempt);
+    } catch (error) {
+      if (attempt <= this.maxRetries) {
+        console.log(`[coder-bot] Retrying ${payload.id} (attempt ${attempt + 1})...`);
+        await this.appendToTask(payload.id, `
+═══════════════════════════════════════════════════
+[RETRY ATTEMPT ${attempt + 1}]
+Previous error: ${error instanceof Error ? error.message : String(error)}
+═══════════════════════════════════════════════════
+`);
+        await this.executePlanWithRetry(payload, attempt + 1);
+      } else {
+        throw error;
       }
     }
   }
@@ -148,16 +170,26 @@ export default class CoderBotAgent extends BaseAgent {
   /**
    * Execute a plan
    */
-  private async executePlan(payload: PlanApprovedPayload): Promise<void> {
+  private async executePlan(payload: PlanApprovedPayload, attempt: number = 1): Promise<void> {
     const planId = payload.id;
 
     // Emit starting progress
     this.api.events.emit("PlanInProgress", {
       id: planId,
       status: "starting",
-      message: "Initializing CLI execution...",
+      message: `Initializing CLI execution (attempt ${attempt})...`,
       timestamp: Date.now(),
     }, "coder-bot");
+
+    // Initialize task log
+    await this.appendToTask(planId, `
+═══════════════════════════════════════════════════
+[EXECUTION ATTEMPT ${attempt}]
+Started: ${new Date().toISOString()}
+CLI: Determining...
+Status: 🔄 Executing
+═══════════════════════════════════════════════════
+`);
 
     try {
       // Load config
@@ -184,6 +216,16 @@ export default class CoderBotAgent extends BaseAgent {
       const appTag = payload.tags?.find((tag) => tag.startsWith("app-"));
       const workspace = await this.resolveWorkspace(appTag, config);
 
+      // Enhance prompt with sensible defaults
+      const enhancedPrompt = this.enhancePrompt(payload.description || "", payload.tags);
+
+      // Update task with CLI info
+      await this.appendToTask(planId, `
+CLI: ${cli}
+Workspace: ${workspace}
+Instruction: ${enhancedPrompt.substring(0, 200)}${enhancedPrompt.length > 200 ? '...' : ''}
+`);
+
       // Emit executing progress
       this.api.events.emit("PlanInProgress", {
         id: planId,
@@ -199,7 +241,7 @@ export default class CoderBotAgent extends BaseAgent {
       const result = (await this.api.plugins.call(
         pluginName,
         "execute",
-        payload.description || "",
+        enhancedPrompt,
         {
           workspace,
           ...cliOptions,
@@ -209,7 +251,30 @@ export default class CoderBotAgent extends BaseAgent {
       // Save output to file
       const outputPath = await this.saveOutput(planId, result);
 
+      // Parse results for task log
+      const decisions = this.parseDecisions(result.output);
+      
+      await this.appendToTask(planId, `
+═══════════════════════════════════════════════════
+CODE GENERATED:
+${decisions}
+
+COMPILATION: ${result.success ? '✅ Passed' : '❌ Failed'}
+Output saved to: ${outputPath}
+═══════════════════════════════════════════════════
+`);
+
       if (result.success) {
+        // Try to hot reload if it's an agent
+        const reloadResult = await this.attemptHotReload(workspace, result.output);
+        
+        await this.appendToTask(planId, `
+═══════════════════════════════════════════════════
+HOT RELOAD: ${reloadResult.success ? '✅ Success' : '❌ Failed'}
+${reloadResult.message}
+═══════════════════════════════════════════════════
+`);
+
         // Emit completed
         this.api.events.emit("PlanCompleted", {
           id: planId,
@@ -217,8 +282,20 @@ export default class CoderBotAgent extends BaseAgent {
           outputPath,
           executedBy: cli,
           workspace,
+          reloadStatus: reloadResult.success ? 'success' : 'failed',
           completedAt: Date.now(),
         }, "coder-bot");
+
+        // Final task update
+        await this.appendToTask(planId, `
+═══════════════════════════════════════════════════
+[COMPLETED]
+Status: ✅ SUCCESS
+Agent: ${reloadResult.agentName || 'Unknown'}
+Routes: ${reloadResult.routes?.join(', ') || 'None'}
+Created: ${new Date().toISOString()}
+═══════════════════════════════════════════════════
+`);
 
         console.log(`[coder-bot] ✅ PlanCompleted: ${planId}`);
       } else {
@@ -234,6 +311,14 @@ export default class CoderBotAgent extends BaseAgent {
         error: errorMessage,
       });
 
+      // Append error to task
+      await this.appendToTask(planId, `
+═══════════════════════════════════════════════════
+[ERROR]
+${errorMessage}
+═══════════════════════════════════════════════════
+`);
+
       // Emit failed
       this.api.events.emit("PlanFailed", {
         id: planId,
@@ -243,14 +328,133 @@ export default class CoderBotAgent extends BaseAgent {
       }, "coder-bot");
 
       console.error(`[coder-bot] ❌ PlanFailed: ${planId}`, errorMessage);
+      throw error;
     }
   }
 
   /**
-   * Load configuration from ~/.ronin/config.json
+   * Enhance prompt with sensible defaults
+   */
+  private enhancePrompt(description: string, tags?: string[]): string {
+    const isAgent = tags?.some(tag => tag.includes('agent'));
+    const isPlugin = tags?.some(tag => tag.includes('plugin'));
+    
+    let enhanced = description;
+    
+    // Add context about Ronin
+    enhanced += `
+
+Context: This is for the Ronin agent system.
+${isAgent ? 'Create a Ronin agent following the BaseAgent pattern.' : ''}
+${isPlugin ? 'Create a Ronin plugin following the Plugin pattern.' : ''}
+
+Use sensible defaults for any unspecified parameters:
+- Use standard patterns from existing code
+- Follow TypeScript best practices
+- Include proper error handling
+- Add appropriate logging`;
+
+    return enhanced;
+  }
+
+  /**
+   * Parse decisions from CLI output
+   */
+  private parseDecisions(output: string): string {
+    // Try to extract file creation info
+    const lines = output.split('\n');
+    const fileLines = lines.filter(line => 
+      line.includes('Created') || 
+      line.includes('Generated') || 
+      line.includes('File:') ||
+      line.includes('.ts') ||
+      line.includes('.js')
+    );
+    
+    if (fileLines.length > 0) {
+      return `Files created:\n${fileLines.slice(0, 5).join('\n')}`;
+    }
+    
+    return `Output:\n${output.substring(0, 500)}${output.length > 500 ? '...' : ''}`;
+  }
+
+  /**
+   * Attempt to hot reload a newly created agent
+   */
+  private async attemptHotReload(workspace: string, output: string): Promise<{
+    success: boolean;
+    message: string;
+    agentName?: string;
+    routes?: string[];
+  }> {
+    try {
+      // Extract agent filename from output
+      const agentMatch = output.match(/(\w+-(?:agent|plugin))\.ts/i) || 
+                        output.match(/([\w-]+)\.(ts|js)/i);
+      
+      if (!agentMatch) {
+        return {
+          success: false,
+          message: "Could not identify agent file in output",
+        };
+      }
+
+      const agentFile = agentMatch[1] + '.ts';
+      const agentPath = join(workspace, agentFile);
+      
+      if (!existsSync(agentPath)) {
+        // Try external agents dir
+        const externalPath = join(homedir(), '.ronin', 'agents', agentFile);
+        if (existsSync(externalPath)) {
+          // Hot reload will pick this up
+          return {
+            success: true,
+            message: `Agent saved to ${externalPath}. Hot reload will load it automatically.`,
+            agentName: agentMatch[1],
+          };
+        }
+        
+        return {
+          success: false,
+          message: `Agent file not found at ${agentPath}`,
+        };
+      }
+
+      // File exists, hot reload service will pick it up if watching
+      return {
+        success: true,
+        message: `Agent file created at ${agentPath}. Hot reload service will load it.`,
+        agentName: agentMatch[1],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Hot reload check failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Append content to task description
+   */
+  private async appendToTask(planId: string, content: string): Promise<void> {
+    try {
+      // Query todo agent to find and update the task
+      // This uses the event system to communicate with todo agent
+      this.api.events.emit("TaskAppendDescription", {
+        planId,
+        content,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
+      console.error(`[coder-bot] Failed to append to task ${planId}:`, error);
+    }
+  }
+
+  /**
+   * Load configuration from config service
    */
   private async loadConfig(): Promise<CLIConfig> {
-    // Use centralized config service
     const config = this.api.config.getAll();
     
     return {
@@ -269,7 +473,8 @@ export default class CoderBotAgent extends BaseAgent {
     config: CLIConfig
   ): Promise<string> {
     if (!appTag) {
-      return process.cwd();
+      // Default to external agents directory for agent creation
+      return join(homedir(), ".ronin", "agents");
     }
 
     const appName = appTag.replace("app-", "");

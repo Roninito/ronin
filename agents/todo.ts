@@ -108,6 +108,12 @@ export default class TodoAgent extends BaseAgent {
       this.handlePlanFailed(payload);
     });
 
+    // TaskAppendDescription → Append to card description
+    this.api.events.on("TaskAppendDescription", (data: unknown) => {
+      const payload = data as { planId: string; content: string; timestamp: number };
+      this.handleTaskAppendDescription(payload);
+    });
+
     console.log("[todo] Event handlers registered");
   }
 
@@ -368,6 +374,31 @@ export default class TodoAgent extends BaseAgent {
       }, "todo");
     } catch (error) {
       console.error("[todo] Failed to handle PlanFailed:", error);
+    }
+  }
+
+  /**
+   * Handle TaskAppendDescription: Append content to card description
+   */
+  private async handleTaskAppendDescription(payload: {
+    planId: string;
+    content: string;
+    timestamp: number;
+  }): Promise<void> {
+    try {
+      const card = await this.findCardByPlanId(payload.planId);
+      if (!card) {
+        console.error(`[todo] TaskAppendDescription: Card not found for plan ${payload.planId}`);
+        return;
+      }
+
+      // Append content to description
+      const newDescription = `${card.description || ""}${payload.content}`;
+      await this.updateCard(card.id, { description: newDescription });
+
+      console.log(`[todo] TaskAppendDescription: Updated card ${card.id}`);
+    } catch (error) {
+      console.error("[todo] Failed to handle TaskAppendDescription:", error);
     }
   }
 

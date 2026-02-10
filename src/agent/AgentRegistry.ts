@@ -64,6 +64,50 @@ export class AgentRegistry {
   }
 
   /**
+   * Get an agent by name
+   */
+  get(agentName: string): AgentMetadata | undefined {
+    return this.agents.get(agentName);
+  }
+
+  /**
+   * Unregister an agent
+   */
+  unregister(agentName: string): boolean {
+    const agent = this.agents.get(agentName);
+    if (!agent) {
+      return false;
+    }
+
+    // Clean up cron job
+    const cronCleanup = this.cronJobs.get(agentName);
+    if (cronCleanup) {
+      cronCleanup();
+      this.cronJobs.delete(agentName);
+    }
+
+    // Clean up file watchers
+    const patterns = this.fileWatchers.get(agentName);
+    if (patterns) {
+      for (const pattern of patterns) {
+        this.files.unwatch(pattern);
+      }
+      this.fileWatchers.delete(agentName);
+    }
+
+    // Clean up webhook route
+    if (agent.webhook) {
+      this.webhookRoutes.delete(agent.webhook);
+    }
+
+    // Remove from agents map
+    this.agents.delete(agentName);
+
+    console.log(`[AgentRegistry] Unregistered agent: ${agentName}`);
+    return true;
+  }
+
+  /**
    * Register a cron schedule for an agent
    */
   private registerSchedule(agentName: string, schedule: string): void {

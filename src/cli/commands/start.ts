@@ -1,6 +1,5 @@
 import { createAPI } from "../../api/index.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
-import { AgentRegistry } from "../../agent/AgentRegistry.js";
+import { AgentLoader, AgentRegistry, HotReloadService } from "../../agent/index.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 
@@ -104,6 +103,15 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
 
   registry.registerAll(agents);
 
+  // Start hot reload service
+  const hotReload = new HotReloadService({
+    agentsDir: agentDir,
+    externalAgentsDir: externalAgentDir,
+    registry,
+    api,
+  });
+  hotReload.start();
+
   // Display status
   const status = registry.getStatus();
   console.log("\n📊 Agent Status:");
@@ -117,6 +125,7 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   // Handle graceful shutdown
   const cleanup = () => {
     console.log("\n🛑 Shutting down...");
+    hotReload.stop();
     registry.cleanup();
     process.exit(0);
   };

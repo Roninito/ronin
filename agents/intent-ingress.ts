@@ -195,6 +195,37 @@ export default class IntentIngressAgent extends BaseAgent {
       return { command: "update", args: cleanContent, tags, isChat: false };
     }
 
+    // Natural language detection for agent creation
+    // Pattern: "create an agent that..." or "make an agent to..."
+    const createAgentPattern = /^(?:create|make|build)\s+(?:an?\s+)?agent\s+(?:that|to|for)\s+(.+)$/i;
+    const createAgentMatch = text.match(createAgentPattern);
+    if (createAgentMatch) {
+      const description = createAgentMatch[1].trim();
+      // Extract agent name from description (first word or capitalized words)
+      const nameMatch = description.match(/^([A-Z][a-z]+(?:[A-Z][a-z]+)*)/);
+      const agentName = nameMatch ? nameMatch[1] : "NewAgent";
+      const cleanDescription = description.replace(/^[A-Z][a-z]+(?:[A-Z][a-z]+)*\s*/, "").trim();
+      return { 
+        command: "create-agent", 
+        args: `${agentName} ${cleanDescription}`, 
+        tags: ["create", "agent"], 
+        isChat: false 
+      };
+    }
+
+    // Natural language detection for task creation
+    // Pattern: "create a task to..." or "I need a task for..."
+    const createTaskPattern = /^(?:create|make|add)\s+(?:a\s+)?task\s+(?:to|for)\s+(.+)$/i;
+    const createTaskMatch = text.match(createTaskPattern);
+    if (createTaskMatch) {
+      return { 
+        command: "plan", 
+        args: createTaskMatch[1].trim(), 
+        tags: ["plan"], 
+        isChat: false 
+      };
+    }
+
     // Default to chat mode for any message that doesn't match a command
     return { command: null, args: text, tags: [], isChat: true };
   }
@@ -677,29 +708,37 @@ Available Plugins:
 ${pluginList}
 
 IMPORTANT - How to Help Users Create Things:
-When a user wants to create an agent, fix a bug, or make a task, you CANNOT do it directly in chat. You must guide them to use the proper commands:
+When a user wants to create an agent, fix a bug, or make a task, you CANNOT write code or bash commands. You must guide them to use the proper commands:
 
-1. **Creating Agents**: If user says "create an agent that..." or "make an agent to..."
-   → Reply: "I'll help you create that agent! Please use this command:
+1. **Creating Agents**: If user says "create an agent that..."
+   → Reply: "I'll create that agent for you! Use:
    
-   @ronin create-agent [AgentName] that [description]
+   @ronin create-agent [Name] that [description]
    
-   For example: @ronin create-agent DiskMonitor that checks disk space and alerts at 90%"
+   Example: @ronin create-agent DiskMonitor that checks disk space"
 
-2. **Fixing Bugs**: If user says "fix the auth bug" or "there's an error in..."
-   → Reply: "I can help fix that! Please use:
+2. **Fixing Bugs**: If user says "fix the auth bug"
+   → Reply: "I can help fix that! Use:
    
-   @ronin fix [description of the issue]"
+   @ronin fix [description]
+   
+   Example: @ronin fix auth middleware error handling"
 
-3. **Creating Tasks**: If user says "create a task to..." or "I need to..."
-   → Reply: "I'll create a task for you! Please use:
+3. **Creating Tasks**: If user says "create a task"
+   → Reply: "Creating a task now! Use:
    
    @ronin task [description]
    
-   Or use hashtags: #ronin #plan [description]"
+   Or: #plan [description]"
 
-4. **General Chat**: For questions about how things work, explanations, or discussions
-   → Answer normally without mentioning commands
+4. **NEVER DO THIS**:
+   - Do NOT write bash commands like "ronin create-agent ..."
+   - Do NOT write code blocks with commands
+   - Do NOT say "enter this in terminal"
+   - Simply provide the exact @ronin command to type
+
+5. **General Chat**: For questions about how things work
+   → Answer normally, no commands needed
 
 Guidelines:
 - Be helpful and concise

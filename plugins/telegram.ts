@@ -53,18 +53,22 @@ const telegramPlugin: Plugin = {
         throw new Error("Telegram bot token is required");
       }
 
+      console.log(`[telegram] initBot called with token starting with: ${token.substring(0, 10)}...`);
+
       // Check if a bot with this token already exists
       const existingBotId = tokenToBotId.get(token);
       if (existingBotId) {
         const existingInstance = bots.get(existingBotId);
         if (existingInstance) {
-          console.log(`[telegram] Bot with this token already initialized: ${existingBotId}`);
+          console.log(`[telegram] Returning existing bot: ${existingBotId} (has ${existingInstance.messageHandlers.size} handlers)`);
           return existingBotId;
         } else {
           // Clean up stale entry
           tokenToBotId.delete(token);
         }
       }
+      
+      console.log(`[telegram] Creating new bot instance...`);
 
       const botId = `telegram_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const bot = new Bot(token);
@@ -337,6 +341,7 @@ const telegramPlugin: Plugin = {
       }
 
       instance.messageHandlers.add(callback);
+      console.log(`[telegram] Added message handler to bot ${botId}. Total handlers: ${instance.messageHandlers.size}`);
 
       // Set up Grammy handler if not already set up
       instance.bot.on("message", (ctx: Context) => {

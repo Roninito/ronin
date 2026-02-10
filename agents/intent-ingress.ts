@@ -38,6 +38,7 @@ export default class IntentIngressAgent extends BaseAgent {
   private botId: string | null = null;
   private sourceChannels: Map<string, { type: string; id: string | number }> = new Map();
   private chatSessions: Map<string, ChatSession> = new Map();
+  private processedMessages: Set<string> = new Set(); // Deduplication
   private model: string;
   private maxChatHistory = 20; // Keep last 20 messages per session
   private sessionTimeout = 30 * 60 * 1000; // 30 minutes
@@ -251,6 +252,23 @@ export default class IntentIngressAgent extends BaseAgent {
       return;
     }
     
+    // Deduplication: Check if we've already processed this message
+    const messageKey = `telegram:${msg.chat?.id || 'unknown'}:${msg.message_id}`;
+    if (this.processedMessages.has(messageKey)) {
+      console.log(`[intent-ingress] Ignoring duplicate message: ${messageKey}`);
+      return;
+    }
+    this.processedMessages.add(messageKey);
+    
+    // Clean up old message IDs (keep last 1000)
+    if (this.processedMessages.size > 1000) {
+      const iterator = this.processedMessages.values();
+      for (let i = 0; i < 500; i++) {
+        const oldKey = iterator.next().value;
+        this.processedMessages.delete(oldKey);
+      }
+    }
+    
     const text = msg.text || "";
     
     // Check if chat exists
@@ -299,6 +317,7 @@ export default class IntentIngressAgent extends BaseAgent {
 
     // Handle as command
     console.log(`[intent-ingress] Telegram ${parsed.command}:`, parsed.args.substring(0, 50));
+    console.log(`[intent-ingress] Message key: ${messageKey} - processing command`);
 
     this.createPlan({
       command: parsed.command,
@@ -463,6 +482,16 @@ What would you like to do?`;
     sourceUser: string;
     rawContent: string;
   }): void {
+    // Check for duplicate plan creation attempts
+    const planKey = `${params.source}:${params.sourceChannel}:${params.rawContent}`;
+    if (this.processedMessages.has(`plan:${planKey}`)) {
+      console.log(`[intent-ingress] Preventing duplicate plan creation for: ${planKey.substring(0, 50)}...`);
+      return;
+    }
+    this.processedMessages.add(`plan:${planKey}`);
+    
+    console.log(`[intent-ingress] Creating plan for command: ${params.command}`);
+    
     // Generate unique ID
     const id = `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 

@@ -31,6 +31,8 @@ const tokenToBotId: Map<string, string> = new Map();
 // Track last message time per chat for rate limiting
 const lastMessageTime: Map<string, number> = new Map();
 const RATE_LIMIT_MS = 1000; // 1 second between messages to same chat
+// Lock to prevent race conditions during bot initialization
+const initLocks: Map<string, Promise<string>> = new Map();
 
 /**
  * Telegram plugin for interacting with Telegram Bot API
@@ -55,6 +57,13 @@ const telegramPlugin: Plugin = {
 
       console.log(`[telegram] initBot called with token starting with: ${token.substring(0, 10)}...`);
 
+      // Check if initialization is already in progress for this token
+      const existingLock = initLocks.get(token);
+      if (existingLock) {
+        console.log(`[telegram] Waiting for existing initialization to complete...`);
+        return existingLock;
+      }
+
       // Check if a bot with this token already exists
       const existingBotId = tokenToBotId.get(token);
       if (existingBotId) {
@@ -69,6 +78,10 @@ const telegramPlugin: Plugin = {
       }
       
       console.log(`[telegram] Creating new bot instance...`);
+      
+      // Create a lock to prevent race conditions
+      const initPromise = (async () => {
+        try {
 
       const botId = `telegram_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       const bot = new Bot(token);
@@ -130,9 +143,22 @@ const telegramPlugin: Plugin = {
         }
       }
 
-      bots.set(botId, instance);
-      tokenToBotId.set(token, botId);
-      return botId;
+          bots.set(botId, instance);
+          tokenToBotId.set(token, botId);
+          return botId;
+        } catch (error) {
+          console.error(`[telegram] Failed to initialize bot:`, error);
+          throw error;
+        } finally {
+          // Release the lock
+          initLocks.delete(token);
+        }
+      })();
+      
+      // Store the lock so other callers wait for this initialization
+      initLocks.set(token, initPromise);
+      
+      return initPromise;
     },
 
     /**

@@ -1851,8 +1851,44 @@ export default class TodoAgent extends BaseAgent {
       if (req.method === 'PUT' && url.pathname.includes('/move')) {
         const body = await req.json();
         try {
+          // Get card info before moving
+          const card = await this.getCard(cardId);
+          if (!card) {
+            return new Response('Card not found', { status: 404 });
+          }
+          
+          // Get old column name
+          const oldColumn = await this.api.db.query<{ name: string }>(
+            `SELECT name FROM kanban_columns WHERE id = ?`,
+            [card.column_id]
+          );
+          const fromColumn = oldColumn[0]?.name || 'Unknown';
+          
+          // Get new column name
+          const newColumn = await this.api.db.query<{ name: string }>(
+            `SELECT name FROM kanban_columns WHERE id = ?`,
+            [body.column_id]
+          );
+          const toColumn = newColumn[0]?.name || 'Unknown';
+          
+          // Move the card
           await this.moveCard(cardId, body.column_id, body.position);
-          return Response.json({ success: true });
+          
+          // Emit TaskMoved event so other agents know
+          const labels = JSON.parse(card.labels || '[]');
+          this.api.events.emit('TaskMoved', {
+            planId: card.metadata,
+            cardId: card.id,
+            title: card.title,
+            description: card.description,
+            tags: labels,
+            from: fromColumn,
+            to: toColumn,
+          }, 'todo');
+          
+          console.log(`[todo] Card ${cardId} moved from "${fromColumn}" to "${toColumn}"`);
+          
+          return Response.json({ success: true, from: fromColumn, to: toColumn });
         } catch (err) {
           return new Response(err instanceof Error ? err.message : 'Failed to move card', { status: 400 });
         }

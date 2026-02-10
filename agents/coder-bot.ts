@@ -92,12 +92,42 @@ export default class CoderBotAgent extends BaseAgent {
    * Register event handlers
    */
   private registerEventHandlers(): void {
+    // Listen for PlanApproved events (from manual approval or automation)
     this.api.events.on("PlanApproved", (data: unknown) => {
       const payload = data as PlanApprovedPayload;
       this.handlePlanApproved(payload);
     });
 
-    console.log("[coder-bot] Event handlers registered");
+    // Also listen for TaskMoved events (when user moves card to "Doing" in kanban)
+    this.api.events.on("TaskMoved", (data: unknown) => {
+      const payload = data as { 
+        planId?: string; 
+        cardId?: string; 
+        to?: string;
+        from?: string;
+        title?: string;
+        description?: string;
+        tags?: string[];
+      };
+      
+      // Only process if moved to "Doing" column
+      if (payload.to === "Doing" && payload.planId) {
+        console.log(`[coder-bot] Detected card moved to Doing: ${payload.planId}`);
+        
+        // Reconstruct the plan payload from the task data
+        const planPayload: PlanApprovedPayload = {
+          id: payload.planId,
+          title: payload.title || "Task",
+          description: payload.description || "",
+          tags: payload.tags || ["create"], // Default to create if no tags
+          approvedAt: Date.now(),
+        };
+        
+        this.handlePlanApproved(planPayload);
+      }
+    });
+
+    console.log("[coder-bot] Event handlers registered (PlanApproved + TaskMoved)");
   }
 
   /**

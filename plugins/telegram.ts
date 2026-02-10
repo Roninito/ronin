@@ -394,11 +394,15 @@ const telegramPlugin: Plugin = {
         };
 
         console.log(`[telegram] Calling ${instance.messageHandlers.size} message handler(s)`);
+        let handlerIndex = 0;
         instance.messageHandlers.forEach((handler) => {
           try {
+            handlerIndex++;
+            console.log(`[telegram] Executing handler #${handlerIndex}...`);
             handler(update);
+            console.log(`[telegram] Handler #${handlerIndex} completed`);
           } catch (error) {
-            console.error(`[telegram] Error in message handler:`, error);
+            console.error(`[telegram] Error in message handler #${handlerIndex}:`, error);
           }
         });
       });

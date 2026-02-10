@@ -172,14 +172,30 @@ export default class IntentIngressAgent extends BaseAgent {
 
   /**
    * Handle Telegram messages
+   * 
+   * In groups/channels: Only respond to @ronin mentions or commands
+   * In direct messages: Respond to all messages
    */
   private handleTelegramMessage(msg: { 
     text?: string; 
-    chat: { id: number }; 
+    chat: { id: number; type?: string }; 
     message_id: number;
     from?: { username?: string; first_name?: string; id: number };
   }): void {
     const text = msg.text || "";
+    const chatType = msg.chat.type || "private";
+    const isPrivateChat = chatType === "private";
+    
+    // In groups/channels, only respond to @ronin mentions or /commands
+    if (!isPrivateChat) {
+      const hasMention = text.toLowerCase().includes("@ronin") || text.includes("@T2RoninBot");
+      const isCommand = text.startsWith("/");
+      
+      if (!hasMention && !isCommand) {
+        // In groups, ignore messages without mention
+        return;
+      }
+    }
     
     const parsed = this.parseCommand(text);
     

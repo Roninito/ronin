@@ -166,12 +166,7 @@ export default class IntentIngressAgent extends BaseAgent {
       return { command: "create", args: cleanContent, tags, isChat: false };
     }
 
-    // Check if it's a direct mention/chat
-    if (lowerText.includes("@ronin") || text.startsWith("/")) {
-      return { command: null, args: text, tags: [], isChat: true };
-    }
-
-    // Default to chat mode for any message
+    // Default to chat mode for any message that doesn't match a command
     return { command: null, args: text, tags: [], isChat: true };
   }
 

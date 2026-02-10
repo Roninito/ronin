@@ -186,17 +186,20 @@ export default class IntentIngressAgent extends BaseAgent {
     const chatType = msg.chat.type || "private";
     const isPrivateChat = chatType === "private";
     
+    console.log(`[intent-ingress] Received message from ${msg.from?.username || 'unknown'} in ${chatType} chat: "${text.substring(0, 50)}"`);
+    
     // In groups/channels, only respond to @ronin mentions or /commands
     if (!isPrivateChat) {
       const hasMention = text.toLowerCase().includes("@ronin") || text.includes("@T2RoninBot");
       const isCommand = text.startsWith("/");
       
       if (!hasMention && !isCommand) {
-        // In groups, ignore messages without mention
+        console.log(`[intent-ingress] Ignoring message in group without mention`);
         return;
       }
     }
     
+    console.log(`[intent-ingress] Processing message...`);
     const parsed = this.parseCommand(text);
     
     const sourceChannel = `telegram:${msg.chat.id}`;
@@ -350,12 +353,17 @@ export default class IntentIngressAgent extends BaseAgent {
       });
 
       // Send reply
+      console.log(`[intent-ingress] Sending reply: "${assistantContent.substring(0, 100)}..."`);
       await params.replyCallback(assistantContent);
 
       console.log(`[intent-ingress] Replied to ${params.sourceUser}`);
     } catch (error) {
       console.error("[intent-ingress] Chat error:", error);
-      await params.replyCallback("Sorry, I encountered an error processing your message.");
+      try {
+        await params.replyCallback("Sorry, I encountered an error processing your message.");
+      } catch (replyError) {
+        console.error("[intent-ingress] Failed to send error reply:", replyError);
+      }
     }
   }
 

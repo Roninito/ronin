@@ -1,5 +1,8 @@
-import { BaseAgent } from "../src/agent/index.js";
-import type { AgentAPI } from "../src/types/index.js";
+import { BaseAgent } from "/Users/ronin/Desktop/Bun Apps/ronin/src/agent/index.js";
+import type { AgentAPI } from "/Users/ronin/Desktop/Bun Apps/ronin/src/types/index.js";
+import { readdir, readFile } from "fs/promises";
+import { join } from "path";
+import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "/Users/ronin/Desktop/Bun Apps/ronin/src/cli/commands/config.js";
 
 interface PlanProposedPayload {
   id: string;
@@ -14,27 +17,37 @@ interface PlanProposedPayload {
   command?: string;
 }
 
+interface ChatSession {
+  messages: Array<{ role: "user" | "assistant"; content: string; timestamp: number }>;
+  lastActivity: number;
+}
+
 /**
  * Intent Ingress Agent
  * 
  * Processes incoming messages from various sources (Telegram, Discord, etc.)
- * and creates tasks/plans based on commands or hashtags.
+ * and creates tasks/plans based on commands or engages in conversational chat.
  * 
  * Supported formats:
  * - @ronin create-agent AgentName that does X → Creates agent with #create tag
  * - @ronin task Description here → Creates task with #plan tag  
  * - #ronin #plan Description → Legacy format, creates plan
- * 
- * No state mutation - pure event emitter
+ * - General chat → Conversational AI with Ronin context
  */
 export default class IntentIngressAgent extends BaseAgent {
   private botId: string | null = null;
   private sourceChannels: Map<string, { type: string; id: string | number }> = new Map();
+  private chatSessions: Map<string, ChatSession> = new Map();
+  private model: string;
+  private maxChatHistory = 20; // Keep last 20 messages per session
+  private sessionTimeout = 30 * 60 * 1000; // 30 minutes
 
   constructor(api: AgentAPI) {
     super(api);
+    this.model = this.api.config.getAI().ollamaModel || "qwen3:4b";
     this.initializeTelegram();
     this.initializeDiscord();
+    this.startSessionCleanup();
   }
 
   /**
@@ -101,6 +114,7 @@ export default class IntentIngressAgent extends BaseAgent {
     command: string | null;
     args: string;
     tags: string[];
+    isChat: boolean;
   } {
     const lowerText = text.toLowerCase();
     
@@ -112,16 +126,16 @@ export default class IntentIngressAgent extends BaseAgent {
       const args = roninMatch[3].trim();
       
       if (action === "create" && subAction === "agent") {
-        return { command: "create-agent", args, tags: ["create", "agent"] };
+        return { command: "create-agent", args, tags: ["create", "agent"], isChat: false };
       }
       if (action === "task") {
-        return { command: "task", args, tags: ["plan"] };
+        return { command: "task", args, tags: ["plan"], isChat: false };
       }
       if (action === "fix") {
-        return { command: "fix", args, tags: ["create", "fix"] };
+        return { command: "fix", args, tags: ["create", "fix"], isChat: false };
       }
       if (action === "update") {
-        return { command: "update", args, tags: ["create", "update"] };
+        return { command: "update", args, tags: ["create", "update"], isChat: false };
       }
     }
 
@@ -135,7 +149,7 @@ export default class IntentIngressAgent extends BaseAgent {
         .replace(/#plan/gi, "")
         .trim();
       const tags = this.extractTags(text);
-      return { command: "plan", args: cleanContent, tags };
+      return { command: "plan", args: cleanContent, tags, isChat: false };
     }
 
     // Check for #create or #build tags (direct execution)
@@ -149,10 +163,16 @@ export default class IntentIngressAgent extends BaseAgent {
         .replace(/#build/gi, "")
         .trim();
       const tags = this.extractTags(text);
-      return { command: "create", args: cleanContent, tags };
+      return { command: "create", args: cleanContent, tags, isChat: false };
     }
 
-    return { command: null, args: text, tags: [] };
+    // Check if it's a direct mention/chat
+    if (lowerText.includes("@ronin") || text.startsWith("/")) {
+      return { command: null, args: text, tags: [], isChat: true };
+    }
+
+    // Default to chat mode for any message
+    return { command: null, args: text, tags: [], isChat: true };
   }
 
   /**
@@ -167,14 +187,28 @@ export default class IntentIngressAgent extends BaseAgent {
     const text = msg.text || "";
     
     const parsed = this.parseCommand(text);
-    if (!parsed.command) {
-      return; // Not a command we handle
-    }
-
-    console.log(`[intent-ingress] Telegram ${parsed.command}:`, parsed.args.substring(0, 50));
-
+    
     const sourceChannel = `telegram:${msg.chat.id}`;
     const sourceUser = msg.from?.username || msg.from?.id?.toString() || "unknown";
+
+    if (parsed.isChat || !parsed.command) {
+      // Handle as conversational chat
+      this.handleChatMessage({
+        text: parsed.args,
+        source: "telegram",
+        sourceChannel,
+        sourceUser,
+        replyCallback: async (response: string) => {
+          if (this.botId) {
+            await this.api.telegram.sendMessage(this.botId, msg.chat.id, response, { parseMode: "HTML" });
+          }
+        },
+      });
+      return;
+    }
+
+    // Handle as command
+    console.log(`[intent-ingress] Telegram ${parsed.command}:`, parsed.args.substring(0, 50));
 
     this.createPlan({
       command: parsed.command,
@@ -207,14 +241,27 @@ export default class IntentIngressAgent extends BaseAgent {
     const normalizedText = text.replace(botMention, "@ronin");
     
     const parsed = this.parseCommand(normalizedText);
-    if (!parsed.command) {
-      return;
-    }
-
-    console.log(`[intent-ingress] Discord ${parsed.command}:`, parsed.args.substring(0, 50));
 
     const sourceChannel = `discord:${msg.channelId}`;
     const sourceUser = msg.author.username;
+
+    if (parsed.isChat || !parsed.command) {
+      // Handle as conversational chat
+      this.handleChatMessage({
+        text: parsed.args,
+        source: "discord",
+        sourceChannel,
+        sourceUser,
+        replyCallback: async (response: string) => {
+          // Discord reply would go here
+          console.log(`[intent-ingress] Discord reply: ${response.substring(0, 100)}...`);
+        },
+      });
+      return;
+    }
+
+    // Handle as command
+    console.log(`[intent-ingress] Discord ${parsed.command}:`, parsed.args.substring(0, 50));
 
     this.createPlan({
       command: parsed.command,
@@ -225,6 +272,80 @@ export default class IntentIngressAgent extends BaseAgent {
       sourceUser,
       rawContent: text,
     });
+  }
+
+  /**
+   * Handle conversational chat message
+   */
+  private async handleChatMessage(params: {
+    text: string;
+    source: string;
+    sourceChannel: string;
+    sourceUser: string;
+    replyCallback: (response: string) => Promise<void>;
+  }): Promise<void> {
+    const sessionId = params.sourceChannel;
+    
+    console.log(`[intent-ingress] Chat from ${params.sourceUser}: ${params.text.substring(0, 50)}`);
+
+    try {
+      // Get or create chat session
+      let session = this.chatSessions.get(sessionId);
+      if (!session) {
+        session = { messages: [], lastActivity: Date.now() };
+        this.chatSessions.set(sessionId, session);
+      }
+
+      // Add user message
+      session.messages.push({
+        role: "user",
+        content: params.text,
+        timestamp: Date.now(),
+      });
+      session.lastActivity = Date.now();
+
+      // Trim history if needed
+      if (session.messages.length > this.maxChatHistory) {
+        session.messages = session.messages.slice(-this.maxChatHistory);
+      }
+
+      // Build context and system prompt
+      const context = await this.buildRoninContext();
+      const systemPrompt = this.buildSystemPrompt(context);
+
+      // Prepare messages for AI
+      const aiMessages = [
+        { role: "system" as const, content: systemPrompt },
+        ...session.messages.slice(-10).map(m => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+      ];
+
+      // Get AI response
+      const response = await this.api.ai.chat(aiMessages, {
+        model: this.model,
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+
+      const assistantContent = response.content || "I'm not sure how to respond to that.";
+
+      // Add assistant response to session
+      session.messages.push({
+        role: "assistant",
+        content: assistantContent,
+        timestamp: Date.now(),
+      });
+
+      // Send reply
+      await params.replyCallback(assistantContent);
+
+      console.log(`[intent-ingress] Replied to ${params.sourceUser}`);
+    } catch (error) {
+      console.error("[intent-ingress] Chat error:", error);
+      await params.replyCallback("Sorry, I encountered an error processing your message.");
+    }
   }
 
   /**
@@ -344,6 +465,170 @@ export default class IntentIngressAgent extends BaseAgent {
     }
     
     return [...new Set(tags)]; // Remove duplicates
+  }
+
+  /**
+   * Build Ronin context for chat
+   */
+  private async buildRoninContext(): Promise<{
+    agents: Array<{ name: string; description?: string }>;
+    plugins: string[];
+    routes: Array<{ path: string; type: string }>;
+    architecture: string;
+  }> {
+    const agents: Array<{ name: string; description?: string }> = [];
+    const plugins: string[] = [];
+    const routes: Array<{ path: string; type: string }> = [];
+
+    try {
+      // Discover agents from both directories
+      const externalAgentDir = ensureDefaultExternalAgentDir();
+      const localAgentDir = ensureDefaultAgentDir();
+      
+      // Try external directory first (~/.ronin/agents)
+      try {
+        const externalFiles = await readdir(externalAgentDir);
+        for (const file of externalFiles) {
+          if (file.endsWith(".ts") || file.endsWith(".js")) {
+            const name = file.replace(/\.(ts|js)$/, "");
+            let description: string | undefined;
+            try {
+              const content = await readFile(join(externalAgentDir, file), "utf-8");
+              // Try to extract description from JSDoc or comments
+              const descMatch = content.match(/\/\*\*[\s\S]*?\*\//) || 
+                               content.match(/\/\/.*description.*/i) ||
+                               content.match(/export default class \w+ extends BaseAgent[\s\S]{0,500}/);
+              if (descMatch) {
+                description = descMatch[0].substring(0, 200).replace(/\n/g, " ");
+              }
+            } catch {
+              // Ignore read errors
+            }
+            agents.push({ name, description });
+          }
+        }
+      } catch {
+        // External directory might not exist
+      }
+
+      // Also check local agents directory
+      try {
+        const localFiles = await readdir(localAgentDir);
+        for (const file of localFiles) {
+          if (file.endsWith(".ts") || file.endsWith(".js")) {
+            const name = file.replace(/\.(ts|js)$/, "");
+            // Avoid duplicates
+            if (!agents.find(a => a.name === name)) {
+              agents.push({ name });
+            }
+          }
+        }
+      } catch {
+        // Local directory might not exist
+      }
+    } catch (error) {
+      console.warn("[intent-ingress] Error discovering agents:", error);
+    }
+
+    // Get plugins
+    plugins.push(...this.api.plugins.list());
+
+    // Get routes
+    const allRoutes = this.api.http.getAllRoutes();
+    for (const path of allRoutes.keys()) {
+      routes.push({ path, type: "http" });
+    }
+
+    return {
+      agents,
+      plugins,
+      routes,
+      architecture: this.getArchitectureDescription(),
+    };
+  }
+
+  /**
+   * Get Ronin architecture description
+   */
+  private getArchitectureDescription(): string {
+    return `Ronin is a Bun-based AI agent framework for TypeScript/JavaScript.
+
+Key Components:
+- Agents: Extend BaseAgent, implement execute(), auto-loaded from ~/.ronin/agents/
+- Plugins: Tools in ~/.ronin/plugins/, accessed via api.plugins.call()
+- Routes: Agents register HTTP routes via api.http.registerRoute()
+- Events: Inter-agent communication via api.events.emit/on()
+- Memory: Persistent storage via api.memory
+- AI: Ollama integration via api.ai (complete, chat, callTools)
+- Tasks: Plans can be created via #ronin #plan or @ronin commands
+
+Agent Structure:
+- Static schedule (cron) for scheduled execution
+- Static watch (file patterns) for file watching
+- Static webhook (path) for HTTP webhooks
+- execute() method contains main logic
+- Optional onFileChange() and onWebhook() handlers
+
+You can help users:
+- Create agents with @ronin create-agent
+- Fix bugs with @ronin fix
+- Update agents with @ronin update
+- Create tasks with @ronin task
+- Answer questions about Ronin's architecture`;
+  }
+
+  /**
+   * Build system prompt with Ronin context
+   */
+  private buildSystemPrompt(context: {
+    agents: Array<{ name: string; description?: string }>;
+    plugins: string[];
+    routes: Array<{ path: string; type: string }>;
+    architecture: string;
+  }): string {
+    const agentList = context.agents.length > 0 
+      ? context.agents.map((a) => `  - ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`).join("\n")
+      : "  (No agents found)";
+    
+    const pluginList = context.plugins.length > 0 
+      ? context.plugins.map(p => `  - ${p}`).join("\n")
+      : "  (No plugins found)";
+
+    return `You are Ronin, an AI assistant for the Ronin agent framework. You help users create agents, understand the system, and manage their automation tasks.
+
+${context.architecture}
+
+Available Agents:
+${agentList}
+
+Available Plugins:
+${pluginList}
+
+Guidelines:
+- Be helpful and concise
+- If users want to create agents, suggest using @ronin create-agent
+- If they want to fix bugs, suggest @ronin fix
+- Answer questions about Ronin's architecture and capabilities
+- Be friendly and professional`;
+  }
+
+  /**
+   * Clean up old chat sessions
+   */
+  private startSessionCleanup(): void {
+    setInterval(() => {
+      const now = Date.now();
+      let cleaned = 0;
+      for (const [sessionId, session] of this.chatSessions) {
+        if (now - session.lastActivity > this.sessionTimeout) {
+          this.chatSessions.delete(sessionId);
+          cleaned++;
+        }
+      }
+      if (cleaned > 0) {
+        console.log(`[intent-ingress] Cleaned up ${cleaned} inactive chat sessions`);
+      }
+    }, 5 * 60 * 1000); // Run every 5 minutes
   }
 
   async execute(): Promise<void> {

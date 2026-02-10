@@ -176,12 +176,21 @@ export default class IntentIngressAgent extends BaseAgent {
    * In groups/channels: Only respond to @ronin mentions or commands
    * In direct messages: Respond to all messages
    */
-  private handleTelegramMessage(msg: { 
-    text?: string; 
-    chat?: { id: number; type?: string }; 
-    message_id: number;
-    from?: { username?: string; first_name?: string; id: number };
+  private handleTelegramMessage(update: { 
+    update_id: number;
+    message?: {
+      message_id: number;
+      chat?: { id: number; type?: string };
+      from?: { username?: string; first_name?: string; id: number };
+      text?: string;
+    };
   }): void {
+    const msg = update.message;
+    if (!msg) {
+      console.log(`[intent-ingress] Ignoring update without message`);
+      return;
+    }
+    
     const text = msg.text || "";
     
     // Check if chat exists
@@ -221,7 +230,7 @@ export default class IntentIngressAgent extends BaseAgent {
         sourceUser,
         replyCallback: async (response: string) => {
           if (this.botId) {
-            await this.api.telegram.sendMessage(this.botId, msg.chat.id, response, { parseMode: "HTML" });
+            await this.api.telegram.sendMessage(this.botId, msg.chat!.id, response, { parseMode: "HTML" });
           }
         },
       });

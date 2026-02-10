@@ -139,10 +139,15 @@ export default class IntentIngressAgent extends BaseAgent {
       }
     }
 
-    // Check for legacy hashtag format
+    // Check for hashtag commands
     const hasRoninTag = lowerText.includes("#ronin");
     const hasPlanTag = lowerText.includes("#plan");
+    const hasCreateTag = lowerText.includes("#create");
+    const hasBuildTag = lowerText.includes("#build");
+    const hasFixTag = lowerText.includes("#fix");
+    const hasUpdateTag = lowerText.includes("#update");
     
+    // #ronin #plan together (legacy format)
     if (hasRoninTag && hasPlanTag) {
       const cleanContent = text
         .replace(/#ronin/gi, "")
@@ -151,19 +156,43 @@ export default class IntentIngressAgent extends BaseAgent {
       const tags = this.extractTags(text);
       return { command: "plan", args: cleanContent, tags, isChat: false };
     }
-
-    // Check for #create or #build tags (direct execution)
-    const hasCreateTag = lowerText.includes("#create");
-    const hasBuildTag = lowerText.includes("#build");
     
-    if (hasRoninTag && (hasCreateTag || hasBuildTag)) {
+    // Just #plan by itself (create a task)
+    if (hasPlanTag) {
+      const cleanContent = text
+        .replace(/#plan/gi, "")
+        .trim();
+      const tags = ["plan", ...this.extractTags(text)];
+      return { command: "plan", args: cleanContent, tags, isChat: false };
+    }
+
+    // #create or #build with or without #ronin
+    if (hasCreateTag || hasBuildTag) {
       const cleanContent = text
         .replace(/#ronin/gi, "")
         .replace(/#create/gi, "")
         .replace(/#build/gi, "")
         .trim();
-      const tags = this.extractTags(text);
+      const tags = ["create", ...this.extractTags(text)];
       return { command: "create", args: cleanContent, tags, isChat: false };
+    }
+    
+    // #fix for bug fixes
+    if (hasFixTag) {
+      const cleanContent = text
+        .replace(/#fix/gi, "")
+        .trim();
+      const tags = ["fix", ...this.extractTags(text)];
+      return { command: "fix", args: cleanContent, tags, isChat: false };
+    }
+    
+    // #update for modifications
+    if (hasUpdateTag) {
+      const cleanContent = text
+        .replace(/#update/gi, "")
+        .trim();
+      const tags = ["update", ...this.extractTags(text)];
+      return { command: "update", args: cleanContent, tags, isChat: false };
     }
 
     // Default to chat mode for any message that doesn't match a command

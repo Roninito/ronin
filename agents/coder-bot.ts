@@ -106,25 +106,31 @@ export default class CoderBotAgent extends BaseAgent {
   private async handlePlanApproved(payload: PlanApprovedPayload): Promise<void> {
     console.log(`[coder-bot] Received PlanApproved: ${payload.id}`);
 
-    // Check for #create or #build tag
-    const hasBuildTag = payload.tags?.includes("build") || payload.tags?.includes("create");
-    if (!hasBuildTag) {
-      console.log(`[coder-bot] No #create or #build tag, skipping execution for ${payload.id}`);
+    // Check for execution tags
+    const hasCreateTag = payload.tags?.includes("build") || payload.tags?.includes("create");
+    const hasFixTag = payload.tags?.includes("fix");
+    const hasUpdateTag = payload.tags?.includes("update");
+    
+    if (!hasCreateTag && !hasFixTag && !hasUpdateTag) {
+      console.log(`[coder-bot] No execution tag (#create/#build/#fix/#update), skipping ${payload.id}`);
       return;
     }
 
+    // Determine operation type
+    const operation = hasFixTag ? "fix" : hasUpdateTag ? "update" : "create";
+
     // Add to queue
     this.executionQueue.push(payload.id);
-    console.log(`[coder-bot] Added ${payload.id} to queue. Queue length: ${this.executionQueue.length}`);
+    console.log(`[coder-bot] Added ${payload.id} to queue (${operation}). Queue length: ${this.executionQueue.length}`);
 
     // Process queue
-    await this.processQueue(payload);
+    await this.processQueue(payload, operation);
   }
 
   /**
    * Process execution queue sequentially
    */
-  private async processQueue(payload: PlanApprovedPayload): Promise<void> {
+  private async processQueue(payload: PlanApprovedPayload, operation: string = "create"): Promise<void> {
     if (this.isExecuting) {
       console.log(`[coder-bot] Queue busy, waiting...`);
       return;
@@ -133,7 +139,7 @@ export default class CoderBotAgent extends BaseAgent {
     this.isExecuting = true;
 
     try {
-      await this.executePlanWithRetry(payload);
+      await this.executePlanWithRetry(payload, operation);
     } finally {
       this.isExecuting = false;
       
@@ -148,9 +154,9 @@ export default class CoderBotAgent extends BaseAgent {
   /**
    * Execute a plan with retry logic
    */
-  private async executePlanWithRetry(payload: PlanApprovedPayload, attempt: number = 1): Promise<void> {
+  private async executePlanWithRetry(payload: PlanApprovedPayload, operation: string = "create", attempt: number = 1): Promise<void> {
     try {
-      await this.executePlan(payload, attempt);
+      await this.executePlan(payload, operation, attempt);
     } catch (error) {
       if (attempt <= this.maxRetries) {
         console.log(`[coder-bot] Retrying ${payload.id} (attempt ${attempt + 1})...`);
@@ -160,7 +166,7 @@ export default class CoderBotAgent extends BaseAgent {
 Previous error: ${error instanceof Error ? error.message : String(error)}
 ═══════════════════════════════════════════════════
 `);
-        await this.executePlanWithRetry(payload, attempt + 1);
+        await this.executePlanWithRetry(payload, operation, attempt + 1);
       } else {
         throw error;
       }
@@ -170,14 +176,14 @@ Previous error: ${error instanceof Error ? error.message : String(error)}
   /**
    * Execute a plan
    */
-  private async executePlan(payload: PlanApprovedPayload, attempt: number = 1): Promise<void> {
+  private async executePlan(payload: PlanApprovedPayload, operation: string = "create", attempt: number = 1): Promise<void> {
     const planId = payload.id;
 
     // Emit starting progress
     this.api.events.emit("PlanInProgress", {
       id: planId,
       status: "starting",
-      message: `Initializing CLI execution (attempt ${attempt})...`,
+      message: `Initializing CLI execution (attempt ${attempt}, operation: ${operation})...`,
       timestamp: Date.now(),
     }, "coder-bot");
 
@@ -185,6 +191,7 @@ Previous error: ${error instanceof Error ? error.message : String(error)}
     await this.appendToTask(planId, `
 ═══════════════════════════════════════════════════
 [EXECUTION ATTEMPT ${attempt}]
+Operation: ${operation.toUpperCase()}
 Started: ${new Date().toISOString()}
 CLI: Determining...
 Status: 🔄 Executing
@@ -216,13 +223,30 @@ Status: 🔄 Executing
       const appTag = payload.tags?.find((tag) => tag.startsWith("app-"));
       const workspace = await this.resolveWorkspace(appTag, config);
 
-      // Enhance prompt with sensible defaults
-      const enhancedPrompt = this.enhancePrompt(payload.description || "", payload.tags);
+      // For fix/update operations, find existing agent
+      let existingCode: string | undefined;
+      if (operation === "fix" || operation === "update") {
+        existingCode = await this.findExistingAgent(payload.title || "", workspace);
+        if (existingCode) {
+          await this.appendToTask(planId, `
+Found existing agent code. Will ${operation} it.
+`);
+        }
+      }
+
+      // Enhance prompt based on operation
+      const enhancedPrompt = this.enhancePrompt(
+        payload.description || "", 
+        payload.tags, 
+        operation,
+        existingCode
+      );
 
       // Update task with CLI info
       await this.appendToTask(planId, `
 CLI: ${cli}
 Workspace: ${workspace}
+Operation: ${operation}
 Instruction: ${enhancedPrompt.substring(0, 200)}${enhancedPrompt.length > 200 ? '...' : ''}
 `);
 
@@ -335,14 +359,51 @@ ${errorMessage}
   /**
    * Enhance prompt with sensible defaults
    */
-  private enhancePrompt(description: string, tags?: string[]): string {
+  private enhancePrompt(
+    description: string, 
+    tags?: string[], 
+    operation: string = "create",
+    existingCode?: string
+  ): string {
     const isAgent = tags?.some(tag => tag.includes('agent'));
     const isPlugin = tags?.some(tag => tag.includes('plugin'));
     
-    let enhanced = description;
+    let enhanced = "";
     
-    // Add context about Ronin
-    enhanced += `
+    if (operation === "fix" && existingCode) {
+      enhanced = `Fix bugs in the following Ronin ${isAgent ? 'agent' : isPlugin ? 'plugin' : 'code'}.
+
+CURRENT CODE:
+${existingCode}
+
+ISSUE TO FIX:
+${description}
+
+Instructions:
+1. Analyze the code for the issue described
+2. Fix the bug while maintaining existing functionality
+3. Ensure TypeScript compiles without errors
+4. Keep the same file name and exports`;
+    } else if (operation === "update" && existingCode) {
+      enhanced = `Update/modify the following Ronin ${isAgent ? 'agent' : isPlugin ? 'plugin' : 'code'}.
+
+CURRENT CODE:
+${existingCode}
+
+MODIFICATIONS NEEDED:
+${description}
+
+Instructions:
+1. Modify the code as described
+2. Maintain backward compatibility where possible
+3. Ensure TypeScript compiles without errors
+4. Keep the same file name and exports`;
+    } else {
+      // Create operation (default)
+      enhanced = description;
+      
+      // Add context about Ronin
+      enhanced += `
 
 Context: This is for the Ronin agent system.
 ${isAgent ? 'Create a Ronin agent following the BaseAgent pattern.' : ''}
@@ -353,8 +414,51 @@ Use sensible defaults for any unspecified parameters:
 - Follow TypeScript best practices
 - Include proper error handling
 - Add appropriate logging`;
+    }
 
     return enhanced;
+  }
+
+  /**
+   * Find existing agent code for fix/update operations
+   */
+  private async findExistingAgent(title: string, workspace: string): Promise<string | undefined> {
+    try {
+      // Try to find agent by name in title
+      const possibleNames = [
+        title.toLowerCase().replace(/\s+/g, '-'),
+        title.toLowerCase().replace(/\s+/g, '_'),
+        title.split(/\s+/)[0].toLowerCase(),
+      ];
+
+      for (const name of possibleNames) {
+        // Check in workspace
+        const agentPath = join(workspace, `${name}.ts`);
+        if (existsSync(agentPath)) {
+          const code = await readFile(agentPath, 'utf-8');
+          return code;
+        }
+
+        // Check in external agents dir
+        const externalPath = join(homedir(), '.ronin', 'agents', `${name}.ts`);
+        if (existsSync(externalPath)) {
+          const code = await readFile(externalPath, 'utf-8');
+          return code;
+        }
+
+        // Check with -agent suffix
+        const agentSuffixPath = join(workspace, `${name}-agent.ts`);
+        if (existsSync(agentSuffixPath)) {
+          const code = await readFile(agentSuffixPath, 'utf-8');
+          return code;
+        }
+      }
+
+      return undefined;
+    } catch (error) {
+      console.error(`[coder-bot] Error finding existing agent:`, error);
+      return undefined;
+    }
   }
 
   /**

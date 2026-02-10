@@ -28,6 +28,9 @@ interface BotInstance {
 const bots: Map<string, BotInstance> = new Map();
 // Track tokens to prevent duplicate bot instances
 const tokenToBotId: Map<string, string> = new Map();
+// Track last message time per chat for rate limiting
+const lastMessageTime: Map<string, number> = new Map();
+const RATE_LIMIT_MS = 1000; // 1 second between messages to same chat
 
 /**
  * Telegram plugin for interacting with Telegram Bot API
@@ -150,12 +153,42 @@ const telegramPlugin: Plugin = {
         throw new Error("Message text is required");
       }
 
+      // Rate limiting: ensure we don't send messages too quickly to the same chat
+      const chatKey = `${botId}:${chatId}`;
+      const now = Date.now();
+      const lastTime = lastMessageTime.get(chatKey) || 0;
+      const timeSinceLastMessage = now - lastTime;
+      
+      if (timeSinceLastMessage < RATE_LIMIT_MS) {
+        const delay = RATE_LIMIT_MS - timeSinceLastMessage;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
       try {
         await instance.bot.api.sendMessage(chatId, text, {
           parse_mode: options?.parseMode,
         });
-      } catch (error) {
+        lastMessageTime.set(chatKey, Date.now());
+      } catch (error: any) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        
+        // Handle rate limiting (429) with retry
+        if (error?.error_code === 429 || errorMsg.includes("429")) {
+          const retryAfter = error?.parameters?.retry_after || 16;
+          console.log(`[telegram] Rate limited. Retrying after ${retryAfter} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          
+          // Retry the request
+          try {
+            await instance.bot.api.sendMessage(chatId, text, {
+              parse_mode: options?.parseMode,
+            });
+            lastMessageTime.set(chatKey, Date.now());
+            return;
+          } catch (retryError) {
+            throw new Error(`Failed to send message after retry: ${retryError instanceof Error ? retryError.message : String(retryError)}`);
+          }
+        }
         
         // Provide helpful error messages for common issues
         if (errorMsg.includes("chat not found")) {

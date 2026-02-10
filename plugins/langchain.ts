@@ -6,9 +6,25 @@ import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { StateGraph, END } from "@langchain/langgraph";
+import { getConfigService } from "../src/config/ConfigService.js";
 
-const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b";
+// Configurable defaults - will be overridden by ConfigService when available
+const getDefaults = () => {
+  try {
+    const configService = getConfigService();
+    const configAI = configService.getAI();
+    return {
+      ollamaUrl: configAI.ollamaUrl,
+      model: configAI.ollamaModel,
+    };
+  } catch {
+    // Fallback to env vars if config service not initialized
+    return {
+      ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
+      model: process.env.OLLAMA_MODEL || "qwen3:4b",
+    };
+  }
+};
 
 /**
  * LangChain integration plugin for Ronin
@@ -22,9 +38,10 @@ const langchainPlugin: Plugin = {
      * Execute a simple LangChain chain
      */
     runChain: async (promptTemplate: string, input: Record<string, any>, api?: AgentAPI) => {
+      const defaults = getDefaults();
       const model = new Ollama({
-        model: DEFAULT_MODEL,
-        baseUrl: DEFAULT_OLLAMA_URL,
+        model: defaults.model,
+        baseUrl: defaults.ollamaUrl,
       });
 
       const prompt = ChatPromptTemplate.fromMessages([
@@ -41,9 +58,10 @@ const langchainPlugin: Plugin = {
      * Execute a LangChain agent with tools
      */
     runAgent: async (query: string, tools: any[] = [], api?: AgentAPI) => {
+      const defaults = getDefaults();
       const model = new Ollama({
-        model: DEFAULT_MODEL,
-        baseUrl: DEFAULT_OLLAMA_URL,
+        model: defaults.model,
+        baseUrl: defaults.ollamaUrl,
       });
 
       // Wrap Ronin plugins as LangChain tools if API is provided
@@ -71,9 +89,10 @@ const langchainPlugin: Plugin = {
       cancellationToken?: { isCancelled: boolean },
       api?: AgentAPI
     ) => {
+      const defaults = getDefaults();
       const model = new Ollama({
-        model: DEFAULT_MODEL,
-        baseUrl: DEFAULT_OLLAMA_URL,
+        model: defaults.model,
+        baseUrl: defaults.ollamaUrl,
       });
 
       // Wrap Ronin plugins as tools
@@ -258,9 +277,10 @@ Generate ONLY the TypeScript code, no explanations.`,
      * Run analysis chain for chat queries
      */
     runAnalysisChain: async (input: string, dataSource?: string, api?: AgentAPI) => {
+      const defaults = getDefaults();
       const model = new Ollama({
-        model: DEFAULT_MODEL,
-        baseUrl: DEFAULT_OLLAMA_URL,
+        model: defaults.model,
+        baseUrl: defaults.ollamaUrl,
       });
 
       const tools = api ? await wrapRoninPluginsAsTools(api) : [];
@@ -286,9 +306,10 @@ Generate ONLY the TypeScript code, no explanations.`,
      * Build research graph for multi-step research workflows
      */
     buildResearchGraph: async (api?: AgentAPI) => {
+      const defaults = getDefaults();
       const model = new Ollama({
-        model: DEFAULT_MODEL,
-        baseUrl: DEFAULT_OLLAMA_URL,
+        model: defaults.model,
+        baseUrl: defaults.ollamaUrl,
       });
 
       const tools = api ? await wrapRoninPluginsAsTools(api) : [];

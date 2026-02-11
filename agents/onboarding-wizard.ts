@@ -121,10 +121,10 @@ export default class OnboardingWizardAgent extends BaseAgent {
       
       // Check which steps are complete (combine setup status + config)
       const steps = {
-        adminUser: steps.adminUser || false,
-        cliTools: steps.cliTools || false,
-        aiConfig: steps.aiConfig || !!(configValues.ai.provider && configValues.ai.ollamaModel),
-        platforms: steps.platforms || !!(configValues.telegram.enabled || configValues.discord.enabled)
+        adminUser: status.steps?.adminUser || false,
+        cliTools: status.steps?.cliTools || false,
+        aiConfig: status.steps?.aiConfig || !!(configValues.ai.provider && configValues.ai.ollamaModel),
+        platforms: status.steps?.platforms || !!(configValues.telegram.enabled || configValues.discord.enabled)
       };
       
       return Response.json({

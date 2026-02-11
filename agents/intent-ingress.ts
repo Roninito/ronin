@@ -384,7 +384,7 @@ export default class IntentIngressAgent extends BaseAgent {
   }
 
   /**
-   * Handle conversational chat message
+   * Handle conversational chat message with tool support
    */
   private async handleChatMessage(params: {
     text: string;
@@ -398,6 +398,49 @@ export default class IntentIngressAgent extends BaseAgent {
     console.log(`[intent-ingress] Chat from ${params.sourceUser}: ${params.text.substring(0, 50)}`);
 
     try {
+      // Check if this is a web browsing request
+      const webMatch = params.text.match(/(?:visit|check|view|browse|open)\s+(?:the\s+)?(?:url|website|site|page)?\s*:?\s*(https?:\/\/\S+|localhost:\d+\S*|\/\S+)/i);
+      if (webMatch) {
+        const url = webMatch[1];
+        console.log(`[intent-ingress] Detected web browsing request: ${url}`);
+        await params.replyCallback(`🔍 Fetching ${url}...`);
+        
+        try {
+          const result = await this.fetchWebContent(url);
+          await params.replyCallback(result);
+          return;
+        } catch (error) {
+          await params.replyCallback(`❌ Failed to fetch ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return;
+        }
+      }
+
+      // Check if this is a shell command request
+      const shellMatch = params.text.match(/(?:run|execute|exec)\s+(?:command|cmd)[:\s]+(.+)/i) || 
+                        params.text.match(/^[`\$](.+)[`\$]$/);
+      if (shellMatch) {
+        const command = shellMatch[1].trim();
+        console.log(`[intent-ingress] Detected shell command request: ${command}`);
+        
+        // Check if dangerous
+        if (this.isDangerousCommand(command)) {
+          await params.replyCallback(`⚠️ Command "${command}" may be destructive. Use @ronin create-agent to create a safe execution environment.`);
+          return;
+        }
+        
+        await params.replyCallback(`💻 Executing: ${command}...`);
+        
+        try {
+          const result = await this.executeShellCommand(command);
+          await params.replyCallback(result);
+          return;
+        } catch (error) {
+          await params.replyCallback(`❌ Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return;
+        }
+      }
+
+      // Regular chat handling
       // Get or create chat session
       let session = this.chatSessions.get(sessionId);
       if (!session) {
@@ -445,6 +488,8 @@ You can:
 • Create agents: @ronin create-agent AgentName that does X
 • Fix bugs: @ronin fix description of the issue  
 • Create tasks: @ronin task description
+• Browse web: "visit https://example.com" or "check localhost:3000/status"
+• Run commands: "run command: ls -la" or \`pwd\`
 
 What would you like to do?`;
 
@@ -467,6 +512,118 @@ What would you like to do?`;
       } catch (replyError) {
         console.error("[intent-ingress] Failed to send error reply:", replyError);
       }
+    }
+  }
+
+  /**
+   * Check if a command is potentially dangerous
+   */
+  private isDangerousCommand(command: string): boolean {
+    const dangerous = ['rm', 'del', 'dd', 'mkfs', 'format', 'sudo', 'su', 'shutdown', 'reboot', 'kill', '>'];
+    return dangerous.some(d => command.toLowerCase().includes(d));
+  }
+
+  /**
+   * Fetch web content via Web Viewer agent
+   */
+  private async fetchWebContent(url: string): Promise<string> {
+    try {
+      // Check if it's a local Ronin route
+      if (url.startsWith('/')) {
+        url = `http://localhost:3000${url}`;
+      }
+
+      console.log(`[intent-ingress] Fetching web content from: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Ronin-IntentIngress/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      let content: string;
+
+      if (contentType.includes('json')) {
+        const json = await response.json();
+        content = JSON.stringify(json, null, 2);
+      } else {
+        content = await response.text();
+        // Extract text from HTML
+        if (contentType.includes('html')) {
+          content = this.extractTextFromHtml(content);
+        }
+      }
+
+      // Truncate if too long
+      if (content.length > 4000) {
+        content = content.substring(0, 4000) + '\n\n[Content truncated...]';
+      }
+
+      return `🌐 **Result from ${url}:**\n\n\`\`\`\n${content}\n\`\`\``;
+    } catch (error) {
+      throw new Error(`Failed to fetch ${url}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Extract readable text from HTML
+   */
+  private extractTextFromHtml(html: string): string {
+    return html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .trim();
+  }
+
+  /**
+   * Execute shell command via Term Manager (limited safe commands only)
+   */
+  private async executeShellCommand(command: string): Promise<string> {
+    // Whitelist of safe commands
+    const allowedCommands = ['ls', 'pwd', 'cat', 'head', 'tail', 'echo', 'ps', 'df', 'du', 'grep', 'find', 'git status', 'git log', 'git diff'];
+    const baseCmd = command.trim().split(/\s+/)[0].toLowerCase();
+    
+    if (!allowedCommands.some(cmd => command.toLowerCase().startsWith(cmd))) {
+      return `❌ Command "${baseCmd}" is not in the allowed list for safety.\n\nAllowed commands: ${allowedCommands.join(', ')}\n\nFor more complex operations, use @ronin create-agent to create a specialized agent.`;
+    }
+
+    try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      
+      console.log(`[intent-ingress] Executing safe command: ${command}`);
+      
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: 10000,
+        maxBuffer: 1024 * 1024,
+      });
+
+      let result = stdout || 'Command executed successfully (no output)';
+      if (stderr) {
+        result += '\n\n**Stderr:**\n' + stderr;
+      }
+
+      // Truncate if too long
+      if (result.length > 4000) {
+        result = result.substring(0, 4000) + '\n\n[Output truncated...]';
+      }
+
+      return `💻 **Result of \`${command}\`:**\n\n\`\`\`\n${result}\n\`\`\``;
+    } catch (error: any) {
+      return `❌ Command failed:\n\n\`\`\`\n${error.message}\n${error.stderr || ''}\n\`\`\``;
     }
   }
 
@@ -760,13 +917,25 @@ When a user wants to create an agent, fix a bug, or make a task, you CANNOT writ
    
    Or: #plan [description]"
 
-4. **NEVER DO THIS**:
+4. **Web Browsing**: Users can browse websites by saying:
+   - "visit https://example.com"
+   - "check localhost:3000/status"
+   - "view the page at /api/status"
+
+5. **Safe Shell Commands**: Users can run safe commands by saying:
+   - "run command: ls -la"
+   - "execute: git status"
+   - Wrap in backticks: `pwd`
+   
+   Allowed: ls, pwd, cat, echo, ps, df, git status/log, etc.
+   
+6. **NEVER DO THIS**:
    - Do NOT write bash commands like "ronin create-agent ..."
    - Do NOT write code blocks with commands
    - Do NOT say "enter this in terminal"
    - Simply provide the exact @ronin command to type
 
-5. **General Chat**: For questions about how things work
+7. **General Chat**: For questions about how things work
    → Answer normally, no commands needed
 
 Guidelines:

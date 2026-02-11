@@ -121,20 +121,21 @@ export default class OnboardingWizardAgent extends BaseAgent {
       // Load config values safely
       let configValues;
       try {
-        configValues = this.loadConfigValues();
+        configValues = await this.loadConfigValues();
       } catch (configError) {
         console.error("[onboarding-wizard] Error loading config in getSetupStatus:", configError);
         configValues = {
           telegram: { botToken: '', enabled: false },
           discord: { botToken: '', enabled: false },
-          ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' }
+          ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' },
+          cliTools: { opencode: false, cursor: false, qwen: false, anyInstalled: false }
         };
       }
       
       // Check which steps are complete (combine setup status + config)
       const steps = {
         adminUser: status.steps?.adminUser || false,
-        cliTools: status.steps?.cliTools || false,
+        cliTools: status.steps?.cliTools || configValues.cliTools.anyInstalled,
         aiConfig: status.steps?.aiConfig || !!(configValues.ai.provider && configValues.ai.ollamaModel),
         platforms: status.steps?.platforms || !!(configValues.telegram.enabled || configValues.discord.enabled)
       };
@@ -312,12 +313,54 @@ export default class OnboardingWizardAgent extends BaseAgent {
   }
 
   /**
+   * Check if at least one CLI tool is installed
+   */
+  private async checkCliToolsInstalled(): Promise<{ opencode: boolean; cursor: boolean; qwen: boolean; anyInstalled: boolean }> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+    
+    const tools = { opencode: false, cursor: false, qwen: false, anyInstalled: false };
+    
+    try {
+      // Check opencode
+      try {
+        await execAsync('which opencode');
+        tools.opencode = true;
+      } catch { /* not installed */ }
+      
+      // Check cursor
+      try {
+        await execAsync('which cursor');
+        tools.cursor = true;
+      } catch { /* not installed */ }
+      
+      // Check qwen
+      try {
+        await execAsync('which qwen');
+        tools.qwen = true;
+      } catch { /* not installed */ }
+      
+      tools.anyInstalled = tools.opencode || tools.cursor || tools.qwen;
+      
+      return tools;
+    } catch (error) {
+      console.error("[onboarding-wizard] Error checking CLI tools:", error);
+      return tools;
+    }
+  }
+
+  /**
    * Load config values for pre-populating form
    */
-  private loadConfigValues(): any {
+  private async loadConfigValues(): Promise<any> {
     try {
       // Use getAll() to get the full config object
       const config = this.api.config.getAll ? this.api.config.getAll() : this.api.config;
+      
+      // Check CLI tools
+      const cliTools = await this.checkCliToolsInstalled();
+      
       return {
         telegram: {
           botToken: config.telegram?.botToken || '',
@@ -331,14 +374,16 @@ export default class OnboardingWizardAgent extends BaseAgent {
           ollamaModel: config.ai?.ollamaModel || 'qwen3:4b',
           openaiKey: config.ai?.openaiApiKey || '',
           provider: config.ai?.provider || 'ollama'
-        }
+        },
+        cliTools
       };
     } catch (error) {
       console.error("[onboarding-wizard] Error loading config:", error);
       return {
         telegram: { botToken: '', enabled: false },
         discord: { botToken: '', enabled: false },
-        ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' }
+        ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' },
+        cliTools: { opencode: false, cursor: false, qwen: false, anyInstalled: false }
       };
     }
   }
@@ -348,12 +393,12 @@ export default class OnboardingWizardAgent extends BaseAgent {
    */
   private async renderOnboardingPage(): Promise<Response> {
     const status = await this.loadSetupStatus();
-    const config = this.loadConfigValues();
+    const config = await this.loadConfigValues();
     
     // Compute step statuses based on both setup file and config
     const steps = {
       adminUser: status.steps?.adminUser || false,
-      cliTools: status.steps?.cliTools || false,
+      cliTools: status.steps?.cliTools || config.cliTools.anyInstalled,
       aiConfig: status.steps?.aiConfig || !!(config.ai.provider && config.ai.ollamaModel),
       platforms: status.steps?.platforms || !!(config.telegram.enabled || config.discord.enabled)
     };
@@ -363,112 +408,97 @@ export default class OnboardingWizardAgent extends BaseAgent {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ronin Setup Wizard</title>
+  <title>Ronin Setup</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: #eee;
+      font-family: 'Adobe Clean', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
       line-height: 1.6;
       min-height: 100vh;
-      padding: 20px;
+      padding: 2rem;
     }
     
     .container {
-      max-width: 800px;
+      max-width: 700px;
       margin: 0 auto;
     }
     
     header {
-      text-align: center;
-      margin-bottom: 40px;
-      padding: 40px 20px;
-      background: rgba(233, 69, 96, 0.1);
-      border-radius: 16px;
-      border: 2px solid #e94560;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     h1 {
-      font-size: 2.5rem;
-      color: #e94560;
-      margin-bottom: 10px;
+      font-size: 1.75rem;
+      font-weight: 300;
+      margin-bottom: 0.5rem;
     }
     
     .subtitle {
-      color: #888;
-      font-size: 1.1rem;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.875rem;
     }
     
     .progress-bar {
-      background: #16213e;
-      height: 8px;
-      border-radius: 4px;
-      margin: 20px 0;
-      overflow: hidden;
+      background: rgba(255, 255, 255, 0.04);
+      height: 2px;
+      margin: 1.5rem 0;
     }
     
     .progress-fill {
-      background: linear-gradient(90deg, #e94560, #ff6b6b);
+      background: #e94560;
       height: 100%;
-      border-radius: 4px;
-      transition: width 0.5s ease;
+      transition: width 0.3s ease;
     }
     
     .steps {
-      display: grid;
-      gap: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
     
     .step {
-      background: #16213e;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 2px solid transparent;
-      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.2s;
     }
     
-    .step.pending {
-      border-color: #e67e22;
+    .step:hover {
+      border-color: rgba(255, 255, 255, 0.12);
     }
     
     .step.complete {
-      border-color: #27ae60;
+      border-color: rgba(39, 174, 96, 0.4);
     }
     
     .step-header {
-      padding: 20px;
+      padding: 1rem 1.25rem;
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 1rem;
       cursor: pointer;
-      background: #0f3460;
     }
     
     .step-number {
-      width: 40px;
-      height: 40px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
-      font-size: 1.2rem;
-    }
-    
-    .step.pending .step-number {
-      background: #e67e22;
-      color: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.6);
     }
     
     .step.complete .step-number {
-      background: #27ae60;
-      color: white;
+      background: rgba(39, 174, 96, 0.2);
+      color: #27ae60;
     }
     
     .step-title {
@@ -476,34 +506,27 @@ export default class OnboardingWizardAgent extends BaseAgent {
     }
     
     .step-title h3 {
-      font-size: 1.2rem;
-      margin-bottom: 5px;
+      font-size: 0.9375rem;
+      font-weight: 400;
+      margin-bottom: 0.125rem;
     }
     
     .step-title p {
-      color: #888;
-      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.8125rem;
     }
     
     .step-status {
-      padding: 5px 15px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 500;
-    }
-    
-    .step.pending .step-status {
-      background: rgba(230, 126, 34, 0.2);
-      color: #e67e22;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.4);
     }
     
     .step.complete .step-status {
-      background: rgba(39, 174, 96, 0.2);
       color: #27ae60;
     }
     
     .step-content {
-      padding: 20px;
+      padding: 0 1.25rem 1.25rem;
       display: none;
     }
     
@@ -512,25 +535,31 @@ export default class OnboardingWizardAgent extends BaseAgent {
     }
     
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 1rem;
     }
     
     .form-group label {
       display: block;
-      margin-bottom: 8px;
-      color: #ccc;
-      font-weight: 500;
+      margin-bottom: 0.375rem;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.8125rem;
     }
     
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 12px;
-      background: #1a1a2e;
-      border: 2px solid #0f3460;
-      border-radius: 8px;
-      color: #eee;
-      font-size: 1rem;
+      padding: 0.625rem 0.875rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.2);
     }
     
     .form-group input:focus,
@@ -549,127 +578,75 @@ export default class OnboardingWizardAgent extends BaseAgent {
       transition: all 0.3s ease;
     }
     
+    .btn {
+      padding: 0.625rem 1.25rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
     .btn-primary {
-      background: #e94560;
-      color: white;
+      background: rgba(233, 69, 96, 0.15);
+      border-color: rgba(233, 69, 96, 0.4);
+      color: #e94560;
     }
     
-    .btn-primary:hover {
-      background: #c73e54;
-    }
-    
-    .btn-secondary {
-      background: #0f3460;
-      color: #eee;
-    }
-    
-    .btn-secondary:hover {
-      background: #1a4a7a;
-    }
-    
-    .tool-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-    
-    .tool-card {
-      background: #1a1a2e;
-      padding: 20px;
-      border-radius: 8px;
-      border: 2px solid #0f3460;
-      text-align: center;
-      transition: all 0.3s ease;
-    }
-    
-    .tool-card:hover {
-      border-color: #e94560;
-    }
-    
-    .tool-card h4 {
-      margin-bottom: 10px;
-      color: #eee;
-    }
-    
-    .tool-card p {
-      color: #888;
-      font-size: 0.9rem;
-      margin-bottom: 15px;
-    }
-    
-    .tool-status {
-      display: inline-block;
-      padding: 5px 15px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-    
-    .tool-status.installed {
-      background: rgba(39, 174, 96, 0.2);
-      color: #27ae60;
-    }
-    
-    .tool-status.missing {
-      background: rgba(230, 126, 34, 0.2);
-      color: #e67e22;
+    .btn-primary:hover:not(:disabled) {
+      background: rgba(233, 69, 96, 0.25);
     }
     
     .password-section {
-      background: rgba(233, 69, 96, 0.1);
-      border: 2px solid #e94560;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 1rem;
     }
     
     .password-section h4 {
-      color: #e94560;
-      margin-bottom: 15px;
+      font-size: 0.875rem;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+      color: rgba(255, 255, 255, 0.9);
     }
     
     .info-box {
-      background: rgba(15, 52, 96, 0.5);
-      border-left: 4px solid #e94560;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 0 8px 8px 0;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 2px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 1rem;
+      font-size: 0.8125rem;
+      color: rgba(255, 255, 255, 0.6);
     }
     
-    .info-box p {
-      color: #ccc;
-      margin: 0;
+    small {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.5);
+      display: block;
+      margin-top: 0.25rem;
     }
     
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.125rem 0.375rem;
     }
     
     .checkbox-group input[type="checkbox"] {
       width: auto;
-    }
-    
-    .complete-message {
-      text-align: center;
-      padding: 60px 20px;
-      background: rgba(39, 174, 96, 0.1);
-      border-radius: 16px;
-      border: 2px solid #27ae60;
-    }
-    
-    .complete-message h2 {
-      color: #27ae60;
-      font-size: 2rem;
-      margin-bottom: 20px;
-    }
-    
-    .complete-message p {
-      color: #888;
-      margin-bottom: 30px;
     }
   </style>
 </head>
@@ -684,9 +661,9 @@ export default class OnboardingWizardAgent extends BaseAgent {
     </header>
     
     ${status.completed ? `
-    <div class="complete-message">
-      <h2>✅ Setup Complete!</h2>
-      <p>Your Ronin system is configured and ready to use.</p>
+    <div style="text-align: center; padding: 3rem; border: 1px solid rgba(39, 174, 96, 0.4);">
+      <h2 style="font-size: 1.25rem; font-weight: 400; color: #27ae60; margin-bottom: 0.5rem;">Setup Complete</h2>
+      <p style="color: rgba(255,255,255,0.6); margin-bottom: 1.5rem;">Your Ronin system is configured and ready to use.</p>
       <a href="/" class="btn btn-primary">Go to Dashboard</a>
     </div>
     ` : `
@@ -714,23 +691,23 @@ export default class OnboardingWizardAgent extends BaseAgent {
             <input type="hidden" name="step" value="admin">
             <input type="hidden" name="password" id="form-password">
             
-            <div class="form-group">
-              <label>Telegram User ID</label>
-              <input type="text" name="telegramId" placeholder="e.g., 123456789">
-              <small style="color: #888; display: block; margin-top: 5px;">Your Telegram user ID (get it from @userinfobot)</small>
-            </div>
-            
-            <div class="form-group">
-              <label>Discord User ID</label>
-              <input type="text" name="discordId" placeholder="e.g., 123456789012345678">
-              <small style="color: #888; display: block; margin-top: 5px;">Your Discord user ID (enable Developer Mode in settings)</small>
-            </div>
-            
-            <div class="info-box">
-              <p>💡 <strong>Security Note:</strong> These users will have full control over your Ronin system. Only add trusted accounts.</p>
-            </div>
-            
-            <button type="submit" class="btn btn-primary" onclick="return validatePassword()">Save Admin Users</button>
+             <div class="form-group">
+               <label>Telegram User ID</label>
+               <input type="text" name="telegramId" placeholder="e.g., 123456789">
+               <small>Your Telegram user ID (get it from @userinfobot)</small>
+             </div>
+             
+             <div class="form-group">
+               <label>Discord User ID</label>
+               <input type="text" name="discordId" placeholder="e.g., 123456789012345678">
+               <small>Your Discord user ID (enable Developer Mode in settings)</small>
+             </div>
+             
+             <div class="info-box">
+               Security Note: These users will have full control over your Ronin system. Only add trusted accounts.
+             </div>
+             
+             <button type="submit" class="btn btn-primary" onclick="return validatePassword()">Save Admin Users</button>
           </form>
         </div>
       </div>
@@ -741,39 +718,36 @@ export default class OnboardingWizardAgent extends BaseAgent {
           <div class="step-number">2</div>
           <div class="step-title">
             <h3>CLI Tools</h3>
-            <p>Install and configure code generation tools</p>
+            <p>At least one code generation tool required</p>
           </div>
           <div class="step-status">${steps.cliTools ? 'Complete' : 'Pending'}</div>
         </div>
         <div class="step-content ${steps.adminUser && !steps.cliTools ? 'active' : ''}" id="step-2">
-          <div class="tool-grid">
-            <div class="tool-card">
-              <h4>Opencode</h4>
-              <p>Open-source code generation</p>
-              <span class="tool-status installed">✓ Installed</span>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.opencode ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
+              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Opencode</div>
+              <div style="font-size: 0.75rem; color: ${config.cliTools.opencode ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.opencode ? '✓ Installed' : 'Not installed'}</div>
             </div>
-            <div class="tool-card">
-              <h4>Cursor CLI</h4>
-              <p>AI-powered editor</p>
-              <span class="tool-status missing">⚠ Not installed</span>
+            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.cursor ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
+              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Cursor</div>
+              <div style="font-size: 0.75rem; color: ${config.cliTools.cursor ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.cursor ? '✓ Installed' : 'Not installed'}</div>
             </div>
-            <div class="tool-card">
-              <h4>Qwen CLI</h4>
-              <p>Qwen model integration</p>
-              <span class="tool-status installed">✓ Installed</span>
+            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.qwen ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
+              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Qwen</div>
+              <div style="font-size: 0.75rem; color: ${config.cliTools.qwen ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.qwen ? '✓ Installed' : 'Not installed'}</div>
             </div>
           </div>
+          
+          ${!config.cliTools.anyInstalled ? `
+          <div style="padding: 0.75rem; background: rgba(230, 126, 34, 0.1); border: 1px solid rgba(230, 126, 34, 0.3); margin-bottom: 1rem; font-size: 0.8125rem; color: rgba(255,255,255,0.7);">
+            No CLI tools detected. Install at least one: <code style="background: rgba(255,255,255,0.08); padding: 0.125rem 0.375rem;">npm install -g opencode</code> or <code style="background: rgba(255,255,255,0.08); padding: 0.125rem 0.375rem;">npm install -g @anthropic-ai/qwen-cli</code>
+          </div>
+          ` : ''}
           
           <form method="POST" action="/onboarding">
             <input type="hidden" name="step" value="cli">
             <input type="hidden" name="password" value="roninpass">
-            
-            <div class="checkbox-group">
-              <input type="checkbox" id="skip-cli" name="skip" checked>
-              <label for="skip-cli">Skip for now (can be installed later)</label>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Continue</button>
+            <button type="submit" class="btn btn-primary" ${!config.cliTools.anyInstalled ? 'disabled' : ''}>Continue</button>
           </form>
         </div>
       </div>
@@ -793,26 +767,21 @@ export default class OnboardingWizardAgent extends BaseAgent {
             <input type="hidden" name="step" value="ai">
             <input type="hidden" name="password" value="roninpass">
             
-            <div class="form-group">
-              <label>Primary AI Model</label>
-              <select name="aiModel">
-                <option value="ollama" ${config.ai.provider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
-                <option value="openai" ${config.ai.provider === 'openai' ? 'selected' : ''}>OpenAI GPT</option>
-                <option value="anthropic" ${config.ai.provider === 'anthropic' ? 'selected' : ''}>Anthropic Claude</option>
-              </select>
-              <small style="color: #888; display: block; margin-top: 5px;">Current: ${config.ai.ollamaModel}</small>
-            </div>
-            
-            <div class="form-group">
-              <label>API Key (Optional)</label>
-              <input type="password" name="apiKey" placeholder="Leave empty to configure later" value="${config.ai.openaiKey ? '••••••••••••' : ''}">
-              <small style="color: #888; display: block; margin-top: 5px;">${config.ai.openaiKey ? '✓ API key configured' : 'Only needed for cloud models. Stored securely.'}</small>
-            </div>
-            
-            <div class="checkbox-group">
-              <input type="checkbox" id="skip-ai" name="skip" checked>
-              <label for="skip-ai">Configure AI later</label>
-            </div>
+             <div class="form-group">
+               <label>Primary AI Model</label>
+               <select name="aiModel">
+                 <option value="ollama" ${config.ai.provider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
+                 <option value="openai" ${config.ai.provider === 'openai' ? 'selected' : ''}>OpenAI GPT</option>
+                 <option value="anthropic" ${config.ai.provider === 'anthropic' ? 'selected' : ''}>Anthropic Claude</option>
+               </select>
+               <small>Current: ${config.ai.ollamaModel}</small>
+             </div>
+             
+             <div class="form-group">
+               <label>API Key (Optional)</label>
+               <input type="password" name="apiKey" placeholder="Leave empty to configure later" value="${config.ai.openaiKey ? '••••••••••••' : ''}">
+               <small>${config.ai.openaiKey ? '✓ API key configured' : 'Only needed for cloud models. Stored securely.'}</small>
+             </div>
             
             <button type="submit" class="btn btn-primary">Continue</button>
           </form>
@@ -834,28 +803,23 @@ export default class OnboardingWizardAgent extends BaseAgent {
             <input type="hidden" name="step" value="platforms">
             <input type="hidden" name="password" value="roninpass">
             
-            <div class="form-group">
-              <label>Telegram Bot Token ${config.telegram.enabled ? '✓' : ''}</label>
-              <input type="password" name="telegramToken" placeholder="Get from @BotFather" value="${config.telegram.botToken ? '••••••••••••' : ''}">
-              <small style="color: #888; display: block; margin-top: 5px;">${config.telegram.enabled ? '✓ Bot configured and enabled' : 'Enter token from @BotFather to enable Telegram'}</small>
-            </div>
-            
-            <div class="form-group">
-              <label>Discord Bot Token ${config.discord.enabled ? '✓' : ''}</label>
-              <input type="password" name="discordToken" placeholder="From Discord Developer Portal" value="${config.discord.botToken ? '••••••••••••' : ''}">
-              <small style="color: #888; display: block; margin-top: 5px;">${config.discord.enabled ? '✓ Bot configured and enabled' : 'Enter token from Discord Developer Portal to enable Discord'}</small>
-            </div>
-            
-            <div class="info-box">
-              <p>💡 Bots allow Ronin to communicate with you through these platforms. Tokens are stored securely in your config.</p>
-            </div>
-            
-            <div class="checkbox-group">
-              <input type="checkbox" id="skip-platforms" name="skip" ${!config.telegram.enabled && !config.discord.enabled ? 'checked' : ''}>
-              <label for="skip-platforms">Skip platform configuration ${config.telegram.enabled || config.discord.enabled ? '(already configured)' : ''}</label>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Complete Setup</button>
+             <div class="form-group">
+               <label>Telegram Bot Token ${config.telegram.enabled ? '✓' : ''}</label>
+               <input type="password" name="telegramToken" placeholder="Get from @BotFather" value="${config.telegram.botToken ? '••••••••••••' : ''}">
+               <small>${config.telegram.enabled ? '✓ Bot configured and enabled' : 'Enter token from @BotFather to enable Telegram'}</small>
+             </div>
+             
+             <div class="form-group">
+               <label>Discord Bot Token ${config.discord.enabled ? '✓' : ''}</label>
+               <input type="password" name="discordToken" placeholder="From Discord Developer Portal" value="${config.discord.botToken ? '••••••••••••' : ''}">
+               <small>${config.discord.enabled ? '✓ Bot configured and enabled' : 'Enter token from Discord Developer Portal to enable Discord'}</small>
+             </div>
+             
+             <div class="info-box">
+               Bots allow Ronin to communicate with you through these platforms. Tokens are stored securely in your config.
+             </div>
+             
+             <button type="submit" class="btn btn-primary">Complete Setup</button>
           </form>
         </div>
       </div>

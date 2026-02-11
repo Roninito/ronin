@@ -256,11 +256,13 @@ export default class IntentIngressAgent extends BaseAgent {
     
     // Deduplication: Check if we've already processed this message
     const messageKey = `telegram:${msg.chat?.id || 'unknown'}:${msg.message_id}`;
+    console.log(`[intent-ingress] Checking dedup key: ${messageKey}`);
     if (this.processedMessages.has(messageKey)) {
       console.log(`[intent-ingress] Ignoring duplicate message: ${messageKey}`);
       return;
     }
     this.processedMessages.add(messageKey);
+    console.log(`[intent-ingress] Added to processed messages. Total: ${this.processedMessages.size}`);
     
     // Clean up old message IDs (keep last 1000)
     if (this.processedMessages.size > 1000) {

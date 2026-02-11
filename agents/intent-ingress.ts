@@ -50,7 +50,103 @@ export default class IntentIngressAgent extends BaseAgent {
     this.initializeTelegram();
     this.initializeDiscord();
     this.startSessionCleanup();
+    this.registerCompletionListeners();
     console.log("[intent-ingress] Agent initialized successfully");
+  }
+
+  /**
+   * Register listeners for plan completion to notify users
+   */
+  private registerCompletionListeners(): void {
+    // Listen for PlanCompleted events and notify the original user
+    this.api.events.on("PlanCompleted", (data: unknown) => {
+      const payload = data as {
+        id: string;
+        title?: string;
+        source?: string;
+        sourceChannel?: string;
+        sourceUser?: string;
+        reloadStatus?: string;
+      };
+      
+      if (payload.source && payload.sourceChannel) {
+        console.log(`[intent-ingress] Plan ${payload.id} completed, notifying user`);
+        this.sendCompletionNotification(payload, true);
+      }
+    }, "intent-ingress");
+
+    // Listen for PlanFailed events and notify the original user
+    this.api.events.on("PlanFailed", (data: unknown) => {
+      const payload = data as {
+        id: string;
+        title?: string;
+        source?: string;
+        sourceChannel?: string;
+        sourceUser?: string;
+        error?: string;
+      };
+      
+      if (payload.source && payload.sourceChannel) {
+        console.log(`[intent-ingress] Plan ${payload.id} failed, notifying user`);
+        this.sendCompletionNotification(payload, false);
+      }
+    }, "intent-ingress");
+
+    console.log("[intent-ingress] Registered completion listeners");
+  }
+
+  /**
+   * Send completion notification back to the user
+   */
+  private async sendCompletionNotification(
+    payload: {
+      id: string;
+      title?: string;
+      source?: string;
+      sourceChannel?: string;
+      sourceUser?: string;
+      error?: string;
+      reloadStatus?: string;
+    },
+    success: boolean
+  ): Promise<void> {
+    const { source, sourceChannel, id, title } = payload;
+    const [sourceType, channelId] = sourceChannel!.split(":");
+    
+    const emoji = success ? "✅" : "❌";
+    const status = success ? "COMPLETED" : "FAILED";
+    const shortId = id.substring(0, 20);
+    
+    let message: string;
+    if (success) {
+      message = `${emoji} <b>Task ${status}</b>\n\n` +
+        `<b>Title:</b> ${title || "Task"}\n` +
+        `<b>ID:</b> <code>${shortId}...</code>\n` +
+        `<b>Status:</b> Successfully created and deployed\n` +
+        `<b>View:</b> Check your Kanban board at /todo`;
+    } else {
+      message = `${emoji} <b>Task ${status}</b>\n\n` +
+        `<b>Title:</b> ${title || "Task"}\n` +
+        `<b>ID:</b> <code>${shortId}...</code>\n` +
+        `<b>Error:</b> ${payload.error?.substring(0, 100) || "Unknown error"}\n\n` +
+        `Check the Kanban board at /todo for details.`;
+    }
+
+    try {
+      if (sourceType === "telegram" && this.botId) {
+        await this.api.telegram.sendMessage(
+          this.botId,
+          channelId,
+          message,
+          { parseMode: "HTML" }
+        );
+        console.log(`[intent-ingress] Sent completion notification to Telegram user`);
+      } else if (sourceType === "discord") {
+        console.log(`[intent-ingress] Would send Discord notification: ${message.substring(0, 100)}`);
+      }
+    } catch (err) {
+      console.error(`[intent-ingress] Failed to send completion notification:`, err);
+    }
   }
 
   /**
@@ -932,7 +1028,7 @@ When a user wants to create an agent, fix a bug, or make a task, you CANNOT writ
 5. **Safe Shell Commands**: Users can run safe commands by saying:
    - "run command: ls -la"
    - "execute: git status"
-   - Wrap in backticks: `pwd`
+   - Wrap in backticks: \`pwd\`
    
    Allowed: ls, pwd, cat, echo, ps, df, git status/log, etc.
    

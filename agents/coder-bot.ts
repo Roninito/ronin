@@ -12,6 +12,9 @@ interface PlanApprovedPayload {
   tags?: string[];
   approvedAt?: number;
   approvedBy?: string;
+  source?: string;
+  sourceChannel?: string;
+  sourceUser?: string;
 }
 
 interface CLIConfig {
@@ -329,7 +332,7 @@ ${reloadResult.message}
 ═══════════════════════════════════════════════════
 `);
 
-        // Emit completed
+        // Emit completed with source info for notifications
         this.api.events.emit("PlanCompleted", {
           id: planId,
           result: result.output,
@@ -338,6 +341,10 @@ ${reloadResult.message}
           workspace,
           reloadStatus: reloadResult.success ? 'success' : 'failed',
           completedAt: Date.now(),
+          source: payload.source,
+          sourceChannel: payload.sourceChannel,
+          sourceUser: payload.sourceUser,
+          title: payload.title,
         }, "coder-bot");
 
         // Final task update
@@ -373,12 +380,16 @@ ${errorMessage}
 ═══════════════════════════════════════════════════
 `);
 
-      // Emit failed
+      // Emit failed with source info for notifications
       this.api.events.emit("PlanFailed", {
         id: planId,
         error: errorMessage,
         failedAt: Date.now(),
         failedBy: "coder-bot",
+        source: payload.source,
+        sourceChannel: payload.sourceChannel,
+        sourceUser: payload.sourceUser,
+        title: payload.title,
       }, "coder-bot");
 
       console.error(`[coder-bot] ❌ PlanFailed: ${planId}`, errorMessage);

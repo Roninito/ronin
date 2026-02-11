@@ -337,10 +337,10 @@ export default class OnboardingWizardAgent extends BaseAgent {
     
     // Compute step statuses based on both setup file and config
     const steps = {
-      adminUser: steps.adminUser || false,
-      cliTools: steps.cliTools || false,
-      aiConfig: steps.aiConfig || !!(config.ai.provider && config.ai.ollamaModel),
-      platforms: steps.platforms || !!(config.telegram.enabled || config.discord.enabled)
+      adminUser: status.steps?.adminUser || false,
+      cliTools: status.steps?.cliTools || false,
+      aiConfig: status.steps?.aiConfig || !!(config.ai.provider && config.ai.ollamaModel),
+      platforms: status.steps?.platforms || !!(config.telegram.enabled || config.discord.enabled)
     };
     
     const html = `<!DOCTYPE html>

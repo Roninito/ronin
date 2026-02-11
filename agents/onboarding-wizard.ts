@@ -100,7 +100,15 @@ export default class OnboardingWizardAgent extends BaseAgent {
    * Save setup status to file
    */
   private async saveSetupStatus(status: any): Promise<void> {
-    await writeFile(this.setupFile, JSON.stringify(status, null, 2), "utf-8");
+    try {
+      // Ensure config directory exists
+      await mkdir(this.configDir, { recursive: true });
+      await writeFile(this.setupFile, JSON.stringify(status, null, 2), "utf-8");
+      console.log("[onboarding-wizard] Setup status saved successfully");
+    } catch (error) {
+      console.error("[onboarding-wizard] Error saving setup status:", error);
+      throw error;
+    }
   }
 
   /**
@@ -134,30 +142,51 @@ export default class OnboardingWizardAgent extends BaseAgent {
    */
   private async handleSetupSubmission(req: Request): Promise<Response> {
     try {
+      console.log("[onboarding-wizard] Processing setup submission...");
+      
       const formData = await req.formData();
       const step = formData.get("step") as string;
+      
+      console.log(`[onboarding-wizard] Step: ${step}`);
+      
+      if (!step) {
+        console.error("[onboarding-wizard] No step specified");
+        return new Response("No step specified", { status: 400 });
+      }
       
       // Verify password
       const password = formData.get("password") as string;
       const authService = this.getAuthService();
       
+      console.log(`[onboarding-wizard] Password provided: ${password ? 'yes' : 'no'}`);
+      
       if (!authService.verifyPassword(password)) {
+        console.warn("[onboarding-wizard] Invalid password attempt");
         return new Response("Invalid password", { status: 401 });
       }
       
+      console.log("[onboarding-wizard] Password verified");
+      
+      // Ensure config directory exists
+      await mkdir(this.configDir, { recursive: true });
+      
       const status = await this.loadSetupStatus();
+      console.log(`[onboarding-wizard] Current status:`, status);
       
       switch (step) {
         case "admin":
+          console.log("[onboarding-wizard] Processing admin step");
           // Save admin users
           const telegramId = formData.get("telegramId") as string;
           const discordId = formData.get("discordId") as string;
           
-          if (telegramId) {
-            await authService.addUser("telegram", telegramId);
+          console.log(`[onboarding-wizard] Telegram ID: ${telegramId || 'none'}, Discord ID: ${discordId || 'none'}`);
+          
+          if (telegramId && telegramId.trim()) {
+            await authService.addUser("telegram", telegramId.trim());
           }
-          if (discordId) {
-            await authService.addUser("discord", discordId);
+          if (discordId && discordId.trim()) {
+            await authService.addUser("discord", discordId.trim());
           }
           
           status.steps = status.steps || {};
@@ -165,22 +194,29 @@ export default class OnboardingWizardAgent extends BaseAgent {
           break;
           
         case "cli":
+          console.log("[onboarding-wizard] Processing CLI step");
           // Mark CLI tools step as done
           status.steps = status.steps || {};
           status.steps.cliTools = true;
           break;
           
         case "ai":
+          console.log("[onboarding-wizard] Processing AI step");
           // Mark AI config step as done
           status.steps = status.steps || {};
           status.steps.aiConfig = true;
           break;
           
         case "platforms":
+          console.log("[onboarding-wizard] Processing platforms step");
           // Mark platforms step as done
           status.steps = status.steps || {};
           status.steps.platforms = true;
           break;
+          
+        default:
+          console.error(`[onboarding-wizard] Unknown step: ${step}`);
+          return new Response(`Unknown step: ${step}`, { status: 400 });
       }
       
       // Check if all steps are complete
@@ -191,6 +227,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
       }
       
       await this.saveSetupStatus(status);
+      console.log("[onboarding-wizard] Setup status saved successfully");
       
       return new Response(null, {
         status: 302,
@@ -198,7 +235,8 @@ export default class OnboardingWizardAgent extends BaseAgent {
       });
     } catch (error) {
       console.error("[onboarding-wizard] Error saving setup:", error);
-      return new Response("Failed to save setup", { status: 500 });
+      console.error("[onboarding-wizard] Error stack:", error instanceof Error ? error.stack : 'No stack');
+      return new Response(`Failed to save setup: ${error instanceof Error ? error.message : 'Unknown error'}`, { status: 500 });
     }
   }
 
@@ -221,13 +259,39 @@ export default class OnboardingWizardAgent extends BaseAgent {
    * Get auth service reference
    */
   private getAuthService(): any {
-    // This would need to be properly integrated with the actual auth service
-    // For now, return a mock that uses the config password
     const config = this.api.config.get();
+    const authFile = join(homedir(), ".ronin", "auth.json");
+    
     return {
       verifyPassword: (pwd: string) => pwd === (config.password || "roninpass"),
       addUser: async (platform: string, userId: string) => {
-        console.log(`[onboarding-wizard] Would add user ${userId} to ${platform}`);
+        try {
+          // Load existing auth data
+          let authData: Record<string, string[]> = {};
+          try {
+            await access(authFile);
+            const content = await readFile(authFile, "utf-8");
+            authData = JSON.parse(content);
+          } catch {
+            // File doesn't exist yet, start fresh
+          }
+          
+          // Add user to platform
+          if (!authData[platform]) {
+            authData[platform] = [];
+          }
+          
+          if (!authData[platform].includes(userId)) {
+            authData[platform].push(userId);
+            await writeFile(authFile, JSON.stringify(authData, null, 2), "utf-8");
+            console.log(`[onboarding-wizard] Added user ${userId} to ${platform}`);
+          } else {
+            console.log(`[onboarding-wizard] User ${userId} already exists in ${platform}`);
+          }
+        } catch (error) {
+          console.error(`[onboarding-wizard] Error adding user:`, error);
+          throw error;
+        }
       }
     };
   }

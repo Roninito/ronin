@@ -45,10 +45,12 @@ export default class IntentIngressAgent extends BaseAgent {
 
   constructor(api: AgentAPI) {
     super(api);
+    console.log("[intent-ingress] Agent initializing...");
     this.model = this.api.config.getAI().ollamaModel || "qwen3:4b";
     this.initializeTelegram();
     this.initializeDiscord();
     this.startSessionCleanup();
+    console.log("[intent-ingress] Agent initialized successfully");
   }
 
   /**
@@ -971,5 +973,6 @@ Guidelines:
 
   async execute(): Promise<void> {
     // This agent is event-driven
+    console.log("[intent-ingress] Execute called (event-driven agent)");
   }
 }

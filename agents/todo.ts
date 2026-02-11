@@ -126,6 +126,8 @@ export default class TodoAgent extends BaseAgent {
     description: string;
     tags: string[];
     source: string;
+    sourceChannel?: string;
+    sourceUser?: string;
     proposedAt: number;
   }): Promise<void> {
     try {
@@ -139,7 +141,7 @@ export default class TodoAgent extends BaseAgent {
         return;
       }
 
-      // Create card with plan ID as external reference
+      // Create card with plan ID and source info
       const card = await this.createCard(
         todoColumn.id,
         board.id,
@@ -148,7 +150,10 @@ export default class TodoAgent extends BaseAgent {
         "medium",
         [...payload.tags, "plan", payload.source],
         undefined,
-        payload.id // Store plan ID for reference
+        payload.id,
+        payload.source,
+        payload.sourceChannel,
+        payload.sourceUser
       );
 
       console.log(`[todo] PlanProposed: Created card ${card.id} for plan ${payload.id}`);
@@ -738,15 +743,22 @@ export default class TodoAgent extends BaseAgent {
     priority: 'low' | 'medium' | 'high' = 'medium',
     labels: string[] = [],
     dueDate?: number,
-    planId?: string
+    planId?: string,
+    source?: string,
+    sourceChannel?: string,
+    sourceUser?: string
   ): Promise<Card> {
     const id = crypto.randomUUID();
     const now = Date.now();
 
-    // Include plan ID in description if provided
+    // Include plan ID and source info in description if provided
     let finalDescription = description || null;
     if (planId) {
-      finalDescription = `[plan:${planId}] ${description || ""}`;
+      finalDescription = `[plan:${planId}]`;
+      if (source) finalDescription += `[source:${source}]`;
+      if (sourceChannel) finalDescription += `[channel:${sourceChannel}]`;
+      if (sourceUser) finalDescription += `[user:${sourceUser}]`;
+      finalDescription += ` ${description || ""}`;
     }
 
     // Get max position in column
@@ -1255,30 +1267,30 @@ export default class TodoAgent extends BaseAgent {
       background: ${roninTheme.colors.background};
       border: 1px solid ${roninTheme.colors.border};
       border-radius: ${roninTheme.borderRadius.lg};
-      padding: 2rem;
-      max-width: 500px;
+      padding: 1.5rem;
+      max-width: 600px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
     }
 
     .modal-header {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .modal-header h2 {
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 400;
     }
 
     .form-group {
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      font-size: 0.75rem;
       color: ${roninTheme.colors.textSecondary};
     }
 
@@ -1289,10 +1301,121 @@ export default class TodoAgent extends BaseAgent {
       background: ${roninTheme.colors.backgroundSecondary};
       border: 1px solid ${roninTheme.colors.border};
       color: ${roninTheme.colors.textPrimary};
-      padding: 0.75rem;
+      padding: 0.5rem;
       border-radius: ${roninTheme.borderRadius.md};
       font-family: inherit;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
+    }
+
+    .form-group textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .markdown-preview-container {
+      margin-top: 0.5rem;
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+    }
+
+    .preview-label {
+      display: block;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      color: ${roninTheme.colors.textSecondary};
+      border-bottom: 1px solid ${roninTheme.colors.border};
+      background: ${roninTheme.colors.background};
+      border-radius: ${roninTheme.borderRadius.md} ${roninTheme.borderRadius.md} 0 0;
+    }
+
+    .markdown-preview {
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .markdown-preview h1,
+    .markdown-preview h2,
+    .markdown-preview h3,
+    .markdown-preview h4 {
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+    }
+
+    .markdown-preview h1 { font-size: 1rem; }
+    .markdown-preview h2 { font-size: 0.9rem; }
+    .markdown-preview h3 { font-size: 0.8rem; }
+
+    .markdown-preview p {
+      margin-bottom: 0.5rem;
+    }
+
+    .markdown-preview ul,
+    .markdown-preview ol {
+      margin-left: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .markdown-preview li {
+      margin-bottom: 0.25rem;
+    }
+
+    .markdown-preview code {
+      background: ${roninTheme.colors.background};
+      padding: 0.1rem 0.25rem;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .markdown-preview pre {
+      background: ${roninTheme.colors.background};
+      padding: 0.5rem;
+      border-radius: ${roninTheme.borderRadius.md};
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+
+    .markdown-preview pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .markdown-preview blockquote {
+      border-left: 3px solid ${roninTheme.colors.border};
+      padding-left: 0.75rem;
+      margin: 0.5rem 0;
+      color: ${roninTheme.colors.textSecondary};
+    }
+
+    .markdown-preview a {
+      color: ${roninTheme.colors.accent};
+      text-decoration: none;
+    }
+
+    .markdown-preview a:hover {
+      text-decoration: underline;
+    }
+
+    .markdown-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5rem 0;
+      font-size: 0.7rem;
+    }
+
+    .markdown-preview th,
+    .markdown-preview td {
+      border: 1px solid ${roninTheme.colors.border};
+      padding: 0.25rem 0.5rem;
+      text-align: left;
+    }
+
+    .markdown-preview th {
+      background: ${roninTheme.colors.background};
     }
 
     .form-group input:focus,
@@ -1403,8 +1526,12 @@ export default class TodoAgent extends BaseAgent {
         </div>
         
         <div class="form-group">
-          <label for="cardDescription">Description</label>
-          <textarea id="cardDescription" rows="3" placeholder="Add details..."></textarea>
+          <label for="cardDescription">Description (Markdown supported)</label>
+          <textarea id="cardDescription" rows="8" placeholder="Add details..."></textarea>
+          <div class="markdown-preview-container">
+            <label class="preview-label">Preview</label>
+            <div id="descriptionPreview" class="markdown-preview"></div>
+          </div>
         </div>
         
         <div class="form-row">
@@ -1631,7 +1758,39 @@ export default class TodoAgent extends BaseAgent {
     document.getElementById('cardModal').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeModal();
     });
+
+    // Markdown rendering
+    const descriptionTextarea = document.getElementById('cardDescription');
+    const descriptionPreview = document.getElementById('descriptionPreview');
+
+    function renderMarkdown() {
+      if (descriptionTextarea && descriptionPreview && window.marked) {
+        const markdown = descriptionTextarea.value || '';
+        descriptionPreview.innerHTML = window.marked.parse(markdown);
+      }
+    }
+
+    if (descriptionTextarea) {
+      descriptionTextarea.addEventListener('input', renderMarkdown);
+    }
+
+    // Override openCreateModal to initialize preview
+    const originalOpenCreateModal = openCreateModal;
+    window.openCreateModal = function(columnId) {
+      originalOpenCreateModal(columnId);
+      renderMarkdown();
+    };
+
+    // Override openEditModal to initialize preview
+    const originalOpenEditModal = openEditModal;
+    window.openEditModal = async function(cardId) {
+      await originalOpenEditModal(cardId);
+      renderMarkdown();
+    };
   </script>
+
+  <!-- Load marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 </html>`;
 
@@ -1874,9 +2033,15 @@ export default class TodoAgent extends BaseAgent {
           // Move the card
           await this.moveCard(cardId, body.column_id, body.position);
           
-          // Extract planId from description (stored as [plan:plan-xxx])
+          // Extract info from description (stored as [plan:xxx][source:xxx][channel:xxx][user:xxx])
           const planIdMatch = card.description?.match(/\[plan:([^\]]+)\]/);
           const planId = planIdMatch ? planIdMatch[1] : undefined;
+          const sourceMatch = card.description?.match(/\[source:([^\]]+)\]/);
+          const source = sourceMatch ? sourceMatch[1] : undefined;
+          const channelMatch = card.description?.match(/\[channel:([^\]]+)\]/);
+          const sourceChannel = channelMatch ? channelMatch[1] : undefined;
+          const userMatch = card.description?.match(/\[user:([^\]]+)\]/);
+          const sourceUser = userMatch ? userMatch[1] : undefined;
           
           // Emit TaskMoved event so other agents know
           const labels = JSON.parse(card.labels || '[]');
@@ -1888,6 +2053,9 @@ export default class TodoAgent extends BaseAgent {
             tags: labels,
             from: fromColumn,
             to: toColumn,
+            source: source,
+            sourceChannel: sourceChannel,
+            sourceUser: sourceUser,
           }, 'todo');
           
           console.log(`[todo] Emitted TaskMoved with planId: ${planId || 'none'}`);

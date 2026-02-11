@@ -1,7 +1,8 @@
 import { BaseAgent } from "/Users/ronin/Desktop/Bun Apps/ronin/src/agent/index.js";
 import type { AgentAPI } from "/Users/ronin/Desktop/Bun Apps/ronin/src/types/index.js";
-import { readdir, readFile } from "fs/promises";
+import { readdir, readFile, access } from "fs/promises";
 import { join } from "path";
+import { homedir } from "os";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "/Users/ronin/Desktop/Bun Apps/ronin/src/cli/commands/config.js";
 
 interface PlanProposedPayload {
@@ -34,14 +35,28 @@ interface ChatSession {
  * - #ronin #plan Description → Legacy format, creates plan
  * - General chat → Conversational AI with Ronin context
  */
+interface PendingApproval {
+  planId: string;
+  title: string;
+  description: string;
+  tags: string[];
+  source: string;
+  sourceChannel: string;
+  sourceUser: string;
+  command?: string;
+  createdAt: number;
+}
+
 export default class IntentIngressAgent extends BaseAgent {
   private botId: string | null = null;
   private sourceChannels: Map<string, { type: string; id: string | number }> = new Map();
   private chatSessions: Map<string, ChatSession> = new Map();
   private processedMessages: Set<string> = new Set(); // Deduplication
+  private pendingApprovals: Map<string, PendingApproval> = new Map(); // Track tasks awaiting approval
   private model: string;
   private maxChatHistory = 20; // Keep last 20 messages per session
   private sessionTimeout = 30 * 60 * 1000; // 30 minutes
+  private approvalTimeout = 24 * 60 * 60 * 1000; // 24 hours
 
   constructor(api: AgentAPI) {
     super(api);
@@ -50,6 +65,7 @@ export default class IntentIngressAgent extends BaseAgent {
     this.initializeTelegram();
     this.initializeDiscord();
     this.startSessionCleanup();
+    this.startApprovalCleanup();
     this.registerCompletionListeners();
     console.log("[intent-ingress] Agent initialized successfully");
   }
@@ -152,7 +168,13 @@ export default class IntentIngressAgent extends BaseAgent {
   /**
    * Initialize Telegram bot
    */
+  private telegramInitialized = false;
+
   private async initializeTelegram(): Promise<void> {
+    // Prevent multiple initializations
+    if (this.telegramInitialized) return;
+    this.telegramInitialized = true;
+
     try {
       const configTelegram = this.api.config.getTelegram();
       const botToken = configTelegram.botToken || 
@@ -164,14 +186,31 @@ export default class IntentIngressAgent extends BaseAgent {
         return;
       }
 
-      this.botId = await this.api.telegram.initBot(botToken);
-      console.log("[intent-ingress] Telegram bot initialized");
+      // Only initialize if not already done
+      if (!this.botId) {
+        this.botId = await this.api.telegram.initBot(botToken, {
+          allowed_updates: ["message"]
+        });
+        console.log("[intent-ingress] Telegram bot initialized");
 
-      this.api.telegram.onMessage(this.botId, (msg) => {
-        this.handleTelegramMessage(msg);
-      });
-
-      console.log("[intent-ingress] Listening for Telegram commands...");
+        // Only register the handler once - using a named function to prevent dupes
+        if (!this.telegramHandlerRegistered) {
+          const handler = (msg: any) => {
+            this.handleTelegramMessage(msg).catch(err => {
+              console.error("[intent-ingress] Error handling Telegram message:", err);
+            });
+          };
+          
+          this.api.telegram.onMessage(this.botId, handler);
+          this.telegramHandlerRegistered = true;
+          console.log("[intent-ingress] Telegram message handler registered");
+        } else {
+          console.log("[intent-ingress] Telegram handler already registered");
+          return;
+        }
+        
+        console.log("[intent-ingress] Listening for Telegram commands...");
+      }
     } catch (error) {
       console.error("[intent-ingress] Failed to initialize Telegram:", error);
     }
@@ -180,6 +219,8 @@ export default class IntentIngressAgent extends BaseAgent {
   /**
    * Initialize Discord bot (if configured)
    */
+  private discordBotId: string | null = null;
+
   private async initializeDiscord(): Promise<void> {
     try {
       const configDiscord = this.api.config.getDiscord();
@@ -193,14 +234,18 @@ export default class IntentIngressAgent extends BaseAgent {
         return;
       }
 
-      const botId = await this.api.discord.initBot(botToken);
-      console.log("[intent-ingress] Discord bot initialized");
+      // Only initialize if not already done
+      if (!this.discordBotId) {
+        this.discordBotId = await this.api.discord.initBot(botToken);
+        console.log("[intent-ingress] Discord bot initialized");
 
-      this.api.discord.onMessage(botId, (msg) => {
-        this.handleDiscordMessage(msg, botId);
-      });
+        // Only register the handler once
+        this.api.discord.onMessage(this.discordBotId, (msg) => {
+          this.handleDiscordMessage(msg, this.discordBotId!);
+        });
 
-      console.log("[intent-ingress] Listening for Discord commands...");
+        console.log("[intent-ingress] Listening for Discord commands...");
+      }
     } catch (error) {
       console.error("[intent-ingress] Failed to initialize Discord:", error);
     }
@@ -335,7 +380,7 @@ export default class IntentIngressAgent extends BaseAgent {
    * In groups/channels: Only respond to @ronin mentions or commands
    * In direct messages: Respond to all messages
    */
-  private handleTelegramMessage(update: { 
+  private async handleTelegramMessage(update: { 
     update_id: number;
     message?: {
       message_id: number;
@@ -343,7 +388,7 @@ export default class IntentIngressAgent extends BaseAgent {
       from?: { username?: string; first_name?: string; id: number };
       text?: string;
     };
-  }): void {
+  }): Promise<void> {
     const msg = update.message;
     if (!msg) {
       console.log(`[intent-ingress] Ignoring update without message`);
@@ -382,6 +427,29 @@ export default class IntentIngressAgent extends BaseAgent {
     
     console.log(`[intent-ingress] Received message from ${msg.from?.username || 'unknown'} in ${chatType} chat: "${text.substring(0, 50)}"`);
     
+    // AUTHENTICATION CHECK
+    const userId = msg.from?.id ? `${msg.from.id}` : null;
+    if (!userId) {
+      console.log(`[intent-ingress] Ignoring message without user ID`);
+      return;
+    }
+    
+    // Check authorization using auth service
+    const isAuthorized = await this.checkAuthorization("telegram", userId);
+    if (!isAuthorized) {
+      console.warn(`[intent-ingress] UNAUTHORIZED: User ${userId} on Telegram`);
+      // Optionally send a response
+      if (this.botId && isPrivateChat) {
+        await this.api.telegram.sendMessage(
+          this.botId, 
+          msg.chat.id, 
+          "⛔ Access denied. You are not authorized to use this bot.",
+          { parseMode: "HTML" }
+        );
+      }
+      return;
+    }
+    
     // In groups/channels, only respond to @ronin mentions or /commands
     if (!isPrivateChat) {
       const hasMention = text.toLowerCase().includes("@ronin") || text.includes("@T2RoninBot");
@@ -399,8 +467,33 @@ export default class IntentIngressAgent extends BaseAgent {
     console.log(`[intent-ingress] Parsed command: ${parsed.command || 'null'}, isChat: ${parsed.isChat}, args: "${parsed.args.substring(0, 30)}..."`);
     
     const sourceChannel = `telegram:${msg.chat.id}`;
-    const sourceUser = msg.from?.username || msg.from?.id?.toString() || "unknown";
-
+    const sourceId = msg.from?.id ? `${msg.from.id}` : 'unknown';
+    
+    // Check for approval responses (yes/no)
+    if (text.match(/^\s*(y|yes|yeah|sure|go|approve|start|do it)\s*$/i)) {
+      // Handle 'yes' approval
+      if (msg.reply_to_message?.text) {
+        const idMatch = msg.reply_to_message.text.match(/ID:\s*<code>(.+?)<\/code>/i);
+        if (idMatch && idMatch[1]) {
+          const planId = idMatch[1].trim();
+          console.log(`[intent-ingress] Detected approval for plan ${planId}`);
+          await this.handleApprovalResponse(planId, true, sourceChannel);
+          return;
+        }
+      }
+    } else if (text.match(/^\s*(n|no|nope|stop|stay|wait|deny|disapprove)\s*$/i)) {
+      // Handle 'no' response
+      if (msg.reply_to_message?.text) {
+        const idMatch = msg.reply_to_message.text.match(/ID:\s*<code>(.+?)<\/code>/i);
+        if (idMatch && idMatch[1]) {
+          const planId = idMatch[1].trim();
+          console.log(`[intent-ingress] Detected disapproval for plan ${planId}`);
+          await this.handleApprovalResponse(planId, false, sourceChannel);
+          return;
+        }
+      }
+    }
+    
     if (parsed.isChat || !parsed.command) {
       console.log(`[intent-ingress] Handling as chat message`);
       // Handle as conversational chat
@@ -421,6 +514,8 @@ export default class IntentIngressAgent extends BaseAgent {
     // Handle as command
     console.log(`[intent-ingress] Telegram ${parsed.command}:`, parsed.args.substring(0, 50));
     console.log(`[intent-ingress] Message key: ${messageKey} - processing command`);
+
+    const sourceUser = msg.from?.username || msg.from?.first_name || 'unknown';
 
     this.createPlan({
       command: parsed.command,
@@ -755,14 +850,15 @@ What would you like to do?`;
     // Generate unique ID
     const id = `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Extract title from args
+    // Extract title (first sentence) and description (rest)
     const title = this.extractTitle(params.args);
+    const description = this.extractDescription(params.args);
 
     // Build payload
     const payload: PlanProposedPayload = {
       id,
       title,
-      description: params.args,
+      description,
       tags: params.tags,
       source: params.source,
       sourceChannel: params.sourceChannel,
@@ -772,11 +868,24 @@ What would you like to do?`;
       command: params.command,
     };
 
+    // Store pending approval
+    this.pendingApprovals.set(id, {
+      planId: id,
+      title,
+      description,
+      tags: params.tags,
+      source: params.source,
+      sourceChannel: params.sourceChannel,
+      sourceUser: params.sourceUser,
+      command: params.command,
+      createdAt: Date.now(),
+    });
+
     // Emit the event
     this.api.events.emit("PlanProposed", payload, "intent-ingress");
     console.log(`[intent-ingress] Emitted PlanProposed: ${id} (${params.command})`);
 
-    // Send acknowledgment
+    // Send acknowledgment with approval request
     this.sendAcknowledgment(params.source, params.sourceChannel, params.command, title, id);
   }
 
@@ -796,7 +905,12 @@ What would you like to do?`;
                   command.includes("fix") ? "🔧" : 
                   command.includes("update") ? "📝" : "📋";
 
-    const message = `${emoji} ${command.toUpperCase()} received: "${title}"\nID: <code>${id}</code>\nStatus: Proposed → To Do`;
+    // Build approval request message
+    const message = `${emoji} <b>New Task Created</b>\n\n` +
+      `<b>Title:</b> ${title}\n` +
+      `<b>ID:</b> <code>${id}</code>\n\n` +
+      `Reply with <b>yes</b> to start working on this task right now.\n` +
+      `Reply with <b>no</b> to leave it in the backlog.`;
 
     try {
       if (sourceType === "telegram" && this.botId) {
@@ -808,18 +922,27 @@ What would you like to do?`;
         );
       } else if (sourceType === "discord") {
         // Discord plugin sendMessage would go here
-        console.log(`[intent-ingress] Would send Discord ack: ${message}`);
+        console.log(`[intent-ingress] Would send Discord approval request: ${message.replace(/<[^>]*>/g, '')}`);
       }
     } catch (err) {
-      console.error(`[intent-ingress] Failed to send acknowledgment to ${source}:`, err);
+      console.error(`[intent-ingress] Failed to send approval request to ${source}:`, err);
     }
   }
 
   /**
-   * Extract title from content
+   * Extract title from content (first sentence or first line)
    */
   private extractTitle(content: string): string {
-    // For create-agent commands, extract agent name
+    // First sentence (preferred - captures full meaning)
+    const sentenceEndMatch = content.match(/[.!?]/);
+    if (sentenceEndMatch && sentenceEndMatch.index !== undefined && sentenceEndMatch.index > 0) {
+      const firstSentence = content.substring(0, sentenceEndMatch.index).trim();
+      if (firstSentence.length > 0 && firstSentence.length < 100) {
+        return firstSentence;
+      }
+    }
+
+    // For create-agent commands, extract agent name (only if no sentence structure)
     const agentMatch = content.match(/^(\w+)(?:\s+that|\s+which|\s+to)?/i);
     if (agentMatch) {
       const name = agentMatch[1];
@@ -834,14 +957,23 @@ What would you like to do?`;
       return firstLine;
     }
 
-    // First sentence
-    const firstSentence = content.split(/[.!?]/)[0].trim();
-    if (firstSentence.length > 0 && firstSentence.length < 100) {
-      return firstSentence;
-    }
-
     // Truncated
     return content.substring(0, 100).trim() + (content.length > 100 ? "..." : "");
+  }
+
+  /**
+   * Extract description from content (everything after first sentence)
+   */
+  private extractDescription(content: string): string {
+    // Find first sentence ending
+    const sentenceEndMatch = content.match(/[.!?]/);
+    if (sentenceEndMatch && sentenceEndMatch.index !== undefined) {
+      const rest = content.substring(sentenceEndMatch.index + 1).trim();
+      return rest || content; // If no rest, return full content
+    }
+    
+    // No sentence delimiter found, return full content
+    return content;
   }
 
   /**
@@ -1067,6 +1199,137 @@ Guidelines:
         console.log(`[intent-ingress] Cleaned up ${cleaned} inactive chat sessions`);
       }
     }, 5 * 60 * 1000); // Run every 5 minutes
+  }
+
+  /**
+   * Start cleanup interval for expired approval requests
+   */
+  private startApprovalCleanup(): void {
+    setInterval(() => {
+      const now = Date.now();
+      let cleaned = 0;
+      for (const [planId, approval] of this.pendingApprovals) {
+        if (now - approval.createdAt > this.approvalTimeout) {
+          this.pendingApprovals.delete(planId);
+          cleaned++;
+        }
+      }
+      if (cleaned > 0) {
+        console.log(`[intent-ingress] Cleaned up ${cleaned} expired approval requests`);
+      }
+    }, 60 * 60 * 1000); // Run every hour
+  }
+
+  /**
+   * Handle approval response from user
+   */
+  private async handleApprovalResponse(
+    planId: string,
+    approved: boolean,
+    sourceChannel: string
+  ): Promise<void> {
+    const approval = this.pendingApprovals.get(planId);
+    if (!approval) {
+      console.log(`[intent-ingress] No pending approval found for ${planId}`);
+      return;
+    }
+
+    const [sourceType, channelId] = sourceChannel.split(":");
+
+    if (approved) {
+      console.log(`[intent-ingress] User approved task ${planId}, emitting PlanApproved`);
+      
+      // Emit PlanApproved event
+      this.api.events.emit("PlanApproved", {
+        id: planId,
+        title: approval.title,
+        description: approval.description,
+        tags: approval.tags,
+        source: approval.source,
+        sourceChannel: approval.sourceChannel,
+        sourceUser: approval.sourceUser,
+        approvedAt: Date.now(),
+      }, "intent-ingress");
+
+      // Send confirmation
+      const message = `✅ <b>Task Approved</b>\n\n` +
+        `<b>Title:</b> ${approval.title}\n` +
+        `<b>Status:</b> Moving to Doing → Starting execution...`;
+
+      try {
+        if (sourceType === "telegram" && this.botId) {
+          await this.api.telegram.sendMessage(
+            this.botId,
+            channelId,
+            message,
+            { parseMode: "HTML" }
+          );
+        }
+      } catch (err) {
+        console.error(`[intent-ingress] Failed to send approval confirmation:`, err);
+      }
+    } else {
+      console.log(`[intent-ingress] User declined task ${planId}`);
+      
+      // Send acknowledgment that task stays in To Do
+      const message = `📋 <b>Task Staying in Backlog</b>\n\n` +
+        `<b>Title:</b> ${approval.title}\n` +
+        `<b>Status:</b> Remaining in To Do column\n` +
+        `You can manually move it to Doing later via the Kanban board.`;
+
+      try {
+        if (sourceType === "telegram" && this.botId) {
+          await this.api.telegram.sendMessage(
+            this.botId,
+            channelId,
+            message,
+            { parseMode: "HTML" }
+          );
+        }
+      } catch (err) {
+        console.error(`[intent-ingress] Failed to send decline confirmation:`, err);
+      }
+    }
+
+    // Remove from pending approvals
+    this.pendingApprovals.delete(planId);
+  }
+
+  /**
+   * Check if user is authorized for a platform
+   */
+  private async checkAuthorization(platform: string, userId: string): Promise<boolean> {
+    try {
+      // Try to get auth service via plugin
+      const authService = this.api.plugins.call("auth", "isAuthorized", platform, userId);
+      if (authService !== undefined) {
+        return authService;
+      }
+      
+      // Fallback: Check auth file directly
+      const authFile = join(homedir(), ".ronin", "auth.json");
+      try {
+        await access(authFile);
+        const content = await readFile(authFile, "utf-8");
+        const data = JSON.parse(content);
+        const users = data[platform];
+        
+        if (!users || users.length === 0) {
+          // No users configured - allow setup mode
+          console.log(`[intent-ingress] Setup mode: No users configured for ${platform}`);
+          return true;
+        }
+        
+        return users.includes(userId);
+      } catch {
+        // No auth file - allow setup mode
+        return true;
+      }
+    } catch (error) {
+      console.error(`[intent-ingress] Error checking authorization:`, error);
+      // Fail secure: deny access on error
+      return false;
+    }
   }
 
   async execute(): Promise<void> {

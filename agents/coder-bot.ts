@@ -111,6 +111,9 @@ export default class CoderBotAgent extends BaseAgent {
         title?: string;
         description?: string;
         tags?: string[];
+        source?: string;
+        sourceChannel?: string;
+        sourceUser?: string;
       };
       
       // Only process if moved to "Doing" column
@@ -124,6 +127,9 @@ export default class CoderBotAgent extends BaseAgent {
           description: payload.description || "",
           tags: payload.tags || ["create"], // Default to create if no tags
           approvedAt: Date.now(),
+          source: payload.source,
+          sourceChannel: payload.sourceChannel,
+          sourceUser: payload.sourceUser,
         };
         
         this.handlePlanApproved(planPayload);

@@ -296,10 +296,13 @@ export default class IntentIngressAgent extends BaseAgent {
     console.log(`[intent-ingress] Processing message...`);
     const parsed = this.parseCommand(text);
     
+    console.log(`[intent-ingress] Parsed command: ${parsed.command || 'null'}, isChat: ${parsed.isChat}, args: "${parsed.args.substring(0, 30)}..."`);
+    
     const sourceChannel = `telegram:${msg.chat.id}`;
     const sourceUser = msg.from?.username || msg.from?.id?.toString() || "unknown";
 
     if (parsed.isChat || !parsed.command) {
+      console.log(`[intent-ingress] Handling as chat message`);
       // Handle as conversational chat
       this.handleChatMessage({
         text: parsed.args,

@@ -82,22 +82,10 @@ For more information: https://github.com/QwenLM/qwen-code
         };
       }
 
-      // Build command
-      const cmdParts = [
-        "qwen",
-        "code",
-        "generate",
-        "--instruction",
-        `"${instruction.replace(/"/g, '\\"')}"`,
-        "--model",
-        model,
-      ];
-
-      if (workspace) {
-        cmdParts.push("--workspace", workspace);
-      }
-
-      const command = cmdParts.join(" ");
+      // Build command - use positional prompt and cd to workspace
+      // qwen CLI format: qwen [query..] --model <model>
+      const escapedInstruction = instruction.replace(/"/g, '\\"');
+      const command = `cd "${workspace}" && qwen "${escapedInstruction}" --model ${model} --yolo`;
 
       try {
         console.log(`[qwen-cli] Executing: ${command}`);

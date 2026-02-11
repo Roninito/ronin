@@ -579,7 +579,7 @@ Use sensible defaults for any unspecified parameters:
         planId,
         content,
         timestamp: Date.now(),
-      });
+      }, "coder-bot");
     } catch (error) {
       console.error(`[coder-bot] Failed to append to task ${planId}:`, error);
     }

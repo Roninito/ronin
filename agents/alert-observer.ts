@@ -98,11 +98,22 @@ export default class AlertObserverAgent extends BaseAgent {
     emoji: string,
     details?: string
   ): Promise<void> {
+    // Escape HTML in title and details to prevent parsing errors
+    const escapeHtml = (text: string): string => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    };
+
+    const safeTitle = escapeHtml(title);
+    const safeDetails = details ? escapeHtml(details) : undefined;
+
     const message = `${emoji} <b>${status}</b>\n\n` +
-      `<b>Title:</b> ${title}\n` +
+      `<b>Title:</b> ${safeTitle}\n` +
       `<b>ID:</b> <code>${planId}</code>\n` +
       `<b>Time:</b> ${new Date().toLocaleString()}` +
-      (details ? `\n\n<b>Details:</b> ${details}` : "");
+      (safeDetails ? `\n\n<b>Details:</b> ${safeDetails}` : "");
 
     // Log to console
     console.log(`[alert-observer] ${status}: ${title} (${planId})`);

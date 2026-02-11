@@ -124,7 +124,7 @@ export class HotReloadService {
           schedules: result.schedules,
           stable: result.stable,
           timestamp: Date.now(),
-        });
+        }, 'hot-reload');
       }
     }
   }

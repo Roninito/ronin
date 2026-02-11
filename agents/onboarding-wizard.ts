@@ -117,7 +117,19 @@ export default class OnboardingWizardAgent extends BaseAgent {
   private async getSetupStatus(): Promise<Response> {
     try {
       const status = await this.loadSetupStatus();
-      const configValues = this.loadConfigValues();
+      
+      // Load config values safely
+      let configValues;
+      try {
+        configValues = this.loadConfigValues();
+      } catch (configError) {
+        console.error("[onboarding-wizard] Error loading config in getSetupStatus:", configError);
+        configValues = {
+          telegram: { botToken: '', enabled: false },
+          discord: { botToken: '', enabled: false },
+          ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' }
+        };
+      }
       
       // Check which steps are complete (combine setup status + config)
       const steps = {
@@ -134,6 +146,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
         progress: Object.values(steps).filter(Boolean).length / Object.values(steps).length
       });
     } catch (error) {
+      console.error("[onboarding-wizard] Error in getSetupStatus:", error);
       return Response.json({ error: "Failed to load status" }, { status: 500 });
     }
   }
@@ -260,7 +273,8 @@ export default class OnboardingWizardAgent extends BaseAgent {
    * Get auth service reference
    */
   private getAuthService(): any {
-    const config = this.api.config.get();
+    // Use getAll() to get the full config object
+    const config = this.api.config.getAll ? this.api.config.getAll() : this.api.config;
     const authFile = join(homedir(), ".ronin", "auth.json");
     
     return {
@@ -302,7 +316,8 @@ export default class OnboardingWizardAgent extends BaseAgent {
    */
   private loadConfigValues(): any {
     try {
-      const config = this.api.config.get();
+      // Use getAll() to get the full config object
+      const config = this.api.config.getAll ? this.api.config.getAll() : this.api.config;
       return {
         telegram: {
           botToken: config.telegram?.botToken || '',

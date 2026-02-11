@@ -117,19 +117,20 @@ export default class OnboardingWizardAgent extends BaseAgent {
   private async getSetupStatus(): Promise<Response> {
     try {
       const status = await this.loadSetupStatus();
+      const configValues = this.loadConfigValues();
       
-      // Check which steps are complete
-      const config = this.api.config.get();
+      // Check which steps are complete (combine setup status + config)
       const steps = {
-        adminUser: status.steps?.adminUser || false,
-        cliTools: status.steps?.cliTools || false,
-        aiConfig: status.steps?.aiConfig || false,
-        platforms: status.steps?.platforms || false
+        adminUser: steps.adminUser || false,
+        cliTools: steps.cliTools || false,
+        aiConfig: steps.aiConfig || !!(configValues.ai.provider && configValues.ai.ollamaModel),
+        platforms: steps.platforms || !!(configValues.telegram.enabled || configValues.discord.enabled)
       };
       
       return Response.json({
-        completed: status.completed,
+        completed: status.completed || (steps.adminUser && steps.cliTools && steps.aiConfig && steps.platforms),
         steps,
+        config: configValues,
         progress: Object.values(steps).filter(Boolean).length / Object.values(steps).length
       });
     } catch (error) {
@@ -297,10 +298,50 @@ export default class OnboardingWizardAgent extends BaseAgent {
   }
 
   /**
+   * Load config values for pre-populating form
+   */
+  private loadConfigValues(): any {
+    try {
+      const config = this.api.config.get();
+      return {
+        telegram: {
+          botToken: config.telegram?.botToken || '',
+          enabled: config.telegram?.enabled || false
+        },
+        discord: {
+          botToken: config.discord?.botToken || '',
+          enabled: config.discord?.enabled || false
+        },
+        ai: {
+          ollamaModel: config.ai?.ollamaModel || 'qwen3:4b',
+          openaiKey: config.ai?.openaiApiKey || '',
+          provider: config.ai?.provider || 'ollama'
+        }
+      };
+    } catch (error) {
+      console.error("[onboarding-wizard] Error loading config:", error);
+      return {
+        telegram: { botToken: '', enabled: false },
+        discord: { botToken: '', enabled: false },
+        ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' }
+      };
+    }
+  }
+
+  /**
    * Render the onboarding page
    */
   private async renderOnboardingPage(): Promise<Response> {
     const status = await this.loadSetupStatus();
+    const config = this.loadConfigValues();
+    
+    // Compute step statuses based on both setup file and config
+    const steps = {
+      adminUser: steps.adminUser || false,
+      cliTools: steps.cliTools || false,
+      aiConfig: steps.aiConfig || !!(config.ai.provider && config.ai.ollamaModel),
+      platforms: steps.platforms || !!(config.telegram.enabled || config.discord.enabled)
+    };
     
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -623,7 +664,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
       <h1>🚀 Ronin Setup Wizard</h1>
       <p class="subtitle">Configure your AI agent system</p>
       <div class="progress-bar">
-        <div class="progress-fill" style="width: ${this.calculateProgress(status)}%"></div>
+        <div class="progress-fill" style="width: ${this.calculateProgress(status, steps)}%"></div>
       </div>
     </header>
     
@@ -636,16 +677,16 @@ export default class OnboardingWizardAgent extends BaseAgent {
     ` : `
     <div class="steps">
       <!-- Step 1: Admin Users -->
-      <div class="step ${status.steps?.adminUser ? 'complete' : 'pending'}">
+      <div class="step ${steps.adminUser ? 'complete' : 'pending'}">
         <div class="step-header" onclick="toggleStep(1)">
           <div class="step-number">1</div>
           <div class="step-title">
             <h3>Admin Users</h3>
             <p>Configure authorized users for each platform</p>
           </div>
-          <div class="step-status">${status.steps?.adminUser ? 'Complete' : 'Pending'}</div>
+          <div class="step-status">${steps.adminUser ? 'Complete' : 'Pending'}</div>
         </div>
-        <div class="step-content ${!status.steps?.adminUser ? 'active' : ''}" id="step-1">
+        <div class="step-content ${!steps.adminUser ? 'active' : ''}" id="step-1">
           <div class="password-section">
             <h4>🔐 Authentication Required</h4>
             <p>Enter the Ronin password to modify settings:</p>
@@ -680,16 +721,16 @@ export default class OnboardingWizardAgent extends BaseAgent {
       </div>
       
       <!-- Step 2: CLI Tools -->
-      <div class="step ${status.steps?.cliTools ? 'complete' : 'pending'}">
+      <div class="step ${steps.cliTools ? 'complete' : 'pending'}">
         <div class="step-header" onclick="toggleStep(2)">
           <div class="step-number">2</div>
           <div class="step-title">
             <h3>CLI Tools</h3>
             <p>Install and configure code generation tools</p>
           </div>
-          <div class="step-status">${status.steps?.cliTools ? 'Complete' : 'Pending'}</div>
+          <div class="step-status">${steps.cliTools ? 'Complete' : 'Pending'}</div>
         </div>
-        <div class="step-content ${status.steps?.adminUser && !status.steps?.cliTools ? 'active' : ''}" id="step-2">
+        <div class="step-content ${steps.adminUser && !steps.cliTools ? 'active' : ''}" id="step-2">
           <div class="tool-grid">
             <div class="tool-card">
               <h4>Opencode</h4>
@@ -723,16 +764,16 @@ export default class OnboardingWizardAgent extends BaseAgent {
       </div>
       
       <!-- Step 3: AI Configuration -->
-      <div class="step ${status.steps?.aiConfig ? 'complete' : 'pending'}">
+      <div class="step ${steps.aiConfig ? 'complete' : 'pending'}">
         <div class="step-header" onclick="toggleStep(3)">
           <div class="step-number">3</div>
           <div class="step-title">
             <h3>AI Configuration</h3>
             <p>Set up your preferred AI models</p>
           </div>
-          <div class="step-status">${status.steps?.aiConfig ? 'Complete' : 'Pending'}</div>
+          <div class="step-status">${steps.aiConfig ? 'Complete' : 'Pending'}</div>
         </div>
-        <div class="step-content ${status.steps?.cliTools && !status.steps?.aiConfig ? 'active' : ''}" id="step-3">
+        <div class="step-content ${steps.cliTools && !steps.aiConfig ? 'active' : ''}" id="step-3">
           <form method="POST" action="/onboarding">
             <input type="hidden" name="step" value="ai">
             <input type="hidden" name="password" value="roninpass">
@@ -740,16 +781,17 @@ export default class OnboardingWizardAgent extends BaseAgent {
             <div class="form-group">
               <label>Primary AI Model</label>
               <select name="aiModel">
-                <option value="ollama">Ollama (Local)</option>
-                <option value="openai">OpenAI GPT</option>
-                <option value="anthropic">Anthropic Claude</option>
+                <option value="ollama" ${config.ai.provider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
+                <option value="openai" ${config.ai.provider === 'openai' ? 'selected' : ''}>OpenAI GPT</option>
+                <option value="anthropic" ${config.ai.provider === 'anthropic' ? 'selected' : ''}>Anthropic Claude</option>
               </select>
+              <small style="color: #888; display: block; margin-top: 5px;">Current: ${config.ai.ollamaModel}</small>
             </div>
             
             <div class="form-group">
               <label>API Key (Optional)</label>
-              <input type="password" name="apiKey" placeholder="Leave empty to configure later">
-              <small style="color: #888; display: block; margin-top: 5px;">Only needed for cloud models. Stored securely.</small>
+              <input type="password" name="apiKey" placeholder="Leave empty to configure later" value="${config.ai.openaiKey ? '••••••••••••' : ''}">
+              <small style="color: #888; display: block; margin-top: 5px;">${config.ai.openaiKey ? '✓ API key configured' : 'Only needed for cloud models. Stored securely.'}</small>
             </div>
             
             <div class="checkbox-group">
@@ -763,37 +805,39 @@ export default class OnboardingWizardAgent extends BaseAgent {
       </div>
       
       <!-- Step 4: Communication Platforms -->
-      <div class="step ${status.steps?.platforms ? 'complete' : 'pending'}">
+      <div class="step ${steps.platforms ? 'complete' : 'pending'}">
         <div class="step-header" onclick="toggleStep(4)">
           <div class="step-number">4</div>
           <div class="step-title">
             <h3>Communication Platforms</h3>
             <p>Connect Telegram, Discord, and more</p>
           </div>
-          <div class="step-status">${status.steps?.platforms ? 'Complete' : 'Pending'}</div>
+          <div class="step-status">${steps.platforms ? 'Complete' : 'Pending'}</div>
         </div>
-        <div class="step-content ${status.steps?.aiConfig && !status.steps?.platforms ? 'active' : ''}" id="step-4">
+        <div class="step-content ${steps.aiConfig && !steps.platforms ? 'active' : ''}" id="step-4">
           <form method="POST" action="/onboarding">
             <input type="hidden" name="step" value="platforms">
             <input type="hidden" name="password" value="roninpass">
             
             <div class="form-group">
-              <label>Telegram Bot Token</label>
-              <input type="password" name="telegramToken" placeholder="Get from @BotFather">
+              <label>Telegram Bot Token ${config.telegram.enabled ? '✓' : ''}</label>
+              <input type="password" name="telegramToken" placeholder="Get from @BotFather" value="${config.telegram.botToken ? '••••••••••••' : ''}">
+              <small style="color: #888; display: block; margin-top: 5px;">${config.telegram.enabled ? '✓ Bot configured and enabled' : 'Enter token from @BotFather to enable Telegram'}</small>
             </div>
             
             <div class="form-group">
-              <label>Discord Bot Token</label>
-              <input type="password" name="discordToken" placeholder="From Discord Developer Portal">
+              <label>Discord Bot Token ${config.discord.enabled ? '✓' : ''}</label>
+              <input type="password" name="discordToken" placeholder="From Discord Developer Portal" value="${config.discord.botToken ? '••••••••••••' : ''}">
+              <small style="color: #888; display: block; margin-top: 5px;">${config.discord.enabled ? '✓ Bot configured and enabled' : 'Enter token from Discord Developer Portal to enable Discord'}</small>
             </div>
             
             <div class="info-box">
-              <p>💡 Bots allow Ronin to communicate with you through these platforms. You can add these later in the configuration.</p>
+              <p>💡 Bots allow Ronin to communicate with you through these platforms. Tokens are stored securely in your config.</p>
             </div>
             
             <div class="checkbox-group">
-              <input type="checkbox" id="skip-platforms" name="skip" checked>
-              <label for="skip-platforms">Configure platforms later</label>
+              <input type="checkbox" id="skip-platforms" name="skip" ${!config.telegram.enabled && !config.discord.enabled ? 'checked' : ''}>
+              <label for="skip-platforms">Skip platform configuration ${config.telegram.enabled || config.discord.enabled ? '(already configured)' : ''}</label>
             </div>
             
             <button type="submit" class="btn btn-primary">Complete Setup</button>
@@ -845,12 +889,12 @@ export default class OnboardingWizardAgent extends BaseAgent {
   /**
    * Calculate setup progress percentage
    */
-  private calculateProgress(status: any): number {
+  private calculateProgress(status: any, steps?: any): number {
     if (status.completed) return 100;
     
-    const steps = status.steps || {};
+    const stepData = steps || status.steps || {};
     const totalSteps = 4;
-    const completedSteps = Object.values(steps).filter(Boolean).length;
+    const completedSteps = Object.values(stepData).filter(Boolean).length;
     
     return Math.round((completedSteps / totalSteps) * 100);
   }

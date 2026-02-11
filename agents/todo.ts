@@ -1874,10 +1874,14 @@ export default class TodoAgent extends BaseAgent {
           // Move the card
           await this.moveCard(cardId, body.column_id, body.position);
           
+          // Extract planId from description (stored as [plan:plan-xxx])
+          const planIdMatch = card.description?.match(/\[plan:([^\]]+)\]/);
+          const planId = planIdMatch ? planIdMatch[1] : undefined;
+          
           // Emit TaskMoved event so other agents know
           const labels = JSON.parse(card.labels || '[]');
           this.api.events.emit('TaskMoved', {
-            planId: card.metadata,
+            planId: planId,
             cardId: card.id,
             title: card.title,
             description: card.description,
@@ -1885,6 +1889,8 @@ export default class TodoAgent extends BaseAgent {
             from: fromColumn,
             to: toColumn,
           }, 'todo');
+          
+          console.log(`[todo] Emitted TaskMoved with planId: ${planId || 'none'}`);
           
           console.log(`[todo] Card ${cardId} moved from "${fromColumn}" to "${toColumn}"`);
           

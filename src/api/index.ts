@@ -8,6 +8,7 @@ import { MemoryStore } from "../memory/index.js";
 import { PluginLoader } from "../plugins/PluginLoader.js";
 import { pluginsToTools } from "../plugins/toolGenerator.js";
 import { getConfigService } from "../config/ConfigService.js";
+import { initializeTools, getToolsAPI } from "./tools.js";
 import type { AgentAPI } from "../types/api.js";
 
 export interface APIOptions {
@@ -208,7 +209,15 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(realmAPI && { realm: realmAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
     ...(ragAPI && { rag: ragAPI }),
+    tools: {} as AgentAPI["tools"], // Placeholder, will be set after init
   };
+
+  // Initialize tool system with full API
+  initializeTools(api);
+  
+  // Add tools API to the api object
+  const toolsAPI = getToolsAPI(api);
+  (api as any).tools = toolsAPI;
 
   return api;
 }

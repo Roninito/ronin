@@ -646,5 +646,25 @@ export interface AgentAPI {
     isFromEnv(path: string): boolean;
     reload(): Promise<void>;
   };
+
+  /**
+   * Tool system for Hybrid Intelligence
+   * Local and cloud tool orchestration with policy enforcement
+   */
+  tools: {
+    register(tool: import("../tools/types.js").ToolDefinition): void;
+    unregister(toolName: string): void;
+    execute(name: string, args: Record<string, any>, context?: Partial<import("../tools/types.js").ToolContext>): Promise<import("../tools/types.js").ToolResult>;
+    list(): import("../tools/types.js").ToolDefinition[];
+    getSchemas(): import("../tools/types.js").OpenAIFunctionSchema[];
+    has(name: string): boolean;
+    registerWorkflow(workflow: import("../tools/types.js").WorkflowDefinition): void;
+    executeWorkflow(name: string, args: Record<string, any>, context?: Partial<import("../tools/types.js").ToolContext>): Promise<any>;
+    getWorkflow(name: string): import("../tools/types.js").WorkflowDefinition | undefined;
+    listWorkflows(): import("../tools/types.js").WorkflowDefinition[];
+    setPolicy(policy: import("../tools/types.js").ToolPolicy): void;
+    getPolicy(): import("../tools/types.js").ToolPolicy;
+    getCostStats(): { daily: number; monthly: number };
+  };
 }
 

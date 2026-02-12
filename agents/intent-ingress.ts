@@ -57,6 +57,9 @@ export default class IntentIngressAgent extends BaseAgent {
   private maxChatHistory = 20; // Keep last 20 messages per session
   private sessionTimeout = 30 * 60 * 1000; // 30 minutes
   private approvalTimeout = 24 * 60 * 60 * 1000; // 24 hours
+  private telegramInitialized = false;
+  private telegramHandlerRegistered = false;
+  private discordInitialized = false;
 
   constructor(api: AgentAPI) {
     super(api);
@@ -168,12 +171,12 @@ export default class IntentIngressAgent extends BaseAgent {
   /**
    * Initialize Telegram bot
    */
-  private telegramInitialized = false;
-
   private async initializeTelegram(): Promise<void> {
     // Prevent multiple initializations
-    if (this.telegramInitialized) return;
-    this.telegramInitialized = true;
+    if (this.telegramInitialized) {
+      console.log("[intent-ingress] Telegram already initialized, skipping");
+      return;
+    }
 
     try {
       const configTelegram = this.api.config.getTelegram();
@@ -222,6 +225,12 @@ export default class IntentIngressAgent extends BaseAgent {
   private discordBotId: string | null = null;
 
   private async initializeDiscord(): Promise<void> {
+    // Prevent multiple initializations
+    if (this.discordInitialized) {
+      console.log("[intent-ingress] Discord already initialized, skipping");
+      return;
+    }
+    
     try {
       const configDiscord = this.api.config.getDiscord();
       if (!configDiscord.enabled) {
@@ -234,19 +243,18 @@ export default class IntentIngressAgent extends BaseAgent {
         return;
       }
 
-      // Only initialize if not already done
-      if (!this.discordBotId) {
-        this.discordBotId = await this.api.discord.initBot(botToken);
-        console.log("[intent-ingress] Discord bot initialized");
+      this.discordInitialized = true;
+      this.discordBotId = await this.api.discord.initBot(botToken);
+      console.log("[intent-ingress] Discord bot initialized");
 
-        // Only register the handler once
-        this.api.discord.onMessage(this.discordBotId, (msg) => {
-          this.handleDiscordMessage(msg, this.discordBotId!);
-        });
+      // Only register the handler once
+      this.api.discord.onMessage(this.discordBotId, (msg) => {
+        this.handleDiscordMessage(msg, this.discordBotId!);
+      });
 
-        console.log("[intent-ingress] Listening for Discord commands...");
-      }
+      console.log("[intent-ingress] Listening for Discord commands...");
     } catch (error) {
+      this.discordInitialized = false;
       console.error("[intent-ingress] Failed to initialize Discord:", error);
     }
   }

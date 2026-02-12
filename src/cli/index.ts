@@ -40,6 +40,10 @@ const command = process.argv[2];
 const args = process.argv.slice(3);
 
 async function main() {
+  // Initialize guidelines early
+  const { initializeGuidelines } = await import("../guidelines/index.js");
+  await initializeGuidelines();
+
   switch (command) {
     case "start":
       await startCommand({

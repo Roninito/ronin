@@ -12,6 +12,9 @@ export { initializeTools, getToolsAPI } from "../api/tools.js";
 // Adapters
 export { CloudAdapter, type CloudAdapterConfig } from "./adapters/CloudAdapter.js";
 export { OpenAIAdapter } from "./adapters/OpenAIAdapter.js";
+export { AnthropicAdapter } from "./adapters/AnthropicAdapter.js";
+export { GeminiAdapter } from "./adapters/GeminiAdapter.js";
+export { OllamaCloudAdapter } from "./adapters/OllamaCloudAdapter.js";
 
 // Local tools
 export { registerLocalTools } from "./providers/LocalTools.js";
@@ -39,4 +42,4 @@ export type {
 } from "./types.js";
 
 // Version
-export const TOOL_SYSTEM_VERSION = "1.0.0";
+export const TOOL_SYSTEM_VERSION = "1.1.0";

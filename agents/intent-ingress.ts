@@ -425,12 +425,37 @@ export default class IntentIngressAgent extends BaseAgent {
     const chatType = msg.chat.type || "private";
     const isPrivateChat = chatType === "private";
     
-    console.log(`[intent-ingress] Received message from ${msg.from?.username || 'unknown'} in ${chatType} chat: "${text.substring(0, 50)}"`);
+    // DEBUG: Log full message structure
+    console.log(`[intent-ingress] DEBUG - Full msg.from:`, JSON.stringify(msg.from));
+    console.log(`[intent-ingress] DEBUG - Full msg.chat:`, JSON.stringify(msg.chat));
+    
+    // Extract user ID with fallbacks
+    let userId: string | null = null;
+    let userIdSource = '';
+    
+    // Primary: msg.from.id (numeric user ID)
+    if (msg.from?.id) {
+      userId = `${msg.from.id}`;
+      userIdSource = 'from.id';
+    }
+    // Fallback 1: msg.from.username (if ID missing)
+    else if (msg.from?.username) {
+      userId = msg.from.username;
+      userIdSource = 'from.username';
+    }
+    // Fallback 2: msg.chat.id (for group context, less secure)
+    else if (msg.chat?.id) {
+      userId = `chat:${msg.chat.id}`;
+      userIdSource = 'chat.id';
+    }
+    
+    console.log(`[intent-ingress] Extracted userId: ${userId || 'FAILED'} (source: ${userIdSource || 'none'})`);
+    console.log(`[intent-ingress] Message from ${msg.from?.username || msg.from?.first_name || 'unknown'} in ${chatType} chat: "${text.substring(0, 50)}"`);
     
     // AUTHENTICATION CHECK
-    const userId = msg.from?.id ? `${msg.from.id}` : null;
     if (!userId) {
-      console.log(`[intent-ingress] Ignoring message without user ID`);
+      console.error(`[intent-ingress] CRITICAL: Could not extract user ID from message`);
+      console.error(`[intent-ingress] Message structure:`, JSON.stringify(msg, null, 2));
       return;
     }
     

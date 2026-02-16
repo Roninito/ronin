@@ -3,6 +3,7 @@ import type { AgentAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /**
  * Rule Manager Agent
@@ -28,6 +29,11 @@ export default class RuleManagerAgent extends BaseAgent {
     
     // Register routes
     this.registerRoutes();
+
+    // Analytics: report lifecycle
+    this.api.events.emit("agent.lifecycle", {
+      agent: "rule-manager", status: "started", timestamp: Date.now(),
+    }, "rule-manager");
   }
 
   /**
@@ -174,6 +180,12 @@ export default class RuleManagerAgent extends BaseAgent {
    * Handle POST /api/rules
    */
   private async handleUpdateRules(req: Request): Promise<Response> {
+    const taskId = crypto.randomUUID();
+    const taskStart = Date.now();
+    this.api.events.emit("agent.task.started", {
+      agent: "rule-manager", taskId, taskName: "save-rules", timestamp: taskStart,
+    }, "rule-manager");
+
     try {
       const body = await req.json();
       const { content } = body;
@@ -186,12 +198,22 @@ export default class RuleManagerAgent extends BaseAgent {
       }
       
       await this.saveRules(content);
+
+      // Analytics: task completed
+      this.api.events.emit("agent.task.completed", {
+        agent: "rule-manager", taskId, duration: Date.now() - taskStart, timestamp: Date.now(),
+      }, "rule-manager");
       
       return Response.json({
         success: true,
         message: "Rules updated successfully"
       });
     } catch (error) {
+      // Analytics: task failed
+      this.api.events.emit("agent.task.failed", {
+        agent: "rule-manager", taskId, duration: Date.now() - taskStart,
+        error: (error as Error).message, timestamp: Date.now(),
+      }, "rule-manager");
       console.error("[rule-manager] Error updating rules:", error);
       return Response.json({
         success: false,
@@ -263,229 +285,164 @@ export default class RuleManagerAgent extends BaseAgent {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Security Rules</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a2e;
-      color: #eee;
-      line-height: 1.6;
-      padding: 20px;
+      padding: 0;
+      margin: 0;
+      font-size: 0.8125rem;
     }
-    
-    .container {
+
+    .page-content {
       max-width: 1200px;
       margin: 0 auto;
+      padding: ${roninTheme.spacing.xl};
     }
-    
-    header {
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #16213e;
-    }
-    
-    h1 {
-      color: #e94560;
-      font-size: 2rem;
-      margin-bottom: 10px;
-    }
-    
-    .subtitle {
-      color: #888;
-      font-size: 0.9rem;
-    }
-    
+
     .toolbar {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      padding: 15px;
-      background: #16213e;
-      border-radius: 8px;
+      gap: ${roninTheme.spacing.sm};
+      margin-bottom: ${roninTheme.spacing.lg};
+      padding: ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
     }
-    
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.3s ease;
-    }
-    
+
     .btn-primary {
-      background: #e94560;
-      color: white;
+      background: ${roninTheme.colors.accent};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textPrimary};
     }
-    
-    .btn-primary:hover {
-      background: #c73e54;
-    }
-    
+    .btn-primary:hover { background: ${roninTheme.colors.accentHover}; border-color: ${roninTheme.colors.borderHover}; }
+
     .btn-secondary {
-      background: #0f3460;
-      color: #eee;
+      background: ${roninTheme.colors.backgroundTertiary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
     }
-    
-    .btn-secondary:hover {
-      background: #1a4a7a;
-    }
-    
+    .btn-secondary:hover { background: ${roninTheme.colors.accent}; color: ${roninTheme.colors.textPrimary}; }
+
     .btn-danger {
-      background: #c0392b;
-      color: white;
+      background: ${roninTheme.colors.error}30;
+      border: 1px solid ${roninTheme.colors.error};
+      color: ${roninTheme.colors.error};
     }
-    
-    .btn-danger:hover {
-      background: #a93226;
-    }
-    
+    .btn-danger:hover { background: ${roninTheme.colors.error}50; color: ${roninTheme.colors.textPrimary}; }
+
     .editor-container {
-      background: #16213e;
-      border-radius: 8px;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
       overflow: hidden;
+      margin-bottom: ${roninTheme.spacing.lg};
     }
-    
+
     .editor-header {
-      background: #0f3460;
-      padding: 15px;
+      background: ${roninTheme.colors.backgroundTertiary};
+      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 1px solid ${roninTheme.colors.border};
     }
-    
+
     .editor-header h2 {
-      font-size: 1.1rem;
-      color: #eee;
+      font-size: 0.9375rem;
+      font-weight: 300;
+      color: ${roninTheme.colors.textSecondary};
     }
-    
+
     .status {
-      font-size: 0.85rem;
-      padding: 5px 10px;
-      border-radius: 4px;
+      font-size: 0.75rem;
+      padding: ${roninTheme.spacing.xs} ${roninTheme.spacing.sm};
+      border-radius: ${roninTheme.borderRadius.sm};
     }
-    
-    .status.saved {
-      background: #27ae60;
-      color: white;
-    }
-    
-    .status.unsaved {
-      background: #f39c12;
-      color: white;
-    }
-    
+    .status.saved { background: ${roninTheme.colors.success}30; color: ${roninTheme.colors.success}; }
+    .status.unsaved { background: ${roninTheme.colors.warning}30; color: ${roninTheme.colors.warning}; }
+
     textarea {
       width: 100%;
-      min-height: 600px;
-      padding: 20px;
-      background: #1a1a2e;
-      color: #eee;
+      min-height: 480px;
+      padding: ${roninTheme.spacing.lg};
+      background: ${roninTheme.colors.background};
+      color: ${roninTheme.colors.textPrimary};
       border: none;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 14px;
+      font-family: ${roninTheme.fonts.mono};
+      font-size: 0.8125rem;
       line-height: 1.6;
       resize: vertical;
       outline: none;
     }
-    
-    textarea:focus {
-      background: #1e1e36;
-    }
-    
+    textarea:focus { background: ${roninTheme.colors.background}; }
+
     .preview {
-      padding: 20px;
-      background: #1a1a2e;
-      border-top: 1px solid #0f3460;
+      padding: ${roninTheme.spacing.lg};
+      background: ${roninTheme.colors.background};
+      border-top: 1px solid ${roninTheme.colors.border};
       max-height: 400px;
       overflow-y: auto;
     }
-    
-    .preview h3 {
-      color: #e94560;
-      margin-bottom: 15px;
-    }
-    
+
     .preview-content {
-      font-family: 'Monaco', 'Menlo', monospace;
+      font-family: ${roninTheme.fonts.mono};
       white-space: pre-wrap;
-      color: #ccc;
+      color: ${roninTheme.colors.textSecondary};
+      font-size: 0.8125rem;
     }
-    
+    .preview-content h3 { color: ${roninTheme.colors.link}; margin: ${roninTheme.spacing.md} 0 ${roninTheme.spacing.sm} 0; font-size: 1rem; }
+    .preview-content strong { color: ${roninTheme.colors.link}; }
+    .preview-content code { background: ${roninTheme.colors.backgroundSecondary}; padding: 2px 6px; border-radius: ${roninTheme.borderRadius.sm}; font-size: 0.75rem; }
+
     .info-box {
-      background: #0f3460;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      padding: ${roninTheme.spacing.lg};
+      border-radius: ${roninTheme.borderRadius.lg};
+      margin-bottom: ${roninTheme.spacing.lg};
     }
-    
-    .info-box h3 {
-      color: #e94560;
-      margin-bottom: 10px;
-    }
-    
-    .info-box ul {
-      margin-left: 20px;
-      color: #aaa;
-    }
-    
-    .info-box li {
-      margin-bottom: 5px;
-    }
-    
+    .info-box h3 { color: ${roninTheme.colors.link}; margin-bottom: ${roninTheme.spacing.sm}; font-size: 0.9375rem; }
+    .info-box ul { margin-left: ${roninTheme.spacing.lg}; color: ${roninTheme.colors.textSecondary}; }
+    .info-box li { margin-bottom: ${roninTheme.spacing.xs}; }
+
     .success-message {
-      background: #27ae60;
-      color: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
+      background: ${roninTheme.colors.success}20;
+      border: 1px solid ${roninTheme.colors.success}50;
+      color: ${roninTheme.colors.success};
+      padding: ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
+      margin-bottom: ${roninTheme.spacing.lg};
       display: none;
     }
-    
-    .success-message.show {
-      display: block;
-    }
-    
-    .tabs {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 20px;
-    }
-    
+    .success-message.show { display: block; }
+
+    .tabs { display: flex; gap: ${roninTheme.spacing.xs}; margin-bottom: ${roninTheme.spacing.lg}; }
+
     .tab {
-      padding: 10px 20px;
-      background: #16213e;
-      border: none;
-      color: #888;
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: 5px 5px 0 0;
+      border-radius: ${roninTheme.borderRadius.md} ${roninTheme.borderRadius.md} 0 0;
+      font-size: 0.8125rem;
     }
-    
-    .tab.active {
-      background: #0f3460;
-      color: #eee;
-    }
-    
-    .tab-content {
-      display: none;
-    }
-    
-    .tab-content.active {
-      display: block;
-    }
+    .tab.active { background: ${roninTheme.colors.backgroundTertiary}; color: ${roninTheme.colors.textPrimary}; border-bottom-color: transparent; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🔐 Ronin Security Rules</h1>
-      <p class="subtitle">Manage security rules that govern all AI communications and agent behaviors</p>
-    </header>
-    
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>🔐 Ronin Security Rules</h1>
+    <div class="header-meta">Manage security rules for AI and agent behaviors</div>
+  </div>
+
+  <div class="page-content">
     <div class="success-message" id="successMessage">
       ✅ Rules saved successfully!
     </div>
@@ -540,7 +497,7 @@ export default class RuleManagerAgent extends BaseAgent {
       </div>
     </div>
   </div>
-  
+
   <script>
     let originalContent = document.getElementById('rulesContent').value;
     
@@ -661,12 +618,12 @@ export default class RuleManagerAgent extends BaseAgent {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/^#{1,6}\\s+(.+)$/gm, '<h3 style="color: #e94560; margin: 15px 0 10px 0;">$1</h3>')
+        .replace(/^#{1,6}\\s+(.+)$/gm, '<h3>$1</h3>')
         .replace(/^\\*\\s+(.+)$/gm, '• $1')
         .replace(/^\\d+\\.\\s+(.+)$/gm, '$1')
-        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #e94560;">$1</strong>')
+        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
         .replace(/_(.+?)_/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code style="background: #0f3460; padding: 2px 6px; border-radius: 3px;">$1</code>')
+        .replace(/\`(.+?)\`/g, '<code>$1</code>')
         .replace(/\\n\\n/g, '<br><br>');
       
       document.getElementById('previewContent').innerHTML = html;

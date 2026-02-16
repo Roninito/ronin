@@ -1,6 +1,6 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface SavedUrl {
   id: string;
@@ -351,34 +351,26 @@ export default class DiscordUrlAggregatorAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       min-height: 100vh;
-      padding: ${roninTheme.spacing.xl};
+      padding: 0;
+      margin: 0;
+    }
+
+    .page-content {
       max-width: 1200px;
       margin: 0 auto;
+      padding: ${roninTheme.spacing.lg};
     }
-    
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: ${roninTheme.spacing.xl};
-      padding-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-    }
-    
-    .header h1 { font-size: 2rem; margin: 0; }
-    
-    .status {
-      display: flex;
+
+    .header-meta .status {
+      display: inline-flex;
       align-items: center;
       gap: ${roninTheme.spacing.sm};
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
     }
-    
+
     .status-dot {
       width: 8px;
       height: 8px;
@@ -418,16 +410,18 @@ export default class DiscordUrlAggregatorAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
-    <div>
-      <h1>🔗 Discord URLs</h1>
-      <span style="color: ${roninTheme.colors.textSecondary}">${urls.length} collected</span>
-    </div>
-    <div class="status">
-      <span class="status-dot"></span>
-      ${this.isConnected ? 'Connected' : 'Disconnected'}
+    ${getHeaderHomeIconHTML()}
+    <h1>🔗 Discord URLs</h1>
+    <div class="header-meta">
+      <span>${urls.length} collected</span>
+      <span class="status">
+        <span class="status-dot"></span>
+        ${this.isConnected ? 'Connected' : 'Disconnected'}
+      </span>
     </div>
   </div>
-  
+
+  <div class="page-content">
   <div class="url-list">
     ${urls.length === 0 ? `<div class="empty"><p>No URLs collected yet.</p></div>` : 
       urls.map(u => `
@@ -439,6 +433,7 @@ export default class DiscordUrlAggregatorAgent extends BaseAgent {
           </div>
         </div>
       `).join('')}
+  </div>
   </div>
 </body>
 </html>`;

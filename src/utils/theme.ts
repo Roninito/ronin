@@ -15,6 +15,9 @@ export interface RoninTheme {
     borderHover: string;
     accent: string;
     accentHover: string;
+    /** Neon lime for links and header title */
+    link: string;
+    linkHover: string;
     success: string;
     error: string;
     warning: string;
@@ -57,6 +60,8 @@ export const roninTheme: RoninTheme = {
     borderHover: "rgba(255, 255, 255, 0.2)",
     accent: "rgba(255, 255, 255, 0.1)",
     accentHover: "rgba(255, 255, 255, 0.15)",
+    link: "#84cc16",
+    linkHover: "#a3e635",
     success: "#28a745",
     error: "#dc3545",
     warning: "#f59e0b",
@@ -166,13 +171,13 @@ code, pre {
 }
 
 a {
-  color: ${theme.colors.textSecondary};
+  color: ${theme.colors.link};
   text-decoration: none;
   transition: color 0.2s;
 }
 
 a:hover {
-  color: ${theme.colors.textPrimary};
+  color: ${theme.colors.linkHover};
 }
 
 button {
@@ -226,6 +231,86 @@ input::placeholder, textarea::placeholder {
   border-color: ${theme.colors.borderHover};
   background: ${theme.colors.backgroundTertiary};
   transform: translateY(-2px);
+}
+`;
+}
+
+/** Lime green used for the header home icon */
+export const HEADER_HOME_ICON_COLOR = "#84cc16";
+
+/**
+ * SVG markup for the flat house icon (lime green). Use inside .header-home anchor.
+ */
+export function getHeaderHomeIconSVG(): string {
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="${HEADER_HOME_ICON_COLOR}" d="M12 2L2 10h2v10h6v-6h4v6h6V10h2L12 2z"/></svg>`;
+}
+
+/**
+ * Full home link HTML for the standard header. Place as first child of .header.
+ */
+export function getHeaderHomeIconHTML(): string {
+  return `<a href="/" class="header-home" aria-label="Home">${getHeaderHomeIconSVG()}</a>`;
+}
+
+/**
+ * Standard header bar CSS (analytics-style).
+ * Use with: <div class="header">${getHeaderHomeIconHTML()}<h1>Title</h1><div class="header-meta">...</div></div>
+ * or <div class="header">${getHeaderHomeIconHTML()}<h1>Title</h1><div class="header-actions">...</div></div>
+ */
+export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
+  return `
+.header {
+  background: ${theme.colors.backgroundSecondary};
+  backdrop-filter: blur(10px);
+  padding: ${theme.spacing.md} ${theme.spacing.lg};
+  border-bottom: 1px solid ${theme.colors.border};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: ${theme.spacing.md};
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: ${theme.spacing.xs};
+  color: ${HEADER_HOME_ICON_COLOR};
+  text-decoration: none;
+  line-height: 0;
+}
+.header-home:hover {
+  opacity: 0.85;
+}
+
+.header h1 {
+  font-size: 1.375rem;
+  font-weight: 300;
+  margin: 0;
+  margin-right: auto;
+  color: ${theme.colors.link};
+  letter-spacing: -0.02em;
+}
+
+.header-meta {
+  font-size: 0.6875rem;
+  color: ${theme.colors.textTertiary};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.header-meta span {
+  margin-left: ${theme.spacing.md};
+}
+
+.header-actions {
+  display: flex;
+  gap: ${theme.spacing.sm};
+  align-items: center;
 }
 `;
 }

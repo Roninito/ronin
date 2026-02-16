@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface EventRecord {
   id: string;
@@ -309,25 +309,16 @@ export default class EventMonitorAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
       padding: 2rem;
     }
 
-    .header {
-      margin-bottom: 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .header h1 {
-      font-size: clamp(1.5rem, 3vw, 2rem);
-      font-weight: 300;
+    .header-meta .auto-refresh {
+      margin-left: 0;
     }
 
     .auto-refresh {
@@ -601,15 +592,17 @@ export default class EventMonitorAgent extends BaseAgent {
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>📊 Event Timeline</h1>
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>📊 Event Timeline</h1>
+    <div class="header-meta">
       <div class="auto-refresh active" id="autoRefreshIndicator">
         <span>🔄</span>
         <span>Auto-refresh: ON (30s)</span>
       </div>
     </div>
-
+  </div>
+  <div class="container">
     <div class="filters">
       <div class="filter-grid">
         <div class="filter-section">

@@ -3,12 +3,32 @@ import type { FilesAPI } from "../api/files.js";
 import type { HTTPAPI } from "../api/http.js";
 import type { EventsAPI } from "../api/events.js";
 import { CronScheduler } from "./CronScheduler.js";
+import { logger } from "../utils/logger.js";
 import { join } from "path";
+import { networkInterfaces } from "os";
+import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../utils/theme.js";
+
+/** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
+function getLocalNetworkIP(): string | null {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    const addrs = nets[name];
+    if (!addrs) continue;
+    for (const a of addrs) {
+      if ((a.family === "IPv4" || (a as { family?: number }).family === 4) && !a.internal) {
+        return a.address;
+      }
+    }
+  }
+  return null;
+}
 
 export interface RegistryOptions {
   files: FilesAPI;
   http: HTTPAPI;
   events?: EventsAPI;
+  /** Hostname for webhook server; use "0.0.0.0" for LAN access (e.g. ronin start --host) */
+  webhookHost?: string;
 }
 
 /**
@@ -24,11 +44,13 @@ export class AgentRegistry {
   private http: HTTPAPI;
   private events?: EventsAPI;
   private scheduler: CronScheduler;
+  private webhookHost?: string;
 
   constructor(options: RegistryOptions) {
     this.files = options.files;
     this.http = options.http;
     this.events = options.events;
+    this.webhookHost = options.webhookHost;
     this.scheduler = new CronScheduler();
   }
 
@@ -103,7 +125,7 @@ export class AgentRegistry {
     // Remove from agents map
     this.agents.delete(agentName);
 
-    console.log(`[AgentRegistry] Unregistered agent: ${agentName}`);
+    logger.info("Agent unregistered", { agent: agentName });
     return true;
   }
 
@@ -117,12 +139,12 @@ export class AgentRegistry {
     // Create a cron job using our scheduler
     const cleanup = this.scheduler.schedule(schedule, () => {
       this.executeAgent(agentName).catch(error => {
-        console.error(`Error executing scheduled agent ${agentName}:`, error);
+        logger.error("Scheduled agent execution failed", { agent: agentName, error });
       });
     });
 
     this.cronJobs.set(agentName, cleanup);
-    console.log(`Registered schedule for ${agentName}: ${schedule}`);
+    logger.debug("Registered schedule", { agent: agentName, schedule });
   }
 
   /**
@@ -141,14 +163,14 @@ export class AgentRegistry {
               event as "create" | "update" | "delete"
             );
           } catch (error) {
-            console.error(`Error in file change handler for ${agentName}:`, error);
+            logger.error("File change handler failed", { agent: agentName, error });
           }
         }
       });
     }
 
     this.fileWatchers.set(agentName, patterns);
-    console.log(`Registered file watchers for ${agentName}: ${patterns.join(", ")}`);
+    logger.debug("Registered file watchers", { agent: agentName, patterns });
   }
 
   /**
@@ -165,7 +187,7 @@ export class AgentRegistry {
    */
   private registerWebhook(agentName: string, path: string): void {
     this.webhookRoutes.set(path, agentName);
-    console.log(`Registered webhook for ${agentName}: ${path}`);
+    logger.debug("Registered webhook", { agent: agentName, path });
 
     // Start webhook server if not already started
     this.startWebhookServerIfNeeded();
@@ -177,8 +199,10 @@ export class AgentRegistry {
   private startWebhookServer(): void {
     const port = process.env.WEBHOOK_PORT ? parseInt(process.env.WEBHOOK_PORT) : 3000;
     const idleTimeout = process.env.HTTP_IDLE_TIMEOUT ? parseInt(process.env.HTTP_IDLE_TIMEOUT) : 60;
-    
+    const hostname = this.webhookHost;
+
     this.webhookServer = Bun.serve({
+      ...(hostname && { hostname }),
       port,
       idleTimeout, // Timeout in seconds for long-running requests (default: 60s)
       fetch: async (req) => {
@@ -284,7 +308,7 @@ export class AgentRegistry {
           try {
             return await handler(req);
           } catch (error) {
-            console.error(`${req.method} - ${routePath} failed`, error);
+            logger.error("HTTP route handler failed", { method: req.method, path: routePath, error });
             return new Response(
               JSON.stringify({ error: "Internal server error", message: String(error) }),
               { status: 500, headers: { "Content-Type": "application/json" } }
@@ -359,7 +383,7 @@ export class AgentRegistry {
             headers: { "Content-Type": "application/json" },
           });
         } catch (error) {
-          console.error(`Error handling webhook for ${agentName}:`, error);
+          logger.error("Webhook handler failed", { agent: agentName, error });
           return new Response(
             JSON.stringify({ error: String(error) }),
             { status: 500, headers: { "Content-Type": "application/json" } }
@@ -368,8 +392,19 @@ export class AgentRegistry {
       },
     });
 
-    console.log(`Webhook server started on port ${port}`);
-    console.log(`   Status endpoint: http://localhost:${port}/api/status`);
+    const localUrl = `http://localhost:${port}`;
+    if (hostname === "0.0.0.0") {
+      const lanIp = getLocalNetworkIP();
+      logger.info("Webhook server started (network)", { port, localUrl, networkUrl: lanIp ? `http://${lanIp}:${port}` : "(could not detect LAN IP)" });
+      console.log(`\n  Local:   ${localUrl}`);
+      if (lanIp) {
+        console.log(`  Network: http://${lanIp}:${port}\n`);
+      } else {
+        console.log(`  Network: (use your machine's LAN IP)\n`);
+      }
+    } else {
+      logger.info("Webhook server started", { port, statusUrl: `http://localhost:${port}/api/status` });
+    }
   }
 
   /**
@@ -613,79 +648,17 @@ export class AgentRegistry {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin - Available Routes</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
-      color: #e5e5e5;
-      min-height: 100vh;
-      padding: 0;
-      line-height: 1.6;
-    }
-    
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
       padding: 4rem 2rem;
     }
-    
-    .header {
-      margin-bottom: 4rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding-bottom: 3rem;
-    }
-    
-    .header h1 {
-      font-size: clamp(2.5rem, 5vw, 4rem);
-      font-weight: 300;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      color: #ffffff;
-    }
-    
-    .header p {
-      font-size: 1.1rem;
-      color: rgba(255, 255, 255, 0.6);
-      font-weight: 300;
-    }
-    
-    .stats-bar {
-      display: flex;
-      gap: 3rem;
-      margin-top: 2rem;
-      flex-wrap: wrap;
-    }
-    
-    .stat {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-    
-    .stat-value {
-      font-size: 2rem;
-      font-weight: 300;
-      color: #ffffff;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    
-    .stat-label {
-      font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.4);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      font-weight: 500;
-    }
-    
+
     .content {
       padding: 0;
     }
@@ -813,11 +786,7 @@ export class AgentRegistry {
       .container {
         padding: 2rem 1.5rem;
       }
-      
-      .stats-bar {
-        gap: 2rem;
-      }
-      
+
       .routes-grid {
         grid-template-columns: 1fr;
       }
@@ -825,30 +794,17 @@ export class AgentRegistry {
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>⚡ Ronin</h1>
-      <p>Agent System - Available Routes</p>
-      <div class="stats-bar">
-        <div class="stat">
-          <span class="stat-value">${status.totalAgents}</span>
-          <span class="stat-label">Agents</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">${status.scheduledAgents}</span>
-          <span class="stat-label">Scheduled</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">${status.webhookAgents}</span>
-          <span class="stat-label">Webhooks</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value">${port}</span>
-          <span class="stat-label">Port</span>
-        </div>
-      </div>
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>⚡ Ronin</h1>
+    <div class="header-meta">
+      <span>${status.totalAgents} Agents</span>
+      <span>${status.scheduledAgents} Scheduled</span>
+      <span>${status.webhookAgents} Webhooks</span>
+      <span>Port ${port}</span>
     </div>
-    
+  </div>
+  <div class="container">
     <div class="content">
       ${Object.entries(routesByCategory).map(([category, categoryRoutes]) => `
         <div class="category">

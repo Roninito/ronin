@@ -3,7 +3,7 @@ import type { AgentAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface BlogPost {
   id: string;
@@ -286,49 +286,40 @@ export default class BlogsAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       min-height: 100vh;
-      padding: ${roninTheme.spacing.xl};
+      padding: 0;
+      margin: 0;
+    }
+
+    .page-content {
       max-width: 1200px;
       margin: 0 auto;
+      padding: ${roninTheme.spacing.xl};
     }
-    
-    .header {
-      text-align: center;
-      margin-bottom: ${roninTheme.spacing.xl};
-      padding-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-    }
-    
-    .header h1 {
-      font-size: 2.5rem;
-      margin-bottom: ${roninTheme.spacing.sm};
-    }
-    
-    .header p {
-      color: ${roninTheme.colors.textSecondary};
-    }
-    
+
     .posts-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: ${roninTheme.spacing.lg};
-      margin-top: ${roninTheme.spacing.xl};
+      margin-top: ${roninTheme.spacing.lg};
     }
-    
+
     .post-card {
       background: ${roninTheme.colors.backgroundSecondary};
       border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${roninTheme.borderRadius.lg};
       padding: ${roninTheme.spacing.lg};
+      margin: ${roninTheme.spacing.xs};
       transition: all 0.3s;
       cursor: pointer;
       text-decoration: none;
       display: block;
       color: ${roninTheme.colors.textPrimary};
     }
-    
+
     .post-card:hover {
       border-color: ${roninTheme.colors.borderHover};
       background: ${roninTheme.colors.backgroundTertiary};
@@ -361,10 +352,12 @@ export default class BlogsAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
+    ${getHeaderHomeIconHTML()}
     <h1>Ronin Blog</h1>
-    <p>Exploring agents, plugins, and features</p>
+    <div class="header-meta">Exploring agents, plugins, and features</div>
   </div>
-  
+
+  <div class="page-content">
   <div class="posts-grid" id="posts-grid">
     ${posts.length === 0 
       ? '<div class="empty-state">No posts yet. Check back soon!</div>'
@@ -380,7 +373,8 @@ export default class BlogsAgent extends BaseAgent {
       `).join('')
     }
   </div>
-  
+  </div>
+
   <script>
     // Auto-highlight code blocks when page loads
     if (typeof hljs !== 'undefined') {
@@ -714,32 +708,20 @@ export default class BlogsAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       min-height: 100vh;
-      padding: ${roninTheme.spacing.xl};
+      padding: 0;
+      margin: 0;
+    }
+
+    .page-content {
       max-width: 1200px;
       margin: 0 auto;
+      padding: ${roninTheme.spacing.xl};
     }
-    
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: ${roninTheme.spacing.xl};
-      padding-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-    }
-    
-    .header h1 {
-      font-size: 2rem;
-    }
-    
-    .header-actions {
-      display: flex;
-      gap: ${roninTheme.spacing.md};
-    }
-    
+
     .posts-table {
       width: 100%;
       border-collapse: collapse;
@@ -816,6 +798,7 @@ export default class BlogsAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
+    ${getHeaderHomeIconHTML()}
     <h1>Blog Admin</h1>
     <div class="header-actions">
       <a href="/blog/editor"><button>New Post</button></a>
@@ -823,7 +806,8 @@ export default class BlogsAgent extends BaseAgent {
       <button onclick="handleLogout()">Logout</button>
     </div>
   </div>
-  
+
+  <div class="page-content">
   <table class="posts-table">
     <thead>
       <tr>
@@ -868,7 +852,8 @@ export default class BlogsAgent extends BaseAgent {
       <button onclick="generateArticle(this)">Generate</button>
     </div>
   </div>
-  
+  </div>
+
   <script>
     // Global error handler to catch any uncaught errors
     window.onerror = function(msg, url, lineNo, columnNo, error) {

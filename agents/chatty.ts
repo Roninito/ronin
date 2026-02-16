@@ -4,7 +4,7 @@ import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface Chat {
   id: string;
@@ -36,13 +36,21 @@ export default class ChattyAgent extends BaseAgent {
     architecture: string;
   } | null = null;
 
+  private chatCount = 0;
+
   constructor(api: AgentAPI) {
     super(api);
     // Use centralized config with env fallback
     const configAI = this.api.config.getAI();
-    this.model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:4b";
+    this.model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:1.7b";
     this.initializeDatabase();
     this.registerRoutes();
+
+    // Analytics: report lifecycle
+    this.api.events.emit("agent.lifecycle", {
+      agent: "chatty", status: "started", timestamp: Date.now(),
+    }, "chatty");
+
     console.log("💬 Chatty agent ready. Chat interface available at /chat");
   }
 
@@ -265,38 +273,19 @@ export default class ChattyAgent extends BaseAgent {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       height: 100vh;
       display: flex;
       flex-direction: column;
-      font-size: 0.8125rem; /* 13px - smaller base */
+      font-size: 0.8125rem;
       overflow: hidden;
     }
-    
-    .header {
-      background: ${roninTheme.colors.backgroundSecondary};
-      backdrop-filter: blur(10px);
-      padding: ${roninTheme.spacing.md};
-      color: ${roninTheme.colors.textPrimary};
-      text-align: center;
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      flex-shrink: 0;
-    }
-    
-    .header h1 { 
-      font-size: 1.25rem; /* Smaller */
-      margin-bottom: 0.25rem; 
-      font-weight: 300;
-    }
-    
-    .header p { 
-      font-size: 0.75rem; /* Smaller */
-      color: ${roninTheme.colors.textSecondary};
-    }
-    
+
+    .header { flex-shrink: 0; }
+
     .main-container {
       flex: 1;
       display: flex;
@@ -641,8 +630,9 @@ export default class ChattyAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
+    ${getHeaderHomeIconHTML()}
     <h1>💬 Ronin Chat</h1>
-    <p>Chat with AI that understands your Ronin setup</p>
+    <div class="header-meta">Chat with AI that understands your Ronin setup</div>
   </div>
   <div class="main-container">
     <div class="sidebar">
@@ -1022,6 +1012,9 @@ export default class ChattyAgent extends BaseAgent {
       return new Response("Method not allowed", { status: 405 });
     }
 
+    const taskId = crypto.randomUUID();
+    const taskStartTime = Date.now();
+
     try {
       const body = await req.json() as { message?: string; chatId?: string };
       const { message, chatId } = body;
@@ -1077,6 +1070,11 @@ export default class ChattyAgent extends BaseAgent {
         await this.updateChatTitle(chatId, title);
       }
 
+      // Analytics: track chat completion task
+      this.api.events.emit("agent.task.started", {
+        agent: "chatty", taskId, taskName: "chat-completion", timestamp: taskStartTime,
+      }, "chatty");
+
       // Stream response - include system message!
       const api = this.api;
       const model = this.model;
@@ -1098,6 +1096,14 @@ export default class ChattyAgent extends BaseAgent {
               console.error("Failed to save assistant message:", error);
             }
           }
+          // Analytics: task completed
+          chattyAgent.chatCount++;
+          api.events.emit("agent.task.completed", {
+            agent: "chatty", taskId, duration: Date.now() - taskStartTime, timestamp: Date.now(),
+          }, "chatty");
+          api.events.emit("agent.metric", {
+            agent: "chatty", metric: "messages_processed", value: chattyAgent.chatCount, timestamp: Date.now(),
+          }, "chatty");
         },
       });
       
@@ -1109,6 +1115,7 @@ export default class ChattyAgent extends BaseAgent {
             for await (const chunk of api.ai.streamChat(aiMessages, {
               model: model,
               timeoutMs: 300000, // 5 minutes timeout
+              thinking: false, // Disable thinking mode for direct responses
             })) {
               controller.enqueue(new TextEncoder().encode(chunk));
             }
@@ -1129,6 +1136,11 @@ export default class ChattyAgent extends BaseAgent {
         },
       });
     } catch (error) {
+      // Analytics: task failed
+      this.api.events.emit("agent.task.failed", {
+        agent: "chatty", taskId, duration: Date.now() - taskStartTime,
+        error: (error as Error).message, timestamp: Date.now(),
+      }, "chatty");
       console.error("Chat API error:", error);
       return Response.json(
         { error: (error as Error).message },

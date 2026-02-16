@@ -2,7 +2,7 @@ import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import { readdir, readFile, stat } from "fs/promises";
 import { join, relative, extname, basename } from "path";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface DocumentItem {
   type: "markdown" | "book-chapter";
@@ -329,7 +329,8 @@ export default class DocsAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       height: 100vh;
       display: flex;
@@ -337,28 +338,9 @@ export default class DocsAgent extends BaseAgent {
       font-size: 0.8125rem;
       overflow: hidden;
     }
-    
-    .header {
-      background: ${roninTheme.colors.backgroundSecondary};
-      backdrop-filter: blur(10px);
-      padding: ${roninTheme.spacing.md};
-      color: ${roninTheme.colors.textPrimary};
-      text-align: center;
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      flex-shrink: 0;
-    }
-    
-    .header h1 {
-      font-size: 1.25rem;
-      margin-bottom: 0.25rem;
-      font-weight: 300;
-    }
-    
-    .header p {
-      font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
-    }
-    
+
+    .header { flex-shrink: 0; }
+
     .main-container {
       flex: 1;
       display: flex;
@@ -653,10 +635,11 @@ export default class DocsAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
+    ${getHeaderHomeIconHTML()}
     <h1>📚 Ronin Documentation</h1>
-    <p>Complete guide to building AI agents with Ronin</p>
+    <div class="header-meta">Complete guide to building AI agents with Ronin</div>
   </div>
-  
+
   <div class="main-container">
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section">

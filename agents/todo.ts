@@ -1,6 +1,6 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface Board {
   id: string;
@@ -982,7 +982,8 @@ export default class TodoAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     * {
       margin: 0;
       padding: 0;
@@ -995,15 +996,6 @@ export default class TodoAgent extends BaseAgent {
       color: ${roninTheme.colors.textPrimary};
       min-height: 100vh;
       overflow-x: auto;
-    }
-
-    .header {
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: ${roninTheme.colors.backgroundSecondary};
     }
 
     .header-left {
@@ -1020,11 +1012,6 @@ export default class TodoAgent extends BaseAgent {
 
     .back-link:hover {
       color: ${roninTheme.colors.textPrimary};
-    }
-
-    .header h1 {
-      font-size: 1.5rem;
-      font-weight: 400;
     }
 
     .board-description {
@@ -1485,6 +1472,7 @@ export default class TodoAgent extends BaseAgent {
 </head>
 <body>
   <div class="header">
+    ${getHeaderHomeIconHTML()}
     <div class="header-left">
       <a href="/todo" class="back-link">← Back to Boards</a>
       <div>
@@ -1492,7 +1480,9 @@ export default class TodoAgent extends BaseAgent {
         ${board.description ? `<div class="board-description">${this.escapeHtml(board.description)}</div>` : ''}
       </div>
     </div>
-    <button class="add-card-btn" onclick="openCreateModal()">+ Add Card</button>
+    <div class="header-actions">
+      <button class="add-card-btn" onclick="openCreateModal()">+ Add Card</button>
+    </div>
   </div>
 
   <div class="board">

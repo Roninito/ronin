@@ -147,3 +147,14 @@ Use glob patterns to watch files:
 
 When an agent defines a `static webhook` path, it will receive HTTP POST requests at that path. The webhook server runs on port 3000 by default (configurable via `WEBHOOK_PORT` environment variable).
 
+## Standard header bar (HTML UIs)
+
+For agent-served HTML pages, use the shared header bar so all UIs look consistent. Import `getHeaderBarCSS` and `getHeaderHomeIconHTML` from `../src/utils/theme.js`; include the CSS in your page `<style>` and the home icon as the first child of `.header`. Structure:
+
+- Wrapper: `<div class="header">`
+- First child: `${getHeaderHomeIconHTML()}` (lime green home icon linking to `/`)
+- Left: `<h1>Page Title</h1>`
+- Right (optional): `<div class="header-meta">...</div>` for text/status, or `<div class="header-actions">...</div>` for buttons/links
+
+Example: `<div class="header">${getHeaderHomeIconHTML()}<h1>Ronin Analytics</h1><div class="header-meta"><span>Updated 1m ago</span></div></div>`. Keep the header full-width (no body padding); use a `.page-content` or `.container` with max-width and padding for the main content below.
+

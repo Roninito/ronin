@@ -4,6 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconSVG } from "../src/utils/theme.js";
 
 interface RSSItem {
   id: number;
@@ -491,190 +492,160 @@ export default class RSSToTelegramAgent extends BaseAgent {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
-      color: #e5e5e5;
+      font-family: ${roninTheme.fonts.primary};
+      background: ${roninTheme.colors.background};
+      color: ${roninTheme.colors.textPrimary};
       min-height: 100vh;
       padding: 0;
       line-height: 1.6;
+      font-size: 0.8125rem;
     }
-    
+
     .container {
-      max-width: 800px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 4rem 2rem;
+      padding: ${roninTheme.spacing.lg};
     }
-    
-    .header {
-      margin-bottom: 4rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding-bottom: 3rem;
-      text-align: center;
-    }
-    
-    .header h1 {
-      font-size: clamp(2.5rem, 5vw, 4rem);
-      font-weight: 300;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      color: #ffffff;
-    }
-    
-    .header p {
-      font-size: 1.1rem;
-      color: rgba(255, 255, 255, 0.6);
-      font-weight: 300;
-    }
-    
+
     .content {
       padding: 0;
     }
-    
-    .status-section {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: 2rem;
-      margin-bottom: 3rem;
+
+    .status-section,
+    .form-section {
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
+      padding: ${roninTheme.spacing.lg};
+      margin-bottom: ${roninTheme.spacing.xl};
     }
-    
-    .status-section h2 {
-      color: #ffffff;
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
+
+    .status-section h2,
+    .form-section h2 {
+      font-size: 0.9375rem;
+      font-weight: 300;
+      margin-bottom: ${roninTheme.spacing.md};
+      padding-bottom: ${roninTheme.spacing.sm};
+      border-bottom: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
     }
-    
+
     .status-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: ${roninTheme.spacing.sm} 0;
+      border-bottom: 1px solid ${roninTheme.colors.border};
     }
-    
+
     .status-item:last-child {
       border-bottom: none;
     }
-    
+
     .status-label {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.875rem;
+      color: ${roninTheme.colors.textSecondary};
+      font-size: 0.8125rem;
       font-weight: 500;
     }
-    
+
     .status-value {
-      color: #ffffff;
-      font-size: 0.875rem;
-      font-family: 'JetBrains Mono', monospace;
+      color: ${roninTheme.colors.textPrimary};
+      font-size: 0.8125rem;
+      font-family: ${roninTheme.fonts.mono};
     }
-    
+
     .status-badge {
       display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 12px;
+      padding: 0.25rem 0.5rem;
+      border-radius: ${roninTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
     }
-    
+
     .status-badge.configured {
-      background: rgba(40, 167, 69, 0.2);
-      color: #28a745;
-      border: 1px solid rgba(40, 167, 69, 0.3);
+      background: ${roninTheme.colors.success}20;
+      color: ${roninTheme.colors.success};
+      border: 1px solid ${roninTheme.colors.success}40;
     }
-    
+
     .status-badge.not-configured {
-      background: rgba(220, 53, 69, 0.2);
-      color: #dc3545;
-      border: 1px solid rgba(220, 53, 69, 0.3);
+      background: ${roninTheme.colors.error}20;
+      color: ${roninTheme.colors.error};
+      border: 1px solid ${roninTheme.colors.error}40;
     }
-    
-    .form-section {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: 2rem;
-      margin-bottom: 3rem;
-    }
-    
-    .form-section h2 {
-      color: #ffffff;
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-    }
-    
+
     .form-group {
-      margin-bottom: 1.5rem;
+      margin-bottom: ${roninTheme.spacing.md};
     }
-    
+
     .form-group label {
       display: block;
-      color: rgba(255, 255, 255, 0.7);
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
+      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${roninTheme.spacing.xs};
+      font-size: 0.8125rem;
       font-weight: 500;
     }
-    
+
     .form-group .help-text {
       font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.4);
+      color: ${roninTheme.colors.textTertiary};
       margin-top: 0.25rem;
       font-style: italic;
     }
-    
+
     .form-group input {
       width: 100%;
-      padding: 0.75rem;
-      font-size: 1rem;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      color: #ffffff;
-      font-family: 'Inter', sans-serif;
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      font-size: 0.8125rem;
+      background: ${roninTheme.colors.background};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      color: ${roninTheme.colors.textPrimary};
+      font-family: inherit;
       transition: all 0.3s;
     }
-    
+
     .form-group input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
+      color: ${roninTheme.colors.textTertiary};
     }
-    
+
     .form-group input:focus {
       outline: none;
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.04);
+      border-color: ${roninTheme.colors.borderHover};
+      background: ${roninTheme.colors.backgroundTertiary};
     }
-    
+
     .form-group .required {
-      color: rgba(255, 100, 100, 0.8);
+      color: ${roninTheme.colors.error};
     }
-    
+
     .button {
-      padding: 0.75rem 1.5rem;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.9);
-      border-radius: 4px;
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.lg};
+      background: ${roninTheme.colors.backgroundTertiary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textPrimary};
+      border-radius: ${roninTheme.borderRadius.md};
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: 'Inter', sans-serif;
+      font-size: 0.8125rem;
+      font-family: inherit;
       font-weight: 500;
       transition: all 0.3s;
     }
     
     .button:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: #ffffff;
+      background: ${roninTheme.colors.accent};
+      border-color: ${roninTheme.colors.borderHover};
     }
     
     .button:disabled {
@@ -683,45 +654,43 @@ export default class RSSToTelegramAgent extends BaseAgent {
     }
     
     .button-primary {
-      background: rgba(100, 150, 255, 0.2);
-      border-color: rgba(100, 150, 255, 0.3);
-      color: #88b3ff;
+      background: ${roninTheme.colors.accent};
+      border-color: ${roninTheme.colors.borderHover};
+      color: ${roninTheme.colors.textPrimary};
     }
-    
+
     .button-primary:hover:not(:disabled) {
-      background: rgba(100, 150, 255, 0.3);
-      border-color: rgba(100, 150, 255, 0.4);
-      color: #a8c7ff;
+      background: ${roninTheme.colors.accentHover};
     }
-    
+
     .error {
-      background: rgba(220, 53, 69, 0.1);
-      border: 1px solid rgba(220, 53, 69, 0.3);
-      color: #dc3545;
-      padding: 1rem;
-      border-radius: 4px;
-      margin: 1rem 0;
+      background: ${roninTheme.colors.error}20;
+      border: 1px solid ${roninTheme.colors.error}40;
+      color: ${roninTheme.colors.error};
+      padding: ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
+      margin: ${roninTheme.spacing.md} 0;
     }
-    
+
     .success {
-      background: rgba(40, 167, 69, 0.1);
-      border: 1px solid rgba(40, 167, 69, 0.3);
-      color: #28a745;
-      padding: 1rem;
-      border-radius: 4px;
-      margin: 1rem 0;
+      background: ${roninTheme.colors.success}20;
+      border: 1px solid ${roninTheme.colors.success}40;
+      color: ${roninTheme.colors.success};
+      padding: ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
+      margin: ${roninTheme.spacing.md} 0;
     }
-    
+
     .loading {
       text-align: center;
-      padding: 3rem;
-      color: rgba(255, 255, 255, 0.4);
+      padding: ${roninTheme.spacing.xl};
+      color: ${roninTheme.colors.textTertiary};
       font-weight: 300;
     }
-    
+
     @media (max-width: 768px) {
       .container {
-        padding: 2rem 1.5rem;
+        padding: ${roninTheme.spacing.md};
       }
     }
   </style>
@@ -731,7 +700,8 @@ export default class RSSToTelegramAgent extends BaseAgent {
   
   <script>
     const { useState, useEffect } = React;
-    
+    const homeIconSvg = ${JSON.stringify(getHeaderHomeIconSVG())};
+
     function App() {
       const [config, setConfig] = useState(null);
       const [loading, setLoading] = useState(true);
@@ -806,12 +776,14 @@ export default class RSSToTelegramAgent extends BaseAgent {
           React.createElement('div', { className: 'loading' }, 'Loading configuration...')
         );
       }
-      
-      return React.createElement('div', { className: 'container' },
+
+      return React.createElement('div', null,
         React.createElement('div', { className: 'header' },
+          React.createElement('a', { href: '/', className: 'header-home', 'aria-label': 'Home', dangerouslySetInnerHTML: { __html: homeIconSvg } }),
           React.createElement('h1', null, '📡 RSS to Telegram'),
-          React.createElement('p', null, 'Configure your Telegram bot to forward RSS feed items')
+          React.createElement('div', { className: 'header-meta' }, 'Configure your Telegram bot to forward RSS feed items')
         ),
+        React.createElement('div', { className: 'container' },
         React.createElement('div', { className: 'content' },
           React.createElement('div', { className: 'status-section' },
             React.createElement('h2', null, 'Current Status'),
@@ -881,9 +853,10 @@ export default class RSSToTelegramAgent extends BaseAgent {
             )
           )
         )
+        )
       );
     }
-    
+
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(React.createElement(App));
   </script>

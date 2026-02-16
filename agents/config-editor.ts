@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface ConfigBackup {
   id: string;
@@ -233,6 +233,19 @@ export default class ConfigEditorAgent extends BaseAgent {
           default: '',
           description: 'API Key',
           helpText: 'Get from https://x.ai'
+        }
+      }
+    },
+    braveSearch: {
+      type: 'nested',
+      description: 'Brave Search API (MCP web search)',
+      helpText: 'Get key from https://brave.com/search/api. Enables ronin mcp add brave-search',
+      fields: {
+        apiKey: {
+          type: 'string',
+          default: '',
+          description: 'API Key',
+          helpText: 'Required for MCP brave-search server'
         }
       }
     },
@@ -776,7 +789,8 @@ export default class ConfigEditorAgent extends BaseAgent {
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
-    
+    ${getHeaderBarCSS()}
+
     body {
       margin: 0;
       background: ${roninTheme.colors.background};
@@ -788,26 +802,6 @@ export default class ConfigEditorAgent extends BaseAgent {
       max-width: 1200px;
       margin: 0 auto;
       padding: 2rem;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid ${roninTheme.colors.border};
-    }
-
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 300;
-      margin: 0;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 1rem;
     }
 
     .btn {
@@ -947,16 +941,16 @@ export default class ConfigEditorAgent extends BaseAgent {
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>⚙️ Config Editor</h1>
-      <div class="header-actions">
-        <button class="btn" onclick="saveConfig()">💾 Save Changes</button>
-        <button class="btn btn-secondary" onclick="showBackups()">📜 Backups</button>
-        <button class="btn btn-secondary" onclick="logout()">Logout</button>
-      </div>
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>⚙️ Config Editor</h1>
+    <div class="header-actions">
+      <button class="btn" onclick="saveConfig()">💾 Save Changes</button>
+      <button class="btn btn-secondary" onclick="showBackups()">📜 Backups</button>
+      <button class="btn btn-secondary" onclick="logout()">Logout</button>
     </div>
-
+  </div>
+  <div class="container">
     <div class="tabs">
       <button class="tab active" onclick="switchTab('form')">📋 Form Mode</button>
       <button class="tab" onclick="switchTab('json')">📝 JSON Mode</button>

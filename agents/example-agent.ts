@@ -6,7 +6,7 @@ import type { AgentAPI } from "../src/types/index.js";
  */
 export default class ExampleAgent extends BaseAgent {
   // Schedule: Run every minute
-  static schedule = "0 */6 * * *";
+  static schedule = "0 7 * * *";
 
   constructor(api: AgentAPI) {
     super(api);

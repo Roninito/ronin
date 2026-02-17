@@ -9,7 +9,7 @@ Ronin is a Bun-based AI agent library that enables scheduling and execution of T
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      CLI Interface                          │
-│  (start, run, list, status, create plugin, plugins list)   │
+│    (start, run, list, status, create, plugins, mcp)        │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -26,14 +26,28 @@ Ronin is a Bun-based AI agent library that enables scheduling and execution of T
 │  ┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────┐     │
 │  │  AI  │ │Memory  │ │Files │ │   DB   │ │ Plugins  │     │
 │  └──────┘ └────────┘ └──────┘ └────────┘ └──────────┘     │
+│                                                             │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │              Tool System                         │     │
+│  │  ┌──────────────┐  ┌──────────────────────┐     │     │
+│  │  │ ToolRouter   │  │  MCP Client Manager  │     │     │
+│  │  └──────────────┘  └──────────────────────┘     │     │
+│  └──────────────────────────────────────────────────┘     │
 └──────────────────────┬──────────────────────────────────────┘
                        │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│   Ollama    │ │   SQLite    │ │   Plugins   │
-│  (qwen3:1.7b)    │ │  (Memory)   │ │  Directory  │
-└─────────────┘ └─────────────┘ └─────────────┘
+        ┌──────────────┼──────────────┬───────────────┐
+        ▼              ▼              ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐
+│   Ollama    │ │   SQLite    │ │   Plugins   │ │   MCP    │
+│ (qwen3:1.7b)│ │  (Memory)   │ │  Directory  │ │ Servers  │
+└─────────────┘ └─────────────┘ └─────────────┘ └──────────┘
+                                                    │
+                                    ┌───────────────┼────────────┐
+                                    ▼               ▼            ▼
+                                ┌──────────┐  ┌─────────┐  ┌────────┐
+                                │filesystem│  │ github  │  │ brave  │
+                                │  sqlite  │  │   ...   │  │  ...   │
+                                └──────────┘  └─────────┘  └────────┘
 ```
 
 ## Core Components
@@ -119,7 +133,44 @@ export default {
 - `git.ts` - Git operations (clone, commit, push, pull, status, etc.)
 - `shell.ts` - Shell command execution
 
-### 5. CLI Interface
+### 5. Tool System
+
+**ToolRouter** (`src/api/tools/ToolRouter.ts`)
+- Central tool registry for all tool types
+- Manages tool registration, discovery, and execution
+- Provides unified interface for local tools, plugins, and MCP tools
+- Methods:
+  - `register(tool)` - Register a tool
+  - `list()` - Get all registered tools
+  - `get(name)` - Get tool by name
+  - `execute(name, params)` - Execute a tool
+
+**MCPClientManager** (`src/mcp/MCPClientManager.ts`)
+- Manages connections to external MCP servers
+- Implements MCP client protocol via `@modelcontextprotocol/sdk`
+- Translates MCP tools to Ronin's `ToolDefinition` format
+- Handles tool execution by proxying to MCP servers
+- Tool naming: `mcp_<server>_<tool>` (e.g., `mcp_filesystem_read_file`)
+- Methods:
+  - `connectEnabledServers(config)` - Connect to all enabled servers
+  - `connectServer(name, config)` - Connect to a specific server
+  - `disconnectServer(name)` - Disconnect a server
+
+**MCP Integration Flow**:
+1. **Configuration**: MCP servers defined in `~/.ronin/config.json` under `mcp.servers`
+2. **Startup**: `MCPClientManager` connects to enabled servers during API initialization
+3. **Tool Discovery**: Each MCP server's tools are discovered via `listTools` request
+4. **Registration**: Tools registered with `ToolRouter` with `mcp_<server>_<tool>` prefix
+5. **Execution**: When agent calls tool, `MCPClientManager` proxies request to MCP server
+6. **Response**: MCP server response translated to Ronin's `ToolResult` format
+
+**Known MCP Servers**:
+- `filesystem` - File operations (`@modelcontextprotocol/server-filesystem`)
+- `github` - GitHub integration (`@modelcontextprotocol/server-github`)
+- `brave-search` - Web search (`@modelcontextprotocol/server-brave-search`)
+- `sqlite` - Database queries (`@modelcontextprotocol/server-sqlite`)
+
+### 6. CLI Interface
 
 **Commands**:
 - `ronin start` - Start and schedule all agents
@@ -128,6 +179,7 @@ export default {
 - `ronin status` - Show runtime status
 - `ronin create plugin <name>` - Create new plugin template
 - `ronin plugins list` - List loaded plugins
+- `ronin mcp <command>` - Manage MCP server connections
 
 ## Data Flow
 
@@ -151,12 +203,29 @@ export default {
 
 ### Function Calling Flow
 
-1. **Agent Request**: Agent calls `api.ai.callTools(prompt, tools)`
-2. **Tool Merging**: Plugin tools automatically merged with provided tools
-3. **Ollama Request**: Request sent to Ollama `/api/chat` with `tools` parameter
-4. **Tool Calls**: Ollama returns tool calls in response
-5. **Execution**: Tool calls executed via `api.plugins.call()`
-6. **Response**: Results returned to agent
+1. **Agent Request**: Agent calls `api.ai.callTools(prompt, tools)` or `api.tools.execute(toolName, params)`
+2. **Tool Discovery**: Tools available from:
+   - Local tools (built-in capabilities)
+   - Plugin tools (user plugins + built-in plugins)
+   - MCP tools (external MCP servers)
+3. **Tool Merging**: All tool types merged into unified tool list
+4. **Ollama Request**: Request sent to Ollama `/api/chat` with `tools` parameter
+5. **Tool Calls**: Ollama returns tool calls in response
+6. **Execution**: Tool calls executed via:
+   - `api.plugins.call()` for plugin tools
+   - `MCPClientManager` for MCP tools
+   - Direct handlers for local tools
+7. **Response**: Results returned to agent
+
+### MCP Tool Flow
+
+1. **Tool Request**: Agent calls `api.tools.execute("mcp_filesystem_read_file", { path: "/tmp/file.txt" })`
+2. **Tool Lookup**: `ToolRouter` finds tool and identifies it as MCP tool
+3. **Server Proxy**: `MCPClientManager` proxies request to appropriate MCP server
+4. **MCP Protocol**: Request sent via stdio transport to MCP server process
+5. **Server Response**: MCP server returns result
+6. **Translation**: Response translated to Ronin's `ToolResult` format
+7. **Return**: Result returned to agent
 
 ## Configuration
 

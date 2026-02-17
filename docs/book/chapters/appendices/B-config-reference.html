@@ -45,6 +45,11 @@
           <td>-</td>
         </tr>
         <tr>
+          <td><code>BRAVE_API_KEY</code></td>
+          <td>Brave Search API key (for MCP web search)</td>
+          <td>-</td>
+        </tr>
+        <tr>
           <td><code>WEBHOOK_PORT</code></td>
           <td>Webhook server port</td>
           <td><code>3000</code></td>
@@ -82,8 +87,230 @@
   "agentDir": "./agents",
   "externalAgentDir": "~/.ronin/agents",
   "grokApiKey": "sk-xxxxx",
-  "geminiApiKey": "AIxxxxx"
+  "geminiApiKey": "AIxxxxx",
+  "braveSearch": {
+    "apiKey": "BSA-xxxxx"
+  },
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "enabled": true
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "enabled": true
+      }
+    }
+  },
+  "desktop": {
+    "enabled": false,
+    "features": {
+      "notifications": true,
+      "clipboard": false,
+      "shortcuts": true,
+      "fileWatching": true
+    },
+    "folders": ["~/Desktop", "~/Downloads"],
+    "bridge": {
+      "port": 17341,
+      "host": "localhost"
+    },
+    "menubar": true
+  }
 }</code></pre>
+
+    <h2>Desktop Mode Configuration</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>desktop.enabled</code></td>
+          <td>Master switch for Desktop Mode</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.features.notifications</code></td>
+          <td>Enable native notifications</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.features.clipboard</code></td>
+          <td>Enable clipboard watching</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.features.shortcuts</code></td>
+          <td>Enable keyboard shortcuts</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.features.fileWatching</code></td>
+          <td>Watch configured folders</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.folders</code></td>
+          <td>Array of folders to watch</td>
+          <td><code>["~/Desktop", "~/Downloads"]</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.bridge.port</code></td>
+          <td>HTTP port for OS communications</td>
+          <td><code>17341</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.bridge.host</code></td>
+          <td>HTTP host for bridge</td>
+          <td><code>"localhost"</code></td>
+        </tr>
+        <tr>
+          <td><code>desktop.menubar</code></td>
+          <td>Show menubar status indicator</td>
+          <td><code>true</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>MCP Configuration</h2>
+
+    <h3>braveSearch</h3>
+
+    <p>Configuration for Brave Search API key:</p>
+
+    <pre><code>"braveSearch": {
+  "apiKey": "BSA-xxxxxxxxxxxx"
+}</code></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>braveSearch.apiKey</code></td>
+          <td>Brave Search API key for MCP web search</td>
+          <td><code>""</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        Get your API key from <a href="https://brave.com/search/api" target="_blank">brave.com/search/api</a>. Environment variable <code>BRAVE_API_KEY</code> takes precedence.
+      </p>
+    </div>
+
+    <h3>mcp</h3>
+
+    <p>MCP (Model Context Protocol) server configurations:</p>
+
+    <pre><code>"mcp": {
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "enabled": true
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "BSA-xxxxx"
+      },
+      "enabled": true
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_xxxxx"
+      },
+      "enabled": false
+    },
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sqlite", "/path/to/db.sqlite"],
+      "enabled": false
+    }
+  }
+}</code></pre>
+
+    <h4>Server Configuration Schema</h4>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Required</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>command</code></td>
+          <td>string</td>
+          <td>Executable to run (typically <code>npx</code>)</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>args</code></td>
+          <td>array</td>
+          <td>Command-line arguments</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>env</code></td>
+          <td>object</td>
+          <td>Environment variables for the server process</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>enabled</code></td>
+          <td>boolean</td>
+          <td>Whether to connect to this server at startup</td>
+          <td>Yes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Managing MCP Servers</h4>
+
+    <p>Use CLI commands to manage MCP servers:</p>
+
+    <pre><code># Add servers
+ronin mcp add filesystem --path ~/Documents
+ronin mcp add brave-search
+ronin mcp add github
+ronin mcp add sqlite --path ./myapp.db
+
+# List, enable, disable
+ronin mcp list
+ronin mcp enable github
+ronin mcp disable filesystem
+ronin mcp remove sqlite</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        MCP tools are registered with the <code>mcp_&lt;server&gt;_&lt;tool&gt;</code> naming convention. See <a href="../../MCP.md">MCP.md</a> for complete documentation.
+      </p>
+    </div>
 
     <h2>CLI Options</h2>
 
@@ -96,6 +323,11 @@
     <p>
       All configuration options have sensible defaults. See the environment variables table above for default values.
     </p>
+
+    <div class="navigation">
+      <a href="A-api-reference.html" class="prev">← Appendix A: API Reference</a>
+      <a href="C-examples.html" class="next">Appendix C: Example Agents →</a>
+    </div>
   </div>
 </body>
 </html>

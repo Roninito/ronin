@@ -39,6 +39,15 @@ export type {
   ToolCalledEvent,
   ToolCompletedEvent,
   ToolPolicyViolationEvent,
+  AgentLifecycleEvent,
+  AgentTaskStartedEvent,
+  AgentTaskProgressEvent,
+  AgentTaskCompletedEvent,
+  AgentTaskFailedEvent,
+  AgentMetricEvent,
+  AICompletionEvent,
+  AIStreamEvent,
+  AIToolCallEvent,
 } from "./types.js";
 
 // Version

@@ -42,7 +42,7 @@ Open `index.html` in your web browser to view the book with navigation.
 
 ## Chapters
 
-The book is organized into 7 parts:
+The book is organized into 9 parts:
 
 1. **Introduction & Getting Started** - What is Ronin, Installation
 2. **Ronin Core System** - Architecture, CLI, Configuration
@@ -51,6 +51,8 @@ The book is organized into 7 parts:
 5. **Plugins & Extensibility** - Using and creating plugins
 6. **AI & Tool Calling** - AI integration and function calling
 7. **Advanced Topics** - Memory, events, production, troubleshooting
+8. **Platform Integration** - Desktop Mode for macOS (Quick Actions, menubar, notifications)
+9. **Hybrid Intelligence** - Tool orchestration, workflows, local + cloud AI
 
 Plus appendices with API reference, configuration, examples, and glossary.
 

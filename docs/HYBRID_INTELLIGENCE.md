@@ -21,6 +21,7 @@ Local Ollama Model (Orchestrator)
 Tool Router
     ↓
 ├─ Local Tools (memory, files, shell, reasoning)
+├─ MCP Tools (filesystem, web search, github, sqlite)
 ├─ Cloud Tools (research, vision, image-gen via OpenAI/Anthropic)
 └─ Agent Tools (WebResearcher, custom agents)
     ↓
@@ -125,6 +126,50 @@ this.api.tools.register({
 |------|-------------|----------|
 | `agent.WebResearcher.research` | Deep web research | WebResearcherAgent |
 | `agent.WebResearcher.summarize` | Text summarization | WebResearcherAgent |
+
+### MCP Tools
+
+MCP (Model Context Protocol) tools are provided by external MCP servers. These tools are dynamically registered when MCP servers are enabled.
+
+**Tool Naming**: `mcp_<server>_<tool>`
+
+**Filesystem Server** (`mcp_filesystem_*`):
+- `mcp_filesystem_read_file` - Read file contents
+- `mcp_filesystem_write_file` - Write file contents
+- `mcp_filesystem_list_directory` - List directory contents
+- `mcp_filesystem_create_directory` - Create directories
+- `mcp_filesystem_delete_file` - Delete files
+
+**Web Search Server** (`mcp_brave-search_*`):
+- `mcp_brave-search_web_search` - Search the web via Brave Search API
+
+**GitHub Server** (`mcp_github_*`):
+- `mcp_github_create_issue` - Create GitHub issues
+- `mcp_github_create_pull_request` - Create pull requests
+- `mcp_github_list_repositories` - List repositories
+- `mcp_github_get_file_contents` - Get file contents from repos
+
+**SQLite Server** (`mcp_sqlite_*`):
+- `mcp_sqlite_query` - Execute SQL queries
+- `mcp_sqlite_list_tables` - List database tables
+- `mcp_sqlite_describe_table` - Get table schema
+
+**Setup**: See [MCP.md](./MCP.md) for configuration and usage.
+
+**Example**:
+```typescript
+// Use MCP filesystem tool
+const files = await this.api.tools.execute(
+  "mcp_filesystem_list_directory",
+  { path: "/tmp" }
+);
+
+// Use MCP web search tool
+const results = await this.api.tools.execute(
+  "mcp_brave-search_web_search",
+  { query: "Bun.js features 2026", count: 10 }
+);
+```
 
 ## Workflows
 

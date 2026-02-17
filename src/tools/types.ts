@@ -150,6 +150,84 @@ export interface ToolPolicyViolationEvent {
   timestamp: number;
 }
 
+// Analytics event types (opt-in protocol for agent telemetry)
+
+export interface AgentLifecycleEvent {
+  agent: string;
+  status: "started" | "stopped" | "error";
+  timestamp: number;
+  meta?: Record<string, unknown>;
+}
+
+export interface AgentTaskStartedEvent {
+  agent: string;
+  taskId: string;
+  taskName: string;
+  timestamp: number;
+}
+
+export interface AgentTaskProgressEvent {
+  agent: string;
+  taskId: string;
+  progress: number;
+  message?: string;
+  timestamp: number;
+}
+
+export interface AgentTaskCompletedEvent {
+  agent: string;
+  taskId: string;
+  duration: number;
+  result?: string;
+  timestamp: number;
+}
+
+export interface AgentTaskFailedEvent {
+  agent: string;
+  taskId: string;
+  duration: number;
+  error: string;
+  timestamp: number;
+}
+
+export interface AgentMetricEvent {
+  agent: string;
+  metric: string;
+  value: number;
+  unit?: string;
+  tags?: Record<string, string>;
+  timestamp: number;
+}
+
+// AI layer analytics event types
+
+export interface AICompletionEvent {
+  type: "complete" | "chat";
+  model: string;
+  duration: number;
+  success: boolean;
+  error?: string;
+  timestamp: number;
+}
+
+export interface AIStreamEvent {
+  type: "stream" | "streamChat";
+  model: string;
+  duration: number;
+  success: boolean;
+  error?: string;
+  timestamp: number;
+}
+
+export interface AIToolCallEvent {
+  model: string;
+  duration: number;
+  success: boolean;
+  toolCount: number;
+  error?: string;
+  timestamp: number;
+}
+
 // Cloud adapter types
 export type CloudFeature = 
   | 'vision' 

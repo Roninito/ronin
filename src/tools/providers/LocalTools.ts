@@ -367,5 +367,99 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
     riskLevel: "low",
   });
 
-  console.log("[LocalTools] Registered 6 local tools");
+  // 7. Emit Event Tool
+  register({
+    name: "local.events.emit",
+    description:
+      "Emit a Ronin event so other agents or the event monitor can react. Use for signaling completion, proposing plans (e.g. PlanProposed, TaskCreated), or custom events.",
+    parameters: {
+      type: "object",
+      properties: {
+        event: {
+          type: "string",
+          description: "Event type name (e.g. PlanProposed, TaskCreated, or custom)",
+        },
+        data: {
+          type: "object",
+          description: "Payload object (any JSON-serializable data)",
+        },
+        source: {
+          type: "string",
+          description: "Optional event source; defaults to 'ai' or current agent if known",
+        },
+      },
+      required: ["event", "data"],
+    },
+    provider: "local",
+    handler: async (
+      args: { event: string; data: Record<string, unknown>; source?: string },
+      context: ToolContext
+    ): Promise<ToolResult> => {
+      const startTime = Date.now();
+      if (args.event == null || args.event === "") {
+        return {
+          success: false,
+          data: null,
+          error: "event is required and must be non-empty",
+          metadata: {
+            toolName: "local.events.emit",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+      if (args.data == null || typeof args.data !== "object") {
+        return {
+          success: false,
+          data: null,
+          error: "data is required and must be an object",
+          metadata: {
+            toolName: "local.events.emit",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+      const source = args.source ?? context.metadata?.agentName ?? "ai";
+      try {
+        api.events.emit(args.event, args.data, source);
+        return {
+          success: true,
+          data: { emitted: true, event: args.event, source },
+          metadata: {
+            toolName: "local.events.emit",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          data: null,
+          error: error instanceof Error ? error.message : "Emit failed",
+          metadata: {
+            toolName: "local.events.emit",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+    },
+    cacheable: false,
+    riskLevel: "low",
+  });
+
+  console.log("[LocalTools] Registered 7 local tools");
 }

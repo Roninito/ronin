@@ -8,11 +8,38 @@ export interface TelegramConfig {
   chatId: string;
 }
 
+export type AIProviderType = "ollama" | "openai" | "gemini" | "grok";
+
+export interface AIModelSlots {
+  default: string;
+  fast: string;
+  smart: string;
+  embedding: string;
+}
+
+export interface AIFallbackConfig {
+  enabled: boolean;
+  chain: AIProviderType[];
+}
+
+export interface OpenAICompatConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
 export interface AIConfig {
+  provider: AIProviderType;
+  temperature: number;
   ollamaUrl: string;
   ollamaModel: string;
+  /** When set, the "smart" model tier uses this URL (e.g. Ollama Cloud) instead of ollamaUrl. */
+  ollamaSmartUrl?: string;
   ollamaTimeoutMs: number;
   ollamaEmbeddingModel: string;
+  models: AIModelSlots;
+  fallback: AIFallbackConfig;
+  openai: OpenAICompatConfig;
 }
 
 export interface GeminiConfig {
@@ -23,6 +50,10 @@ export interface GeminiConfig {
 }
 
 export interface GrokConfig {
+  apiKey: string;
+}
+
+export interface BraveSearchConfig {
   apiKey: string;
 }
 
@@ -92,6 +123,45 @@ export interface RealmConfig {
   localPort: number;
 }
 
+export interface DesktopFeaturesConfig {
+  notifications: boolean;
+  clipboard: boolean;
+  shortcuts: boolean;
+  fileWatching: boolean;
+}
+
+export interface DesktopBridgeConfig {
+  port: number;
+  host: string;
+}
+
+export interface MenubarRoutesConfig {
+  enabled: boolean;
+  includePatterns?: string[];
+  excludePatterns?: string[];
+  maxItems?: number;
+}
+
+export interface DesktopConfig {
+  enabled: boolean;
+  features: DesktopFeaturesConfig;
+  folders: string[];
+  bridge: DesktopBridgeConfig;
+  menubar: boolean;
+  menubarRoutes?: MenubarRoutesConfig;
+}
+
+export interface MCPServerConfig {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface MCPConfig {
+  servers: Record<string, MCPServerConfig>;
+}
+
 export interface FullConfig {
   configVersion: string;
   defaultCLI: string;
@@ -103,12 +173,15 @@ export interface FullConfig {
   ai: AIConfig;
   gemini: GeminiConfig;
   grok: GrokConfig;
+  braveSearch: BraveSearchConfig;
   system: SystemConfig;
   eventMonitor: EventMonitorConfig;
   blogBoy: BlogBoyConfig;
   configEditor: ConfigEditorConfig;
   rssToTelegram: RssToTelegramConfig;
   realm: RealmConfig;
+  desktop: DesktopConfig;
+  mcp: MCPConfig;
   pluginDir: string;
   geminiModel: string;
 }
@@ -138,10 +211,25 @@ export type ConfigPath =
   | 'discord.channelIds'
   | 'discord.clientId'
   | 'ai'
+  | 'ai.provider'
+  | 'ai.temperature'
   | 'ai.ollamaUrl'
   | 'ai.ollamaModel'
+  | 'ai.ollamaSmartUrl'
   | 'ai.ollamaTimeoutMs'
   | 'ai.ollamaEmbeddingModel'
+  | 'ai.models'
+  | 'ai.models.default'
+  | 'ai.models.fast'
+  | 'ai.models.smart'
+  | 'ai.models.embedding'
+  | 'ai.fallback'
+  | 'ai.fallback.enabled'
+  | 'ai.fallback.chain'
+  | 'ai.openai'
+  | 'ai.openai.apiKey'
+  | 'ai.openai.baseUrl'
+  | 'ai.openai.model'
   | 'gemini'
   | 'gemini.apiKey'
   | 'gemini.model'
@@ -149,6 +237,8 @@ export type ConfigPath =
   | 'gemini.debug'
   | 'grok'
   | 'grok.apiKey'
+  | 'braveSearch'
+  | 'braveSearch.apiKey'
   | 'system'
   | 'system.dataDir'
   | 'system.webhookPort'
@@ -176,5 +266,17 @@ export type ConfigPath =
   | 'realm.callsign'
   | 'realm.token'
   | 'realm.localPort'
+  | 'desktop'
+  | 'desktop.enabled'
+  | 'desktop.features'
+  | 'desktop.features.notifications'
+  | 'desktop.features.clipboard'
+  | 'desktop.features.shortcuts'
+  | 'desktop.features.fileWatching'
+  | 'desktop.folders'
+  | 'desktop.bridge'
+  | 'desktop.bridge.port'
+  | 'desktop.bridge.host'
+  | 'desktop.menubar'
   | 'pluginDir'
   | 'geminiModel';

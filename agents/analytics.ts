@@ -44,6 +44,11 @@ class RingBuffer<T> {
   clear(): void {
     this.buffer = [];
   }
+
+  /** Restore buffer from an array (e.g. after load from persistence). */
+  replaceAll(items: T[]): void {
+    this.buffer = items.slice(-this.maxSize);
+  }
 }
 
 interface AgentStatus {
@@ -117,15 +122,20 @@ interface AIUsageRecord {
   timestamp: number;
 }
 
+/** How long to keep a snapshot before considering it stale (24h). */
+const ANALYTICS_STATE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** How often to persist state so restarts keep tallies (10 min). */
+const ANALYTICS_PERSIST_INTERVAL_MS = 10 * 60 * 1000;
+
 /**
  * Analytics Agent
  *
  * Collects opt-in telemetry from agents via standardized events,
- * stores metrics in-memory with ring buffers, persists daily summaries,
- * and serves an interactive dashboard at /analytics.
+ * stores metrics in-memory with ring buffers, persists state so restarts
+ * keep at least 24h tallies, and serves an interactive dashboard at /analytics.
  */
 export default class AnalyticsAgent extends BaseAgent {
-  static schedule = "0 * * * *"; // Every hour
+  static schedule = "0 */2 * * *"; // Every hour
 
   private startTime = Date.now();
 
@@ -149,6 +159,8 @@ export default class AnalyticsAgent extends BaseAgent {
   // Total event counter
   private totalEvents = 0;
 
+  private persistIntervalId: ReturnType<typeof setInterval> | null = null;
+
   constructor(api: AgentAPI) {
     super(api);
 
@@ -158,7 +170,83 @@ export default class AnalyticsAgent extends BaseAgent {
     this.registerRoutes();
     this.startHourlyRotation();
 
+    // Restore persisted state so tallies survive restarts (within last 24h)
+    void this.loadStateAsync();
+
+    // Persist state periodically so we can restore after restart
+    this.persistIntervalId = setInterval(() => {
+      void this.persistState();
+    }, ANALYTICS_PERSIST_INTERVAL_MS);
+
     console.log("[analytics] Analytics Agent initialized. Dashboard at /analytics");
+  }
+
+  // ──────────────────────────────────────────────
+  // State persistence (survive restarts, keep last 24h tallies)
+  // ──────────────────────────────────────────────
+
+  private static readonly STATE_KEY = "analytics.state";
+
+  private async loadStateAsync(): Promise<void> {
+    try {
+      const raw = await this.api.memory.retrieve(AnalyticsAgent.STATE_KEY);
+      if (!raw) return;
+
+      const data = JSON.parse(raw) as {
+        version?: number;
+        savedAt: number;
+        agentStatuses?: AgentStatus[];
+        totalEvents?: number;
+        currentHourBucket?: TimeseriesBucket;
+        timeseries?: TimeseriesBucket[];
+      };
+
+      const age = Date.now() - (data.savedAt ?? 0);
+      if (age > ANALYTICS_STATE_MAX_AGE_MS || age < 0) return;
+
+      if (Array.isArray(data.agentStatuses) && data.agentStatuses.length > 0) {
+        this.agentStatuses = new Map(data.agentStatuses.map((a) => [a.name, a]));
+      }
+      if (typeof data.totalEvents === "number") {
+        this.totalEvents = data.totalEvents;
+      }
+      if (Array.isArray(data.timeseries) && data.timeseries.length > 0) {
+        this.timeseriesBuffer.replaceAll(data.timeseries);
+      }
+
+      const nowHourStart = new Date();
+      nowHourStart.setMinutes(0, 0, 0);
+      const currentHourTs = nowHourStart.getTime();
+      if (data.currentHourBucket && typeof data.currentHourBucket.timestamp === "number") {
+        if (data.currentHourBucket.timestamp === currentHourTs) {
+          this.currentHourBucket = data.currentHourBucket as TimeseriesBucket;
+        } else if ((data.currentHourBucket as TimeseriesBucket).events > 0) {
+          this.timeseriesBuffer.push(data.currentHourBucket as TimeseriesBucket);
+        }
+      }
+
+      console.log("[analytics] Restored state from persistence (saved", Math.round(age / 60_000), "min ago)");
+    } catch (e) {
+      // Non-fatal: start fresh
+      console.warn("[analytics] Failed to restore state:", e);
+    }
+  }
+
+  private async persistState(): Promise<void> {
+    try {
+      this.rotateHourBucket();
+      const payload = {
+        version: 1,
+        savedAt: Date.now(),
+        agentStatuses: Array.from(this.agentStatuses.values()),
+        totalEvents: this.totalEvents,
+        currentHourBucket: { ...this.currentHourBucket },
+        timeseries: this.timeseriesBuffer.getAll(),
+      };
+      await this.api.memory.store(AnalyticsAgent.STATE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[analytics] Failed to persist state:", e);
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -1248,7 +1336,7 @@ export default class AnalyticsAgent extends BaseAgent {
   async execute(): Promise<void> {
     console.log("[analytics] Persisting hourly summary...");
 
-    this.rotateHourBucket();
+    await this.persistState();
 
     const dayKey = new Date().toISOString().split("T")[0];
     const summaryKey = `analytics.summary.${dayKey}`;

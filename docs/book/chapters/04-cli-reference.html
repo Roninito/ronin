@@ -245,6 +245,121 @@ ronin cancel agent-creation abc123</code></pre>
     <pre><code>ronin plugins info git
 ronin plugins info grok</code></pre>
 
+    <h2>MCP Server Management</h2>
+
+    <h3>mcp</h3>
+    <p>
+      Manage Model Context Protocol (MCP) server connections. MCP servers extend Ronin with external tools like filesystem access, web search, GitHub integration, and database queries.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin mcp &lt;subcommand&gt; [options]</code></pre>
+    </div>
+
+    <h4>Subcommands</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ronin mcp list</code></td>
+          <td>List configured MCP servers with status and commands</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp discover</code></td>
+          <td>Show all known MCP servers available for installation</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp add &lt;name&gt;</code></td>
+          <td>Add an MCP server from known list or custom server</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp enable &lt;name&gt;</code></td>
+          <td>Enable a previously disabled server</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp disable &lt;name&gt;</code></td>
+          <td>Temporarily disable a server without removing</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp remove &lt;name&gt;</code></td>
+          <td>Remove a server from configuration entirely</td>
+        </tr>
+        <tr>
+          <td><code>ronin mcp status</code></td>
+          <td>Show summary of configured and enabled servers</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Available MCP Servers</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Server</th>
+          <th>Description</th>
+          <th>Requirements</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>filesystem</code></td>
+          <td>Read and write files in a directory</td>
+          <td><code>--path</code> argument</td>
+        </tr>
+        <tr>
+          <td><code>github</code></td>
+          <td>GitHub issues, PRs, repository operations</td>
+          <td>Optional <code>GITHUB_TOKEN</code> env</td>
+        </tr>
+        <tr>
+          <td><code>brave-search</code></td>
+          <td>Web search via Brave Search API</td>
+          <td><code>BRAVE_API_KEY</code></td>
+        </tr>
+        <tr>
+          <td><code>sqlite</code></td>
+          <td>Query SQLite databases</td>
+          <td><code>--path</code> to database</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Examples</h4>
+    <pre><code># Discover available servers
+ronin mcp discover
+
+# Add known servers
+ronin mcp add filesystem --path ~/Documents
+ronin mcp add github
+ronin mcp add sqlite --path ./myapp.db
+
+# Add brave-search (requires API key first)
+ronin config --brave-api-key YOUR_KEY
+ronin mcp add brave-search
+
+# Add custom server
+ronin mcp add my-server --command npx --args '["-y","@org/my-mcp-server"]'
+
+# Manage servers
+ronin mcp list
+ronin mcp enable filesystem
+ronin mcp disable brave-search
+ronin mcp remove github
+ronin mcp status</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        MCP tools are registered with the <code>mcp_&lt;server&gt;_&lt;tool&gt;</code> naming convention (e.g., <code>mcp_filesystem_read_file</code>). See <a href="../MCP.md">MCP.md</a> for complete guide.
+      </p>
+    </div>
+
     <h2>AI Commands</h2>
 
     <h3>ai</h3>

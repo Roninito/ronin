@@ -2,6 +2,7 @@ import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { logger } from "../../utils/logger.js";
 
 export interface RunOptions {
   agentName: string;
@@ -21,7 +22,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const externalAgentDir =
     process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
-  console.log(`🚀 Running agent: ${options.agentName}`);
+  logger.info(`Running agent: ${options.agentName}`);
 
   // Create API
   const api = await createAPI({
@@ -38,17 +39,16 @@ export async function runCommand(options: RunOptions): Promise<void> {
   // Find the agent
   const agent = agents.find(a => a.name === options.agentName);
   if (!agent) {
-    console.error(`❌ Agent not found: ${options.agentName}`);
-    console.log(`Available agents: ${agents.map(a => a.name).join(", ")}`);
+    logger.error("Agent not found", { agent: options.agentName, available: agents.map(a => a.name) });
     process.exit(1);
   }
 
   // Execute the agent
   try {
     await agent.instance.execute();
-    console.log(`✅ Agent ${options.agentName} completed successfully`);
+    logger.info(`Agent ${options.agentName} completed successfully`);
   } catch (error) {
-    console.error(`❌ Error executing agent ${options.agentName}:`, error);
+    logger.error("Error executing agent", { agent: options.agentName, error });
     process.exit(1);
   }
 }

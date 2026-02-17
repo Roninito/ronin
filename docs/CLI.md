@@ -289,6 +289,119 @@ ronin plugins info git
 ronin plugins info grok
 ```
 
+### `mcp`
+
+Manage Model Context Protocol (MCP) server connections. MCP servers extend Ronin with external tools like filesystem access, web search, GitHub integration, and database queries.
+
+**Usage:**
+```bash
+ronin mcp <subcommand> [options]
+```
+
+**Subcommands:**
+
+#### `mcp list`
+
+List all configured MCP servers with their status and commands.
+
+**Examples:**
+```bash
+ronin mcp list
+```
+
+**Output:**
+Shows server name, enabled/disabled status, and command with arguments for each configured MCP server.
+
+#### `mcp discover`
+
+Show all known MCP servers available for installation.
+
+**Examples:**
+```bash
+ronin mcp discover
+```
+
+**Output:**
+Displays a table of known servers with their package names, descriptions, and required arguments.
+
+#### `mcp add <name> [options]`
+
+Add an MCP server from the known list or a custom server.
+
+**Options for Known Servers:**
+- `--path <path>` - Path for filesystem or sqlite servers (required for these server types)
+
+**Options for Custom Servers:**
+- `--command <cmd>` - Command to run (required for custom servers)
+- `--args '<json>'` - JSON array of arguments (required for custom servers)
+
+**Examples:**
+```bash
+# Add known servers
+ronin mcp add filesystem --path ~/Documents
+ronin mcp add github
+ronin mcp add brave-search
+ronin mcp add sqlite --path ./myapp.db
+
+# Add custom server
+ronin mcp add my-server --command npx --args '["-y","@org/my-mcp-server"]'
+```
+
+**Note:** For brave-search, you must first set your API key:
+```bash
+ronin config --brave-api-key YOUR_KEY
+ronin mcp add brave-search
+```
+
+#### `mcp enable <name>`
+
+Enable a previously disabled MCP server.
+
+**Examples:**
+```bash
+ronin mcp enable filesystem
+```
+
+#### `mcp disable <name>`
+
+Temporarily disable an MCP server without removing it from configuration.
+
+**Examples:**
+```bash
+ronin mcp disable brave-search
+```
+
+#### `mcp remove <name>`
+
+Remove an MCP server from configuration entirely.
+
+**Examples:**
+```bash
+ronin mcp remove filesystem
+```
+
+#### `mcp status`
+
+Show summary of configured and enabled MCP servers.
+
+**Examples:**
+```bash
+ronin mcp status
+```
+
+**Output:**
+Shows count of configured and enabled servers, plus a list of all configured server names.
+
+**Available MCP Servers:**
+- **filesystem** - Read and write files in a directory (requires `--path`)
+- **github** - GitHub issues, PRs, repository operations (optional `GITHUB_TOKEN` env)
+- **brave-search** - Web search via Brave Search API (requires API key)
+- **sqlite** - Query SQLite databases (requires `--path` to database)
+
+**See Also:**
+- [docs/MCP.md](./MCP.md) - Complete MCP guide
+- [docs/HYBRID_INTELLIGENCE.md](./HYBRID_INTELLIGENCE.md) - Tool orchestration system
+
 ### `ask`
 
 Ask questions about Ronin or get help. Supports multiple AI providers.
@@ -361,6 +474,8 @@ ronin config [options]
 - `--gemini-api-key <key>` - Set Gemini API key
 - `--gemini-api-key ""` - Remove Gemini API key
 - `--gemini-model <model>` - Set Gemini model name (e.g., `gemini-1.5-pro`)
+- `--brave-api-key <key>` - Set Brave Search API key for MCP web search
+- `--brave-api-key ""` - Remove Brave Search API key
 - `--realm-url <url>` - Set Realm discovery server URL (e.g., `wss://realm.afiwi.net`)
 - `--realm-url ""` - Remove Realm URL
 - `--realm-callsign <callsign>` - Set Realm call sign for this instance
@@ -381,6 +496,7 @@ ronin config --external-agent-dir ~/my-agents
 # Set API keys
 ronin config --grok-api-key sk-xxxxx
 ronin config --gemini-api-key AIxxxxx
+ronin config --brave-api-key BSA-xxxxx
 
 # Set Gemini model
 ronin config --gemini-model gemini-1.5-pro
@@ -400,6 +516,93 @@ ronin config --gemini-api-key ""
 - Environment variables take precedence over config file settings.
 - Once Realm URL and call sign are configured, `ronin start` will automatically connect to Realm on startup.
 - If the configured local port is in use, Realm will automatically try the next available port (4001, 4002, etc.).
+
+### `os`
+
+Manage Ronin Desktop Mode for macOS integration. Desktop Mode allows seamless OS integration with Quick Actions, native notifications, and file watching.
+
+**Usage:**
+```bash
+ronin os <subcommand> [options]
+```
+
+**Subcommands:**
+
+#### `os install mac`
+
+Install macOS Desktop Mode integrations including Quick Actions and LaunchAgent.
+
+**Options:**
+- `--bridge-port <port>` - Set bridge port (default: `17341`)
+- `--folders <paths>` - Comma-separated list of folders to watch
+
+**Examples:**
+```bash
+# Install Desktop Mode
+ronin os install mac
+
+# Install with custom port
+ronin os install mac --bridge-port 8080
+
+# Install with custom folders
+ronin os install mac --folders "~/Desktop,~/Downloads,~/Documents"
+```
+
+**What it installs:**
+- Quick Action in Finder → Services → Send to Ronin
+- LaunchAgent for auto-starting with macOS
+- Bridge HTTP endpoint for OS communications
+
+#### `os uninstall mac`
+
+Remove all macOS Desktop Mode integrations.
+
+**Examples:**
+```bash
+ronin os uninstall mac
+```
+
+#### `os status`
+
+Show current Desktop Mode installation status.
+
+**Examples:**
+```bash
+ronin os status
+```
+
+**Output:**
+- Quick Action installation status
+- LaunchAgent installation status
+- Bridge port configuration
+- Desktop Mode enabled/disabled
+
+#### `os verify`
+
+Verify that Desktop Mode installation is working correctly.
+
+**Examples:**
+```bash
+ronin os verify
+```
+
+**Checks:**
+- Quick Action exists
+- LaunchAgent is installed and loaded
+- Ronin CLI is in PATH
+
+#### `os clipboard enable|disable`
+
+Enable or disable clipboard watching. **Important:** Clipboard watching is disabled by default and requires explicit user consent.
+
+**Examples:**
+```bash
+# Enable clipboard watching
+ronin os clipboard enable
+
+# Disable clipboard watching
+ronin os clipboard disable
+```
 
 ### Fishy Agent
 
@@ -657,6 +860,7 @@ ronin docs PLUGINS --terminal
 ### AI Configuration
 - `GROK_API_KEY` - Grok API key
 - `GEMINI_API_KEY` - Gemini API key
+- `BRAVE_API_KEY` - Brave Search API key (for MCP web search)
 - `OLLAMA_URL` - Ollama API URL (default: `http://localhost:11434`)
 - `OLLAMA_MODEL` - Ollama model name (default: `qwen3:1.7b`)
 
@@ -715,4 +919,5 @@ ollama list
 - [docs/ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture
 - [docs/PLUGINS.md](./PLUGINS.md) - Plugin development
 - [docs/TOOL_CALLING.md](./TOOL_CALLING.md) - Function calling guide
+- [docs/DESKTOP_MODE.md](./DESKTOP_MODE.md) - Desktop Mode guide
 

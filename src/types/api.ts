@@ -10,6 +10,16 @@ export interface CompletionOptions {
    * Network timeout for AI requests (ms). If omitted, Ronin uses a generous default.
    */
   timeoutMs?: number;
+  /**
+   * Enable/disable thinking mode (for models like Qwen3 that support it)
+   * Set to false to disable thinking and get direct responses
+   */
+  thinking?: boolean;
+  /**
+   * Number of retry attempts on transient failures (network errors, 503s, timeouts).
+   * Set to 0 to disable retries. Defaults to 3.
+   */
+  retries?: number;
 }
 
 /**
@@ -150,9 +160,11 @@ export interface AgentAPI {
     get(url: string, options?: RequestOptions): Promise<Response>;
     post(url: string, data: unknown, options?: RequestOptions): Promise<Response>;
     serve(handler: (req: Request) => Response | Promise<Response>): void;
-    registerRoute(path: string, handler: (req: Request) => Response | Promise<Response>): void;
+    registerRoute(path: string, handler: (req: Request) => Response | Promise<Response>, metadata?: {title?: string, description?: string, icon?: string}): void;
     registerRoutes(routes: Record<string, (req: Request) => Response | Promise<Response>>): void;
     getAllRoutes(): Map<string, (req: Request) => Response | Promise<Response>>;
+    getRouteMetadata(path: string): {title?: string, description?: string, icon?: string} | undefined;
+    getAllRoutesWithMetadata(): Array<{path: string, metadata?: {title?: string, description?: string, icon?: string}}>;
   };
 
   /**
@@ -165,7 +177,14 @@ export interface AgentAPI {
     beam(targets: string | string[], eventType: string, payload: unknown): void;
     query(targets: string | string[], queryType: string, payload: unknown, timeout?: number): Promise<unknown>;
     reply(requestId: string, data: unknown, error?: string | null): void;
+    getRegisteredEvents(): Array<{event: string, handlerCount: number}>;
   };
+
+  /**
+   * When running under the Ronin server, returns the current list of agents from the registry (post hot-reload).
+   * Omitted when API is used standalone (e.g. CLI). Use for up-to-date schedule data.
+   */
+  getAgents?: () => Array<{ name: string; filePath: string; schedule?: string; watch?: string[]; webhook?: string }>;
 
   /**
    * Plugin system
@@ -636,6 +655,7 @@ export interface AgentAPI {
     getAI(): import("../config/types.js").AIConfig;
     getGemini(): import("../config/types.js").GeminiConfig;
     getGrok(): import("../config/types.js").GrokConfig;
+    getBraveSearch(): import("../config/types.js").BraveSearchConfig;
     getSystem(): import("../config/types.js").SystemConfig;
     getCLIOptions(): import("../config/types.js").CLIOptions;
     getEventMonitor(): import("../config/types.js").EventMonitorConfig;
@@ -643,6 +663,7 @@ export interface AgentAPI {
     getConfigEditor(): import("../config/types.js").ConfigEditorConfig;
     getRssToTelegram(): import("../config/types.js").RssToTelegramConfig;
     getRealm(): import("../config/types.js").RealmConfig;
+    getMCP(): import("../config/types.js").MCPConfig;
     isFromEnv(path: string): boolean;
     reload(): Promise<void>;
   };

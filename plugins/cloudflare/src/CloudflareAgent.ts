@@ -1,0 +1,775 @@
+/**
+ * CloudflareAgent
+ * Main agent for Cloudflare plugin
+ * Manages tunnels, enforces security, handles events
+ */
+
+import { BaseAgent } from '../../../src/agent/index.js';
+import type { AgentAPI } from '../../../src/types/index.js';
+import { WranglerWrapper } from './WranglerWrapper.js';
+import { RouteGuard } from './RouteGuard.js';
+import { EventGuard } from './EventGuard.js';
+import { ProjectionLayer } from './ProjectionLayer.js';
+import { CircuitBreaker } from './CircuitBreaker.js';
+import type { 
+  TunnelConfig, 
+  CreateTunnelEvent, 
+  RouteBlockedEvent,
+  CircuitBreakerEvent 
+} from './types.js';
+import { execSync } from 'child_process';
+import { existsSync, writeFileSync } from 'fs';
+import { join, homedir } from 'path';
+
+const TUNNEL_STATE_KEY = 'cloudflare:tunnels';
+const POLICY_PATH = join(homedir(), '.ronin', 'cloudflare.routes.json');
+
+export default class CloudflareAgent extends BaseAgent {
+  private wrangler: WranglerWrapper;
+  private routeGuard: RouteGuard;
+  private eventGuard: EventGuard;
+  private projection: ProjectionLayer;
+  private circuitBreaker: CircuitBreaker;
+  private activeTunnels: Map<string, TunnelConfig> = new Map();
+
+  constructor(api: AgentAPI) {
+    super(api);
+    this.wrangler = new WranglerWrapper();
+    this.routeGuard = new RouteGuard();
+    this.eventGuard = new EventGuard();
+    this.projection = new ProjectionLayer();
+    this.circuitBreaker = new CircuitBreaker();
+  }
+
+  async onMount(): Promise<void> {
+    console.log('[CloudflareAgent] Mounting...');
+
+    // Install RouteGuard middleware on HTTP server
+    this.installRouteGuard();
+
+    // Register event handlers
+    this.api.events.on('cloudflare.tunnel.create', this.handleCreateTunnel.bind(this));
+    this.api.events.on('cloudflare.tunnel.stop', this.handleStopTunnel.bind(this));
+    this.api.events.on('cloudflare.tunnel.delete', this.handleDeleteTunnel.bind(this));
+    this.api.events.on('cloudflare.pages.deploy', this.handleDeployPages.bind(this));
+
+    // Restore active tunnels from memory
+    await this.restoreTunnels();
+
+    // Start circuit breaker monitoring
+    this.startCircuitBreakerMonitoring();
+
+    console.log('[CloudflareAgent] Mounted successfully');
+  }
+
+  /**
+   * Install RouteGuard middleware on HTTP server
+   */
+  private installRouteGuard(): void {
+    // Register middleware with HTTP server
+    this.api.http.registerMiddleware?.(async (req: Request) => {
+      // Get tunnel name from request context
+      const tunnelName = (req as any).tunnelName || 'default';
+      
+      // Check circuit breaker first
+      const clientIP = 'unknown'; // TODO: Extract from request
+      const blockStatus = this.circuitBreaker.isBlocked(clientIP);
+      
+      if (blockStatus.blocked) {
+        return new Response(
+          `Blocked: ${blockStatus.reason}. Unblocks at ${new Date(blockStatus.unblockAt!).toISOString()}`,
+          { status: 403 }
+        );
+      }
+
+      // Run RouteGuard
+      const result = await this.routeGuard.handle(req, tunnelName);
+      
+      if (result) {
+        // Request blocked - record failure
+        const blockResult = this.circuitBreaker.recordFailure(
+          clientIP,
+          result.statusText
+        );
+        
+        if (blockResult.blocked) {
+          // Triggered circuit breaker
+          this.api.events.emit('cloudflare.circuitbreaker.triggered', {
+            tunnelName,
+            reason: blockResult.reason,
+            blockedUntil: Date.now() + (15 * 60 * 1000)
+          } as CircuitBreakerEvent);
+          
+          // Send notification
+          this.api.notifications?.send({
+            title: 'Security Alert',
+            message: `Circuit breaker triggered for ${tunnelName}: ${blockResult.reason}`,
+            sound: true
+          });
+        }
+        
+        return result;
+      }
+
+      // Request allowed - record success
+      this.circuitBreaker.recordSuccess(clientIP);
+      
+      return null; // Allow to proceed
+    });
+
+    console.log('[CloudflareAgent] RouteGuard middleware installed');
+  }
+
+  /**
+   * Handle tunnel creation
+   */
+  private async handleCreateTunnel(data: CreateTunnelEvent): Promise<void> {
+    console.log(`[CloudflareAgent] Creating tunnel: ${data.name}`);
+
+    // REQUIRE route policy file - security critical
+    if (!await this.routeGuard.hasPolicy()) {
+      const error = 'Route policy required. Run "ronin cloudflare route init" first.';
+      console.error(`[CloudflareAgent] ${error}`);
+      
+      this.api.events.emit('cloudflare.error', {
+        error,
+        context: 'tunnel.create'
+      });
+      
+      this.api.notifications?.send({
+        title: 'Tunnel Creation Failed',
+        message: error,
+        sound: true
+      });
+      
+      return;
+    }
+
+    // Ensure Wrangler is installed
+    if (!await this.wrangler.ensureInstalled()) {
+      const error = 'Wrangler CLI not available. Install with: npm install -g wrangler';
+      console.error(`[CloudflareAgent] ${error}`);
+      
+      this.api.events.emit('cloudflare.error', {
+        error,
+        context: 'tunnel.create'
+      });
+      
+      return;
+    }
+
+    // Ensure authenticated
+    if (!await this.wrangler.isAuthenticated()) {
+      console.log('[CloudflareAgent] Not authenticated. Initiating login...');
+      const token = await this.wrangler.login();
+      
+      if (!token) {
+        const error = 'Authentication failed';
+        console.error(`[CloudflareAgent] ${error}`);
+        
+        this.api.events.emit('cloudflare.error', {
+          error,
+          context: 'tunnel.create'
+        });
+        
+        return;
+      }
+    }
+
+    // Create tunnel
+    const config = await this.wrangler.createTunnel(data.name);
+    
+    if (!config) {
+      this.api.events.emit('cloudflare.error', {
+        error: 'Failed to create tunnel',
+        context: 'tunnel.create'
+      });
+      return;
+    }
+
+    // Handle temporary tunnel
+    if (data.temporary && data.ttl) {
+      const ttl = this.wrangler.validateTTL(data.ttl);
+      config.isTemporary = true;
+      config.expires = Date.now() + (ttl * 1000);
+      
+      // Schedule auto-cleanup
+      setTimeout(() => {
+        this.handleDeleteTunnel({ name: data.name });
+      }, ttl * 1000);
+    }
+
+    // Start tunnel
+    const started = await this.wrangler.startTunnel(config);
+    
+    if (!started) {
+      this.api.events.emit('cloudflare.error', {
+        error: 'Failed to start tunnel',
+        context: 'tunnel.create'
+      });
+      return;
+    }
+
+    // Store in memory
+    this.activeTunnels.set(data.name, config);
+    await this.saveTunnelState();
+
+    // Emit success event
+    this.api.events.emit('cloudflare.tunnel.active', {
+      name: data.name,
+      url: config.url,
+      localPort: config.localPort,
+      status: 'active',
+      expires: config.expires
+    });
+
+    console.log(`[CloudflareAgent] Tunnel active: ${config.url}`);
+
+    // Notify
+    this.api.notifications?.send({
+      title: 'Tunnel Created',
+      message: `${data.name} is now accessible at ${config.url}`,
+      subtitle: config.isTemporary ? `Expires in ${Math.round((config.expires! - Date.now()) / 60000)} minutes` : undefined
+    });
+  }
+
+  /**
+   * Handle tunnel stop
+   */
+  private async handleStopTunnel(data: { name: string }): Promise<void> {
+    console.log(`[CloudflareAgent] Stopping tunnel: ${data.name}`);
+
+    const tunnel = this.activeTunnels.get(data.name);
+    if (!tunnel) {
+      console.warn(`[CloudflareAgent] Tunnel not found: ${data.name}`);
+      return;
+    }
+
+    await this.wrangler.stopTunnel(data.name);
+    
+    tunnel.status = 'stopped';
+    this.activeTunnels.set(data.name, tunnel);
+    await this.saveTunnelState();
+
+    this.api.events.emit('cloudflare.tunnel.stopped', {
+      name: data.name,
+      reason: 'manual'
+    });
+
+    this.api.notifications?.send({
+      title: 'Tunnel Stopped',
+      message: `${data.name} has been stopped`
+    });
+  }
+
+  /**
+   * Handle tunnel deletion
+   */
+  private async handleDeleteTunnel(data: { name: string }): Promise<void> {
+    console.log(`[CloudflareAgent] Deleting tunnel: ${data.name}`);
+
+    const tunnel = this.activeTunnels.get(data.name);
+    if (!tunnel) {
+      console.warn(`[CloudflareAgent] Tunnel not found: ${data.name}`);
+      return;
+    }
+
+    // Stop first
+    await this.wrangler.stopTunnel(data.name);
+    
+    // Delete
+    await this.wrangler.deleteTunnel(data.name, tunnel.id);
+    
+    this.activeTunnels.delete(data.name);
+    await this.saveTunnelState();
+
+    this.api.events.emit('cloudflare.tunnel.deleted', {
+      name: data.name
+    });
+
+    this.api.notifications?.send({
+      title: 'Tunnel Deleted',
+      message: `${data.name} has been permanently deleted`
+    });
+  }
+
+  /**
+   * Handle Pages deployment
+   */
+  private async handleDeployPages(data: { 
+    directory: string; 
+    project: string 
+  }): Promise<void> {
+    console.log(`[CloudflareAgent] Deploying ${data.directory} to ${data.project}`);
+
+    const result = await this.wrangler.deployPages(data.directory, data.project);
+    
+    if (result) {
+      this.api.events.emit('cloudflare.pages.deployed', {
+        project: data.project,
+        url: result.url
+      });
+
+      this.api.notifications?.send({
+        title: 'Pages Deployed',
+        message: `${data.project} is live at ${result.url}`
+      });
+    }
+  }
+
+  /**
+   * Initialize default route policy
+   */
+  async initializePolicy(): Promise<boolean> {
+    if (existsSync(POLICY_PATH)) {
+      console.log('[CloudflareAgent] Policy file already exists');
+      return true;
+    }
+
+    const defaultPolicy = {
+      version: '1.0',
+      mode: 'strict',
+      routes: [],
+      blockedPaths: [
+        '/disk/**',
+        '/admin/**',
+        '/internal/**',
+        '/api/os-bridge/**',
+        '/.ronin/**'
+      ],
+      projections: {}
+    };
+
+    try {
+      writeFileSync(POLICY_PATH, JSON.stringify(defaultPolicy, null, 2));
+      console.log('[CloudflareAgent] Created default policy:', POLICY_PATH);
+      return true;
+    } catch (error) {
+      console.error('[CloudflareAgent] Failed to create policy:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Save tunnel state to memory
+   */
+  private async saveTunnelState(): Promise<void> {
+    const tunnels = Array.from(this.activeTunnels.values());
+    await this.api.memory.store(TUNNEL_STATE_KEY, tunnels);
+  }
+
+  /**
+   * Restore tunnels from memory
+   */
+  private async restoreTunnels(): Promise<void> {
+    const tunnels = await this.api.memory.retrieve(TUNNEL_STATE_KEY) as TunnelConfig[];
+    
+    if (tunnels && Array.isArray(tunnels)) {
+      for (const tunnel of tunnels) {
+        if (tunnel.status === 'active') {
+          // Check if expired
+          if (tunnel.expires && Date.now() > tunnel.expires) {
+            console.log(`[CloudflareAgent] Tunnel ${tunnel.name} expired, cleaning up`);
+            await this.handleDeleteTunnel({ name: tunnel.name });
+          } else {
+            this.activeTunnels.set(tunnel.name, tunnel);
+            
+            // Re-schedule cleanup for temporary tunnels
+            if (tunnel.isTemporary && tunnel.expires) {
+              const timeLeft = tunnel.expires - Date.now();
+              if (timeLeft > 0) {
+                setTimeout(() => {
+                  this.handleDeleteTunnel({ name: tunnel.name });
+                }, timeLeft);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Start circuit breaker monitoring
+   */
+  private startCircuitBreakerMonitoring(): void {
+    // Check every minute for suspicious patterns
+    setInterval(async () => {
+      const logs = await this.routeGuard.getAuditLogs(100);
+      const analysis = this.circuitBreaker.analyzeAuditLog(logs);
+      
+      if (analysis.suspicious) {
+        console.warn('[CloudflareAgent] Suspicious activity detected:', analysis.reasons);
+        
+        this.api.notifications?.send({
+          title: 'Security Alert',
+          message: `Suspicious activity: ${analysis.reasons.join(', ')}`,
+          sound: true
+        });
+      }
+    }, 60000);
+  }
+
+  /**
+   * Get tunnel status
+   */
+  getTunnelStatus(name: string): TunnelConfig | undefined {
+    return this.activeTunnels.get(name);
+  }
+
+  /**
+   * List all tunnels
+   */
+  listTunnels(): TunnelConfig[] {
+    return Array.from(this.activeTunnels.values());
+  }
+
+  /**
+   * CLI Command Handlers
+   */
+
+  async login(): Promise<void> {
+    console.log('[CloudflareAgent] Initiating login...');
+    
+    if (!await this.wrangler.ensureInstalled()) {
+      console.error('[CloudflareAgent] Wrangler CLI not available. Install with: npm install -g wrangler');
+      return;
+    }
+
+    const token = await this.wrangler.login();
+    if (token) {
+      this.api.events.emit('cloudflare.auth.login', {
+        email: token.email,
+        accountId: token.accountId
+      });
+      
+      this.api.notifications?.send({
+        title: 'Cloudflare Login Successful',
+        message: `Authenticated as ${token.email}`,
+        priority: 'info'
+      });
+    }
+  }
+
+  async logout(): Promise<void> {
+    console.log('[CloudflareAgent] Logging out...');
+    
+    // Kill any running tunnels
+    for (const [name] of this.activeTunnels.entries()) {
+      await this.wrangler.stopTunnel(name);
+    }
+    
+    // Clear active tunnels
+    this.activeTunnels.clear();
+    await this.saveTunnelState();
+    
+    // Try to logout from wrangler
+    try {
+      execSync('wrangler logout', { stdio: 'ignore' });
+    } catch (error) {
+      console.log('[CloudflareAgent] Wrangler logout may have failed, continuing...');
+    }
+    
+    this.api.events.emit('cloudflare.auth.logout', {});
+    
+    this.api.notifications?.send({
+      title: 'Cloudflare Logout',
+      message: 'Successfully logged out'
+    });
+  }
+
+  async status(): Promise<void> {
+    console.log('[CloudflareAgent] Checking status...');
+    
+    const isAuthenticated = await this.wrangler.isAuthenticated();
+    const tunnels = this.listTunnels();
+    
+    console.log(`Cloudflare Status:`);
+    console.log(`  Authenticated: ${isAuthenticated ? 'Yes' : 'No'}`);
+    console.log(`  Active Tunnels: ${tunnels.length}`);
+    
+    for (const tunnel of tunnels) {
+      console.log(`  - ${tunnel.name}: ${tunnel.status}${tunnel.expires ? ` (expires: ${new Date(tunnel.expires).toLocaleString()})` : ''}`);
+    }
+    
+    // Show blocked IPs
+    const blockedIPs = this.circuitBreaker.getBlockedIPs();
+    console.log(`  Blocked IPs: ${blockedIPs.length}`);
+    
+    if (blockedIPs.length > 0) {
+      for (const ip of blockedIPs) {
+        console.log(`    - ${ip.ip}: ${ip.reason} (until ${new Date(ip.blockedUntil).toLocaleString()})`);
+      }
+    }
+  }
+
+  async tunnelCreate(name: string): Promise<void> {
+    if (!name) {
+      console.error('[CloudflareAgent] Tunnel name is required');
+      return;
+    }
+    
+    await this.handleCreateTunnel({
+      name,
+      temporary: false
+    });
+  }
+
+  async tunnelTemp(ttl: number = 3600): Promise<void> {  // Default to 1 hour
+    const name = `temp-${Date.now()}`;
+    
+    await this.handleCreateTunnel({
+      name,
+      temporary: true,
+      ttl
+    });
+  }
+
+  async tunnelStart(name: string): Promise<void> {
+    if (!name) {
+      console.error('[CloudflareAgent] Tunnel name is required');
+      return;
+    }
+    
+    const tunnel = this.activeTunnels.get(name);
+    if (!tunnel) {
+      console.error(`[CloudflareAgent] Tunnel ${name} not found`);
+      return;
+    }
+    
+    const started = await this.wrangler.startTunnel(tunnel);
+    if (started) {
+      tunnel.status = 'active';
+      this.activeTunnels.set(name, tunnel);
+      await this.saveTunnelState();
+      
+      this.api.events.emit('cloudflare.tunnel.active', {
+        name: tunnel.name,
+        url: tunnel.url,
+        localPort: tunnel.localPort,
+        status: 'active'
+      });
+      
+      this.api.notifications?.send({
+        title: 'Tunnel Started',
+        message: `${name} is now active`
+      });
+    }
+  }
+
+  async tunnelStop(name: string): Promise<void> {
+    if (!name) {
+      console.error('[CloudflareAgent] Tunnel name is required');
+      return;
+    }
+    
+    await this.handleStopTunnel({ name });
+  }
+
+  async tunnelDelete(name: string): Promise<void> {
+    if (!name) {
+      console.error('[CloudflareAgent] Tunnel name is required');
+      return;
+    }
+    
+    await this.handleDeleteTunnel({ name });
+  }
+
+  async tunnelList(): Promise<void> {
+    const tunnels = this.listTunnels();
+    
+    console.log('Active Tunnels:');
+    if (tunnels.length === 0) {
+      console.log('  No active tunnels');
+      return;
+    }
+    
+    for (const tunnel of tunnels) {
+      const expiry = tunnel.expires ? ` (expires: ${new Date(tunnel.expires).toLocaleString()})` : '';
+      console.log(`  - ${tunnel.name}: ${tunnel.status}${expiry}`);
+    }
+  }
+
+  async routeInit(): Promise<void> {
+    await this.initializePolicy();
+  }
+
+  async routeAdd(path: string): Promise<void> {
+    if (!path) {
+      console.error('[CloudflareAgent] Path is required');
+      return;
+    }
+    
+    // Load current policy
+    const policy = await this.routeGuard.loadPolicy();
+    if (!policy) {
+      console.error('[CloudflareAgent] No policy file found. Run "ronin cloudflare route init" first.');
+      return;
+    }
+    
+    // Add route if it doesn't exist
+    if (!policy.routes.some(route => route.path === path)) {
+      policy.routes.push({
+        path,
+        methods: ['GET', 'POST'], // Default methods
+        auth: 'none',
+        expires: null
+      });
+      
+      // Save updated policy
+      const policyPath = join(homedir(), '.ronin', 'cloudflare.routes.json');
+      try {
+        writeFileSync(policyPath, JSON.stringify(policy, null, 2));
+        console.log(`[CloudflareAgent] Added route: ${path}`);
+        
+        this.api.events.emit('cloudflare.route.added', {
+          path,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('[CloudflareAgent] Failed to update policy:', error);
+      }
+    } else {
+      console.log(`[CloudflareAgent] Route already exists: ${path}`);
+    }
+  }
+
+  async routeRemove(path: string): Promise<void> {
+    if (!path) {
+      console.error('[CloudflareAgent] Path is required');
+      return;
+    }
+    
+    // Load current policy
+    const policy = await this.routeGuard.loadPolicy();
+    if (!policy) {
+      console.error('[CloudflareAgent] No policy file found.');
+      return;
+    }
+    
+    // Remove route
+    const initialLength = policy.routes.length;
+    policy.routes = policy.routes.filter(route => route.path !== path);
+    
+    if (policy.routes.length < initialLength) {
+      // Save updated policy
+      const policyPath = join(homedir(), '.ronin', 'cloudflare.routes.json');
+      try {
+        writeFileSync(policyPath, JSON.stringify(policy, null, 2));
+        console.log(`[CloudflareAgent] Removed route: ${path}`);
+        
+        this.api.events.emit('cloudflare.route.removed', {
+          path,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('[CloudflareAgent] Failed to update policy:', error);
+      }
+    } else {
+      console.log(`[CloudflareAgent] Route not found: ${path}`);
+    }
+  }
+
+  async routeList(): Promise<void> {
+    const policy = await this.routeGuard.loadPolicy();
+    if (!policy) {
+      console.log('[CloudflareAgent] No policy file found. Run "ronin cloudflare route init" first.');
+      return;
+    }
+    
+    console.log('Allowed Routes:');
+    if (policy.routes.length === 0) {
+      console.log('  No routes defined');
+      return;
+    }
+    
+    for (const route of policy.routes) {
+      console.log(`  - ${route.path}: ${route.methods.join(', ')} (auth: ${route.auth})`);
+    }
+  }
+
+  async routeValidate(): Promise<void> {
+    const policy = await this.routeGuard.loadPolicy();
+    if (!policy) {
+      console.log('[CloudflareAgent] No policy file found.');
+      return;
+    }
+    
+    const validator = new PolicyValidator();
+    const result = validator.validate(policy);
+    
+    if (result.valid) {
+      console.log('[CloudflareAgent] Policy is valid!');
+    } else {
+      console.log('[CloudflareAgent] Policy validation errors:');
+      for (const error of result.errors) {
+        console.log(`  - ${error}`);
+      }
+    }
+  }
+
+  async pagesDeploy(directory: string, project: string): Promise<void> {
+    if (!directory || !project) {
+      console.error('[CloudflareAgent] Directory and project name are required');
+      return;
+    }
+    
+    await this.handleDeployPages({ directory, project });
+  }
+
+  async securityAudit(): Promise<void> {
+    console.log('[CloudflareAgent] Running security audit...');
+    
+    // Check authentication status
+    const isAuthenticated = await this.wrangler.isAuthenticated();
+    console.log(`  Authentication: ${isAuthenticated ? 'OK' : 'MISSING'}`);
+    
+    // Check tunnel security
+    const tunnels = this.listTunnels();
+    console.log(`  Active Tunnels: ${tunnels.length}`);
+    
+    for (const tunnel of tunnels) {
+      console.log(`    - ${tunnel.name}: ${tunnel.status}`);
+    }
+    
+    // Check blocked IPs
+    const blockedIPs = this.circuitBreaker.getBlockedIPs();
+    console.log(`  Blocked IPs: ${blockedIPs.length}`);
+    
+    // Check policy
+    const policy = await this.routeGuard.loadPolicy();
+    if (policy) {
+      console.log(`  Defined Routes: ${policy.routes.length}`);
+      console.log(`  Blocked Paths: ${policy.blockedPaths.length}`);
+    } else {
+      console.log(`  Policy: MISSING - Run "ronin cloudflare route init"`);
+    }
+    
+    // Check for any suspicious activity
+    const auditLogs = await this.routeGuard.getAuditLogs(50);
+    const blockedRequests = auditLogs.filter(log => !log.allowed);
+    console.log(`  Recent Blocked Requests: ${blockedRequests.length}`);
+    
+    this.api.notifications?.send({
+      title: 'Security Audit Complete',
+      message: `Checked ${tunnels.length} tunnels, ${blockedIPs.length} blocked IPs`
+    });
+  }
+
+  /**
+   * Scheduled execution - cleanup and monitoring
+   */
+  async execute(): Promise<void> {
+    // Cleanup expired tunnels
+    const now = Date.now();
+    for (const [name, tunnel] of this.activeTunnels.entries()) {
+      if (tunnel.expires && now > tunnel.expires) {
+        console.log(`[CloudflareAgent] Auto-cleaning expired tunnel: ${name}`);
+        await this.handleDeleteTunnel({ name });
+      }
+    }
+
+    // Save state
+    await this.saveTunnelState();
+  }
+}

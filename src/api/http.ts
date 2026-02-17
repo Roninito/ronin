@@ -1,13 +1,27 @@
 import type { RequestOptions } from "../types/api.js";
 
+export interface RouteMetadata {
+  title?: string;
+  description?: string;
+  icon?: string;
+}
+
 export class HTTPAPI {
   private routes: Map<string, (req: Request) => Response | Promise<Response>> = new Map();
+  private routeMetadata: Map<string, RouteMetadata> = new Map();
 
   /**
-   * Register a route handler
+   * Register a route handler with optional metadata
    */
-  registerRoute(path: string, handler: (req: Request) => Response | Promise<Response>): void {
+  registerRoute(
+    path: string, 
+    handler: (req: Request) => Response | Promise<Response>,
+    metadata?: RouteMetadata
+  ): void {
     this.routes.set(path, handler);
+    if (metadata) {
+      this.routeMetadata.set(path, metadata);
+    }
   }
 
   /**
@@ -31,6 +45,27 @@ export class HTTPAPI {
    */
   getAllRoutes(): Map<string, (req: Request) => Response | Promise<Response>> {
     return this.routes;
+  }
+
+  /**
+   * Get metadata for a route
+   */
+  getRouteMetadata(path: string): RouteMetadata | undefined {
+    return this.routeMetadata.get(path);
+  }
+
+  /**
+   * Get all routes with their metadata
+   */
+  getAllRoutesWithMetadata(): Array<{path: string, metadata?: RouteMetadata}> {
+    const result: Array<{path: string, metadata?: RouteMetadata}> = [];
+    for (const [path] of this.routes.entries()) {
+      result.push({
+        path,
+        metadata: this.routeMetadata.get(path)
+      });
+    }
+    return result;
   }
 
   /**

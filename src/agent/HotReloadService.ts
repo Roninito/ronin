@@ -3,6 +3,7 @@ import { join, dirname, basename, extname } from "path";
 import { existsSync } from "fs";
 import type { AgentRegistry } from "./AgentRegistry.js";
 import type { AgentAPI } from "../types/api.js";
+import { logger } from "../utils/logger.js";
 
 interface HotReloadOptions {
   agentsDir: string;
@@ -46,7 +47,7 @@ export class HotReloadService {
    * Start watching agent directories
    */
   start(): void {
-    console.log("[hot-reload] Starting file watchers...");
+    logger.debug("Hot reload starting file watchers");
     
     // Watch built-in agents directory
     if (existsSync(this.agentsDir)) {
@@ -63,34 +64,34 @@ export class HotReloadService {
    * Stop all watchers
    */
   stop(): void {
-    console.log("[hot-reload] Stopping file watchers...");
+    logger.debug("Hot reload stopping file watchers");
     for (const [path, watcher] of this.watchers) {
       watcher.close();
-      console.log(`[hot-reload] Stopped watching: ${path}`);
+      logger.debug("Hot reload stopped watching", { path });
     }
     this.watchers.clear();
   }
 
   /**
-   * Watch a directory for changes
+   * Watch a directory for changes (recursive when supported so schedule-manager and nested agents reload).
    */
   private watchDirectory(dir: string): void {
-    const watcher = watch(dir, { recursive: false }, (eventType, filename) => {
+    const onEvent = (eventType: string, filename: string | null) => {
       if (!filename) return;
-      
-      // Only process .ts files
-      if (!filename.endsWith('.ts')) return;
-      
+      if (!filename.endsWith(".ts")) return;
       const filePath = join(dir, filename);
-      
-      // Debounce - wait for file to be fully written
-      setTimeout(() => {
-        this.handleFileChange(filePath, eventType);
-      }, 100);
-    });
+      setTimeout(() => this.handleFileChange(filePath, eventType), 100);
+    };
 
+    let watcher: ReturnType<typeof watch>;
+    try {
+      watcher = watch(dir, { recursive: true }, onEvent);
+      logger.debug("Hot reload watching directory", { dir, recursive: true });
+    } catch {
+      watcher = watch(dir, { recursive: false }, onEvent);
+      logger.debug("Hot reload watching directory", { dir, recursive: false });
+    }
     this.watchers.set(dir, watcher);
-    console.log(`[hot-reload] Watching: ${dir}`);
   }
 
   /**
@@ -107,9 +108,9 @@ export class HotReloadService {
       const isReload = this.loadedAgents.has(filePath);
       
       if (isReload) {
-        console.log(`[hot-reload] Detected change in: ${basename(filePath)}`);
+        logger.debug("Hot reload detected change", { file: basename(filePath) });
       } else {
-        console.log(`[hot-reload] Detected new agent: ${basename(filePath)}`);
+        logger.debug("Hot reload detected new agent", { file: basename(filePath) });
       }
 
       // Load the agent
@@ -147,13 +148,15 @@ export class HotReloadService {
         return { success: false, error: `No default export found in ${filePath}` };
       }
 
-      // Get agent name from class or filename
-      const agentName = AgentClass.name || basename(filePath, '.ts');
+      // Use same name as AgentLoader (file basename without extension) so we replace the
+      // existing registry entry instead of creating a duplicate with the class name (e.g. NOAANewsAgent).
+      const base = basename(filePath);
+      const agentName = base.replace(/\.(ts|js)$/, "");
 
-      // Check if agent is already registered
+      // Check if agent is already registered (same key as initial load from loader)
       const existingAgent = this.registry.get(agentName);
       if (existingAgent) {
-        console.log(`[hot-reload] Reloading agent: ${agentName}`);
+        logger.debug("Hot reload reloading agent", { agent: agentName });
         // Unload existing first
         this.registry.unregister(agentName);
       }
@@ -161,9 +164,10 @@ export class HotReloadService {
       // Instantiate the agent
       const agentInstance = new AgentClass(this.api);
 
-      // Extract metadata
+      // Extract metadata (include filePath so registry.getAgents() has it for schedule manager etc.)
       const metadata = {
         name: agentName,
+        filePath,
         description: AgentClass.description || `${agentName} agent`,
         schedule: AgentClass.schedule,
         watch: AgentClass.watch,
@@ -192,28 +196,26 @@ export class HotReloadService {
         schedules.push(metadata.schedule);
       }
 
-      console.log(`[hot-reload] ✅ Loaded agent: ${agentName}`);
-      if (routes.length > 0) {
-        console.log(`[hot-reload]   Routes: ${routes.join(', ')}`);
-      }
-      if (schedules.length > 0) {
-        console.log(`[hot-reload]   Schedules: ${schedules.join(', ')}`);
-      }
+      logger.info("Hot reload loaded agent", { agent: agentName, routes, schedules });
 
-      // Start stability observation
-      const isStable = await this.observeStability(agentName, agentInstance);
+      // Run stability observation in background so we return immediately (registry is already updated)
+      this.observeStability(agentName, agentInstance).then((isStable) => {
+        if (!isStable) {
+          logger.warn("Hot reload agent had errors during observation", { agent: agentName });
+        }
+      });
 
       return {
         success: true,
         agentName,
         routes,
         schedules,
-        stable: isStable,
+        stable: true,
       };
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[hot-reload] ❌ Failed to load agent: ${errorMsg}`);
+      logger.error("Hot reload failed to load agent", { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }
@@ -222,7 +224,7 @@ export class HotReloadService {
    * Observe agent for stability
    */
   private async observeStability(agentName: string, agentInstance: any): Promise<boolean> {
-    console.log(`[hot-reload] Observing ${agentName} for ${this.stabilityCheckDuration}ms...`);
+    logger.debug("Hot reload observing agent stability", { agent: agentName, durationMs: this.stabilityCheckDuration });
     
     return new Promise((resolve) => {
       let errors = 0;
@@ -231,7 +233,7 @@ export class HotReloadService {
       // Track errors during observation period
       errorHandler = (err: Error) => {
         errors++;
-        console.error(`[hot-reload] ⚠️  Error observed in ${agentName}:`, err.message);
+        logger.error("Hot reload observed error during stability check", { agent: agentName, error: err.message });
       };
 
       // Listen for errors if agent has error event
@@ -248,9 +250,9 @@ export class HotReloadService {
 
         const isStable = errors === 0;
         if (isStable) {
-          console.log(`[hot-reload] ✅ ${agentName} is stable`);
+          logger.debug("Hot reload agent stable", { agent: agentName });
         } else {
-          console.log(`[hot-reload] ⚠️  ${agentName} had ${errors} errors during observation`);
+          logger.warn("Hot reload agent had errors during observation", { agent: agentName, errors });
         }
         
         resolve(isStable);

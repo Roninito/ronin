@@ -6,6 +6,9 @@ import { listCommand } from "./commands/list.js";
 import { listRoutesCommand } from "./commands/list-routes.js";
 import { aiCommand } from "./commands/ai.js";
 import { statusCommand } from "./commands/status.js";
+import { stopCommand, restartCommand } from "./commands/stop.js";
+import { killCommand } from "./commands/kill.js";
+import { daemonCommand } from "./commands/daemon.js";
 import { createPluginCommand } from "./commands/create-plugin.js";
 import { createAgentCommand } from "./commands/create-agent.js";
 import { cancelAgentCreationCommand } from "./commands/cancel-agent-creation.js";
@@ -17,29 +20,93 @@ import { docsCommand } from "./commands/docs.js";
 import { realmConnectCommand } from "./commands/realm-connect.js";
 import { realmStatusCommand } from "./commands/realm-status.js";
 import { realmDiscoverCommand } from "./commands/realm-discover.js";
-import { existsSync } from "fs";
-import { join } from "path";
+import { mcpCommand } from "./commands/mcp.js";
+import { cloudflareCommand } from "./commands/cloudflare.js";
+import { initCommand } from "./commands/init.js";
+import { interactiveCommand } from "./commands/interactive.js";
+import { scheduleCommand } from "./commands/schedule.js";
+import { existsSync, readFileSync } from "fs";
+import { join, dirname } from "path";
+import { setLogLevel, LogLevel } from "../utils/logger.js";
+import { fileURLToPath } from "url";
+import { getArg, getCommandHelp, parseGlobalOptions } from "./shared.js";
 
-// Check if we're in the right directory
-const packageJsonPath = join(process.cwd(), "package.json");
-if (!existsSync(packageJsonPath)) {
-  // Try parent directory (ronin/)
-  const parentPackageJson = join(process.cwd(), "ronin", "package.json");
-  if (existsSync(parentPackageJson)) {
-    console.error("❌ Please run this command from the ronin directory:");
-    console.error(`   cd ronin`);
-    console.error(`   bun run ronin ${process.argv.slice(2).join(" ")}`);
-    process.exit(1);
-  } else {
-    console.error("❌ Could not find package.json. Please run from the ronin project directory.");
+// Commands that require being in the ronin directory
+const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "run", "interactive", "i", "create"]);
+
+// Check if we're in the ronin directory (has package.json with name "ronin")
+function isInRoninDir(): boolean {
+  const packageJsonPath = join(process.cwd(), "package.json");
+  if (!existsSync(packageJsonPath)) return false;
+
+  try {
+    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    return pkg.name === "ronin";
+  } catch {
+    return false;
+  }
+}
+
+function checkRoninDir(command: string): void {
+  if (COMMANDS_REQUIRING_RONIN_DIR.has(command) && !isInRoninDir()) {
+    console.error("❌ This command must be run from the Ronin installation directory");
+    console.error(`   cd ${roninProjectRoot}`);
+    console.error(`   ronin ${command} ${process.argv.slice(3).join(" ")}`);
     process.exit(1);
   }
 }
+
+// Debug mode
+if (process.argv.includes("--debug")) {
+  setLogLevel(LogLevel.DEBUG);
+}
+
+// Calculate the actual ronin installation directory
+// This handles both local development and global installations
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// The CLI is at src/cli/index.ts, so project root is two levels up
+let roninProjectRoot = join(__dirname, "..", "..");
+
+// Verify this is actually the ronin directory
+function findRoninRoot(startPath: string): string | null {
+  let current = startPath;
+  // Try up to 5 parent directories
+  for (let i = 0; i < 5; i++) {
+    const pkgPath = join(current, "package.json");
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(require("fs").readFileSync(pkgPath, "utf-8"));
+        if (pkg.name === "ronin") {
+          return current;
+        }
+      } catch {
+        // Continue searching
+      }
+    }
+    const parent = join(current, "..");
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
+// Find the actual ronin root
+const actualRoninRoot = findRoninRoot(roninProjectRoot);
+if (actualRoninRoot) {
+  roninProjectRoot = actualRoninRoot;
+}
+
+process.env.RONIN_PROJECT_ROOT = roninProjectRoot;
 
 const command = process.argv[2];
 const args = process.argv.slice(3);
 
 async function main() {
+  // Check directory for commands that require it
+  checkRoninDir(command);
+
   // Initialize guidelines early
   const { initializeGuidelines } = await import("../guidelines/index.js");
   await initializeGuidelines();
@@ -53,6 +120,46 @@ async function main() {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
         userPluginDir: getArg("--user-plugin-dir", args),
+        desktop: args.includes("--desktop"),
+        ninja: args.includes("--ninja"),
+        daemon: args.includes("--daemon"),
+        host: args.includes("--host"),
+      });
+      break;
+
+    case "stop":
+      await stopCommand();
+      break;
+
+    case "restart":
+      await restartCommand(() => startCommand({
+        agentDir: getArg("--agent-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        desktop: args.includes("--desktop"),
+        ninja: args.includes("--ninja"),
+        host: args.includes("--host"),
+      }));
+      break;
+
+    case "kill":
+      await killCommand();
+      break;
+
+    case "interactive":
+    case "i":
+      await interactiveCommand({
+        agentDir: getArg("--agent-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        desktop: args.includes("--desktop"),
+        debug: args.includes("--debug"),
       });
       break;
 
@@ -88,8 +195,8 @@ async function main() {
       await aiCommand({ args });
       break;
 
-    case "listRoutes":
     case "routes":
+    case "listRoutes":
       await listRoutesCommand({
         port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
       });
@@ -103,6 +210,10 @@ async function main() {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
       });
+      break;
+
+    case "daemon":
+      await daemonCommand(args.slice(1));
       break;
 
     case "create":
@@ -201,6 +312,22 @@ async function main() {
       break;
 
     case "config":
+      // Handle "ronin config set <path> <value>" subcommand
+      if (args[0] === "set") {
+        const configPath = args[1];
+        const configValue = args.slice(2).join(" ");
+        if (!configPath || configValue === "") {
+          console.error("❌ Usage: ronin config set <path> <value>");
+          console.log("Example: ronin config set ai.provider gemini");
+          console.log("Example: ronin config set ai.temperature 0.3");
+          console.log("Example: ronin config set ai.models.fast qwen3:1.7b");
+          console.log("Example: ronin config set ai.fallback.enabled true");
+          process.exit(1);
+        }
+        const { configSetCommand } = await import("./commands/config-set.js");
+        await configSetCommand(configPath, configValue);
+        break;
+      }
       await configCommand({
         agentDir: getArg("--agent-dir", args),
         externalAgentDir: getArg("--external-agent-dir", args),
@@ -208,6 +335,7 @@ async function main() {
         init: args.includes("--init"),
         grokApiKey: getArg("--grok-api-key", args),
         geminiApiKey: getArg("--gemini-api-key", args),
+        braveApiKey: getArg("--brave-api-key", args),
         geminiModel: getArg("--gemini-model", args),
         realmUrl: getArg("--realm-url", args),
         realmCallsign: getArg("--realm-callsign", args),
@@ -286,11 +414,65 @@ async function main() {
       }
       break;
 
+    case "mcp":
+      await mcpCommand(args);
+      break;
+
+    case "cloudflare":
+    case "cf":
+      await cloudflareCommand(args, {
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+      });
+      break;
+
+    case "os":
+      const { handleOSCommand, parseOSArgs } = await import("./commands/os.js");
+      const { action, subAction, options } = parseOSArgs(args);
+      await handleOSCommand(action, subAction, options);
+      break;
+
+    case "init":
+      await initCommand({
+        quick: args.includes("--quick"),
+        skipCloudflare: args.includes("--skip-cloudflare"),
+        skipDesktop: args.includes("--skip-desktop"),
+      });
+      break;
+
+    case "doctor": {
+      const { doctorCommand } = await import("./commands/doctor.js");
+      await doctorCommand();
+      break;
+    }
+
+    case "schedule":
+      await scheduleCommand(args, {
+        agentDir: getArg("--agent-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+      });
+      break;
+
     case "help":
     case "--help":
-    case "-h":
-      printHelp();
+    case "-h": {
+      const helpTarget = args[0];
+      if (helpTarget) {
+        const helpText = getCommandHelp(helpTarget);
+        if (helpText) {
+          console.log(helpText);
+        } else {
+          console.error(`❌ No help available for: ${helpTarget}`);
+          printHelp();
+        }
+      } else {
+        printHelp();
+      }
       break;
+    }
 
     default:
       if (!command) {
@@ -303,76 +485,76 @@ async function main() {
   }
 }
 
-function getArg(flag: string, args: string[]): string | undefined {
-  const index = args.indexOf(flag);
-  if (index !== -1 && index + 1 < args.length) {
-    return args[index + 1];
-  }
-  return undefined;
-}
-
 function printHelp() {
   console.log(`
 Ronin - Bun AI Agent Library
 
 Usage: ronin <command> [options]
+       ronin help <command>          Show detailed help for a command
 
-Commands:
-  start              Start and schedule all agents
-  run <agent-name>   Run a specific agent manually
-  list               List all available agents
-  ai <command>       Manage AI definitions (local registry)
-  models <command>   Alias for ai
-  listRoutes         List all registered server routes
-  status             Show runtime status and active schedules
-  create plugin <name> Create a new plugin template
-  create agent [desc]  AI-powered agent creation (interactive)
-                        Use --local to create in ~/.ronin/agents
-  cancel agent-creation [taskId] Cancel active agent creation
-                        Omit taskId to cancel all active creations
-  plugins list       List all loaded plugins
-  plugins info <name> Show detailed plugin information
-  ask [model] [question] Ask questions about Ronin (interactive)
-                        Models: local (default), grok, gemini
-                        Example: ronin ask grok "question"
-                        Example: ronin ask gemini "question"
-                        Use --ask-model <model> for specific Ollama model:
-                        Example: ronin ask "question" --ask-model qwen3:1.7b
-  config              Manage configuration (agent directories, Realm, etc.)
-                        ronin config --init
-                        ronin config --show
-                        ronin config --external-agent-dir <path>
-                        ronin config --user-plugin-dir <path>
-                        ronin config --realm-url <url> --realm-callsign <callsign>
-  docs [doc]          View documentation in browser
-                        ronin docs CLI
-                        ronin docs --list
-                        ronin docs --terminal
-  realm connect      Connect to Realm discovery server
-                        ronin realm connect --url wss://realm.afiwi.net --callsign Leerie
-                        ronin realm connect --url ws://localhost:3033 --callsign Leerie
-  realm status       Show Realm connection status
-  realm discover     Discover a peer by call sign
-                        ronin realm discover Tyro
-  help               Show this help message
+Core:
+  init                 Interactive setup wizard (--quick for defaults)
+  interactive, i       Start Ronin in REPL mode
+  start                Start and schedule all agents
+  start --ninja        Start in background; logs to ~/.ronin/ninja.log
+  start --daemon       Start as daemon; logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
+  daemon start         Start daemon
+  daemon stop          Stop daemon
+  daemon status        Check daemon status
+  daemon restart       Restart daemon
+  daemon logs          Tail daemon logs
+  start --host         Share webhook server on network (bind 0.0.0.0)
+  stop                 Stop the running instance
+  restart              Stop and restart Ronin
+  kill                 Force-kill all Ronin instances
+  run <agent>          Run a specific agent manually
+  list                 List all available agents
+  status               Show runtime status and active schedules
+  doctor               Run health checks on the installation
 
-Options:
-  --agent-dir <dir>     Agent directory (default: ./agents)
-  --plugin-dir <dir>    Plugin directory (default: ./plugins)
-  --user-plugin-dir <dir>  User plugins directory (default: ~/.ronin/plugins)
-  --ollama-url <url>    Ollama API URL (default: http://localhost:11434)
-  --ollama-model <name> Ollama model name (default: qwen3:1.7b)
-  --ask-model <name>    Ollama model for ask command only (e.g., qwen3:1.7b)
-  --db-path <path>      Database file path (default: ronin.db)
-  --port <number>       Server port (listRoutes only; default: 3000)
+AI & Tools:
+  ask [model] [question]  Interactive AI assistant (models: local, grok, gemini)
+  ai <subcommand>         Manage AI model definitions (alias: models)
+  config                  Manage configuration
+  config set <path> <val> Set a config value by dot-path
+
+Creation:
+  create plugin <name>    Create a new plugin template
+  create agent [desc]     AI-powered agent creation
+
+Plugins & Routes:
+  plugins list            List loaded plugins
+  plugins info <name>     Show plugin details
+  routes                  List registered HTTP routes (alias: listRoutes)
+
+Integrations:
+  realm connect           Connect to Realm discovery server
+  realm status            Show Realm connection status
+  realm discover <call>   Discover a peer by call sign
+  mcp <subcommand>        Manage MCP server connections
+  cloudflare <subcommand> Manage Cloudflare tunnels and route policy
+  os <subcommand>         Desktop Mode commands (macOS)
+  docs [doc]              View documentation
+
+Global Options:
+  --debug                 Enable debug logging
+  --ninja                 Start in background, logs to ~/.ronin/ninja.log
+  --daemon                Start as daemon, logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
+  --host                  Share webhook server on network (bind 0.0.0.0)
+  --agent-dir <dir>       Agent directory (default: ./agents)
+  --plugin-dir <dir>      Plugin directory (default: ./plugins)
+  --user-plugin-dir <dir> User plugins directory (default: ~/.ronin/plugins)
+  --ollama-url <url>      Ollama API URL (default: http://localhost:11434)
+  --ollama-model <name>   Default Ollama model (default: qwen3:4b)
+  --db-path <path>        Database file path (default: ronin.db)
 
 Examples:
-  ronin start
-  ronin run my-agent
-  ronin list
-  ronin ai list
-  ronin listRoutes
-  ronin status
+  ronin start                          Start all agents
+  ronin ask grok "explain quantum"     Ask Grok a question
+  ronin config set ai.provider gemini  Switch to Gemini
+  ronin config set ai.temperature 0.3  Lower temperature
+  ronin doctor                         Validate setup
+  ronin help ask                       Detailed help for ask command
 `);
 }
 

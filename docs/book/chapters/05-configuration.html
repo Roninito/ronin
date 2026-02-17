@@ -66,6 +66,11 @@
           <td>Google Gemini API key</td>
           <td>For Gemini usage</td>
         </tr>
+        <tr>
+          <td><code>BRAVE_API_KEY</code></td>
+          <td>Brave Search API key</td>
+          <td>For MCP web search</td>
+        </tr>
       </tbody>
     </table>
 
@@ -145,7 +150,8 @@ ronin config --external-agent-dir ~/my-agents
 
 # Set API keys
 ronin config --grok-api-key sk-xxxxx
-ronin config --gemini-api-key AIxxxxx</code></pre>
+ronin config --gemini-api-key AIxxxxx
+ronin config --brave-api-key BSA-xxxxx</code></pre>
 
     <h3>Viewing Configuration</h3>
     <pre><code>ronin config --show</code></pre>
@@ -214,6 +220,82 @@ export RONIN_EXTERNAL_AGENT_DIR=~/my-agents</code></pre>
 
     <pre><code>ronin start --db-path /path/to/custom.db
 ronin run my-agent --db-path /path/to/custom.db</code></pre>
+
+    <h2>MCP Configuration</h2>
+
+    <p>
+      Model Context Protocol (MCP) allows Ronin to connect to external servers for additional capabilities like filesystem access, web search, GitHub integration, and database queries.
+    </p>
+
+    <h3>Setting Up Brave Search</h3>
+    <p>
+      The Brave Search MCP server requires an API key. Set it using:
+    </p>
+
+    <pre><code># Using config command (recommended)
+ronin config --brave-api-key BSA-xxxxx
+
+# Or using environment variable
+export BRAVE_API_KEY=BSA-xxxxx</code></pre>
+
+    <p>
+      Get your API key from <a href="https://brave.com/search/api" target="_blank">brave.com/search/api</a>.
+    </p>
+
+    <h3>Managing MCP Servers</h3>
+    <pre><code># Discover available servers
+ronin mcp discover
+
+# Add servers
+ronin mcp add filesystem --path ~/Documents
+ronin mcp add github
+ronin mcp add brave-search
+ronin mcp add sqlite --path ./myapp.db
+
+# List configured servers
+ronin mcp list
+
+# Enable/disable servers
+ronin mcp enable filesystem
+ronin mcp disable brave-search
+
+# Remove a server
+ronin mcp remove github</code></pre>
+
+    <h3>MCP Configuration Format</h3>
+    <p>
+      MCP servers are stored in <code>~/.ronin/config.json</code> under the <code>mcp.servers</code> key:
+    </p>
+
+    <pre><code>{
+  "braveSearch": {
+    "apiKey": "BSA-xxxxxxxxxxxx"
+  },
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "enabled": true
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {
+          "BRAVE_API_KEY": "BSA-xxxxxxxxxxxx"
+        },
+        "enabled": true
+      }
+    }
+  }
+}</code></pre>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ Note</div>
+      <p>
+        MCP servers run as separate processes and communicate via stdio. Tools from MCP servers are registered with the <code>mcp_&lt;server&gt;_&lt;tool&gt;</code> naming convention. See <a href="../MCP.md">MCP.md</a> for complete documentation.
+      </p>
+    </div>
 
     <h2>Server Ports and Endpoints</h2>
 

@@ -182,4 +182,18 @@ export class EventsAPI {
       }
     }
   }
+
+  /**
+   * Get all registered events (excluding internal target: and response: events)
+   */
+  getRegisteredEvents(): Array<{event: string, handlerCount: number}> {
+    const events: Array<{event: string, handlerCount: number}> = [];
+    for (const [event, handlers] of this.handlers.entries()) {
+      // Filter out internal events (target:, response:)
+      if (!event.startsWith('target:') && !event.startsWith('response:')) {
+        events.push({ event, handlerCount: handlers.size });
+      }
+    }
+    return events;
+  }
 }

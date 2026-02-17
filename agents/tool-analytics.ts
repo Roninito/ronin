@@ -1,5 +1,5 @@
-import { BaseAgent } from "../../agent/index.js";
-import type { AgentAPI } from "../../types/index.js";
+import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
 import type { ToolCompletedEvent, ToolPolicyViolationEvent } from "../types.js";
 
 /**

@@ -215,6 +215,70 @@ this.api.events.on('config_reloaded', () => {
 }
 ```
 
+### MCP Configuration
+
+**braveSearch.apiKey** (string)
+- Default: `""`
+- Brave Search API key for MCP web search
+- Get from: https://brave.com/search/api
+- Can also be set via `BRAVE_API_KEY` env variable
+
+**mcp.servers** (object)
+- MCP server configurations
+- Key: server name
+- Value: server configuration object
+
+**Server Configuration Schema:**
+```json
+{
+  "command": "string",      // Executable (e.g., "npx")
+  "args": ["array"],        // Command arguments
+  "env": {                  // Optional environment variables
+    "KEY": "value"
+  },
+  "enabled": true           // Enable/disable server
+}
+```
+
+**Example MCP Configuration:**
+```json
+{
+  "braveSearch": {
+    "apiKey": "BSA-xxxxxxxxxxxx"
+  },
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "enabled": true
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {
+          "BRAVE_API_KEY": "BSA-xxxxxxxxxxxx"
+        },
+        "enabled": true
+      },
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_TOKEN": "ghp_xxxxxxxxxxxx"
+        },
+        "enabled": false
+      }
+    }
+  }
+}
+```
+
+**Managing MCP Servers:**
+- Use CLI: `ronin mcp add|enable|disable|remove <server>`
+- Or edit `~/.ronin/config.json` directly
+- See [MCP.md](./MCP.md) for complete guide
+
 ## CLI Commands
 
 ### ronin config
@@ -306,6 +370,23 @@ Validate current config without changes.
     "gemini": {
       "model": "gemini-pro",
       "timeout": 60000
+    }
+  },
+  "braveSearch": {
+    "apiKey": "BSA-xxxxxxxxxxxx"
+  },
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"],
+        "enabled": true
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "enabled": true
+      }
     }
   },
   "eventMonitor": {

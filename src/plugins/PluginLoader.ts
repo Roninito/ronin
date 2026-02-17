@@ -1,7 +1,9 @@
 import { readdir, copyFile, mkdir } from "fs/promises";
 import { join, extname, basename, dirname } from "path";
 import { existsSync } from "fs";
+import { pathToFileURL } from "url";
 import type { Plugin, PluginMetadata } from "./base.js";
+import { logger } from "../utils/logger.js";
 
 export interface PluginLoaderOptions {
   builtinPluginDir?: string;
@@ -40,24 +42,15 @@ export class PluginLoader {
       await this.discoverRecursive(this.userPluginDir, userFiles);
     }
 
-    // Combine files, with user plugins taking precedence
-    const allFiles = [...builtinFiles, ...userFiles];
-    
-    // Remove duplicates based on filename (user plugins override built-in)
+    // Prefer dist/index.js over src/index.ts, and filter out non-plugin files
+    const pluginFiles = this.filterPluginFiles([...builtinFiles, ...userFiles]);
+
+    // Remove duplicates based on plugin name (user plugins override built-in)
     const seenNames = new Set<string>();
     const uniqueFiles: string[] = [];
-    
+
     // Process user files first (they take precedence)
-    for (const file of userFiles) {
-      const name = this.getPluginName(file);
-      if (name && !seenNames.has(name)) {
-        seenNames.add(name);
-        uniqueFiles.push(file);
-      }
-    }
-    
-    // Then add built-in files that haven't been overridden
-    for (const file of builtinFiles) {
+    for (const file of pluginFiles) {
       const name = this.getPluginName(file);
       if (name && !seenNames.has(name)) {
         seenNames.add(name);
@@ -71,14 +64,55 @@ export class PluginLoader {
   }
 
   /**
+   * Filter to only include valid plugin entry points
+   * Prefers dist/index.js over src/index.ts
+   */
+  private filterPluginFiles(files: string[]): string[] {
+    const pluginMap = new Map<string, string>();
+    const seen = new Set<string>();
+
+    for (const file of files) {
+      // Skip individual module files in src/ directories
+      if (file.includes("/src/") && !file.endsWith("/index.ts") && !file.endsWith("/index.js")) {
+        continue;
+      }
+
+      // Extract plugin name from directory structure
+      // e.g., plugins/cloudflare/src/index.ts -> cloudflare
+      // e.g., plugins/cloudflare/dist/index.js -> cloudflare
+      // e.g., plugins/telegram.ts -> telegram
+      const match = file.match(/plugins\/([^\/]+)/);
+      if (!match) continue;
+
+      const pluginName = match[1];
+      const isDist = file.includes("/dist/");
+      const isIndex = file.endsWith("/index.ts") || file.endsWith("/index.js");
+      const isRootPlugin = /^[^\/]+\.ts$/.test(file.split('/').pop() || '');
+
+      // Only include:
+      // - index files at root or src/ (isIndex)
+      // - files in dist/ directories (isDist)
+      // - root-level plugin files like telegram.ts (isRootPlugin)
+      if (!isIndex && !isDist && !isRootPlugin) continue;
+
+      // Prefer dist/ over src/
+      if (isDist) {
+        pluginMap.set(pluginName, file);
+      } else if (!pluginMap.has(pluginName)) {
+        pluginMap.set(pluginName, file);
+      }
+    }
+
+    return Array.from(pluginMap.values());
+  }
+
+  /**
    * Get plugin name from file path (used for deduplication)
    */
   private getPluginName(filePath: string): string | null {
-    const ext = extname(filePath);
-    if (ext === ".ts" || ext === ".js") {
-      return basename(filePath, ext);
-    }
-    return null;
+    // Extract plugin name from path like plugins/cloudflare/dist/index.js
+    const match = filePath.match(/plugins\/([^\/]+)/);
+    return match ? match[1] : null;
   }
 
   /**
@@ -103,7 +137,7 @@ export class PluginLoader {
     } catch (error) {
       // Directory might not exist, ignore
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn(`Error reading plugin directory ${dir}:`, error);
+        logger.warn("Error reading plugin directory", { dir, error });
       }
     }
   }
@@ -113,35 +147,52 @@ export class PluginLoader {
    */
   async loadPlugin(filePath: string): Promise<PluginMetadata | null> {
     try {
-      // Dynamic import of the plugin file
-      const module = await import(filePath);
+      // Dynamic import: use file URL so sub-imports resolve relative to the plugin file
+      const url = pathToFileURL(filePath).href;
+      const module = await import(url);
 
-      // Get the default export (should be the plugin object)
-      const plugin = module.default;
+      // Get the plugin object - try default export first, then named exports
+      let plugin = module.default;
+
+      // If no default export, check for named exports like 'plugin'
+      if (!plugin && module.plugin) {
+        plugin = module.plugin;
+      }
+
+      // If still no plugin, try to find the first object export
+      if (!plugin) {
+        const possibleExports = ['cloudflare', 'plugin', 'Plugin'];
+        for (const name of possibleExports) {
+          if (module[name] && typeof module[name] === 'object' && module[name] !== null) {
+            plugin = module[name];
+            break;
+          }
+        }
+      }
 
       if (!plugin) {
-        console.warn(`No default export found in ${filePath}`);
+        logger.warn("Plugin has no exportable object", { filePath });
         return null;
       }
 
       // Validate plugin structure
       if (typeof plugin !== "object" || plugin === null) {
-        console.warn(`Default export in ${filePath} is not an object`);
+        logger.warn("Plugin export is not an object", { filePath });
         return null;
       }
 
       if (!plugin.name || typeof plugin.name !== "string") {
-        console.warn(`Plugin in ${filePath} missing or invalid name`);
+        logger.warn("Plugin missing or invalid name", { filePath });
         return null;
       }
 
       if (!plugin.description || typeof plugin.description !== "string") {
-        console.warn(`Plugin ${plugin.name} missing or invalid description`);
+        logger.warn("Plugin missing or invalid description", { plugin: plugin.name });
         return null;
       }
 
       if (!plugin.methods || typeof plugin.methods !== "object") {
-        console.warn(`Plugin ${plugin.name} missing or invalid methods`);
+        logger.warn("Plugin missing or invalid methods", { plugin: plugin.name });
         return null;
       }
 
@@ -156,7 +207,13 @@ export class PluginLoader {
         plugin: pluginObj,
       };
     } catch (error) {
-      console.error(`Failed to load plugin from ${filePath}:`, error);
+      const err = error as Error;
+      logger.error("Failed to load plugin", {
+        filePath,
+        message: err?.message,
+        stack: err?.stack,
+        error
+      });
       return null;
     }
   }
@@ -202,11 +259,11 @@ export class PluginLoader {
         // Only copy if user doesn't already have this plugin
         if (!existsSync(userPath)) {
           await copyFile(file, userPath);
-          console.log(`📋 Copied built-in plugin to user directory: ${filename}`);
+          logger.info("Copied built-in plugin to user directory", { filename });
         }
       }
     } catch (error) {
-      console.warn("Failed to copy built-in plugins to user directory:", error);
+      logger.warn("Failed to copy built-in plugins to user directory", { error });
     }
   }
 }

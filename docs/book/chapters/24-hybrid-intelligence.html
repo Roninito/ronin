@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 24: Hybrid Intelligence - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <h1>Chapter 24: Hybrid Intelligence</h1>
+
+    <div class="chapter-intro">
+      <p>Ronin's Hybrid Intelligence system combines local tools with cloud AI adapters to provide flexible, cost-effective agent capabilities with full offline support.</p>
+    </div>
+
+    <h2>Overview</h2>
+
+    <p>The Hybrid Intelligence system is Ronin's tool orchestration layer that intelligently routes between local execution and cloud AI services based on capability, cost, and user preferences.</p>
+
+    <p><strong>Key Features:</strong></p>
+    <ul>
+      <li><strong>6 Local Tools</strong>: memory.search, file.read/list, shell.safe, http.request, reasoning</li>
+      <li><strong>MCP Tools</strong>: filesystem, web search, GitHub, SQLite (via external MCP servers)</li>
+      <li><strong>4 Cloud Adapters</strong>: OpenAI, Anthropic, Gemini, Ollama (free, default)</li>
+      <li><strong>6 Pre-built Workflows</strong>: research, code-review, documentation, analysis, bug investigation</li>
+      <li><strong>Cost Tracking</strong>: Built-in cost management and policy enforcement</li>
+      <li><strong>Offline Mode</strong>: Works 100% offline with local tools only</li>
+    </ul>
+
+    <h2>Architecture</h2>
+
+    <h3>System Components</h3>
+
+    <pre><code>┌─────────────────────────────────────────────────────────────┐
+│                        User Request                          │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    ToolRouter (Intelligence)                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │ Policy Check │→│ Cost Check   │→│ Route        │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+        ┌────────────┼────────────┬────────────┐
+        ▼            ▼            ▼            ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│  Local   │ │   MCP    │ │  Cloud   │ │ Workflow │
+│  Tools   │ │  Tools   │ │ Adapters │ │  Engine  │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘</code></pre>
+
+    <h3>Routing Logic</h3>
+
+    <ol>
+      <li><strong>Capability Check</strong>: Can a local tool handle this?</li>
+      <li><strong>Policy Check</strong>: Is this tool allowed by policy?</li>
+      <li><strong>Cost Check</strong>: Should we use cloud based on budget?</li>
+      <li><strong>Offline Check</strong>: Are we in offline mode?</li>
+      <li><strong>Route</strong>: Execute locally or via cloud</li>
+    </ol>
+
+    <h2>Quick Start</h2>
+
+    <h3>Using ToolChat</h3>
+
+    <p>The easiest way to use Hybrid Intelligence is through <code>ToolChat</code>:</p>
+
+    <pre><code>import { ToolChat } from "@ronin/tools";
+
+export default class MyAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    const chat = new ToolChat(this.api);
+
+    // Simple query with automatic tool selection
+    const result = await chat.complete(
+      "Search my memory for project ideas and analyze them"
+    );
+
+    // Force specific tools
+    const result2 = await chat.complete(
+      "Read the config file",
+      { tools: ["file.read", "file.list"] }
+    );
+
+    // Allow cloud if needed
+    const result3 = await chat.complete(
+      "Research best practices for TypeScript",
+      { allowCloud: true }
+    );
+  }
+}</code></pre>
+
+    <h3>Direct ToolRouter Access</h3>
+
+    <pre><code>// Register a custom tool
+this.api.tools.register({
+  name: "my.custom.tool",
+  description: "Does something useful",
+  parameters: {
+    type: "object",
+    properties: {
+      input: { type: "string" }
+    }
+  },
+  execute: async (args) =&gt; {
+    return { result: `Processed: ${args.input}` };
+  }
+});
+
+// Execute a tool
+const result = await this.api.tools.execute("memory.search", {
+  query: "project ideas",
+  limit: 5
+});
+
+// Check cost stats
+const stats = this.api.tools.getCostStats();
+console.log(`Daily: $${stats.daily}, Monthly: $${stats.monthly}`);</code></pre>
+
+    <h2>Available Tools</h2>
+
+    <h3>Local Tools (Always Available)</h3>
+
+    <table>
+      <tr>
+        <th>Tool</th>
+        <th>Description</th>
+        <th>Cost</th>
+      </tr>
+      <tr>
+        <td><code>memory.search</code></td>
+        <td>Semantic search through agent memory</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>file.read</code></td>
+        <td>Read file contents</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>file.list</code></td>
+        <td>List directory contents</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>shell.safe</code></td>
+        <td>Execute safe shell commands</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>http.request</code></td>
+        <td>Make HTTP requests with retry logic</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>reasoning</code></td>
+        <td>Chain-of-thought reasoning</td>
+        <td>Free</td>
+      </tr>
+    </table>
+
+    <h3>MCP Tools</h3>
+
+    <p>
+      MCP (Model Context Protocol) tools are provided by external MCP servers. These tools are dynamically registered when MCP servers are enabled via <code>ronin mcp</code> commands.
+    </p>
+
+    <p><strong>Tool Naming:</strong> <code>mcp_&lt;server&gt;_&lt;tool&gt;</code></p>
+
+    <table>
+      <tr>
+        <th>Tool Category</th>
+        <th>Example Tools</th>
+        <th>Setup</th>
+      </tr>
+      <tr>
+        <td><strong>Filesystem</strong></td>
+        <td>
+          <code>mcp_filesystem_read_file</code><br>
+          <code>mcp_filesystem_write_file</code><br>
+          <code>mcp_filesystem_list_directory</code>
+        </td>
+        <td><code>ronin mcp add filesystem --path ~/Documents</code></td>
+      </tr>
+      <tr>
+        <td><strong>Web Search</strong></td>
+        <td>
+          <code>mcp_brave-search_web_search</code>
+        </td>
+        <td>
+          <code>ronin config --brave-api-key KEY</code><br>
+          <code>ronin mcp add brave-search</code>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>GitHub</strong></td>
+        <td>
+          <code>mcp_github_create_issue</code><br>
+          <code>mcp_github_create_pull_request</code><br>
+          <code>mcp_github_list_repositories</code>
+        </td>
+        <td><code>ronin mcp add github</code></td>
+      </tr>
+      <tr>
+        <td><strong>SQLite</strong></td>
+        <td>
+          <code>mcp_sqlite_query</code><br>
+          <code>mcp_sqlite_list_tables</code><br>
+          <code>mcp_sqlite_describe_table</code>
+        </td>
+        <td><code>ronin mcp add sqlite --path ./db.sqlite</code></td>
+      </tr>
+    </table>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ MCP Integration</div>
+      <p>
+        MCP tools extend Ronin's capabilities without requiring code changes. See <a href="../MCP.md">MCP.md</a> for complete setup and usage documentation.
+      </p>
+    </div>
+
+    <h3>Cloud Adapters</h3>
+
+    <table>
+      <tr>
+        <th>Adapter</th>
+        <th>Provider</th>
+        <th>Model</th>
+        <th>Cost</th>
+      </tr>
+      <tr>
+        <td><code>OllamaAdapter</code></td>
+        <td>Local</td>
+        <td>Configurable (default: qwen3:1.7b)</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><code>OpenAIAdapter</code></td>
+        <td>OpenAI</td>
+        <td>gpt-4, gpt-3.5-turbo</td>
+        <td>Per-token</td>
+      </tr>
+      <tr>
+        <td><code>AnthropicAdapter</code></td>
+        <td>Anthropic</td>
+        <td>claude-3-opus, claude-3-sonnet</td>
+        <td>Per-token</td>
+      </tr>
+      <tr>
+        <td><code>GeminiAdapter</code></td>
+        <td>Google</td>
+        <td>gemini-pro, gemini-ultra</td>
+        <td>Per-token</td>
+      </tr>
+    </table>
+
+    <h2>Workflows</h2>
+
+    <h3>Pre-built Workflows</h3>
+
+    <pre><code>// Research and visualize
+const result = await this.api.tools.executeWorkflow(
+  "research-and-visualize",
+  { topic: "Rust vs Go performance" }
+);
+
+// Code review
+const review = await this.api.tools.executeWorkflow(
+  "code-review",
+  { filePath: "/path/to/code.ts" }
+);
+
+// Create documentation
+const docs = await this.api.tools.executeWorkflow(
+  "create-documentation",
+  { codePath: "/path/to/module" }
+);
+
+// Analyze data
+const analysis = await this.api.tools.executeWorkflow(
+  "analyze-data",
+  { dataPath: "/path/to/data.json" }
+);
+
+// Investigate bug
+const investigation = await this.api.tools.executeWorkflow(
+  "investigate-bug",
+  {
+    errorLog: "stack trace here...",
+    codebasePath: "/path/to/code"
+  }
+);
+
+// Create content
+const content = await this.api.tools.executeWorkflow(
+  "create-content",
+  {
+    topic: "Introduction to Bun",
+    format: "blog-post",
+    tone: "technical"
+  }
+);</code></pre>
+
+    <h3>Creating Custom Workflows</h3>
+
+    <pre><code>this.api.tools.registerWorkflow({
+  name: "my.custom.workflow",
+  description: "Does something specific",
+  steps: [
+    {
+      name: "search",
+      tool: "memory.search",
+      args: { query: "{{input.topic}}" }
+    },
+    {
+      name: "analyze",
+      tool: "reasoning",
+      args: {
+        problem: "Analyze: {{search.results}}",
+        steps: 3
+      }
+    }
+  ],
+  output: "{{analyze.conclusion}}"
+});</code></pre>
+
+    <h2>Cost Tracking</h2>
+
+    <h3>Viewing Costs</h3>
+
+    <pre><code>// Get cost statistics
+const stats = this.api.tools.getCostStats();
+console.log(`Daily: $${stats.daily.toFixed(2)}`);
+console.log(`Monthly: $${stats.monthly.toFixed(2)}`);
+
+// Costs reset automatically
+// - Daily: At midnight UTC
+// - Monthly: On the 1st of each month</code></pre>
+
+    <h3>Cost Policy</h3>
+
+    <pre><code>// Set spending limits
+this.api.tools.setPolicy({
+  maxDailyCost: 5.00,      // $5/day
+  maxMonthlyCost: 50.00,   // $50/month
+  requireApprovalAbove: 1.00,  // Prompt for approval above $1
+  allowedAdapters: ["ollama", "gemini"],  // Only allow specific adapters
+  offlineMode: false
+});
+
+// Get current policy
+const policy = this.api.tools.getPolicy();</code></pre>
+
+    <h2>Offline Mode</h2>
+
+    <p>Hybrid Intelligence works 100% offline using only local tools:</p>
+
+    <pre><code>// Enable offline mode via policy
+this.api.tools.setPolicy({
+  offlineMode: true
+});
+
+// Or via menubar (Desktop Mode)
+// Click 🥷 → Enable Offline Mode
+
+// Or via config
+ronin config set desktop.offlineMode true</code></pre>
+
+    <p>When in offline mode:</p>
+    <ul>
+      <li>Only local tools are available</li>
+      <li>No cloud API calls are made</li>
+      <li>All processing happens on your machine</li>
+      <li>Costs are $0</li>
+    </ul>
+
+    <h2>Creating Custom Tools</h2>
+
+    <h3>Basic Tool</h3>
+
+    <pre><code>this.api.tools.register({
+  name: "my.tool.name",
+  description: "Clear, concise description",
+  parameters: {
+    type: "object",
+    properties: {
+      param1: {
+        type: "string",
+        description: "What this parameter does"
+      },
+      param2: {
+        type: "number",
+        default: 10
+      }
+    },
+    required: ["param1"]
+  },
+  execute: async (args, context) =&gt; {
+    // Your tool logic here
+    return {
+      success: true,
+      data: "result"
+    };
+  }
+});</code></pre>
+
+    <h3>Async Tool with Progress</h3>
+
+    <pre><code>this.api.tools.register({
+  name: "long.running.task",
+  description: "A task that takes time",
+  parameters: {
+    type: "object",
+    properties: {
+      items: { type: "array" }
+    }
+  },
+  execute: async (args, context) =&gt; {
+    const results = [];
+
+    for (let i = 0; i &lt; args.items.length; i++) {
+      // Report progress
+      if (context.onProgress) {
+        context.onProgress({
+          current: i + 1,
+          total: args.items.length,
+          percent: ((i + 1) / args.items.length) * 100
+        });
+      }
+
+      // Process item
+      const result = await processItem(args.items[i]);
+      results.push(result);
+    }
+
+    return { results };
+  }
+});</code></pre>
+
+    <h2>Best Practices</h2>
+
+    <h3>1. Start Local</h3>
+    <p>Always try local tools first before using cloud AI. They're faster, free, and work offline.</p>
+
+    <h3>2. Set Budgets</h3>
+    <p>Configure spending limits to avoid surprises:</p>
+    <pre><code>this.api.tools.setPolicy({
+  maxDailyCost: 2.00,
+  maxMonthlyCost: 20.00
+});</code></pre>
+
+    <h3>3. Use Workflows</h3>
+    <p>Complex tasks should use workflows to break them into manageable steps.</p>
+
+    <h3>4. Cache Results</h3>
+    <p>Store expensive cloud results in memory:</p>
+    <pre><code>const cacheKey = `analysis:${filePath}`;
+let result = await this.api.memory.retrieve(cacheKey);
+
+if (!result) {
+  result = await this.api.tools.executeWorkflow(
+    "analyze-data",
+    { filePath }
+  );
+  await this.api.memory.store(cacheKey, result);
+}</code></pre>
+
+    <h3>5. Offline-First Design</h3>
+    <p>Design agents to work offline by default, using cloud only for complex tasks.</p>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Tool Not Found</h3>
+    <pre><code>// List available tools
+const tools = this.api.tools.list();
+console.log(tools.map(t =&gt; t.name));
+
+// Check if tool exists
+const hasTool = this.api.tools.has("memory.search");</code></pre>
+
+    <h3>Policy Blocking Tool</h3>
+    <pre><code>// Check current policy
+const policy = this.api.tools.getPolicy();
+console.log(policy);
+
+// Temporarily allow a tool
+this.api.tools.setPolicy({
+  ...policy,
+  allowedAdapters: [...policy.allowedAdapters, "openai"]
+});</code></pre>
+
+    <h3>Workflow Failing</h3>
+    <pre><code>// Execute with verbose logging
+const result = await this.api.tools.executeWorkflow(
+  "my.workflow",
+  args,
+  { verbose: true }
+);</code></pre>
+
+    <h2>Migration from Direct API</h2>
+
+    <p>If you're currently using direct API calls, here's how to migrate:</p>
+
+    <pre><code>// Before: Direct API
+const files = await this.api.files.list("./docs");
+
+// After: Via ToolRouter (enables policy, cost tracking)
+const result = await this.api.tools.execute("file.list", {
+  path: "./docs"
+});
+const files = result.data;</code></pre>
+
+    <div class="navigation">
+      <a href="23-desktop-mode.html" class="prev">← Chapter 23: Desktop Mode</a>
+      <a href="appendices/A-api-reference.html" class="next">Appendix A: API Reference →</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 23: Desktop Mode - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="page">
+    <h1>Chapter 23: Desktop Mode</h1>
+
+    <div class="chapter-intro">
+      <p>Desktop Mode seamlessly integrates Ronin with your macOS workflow, providing native Quick Actions, menubar controls, and notifications while maintaining privacy-first defaults.</p>
+    </div>
+
+    <h2>Overview</h2>
+
+    <p>Desktop Mode bridges the gap between Ronin agents and your operating system, allowing agents to interact with files, receive text selections, and display native macOS notifications.</p>
+
+    <p><strong>Key Features:</strong></p>
+    <ul>
+      <li><strong>Quick Actions</strong>: Right-click files in Finder → Services → Send to Ronin</li>
+      <li><strong>Native Notifications</strong>: macOS notifications grouped under "Ronin"</li>
+      <li><strong>Menubar Controls</strong>: 🥷 Visual indicator with toggles for Desktop/Offline/Clipboard modes</li>
+      <li><strong>Clipboard Watching</strong>: Opt-in clipboard monitoring (disabled by default)</li>
+      <li><strong>File Watching</strong>: Monitor Desktop, Downloads, and other folders</li>
+    </ul>
+
+    <h2>Installation</h2>
+
+    <h3>Prerequisites</h3>
+    <ul>
+      <li>macOS 10.14+ (Mojave or later)</li>
+      <li>Ronin CLI installed and configured</li>
+      <li>Terminal with permission to install system services</li>
+    </ul>
+
+    <h3>Install macOS Integrations</h3>
+
+    <pre><code># Install macOS integrations
+ronin os install mac</code></pre>
+
+    <p>This installs:</p>
+    <ol>
+      <li><strong>Quick Action</strong>: "Send to Ronin" in Finder Services menu</li>
+      <li><strong>LaunchAgent</strong>: Auto-starts Ronin Desktop Mode with macOS</li>
+      <li><strong>Menubar App</strong>: System tray indicator with controls</li>
+    </ol>
+
+    <h3>Enable Desktop Mode</h3>
+
+    <pre><code># Enable Desktop Mode
+ronin config set desktop.enabled true
+
+# Start Ronin with Desktop Mode
+ronin start --desktop</code></pre>
+
+    <h2>Menubar Controls</h2>
+
+    <p>The menubar (🥷) provides quick access to Desktop Mode controls without opening the terminal:</p>
+
+    <h3>Available Toggles</h3>
+    <ul>
+      <li><strong>Desktop Mode</strong>: Enable/disable Desktop Mode entirely</li>
+      <li><strong>Offline Mode</strong>: Force local AI only (no cloud API calls)</li>
+      <li><strong>Clipboard</strong>: Enable/disable clipboard monitoring</li>
+      <li><strong>AI Provider</strong>: Switch between Local (Ollama), Grok, or Gemini</li>
+    </ul>
+
+    <h3>Quick Actions</h3>
+    <ul>
+      <li>View recent files/texts captured</li>
+      <li>Open Ronin dashboard in browser</li>
+      <li>See last sync status</li>
+    </ul>
+
+    <h2>Menubar Events</h2>
+
+    <p>All menubar interactions emit events that agents can listen to:</p>
+
+    <pre><code>export default class MyAgent extends BaseAgent {
+  async onMount(): Promise&lt;void&gt; {
+    // Listen for Desktop Mode changes
+    this.api.events.on("menubar.desktop.enabled", (data) =&gt; {
+      console.log("Desktop Mode enabled via menubar");
+    });
+
+    // Listen for Offline Mode changes
+    this.api.events.on("menubar.offline.enabled", (data) =&gt; {
+      console.log("Offline Mode enabled - switching to local AI");
+      this.useLocalAIOnly = true;
+    });
+
+    // Listen for AI provider changes
+    this.api.events.on("menubar.ai.changed", (data) =&gt; {
+      console.log(`Switched from ${data.previous} to ${data.current}`);
+    });
+
+    // Listen for dashboard opens
+    this.api.events.on("menubar.dashboard.opened", () =&gt; {
+      this.updateDashboardData();
+    });
+  }
+}</code></pre>
+
+    <h3>Event Reference</h3>
+
+    <table>
+      <tr>
+        <th>Event</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td><code>menubar.started</code></td>
+        <td>Menubar initialized</td>
+      </tr>
+      <tr>
+        <td><code>menubar.desktop.enabled/disabled</code></td>
+        <td>Desktop Mode toggled</td>
+      </tr>
+      <tr>
+        <td><code>menubar.offline.enabled/disabled</code></td>
+        <td>Offline Mode toggled</td>
+      </tr>
+      <tr>
+        <td><code>menubar.clipboard.enabled/disabled</code></td>
+        <td>Clipboard monitoring toggled</td>
+      </tr>
+      <tr>
+        <td><code>menubar.ai.changed</code></td>
+        <td>AI provider changed</td>
+      </tr>
+      <tr>
+        <td><code>menubar.recentfiles.viewed</code></td>
+        <td>User viewed recent files</td>
+      </tr>
+      <tr>
+        <td><code>menubar.recenttexts.viewed</code></td>
+        <td>User viewed recent texts</td>
+      </tr>
+      <tr>
+        <td><code>menubar.dashboard.opened</code></td>
+        <td>Dashboard opened</td>
+      </tr>
+      <tr>
+        <td><code>menubar.notification.shown</code></td>
+        <td>Notification displayed</td>
+      </tr>
+      <tr>
+        <td><code>menubar.quit</code></td>
+        <td>Menubar stopped</td>
+      </tr>
+    </table>
+
+    <h2>Using Desktop Mode</h2>
+
+    <h3>Sending Files to Ronin</h3>
+
+    <ol>
+      <li>Right-click any file in Finder</li>
+      <li>Select <strong>Services</strong> → <strong>Send to Ronin</strong></li>
+      <li>The file is sent to OSBridgeAgent and normalized</li>
+      <li>All agents receive the <code>file.received</code> event</li>
+    </ol>
+
+    <h3>Receiving Notifications</h3>
+
+    <p>Agents can send native macOS notifications:</p>
+
+    <pre><code>await this.api.notify({
+  title: "Task Complete",
+  message: "Your analysis is ready",
+  subtitle: "MyAgent",
+  sound: true
+});</code></pre>
+
+    <h3>Clipboard Watching</h3>
+
+    <p><strong>Important:</strong> Clipboard watching is disabled by default and requires explicit user consent.</p>
+
+    <pre><code># Enable clipboard watching
+ronin os clipboard enable</code></pre>
+
+    <h2>Configuration</h2>
+
+    <pre><code>{
+  "desktop": {
+    "enabled": false,
+    "features": {
+      "notifications": true,
+      "clipboard": false,
+      "shortcuts": true,
+      "fileWatching": true
+    },
+    "folders": ["~/Desktop", "~/Downloads"],
+    "bridge": {
+      "port": 17341,
+      "host": "localhost"
+    },
+    "menubar": true
+  }
+}</code></pre>
+
+    <h3>Key Options</h3>
+
+    <table>
+      <tr>
+        <th>Option</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+      <tr>
+        <td><code>enabled</code></td>
+        <td>Master switch for Desktop Mode</td>
+        <td>false</td>
+      </tr>
+      <tr>
+        <td><code>features.notifications</code></td>
+        <td>Enable native notifications</td>
+        <td>true</td>
+      </tr>
+      <tr>
+        <td><code>features.clipboard</code></td>
+        <td>Enable clipboard watching</td>
+        <td>false</td>
+      </tr>
+      <tr>
+        <td><code>features.shortcuts</code></td>
+        <td>Enable keyboard shortcuts</td>
+        <td>true</td>
+      </tr>
+      <tr>
+        <td><code>features.fileWatching</code></td>
+        <td>Watch configured folders</td>
+        <td>true</td>
+      </tr>
+      <tr>
+        <td><code>folders</code></td>
+        <td>Folders to watch</td>
+        <td>~/Desktop, ~/Downloads</td>
+      </tr>
+      <tr>
+        <td><code>bridge.port</code></td>
+        <td>HTTP port for OS communications</td>
+        <td>17341</td>
+      </tr>
+      <tr>
+        <td><code>menubar</code></td>
+        <td>Show menubar status indicator</td>
+        <td>true</td>
+      </tr>
+    </table>
+
+    <h2>CLI Commands</h2>
+
+    <pre><code># Install macOS integrations
+ronin os install mac
+
+# Remove all macOS integrations
+ronin os uninstall mac
+
+# Show installation status
+ronin os status
+
+# Verify installation is working
+ronin os verify
+
+# Enable/disable clipboard watching
+ronin os clipboard enable
+ronin os clipboard disable
+
+# Install with custom settings
+ronin os install mac --bridge-port 8080 --folders "~/Desktop,~/Downloads,~/Documents"</code></pre>
+
+    <h2>Security & Privacy</h2>
+
+    <h3>Privacy-First Defaults</h3>
+    <ul>
+      <li><strong>Opt-in</strong>: Desktop Mode is disabled by default</li>
+      <li><strong>Explicit Clipboard</strong>: Clipboard watching requires explicit user action</li>
+      <li><strong>Local Only</strong>: All OS communications stay on localhost</li>
+      <li><strong>No Data Collection</strong>: Nothing leaves your machine</li>
+    </ul>
+
+    <h3>Permissions</h3>
+    <p>The installer will request:</p>
+    <ul>
+      <li>Automation permissions (for Quick Action)</li>
+      <li>Accessibility permissions (if using clipboard monitoring)</li>
+    </ul>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Quick Action Not Appearing</h3>
+    <pre><code># Rebuild services cache
+/System/Library/CoreServices/pbs -flush
+
+# Or reinstall
+ronin os install mac</code></pre>
+
+    <h3>LaunchAgent Not Starting</h3>
+    <pre><code># Check LaunchAgent status
+launchctl list | grep ronin
+
+# Load manually
+launchctl load ~/Library/LaunchAgents/ai.ronin.desktop.plist
+
+# View logs
+tail -f ~/.ronin/logs/ronin-desktop.log
+tail -f ~/.ronin/logs/ronin-desktop.error.log</code></pre>
+
+    <div class="navigation">
+      <a href="22-troubleshooting.html" class="prev">← Chapter 22: Troubleshooting & Debugging</a>
+      <a href="appendices/A-api-reference.html" class="next">Appendix A: API Reference →</a>
+    </div>
+  </div>
+</body>
+</html>

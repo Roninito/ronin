@@ -24,7 +24,7 @@ interface TelegramUpdate {
  */
 export default class TelegramSubscriptionAgent extends BaseAgent {
   // Schedule: Run every 5 minutes
-  static schedule = "*/5 * * * *";
+  static schedule = "*/15 * * * *";
 
   constructor(api: AgentAPI) {
     super(api);

@@ -11,6 +11,7 @@ import { join } from "path";
 import { homedir } from "os";
 import type { FullConfig, ConfigPath } from "./types.js";
 import { DEFAULT_CONFIG, ENV_MAPPINGS } from "./defaults.js";
+import { logger } from "../utils/logger.js";
 
 export class ConfigService {
   private config: FullConfig;
@@ -35,7 +36,7 @@ export class ConfigService {
     // Layer 1: Override with environment variables (highest priority)
     this.loadFromEnv();
     
-    console.log("[ConfigService] Configuration loaded successfully");
+    logger.info("Configuration loaded");
   }
 
   /**
@@ -54,9 +55,9 @@ export class ConfigService {
       // Merge file config into defaults
       this.mergeConfig(this.config, fileConfig);
       
-      console.log(`[ConfigService] Loaded config from ${this.configPath}`);
+      logger.debug("Config loaded from file", { path: this.configPath });
     } catch (error) {
-      console.warn(`[ConfigService] Failed to load config file: ${error}`);
+      logger.warn("Failed to load config file", { path: this.configPath, error });
     }
   }
 
@@ -75,7 +76,7 @@ export class ConfigService {
     // Log which values are overridden by env vars (without showing sensitive values)
     const overrideCount = this.envOverrides.size;
     if (overrideCount > 0) {
-      console.log(`[ConfigService] ${overrideCount} values overridden by environment variables`);
+      logger.debug("Config overridden by env", { count: overrideCount });
     }
   }
 
@@ -192,6 +193,13 @@ export class ConfigService {
   }
 
   /**
+   * Get Brave Search configuration
+   */
+  getBraveSearch() {
+    return this.config.braveSearch;
+  }
+
+  /**
    * Get System configuration
    */
   getSystem() {
@@ -241,6 +249,13 @@ export class ConfigService {
   }
 
   /**
+   * Get MCP configuration
+   */
+  getMCP() {
+    return this.config.mcp;
+  }
+
+  /**
    * Check if a value came from environment variable
    */
   isFromEnv(path: ConfigPath): boolean {
@@ -255,13 +270,22 @@ export class ConfigService {
   }
 
   /**
+   * Set a single config value by dot-path and persist to disk.
+   * Accepts typed values (string, number, boolean, arrays, objects).
+   */
+  async set(path: string, value: unknown): Promise<void> {
+    this.setValueByPath(this.config, path, value);
+    await this.saveConfig(this.config);
+  }
+
+  /**
    * Save configuration to file
    * Note: Environment variables are not saved, they remain in env only
    */
   async saveConfig(config: FullConfig): Promise<void> {
     await Bun.write(this.configPath, JSON.stringify(config, null, 2));
     this.config = JSON.parse(JSON.stringify(config));
-    console.log(`[ConfigService] Config saved to ${this.configPath}`);
+    logger.info("Config saved", { path: this.configPath });
   }
 
   /**

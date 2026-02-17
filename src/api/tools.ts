@@ -5,9 +5,11 @@
  */
 
 import type { AgentAPI } from "../types/index.js";
-import { ToolRouter } from "./ToolRouter.js";
-import { WorkflowEngine } from "./WorkflowEngine.js";
-import { registerLocalTools } from "./providers/LocalTools.js";
+import { ToolRouter } from "../tools/ToolRouter.js";
+import { WorkflowEngine } from "../tools/WorkflowEngine.js";
+import { registerLocalTools } from "../tools/providers/LocalTools.js";
+import { MCPClientManager } from "../mcp/MCPClientManager.js";
+import { getConfigService } from "../config/ConfigService.js";
 import type { 
   ToolDefinition, 
   ToolCall, 
@@ -16,16 +18,17 @@ import type {
   ToolPolicy,
   WorkflowDefinition,
   OpenAIFunctionSchema,
-} from "./types.js";
+} from "../tools/types.js";
 
 // Singleton instances
 let toolRouter: ToolRouter | null = null;
 let workflowEngine: WorkflowEngine | null = null;
+let mcpManager: MCPClientManager | null = null;
 
 /**
  * Initialize the tools system
  */
-export function initializeTools(api: AgentAPI): void {
+export async function initializeTools(api: AgentAPI): Promise<void> {
   if (toolRouter) {
     console.log("[ToolsAPI] Already initialized");
     return;
@@ -41,6 +44,12 @@ export function initializeTools(api: AgentAPI): void {
 
   // Register local tools
   registerLocalTools(api, (tool) => toolRouter!.register(tool));
+
+  // Connect to MCP servers
+  const configService = getConfigService();
+  const mcpConfig = configService.getMCP();
+  mcpManager = new MCPClientManager(toolRouter, api);
+  await mcpManager.connectEnabledServers(mcpConfig);
 
   console.log("[ToolsAPI] Tool system initialized");
 }
@@ -172,8 +181,8 @@ export function getToolsAPI(api: AgentAPI) {
 }
 
 // Export types
-export type { ToolDefinition, ToolCall, ToolResult, ToolContext, WorkflowDefinition } from "./types.js";
-export { ToolRouter } from "./ToolRouter.js";
-export { WorkflowEngine } from "./WorkflowEngine.js";
-export { CloudAdapter } from "./adapters/CloudAdapter.js";
-export { OpenAIAdapter } from "./adapters/OpenAIAdapter.js";
+export type { ToolDefinition, ToolCall, ToolResult, ToolContext, WorkflowDefinition } from "../tools/types.js";
+export { ToolRouter } from "../tools/ToolRouter.js";
+export { WorkflowEngine } from "../tools/WorkflowEngine.js";
+export { CloudAdapter } from "../tools/adapters/CloudAdapter.js";
+export { OpenAIAdapter } from "../tools/adapters/OpenAIAdapter.js";

@@ -1,6 +1,7 @@
 import { existsSync, readdir } from "fs";
 import { join } from "path";
 import { readFile } from "fs/promises";
+import { marked } from "marked";
 
 /**
  * Documentation command: View documentation in browser or terminal
@@ -21,7 +22,73 @@ const DOCS_MAP: Record<string, string> = {
   "TOOL_CALLING": "TOOL_CALLING.md",
   "REMOTE_AI": "REMOTE_AI.md",
   "OLLAMA_GPU": "OLLAMA_GPU.md",
+  "MCP": "MCP.md",
+  "RAG": "RAG.md",
+  "CRON_SCHEDULING": "CRON_SCHEDULING.md",
+  "CONFIG_EDITOR": "CONFIG_EDITOR.md",
+  "HYBRID_INTELLIGENCE": "HYBRID_INTELLIGENCE.md",
 };
+
+/** Shared clean-docs theme: small, organized typography */
+const DOCS_THEME_CSS = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+    background: #f8fafc;
+  }
+  .doc-page a { color: #2563eb; text-decoration: none; }
+  .doc-page a:hover { text-decoration: underline; }
+  .doc-page h1 { font-size: 1.35rem; font-weight: 600; color: #111827; margin: 0 0 0.75rem; padding-bottom: 0.35rem; border-bottom: 1px solid #e5e7eb; }
+  .doc-page h2 { font-size: 1.1rem; font-weight: 600; color: #1f2937; margin: 1.25rem 0 0.5rem; }
+  .doc-page h3 { font-size: 1rem; font-weight: 600; color: #374151; margin: 1rem 0 0.4rem; }
+  .doc-page h4 { font-size: 0.9rem; font-weight: 600; color: #4b5563; margin: 0.75rem 0 0.35rem; }
+  .doc-page p { margin: 0 0 0.6rem; }
+  .doc-page ul, .doc-page ol { margin: 0 0 0.6rem 1.25rem; }
+  .doc-page li { margin: 0.2rem 0; }
+  .doc-page code {
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  .doc-page pre {
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.5rem 0 0.75rem;
+    border: 1px solid #334155;
+  }
+  .doc-page pre code { background: none; color: inherit; padding: 0; border: none; }
+  .doc-page blockquote {
+    border-left: 3px solid #cbd5e1;
+    margin: 0.5rem 0 0.75rem;
+    padding: 0 0 0 0.75rem;
+    color: #475569;
+  }
+  .doc-page table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 0.5rem 0 0.75rem;
+  }
+  .doc-page th, .doc-page td {
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem 0.6rem;
+    text-align: left;
+  }
+  .doc-page th { background: #f1f5f9; font-weight: 600; color: #334155; }
+  .doc-page hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+`;
 
 /**
  * Start documentation server
@@ -60,7 +127,8 @@ function startDocsServer(port: number = 3002): void {
         if (existsSync(docPath)) {
           try {
             const content = await readFile(docPath, "utf-8");
-            return new Response(getDocHTML(docName, content), {
+            const html = await getDocHTML(docName, content);
+            return new Response(html, {
               headers: { "Content-Type": "text/html", ...corsHeaders },
             });
           } catch (error) {
@@ -130,53 +198,32 @@ function getDocsIndexHTML(): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Documentation</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      padding: 2rem;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 2rem;
-    }
-    h1 { color: #333; margin-bottom: 1rem; }
-    .docs-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 1rem;
-      margin-top: 2rem;
-    }
+  <style>${DOCS_THEME_CSS}
+    .index-wrap { max-width: 960px; margin: 0 auto; padding: 1.25rem 1.5rem; }
+    .index-wrap h1 { font-size: 1.25rem; font-weight: 600; color: #111827; margin-bottom: 0.5rem; border: none; padding: 0; }
+    .index-wrap .sub { font-size: 12px; color: #6b7280; margin-bottom: 1rem; }
+    .docs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
     .doc-card {
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 1.5rem;
+      display: block;
+      font-size: 12px;
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #374151;
       text-decoration: none;
-      color: #333;
-      transition: all 0.2s;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .doc-card:hover {
-      border-color: #667eea;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-    }
-    .doc-card h3 {
-      color: #667eea;
-      margin-bottom: 0.5rem;
-    }
+    .doc-card:hover { border-color: #93c5fd; background: #eff6ff; }
+    .doc-card strong { color: #1e40af; font-weight: 600; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📚 Ronin Documentation</h1>
-    <p>Select a document to view:</p>
+  <div class="index-wrap">
+    <h1>Ronin Documentation</h1>
+    <p class="sub">Select a document to view.</p>
     <div class="docs-list" id="docs-list">
-      <div>Loading...</div>
+      <span style="color:#6b7280">Loading…</span>
     </div>
   </div>
   <script>
@@ -184,12 +231,7 @@ function getDocsIndexHTML(): string {
       .then(res => res.json())
       .then(docs => {
         const list = document.getElementById('docs-list');
-        list.innerHTML = docs.map(doc => 
-          \`<a href="/docs/\${doc}" class="doc-card">
-            <h3>\${doc}</h3>
-            <p>View documentation</p>
-          </a>\`
-        ).join('');
+        list.innerHTML = docs.map(doc => '<a href="/docs/' + encodeURIComponent(doc) + '" class="doc-card"><strong>' + doc + '</strong></a>').join('');
       });
   </script>
 </body>
@@ -197,84 +239,40 @@ function getDocsIndexHTML(): string {
 }
 
 /**
- * Get HTML for a specific document
+ * Get HTML for a specific document (full markdown support via marked)
  */
-function getDocHTML(title: string, content: string): string {
-  // Simple markdown to HTML conversion (basic)
-  let html = content
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/`([^`]+)`/gim, '<code>$1</code>')
-    .replace(/```([\\s\\S]*?)```/gim, '<pre><code>$1</code></pre>')
-    .replace(/\\n/g, '<br>');
+async function getDocHTML(title: string, content: string): Promise<string> {
+  marked.setOptions({ gfm: true, breaks: true });
+  const html = await marked.parse(content);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Ronin Documentation</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-      padding: 2rem;
-      line-height: 1.6;
-    }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 2rem;
-    }
-    h1 { color: #333; margin-bottom: 1rem; }
-    h2 { color: #555; margin-top: 2rem; margin-bottom: 1rem; }
-    h3 { color: #777; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-    code {
-      background: #f4f4f4;
-      padding: 0.2rem 0.4rem;
-      border-radius: 3px;
-      font-family: 'Courier New', monospace;
-    }
-    pre {
-      background: #f4f4f4;
-      padding: 1rem;
-      border-radius: 5px;
-      overflow-x: auto;
-      margin: 1rem 0;
-    }
-    pre code {
-      background: none;
-      padding: 0;
-    }
-    a {
-      color: #667eea;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 1rem;
-      color: #667eea;
-    }
+  <title>${escapeHtml(title)} — Ronin</title>
+  <style>${DOCS_THEME_CSS}
+    .doc-wrap { max-width: 720px; margin: 0 auto; padding: 1.25rem 1.5rem; }
+    .doc-nav { font-size: 12px; margin-bottom: 1rem; }
+    .doc-nav a { color: #2563eb; }
+    .doc-page { padding: 0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <a href="/docs" class="back-link">← Back to Documentation</a>
-    <div>${html}</div>
+  <div class="doc-wrap">
+    <nav class="doc-nav"><a href="/docs">← Documentation</a></nav>
+    <article class="doc-page">${html}</article>
   </div>
 </body>
 </html>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /**

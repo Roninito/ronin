@@ -12,16 +12,37 @@ A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript 
 - **Rich API**: Agents receive an `api` object with AI, files, database, HTTP, and event capabilities
 - **Plugin System**: Auto-discoverable plugins with built-in git and shell plugins
 - **Function Calling**: AI agents can use plugins as tools via Ollama's function calling API
+- **Hybrid Intelligence**: Tool orchestration system with local + cloud AI support
+- **MCP Client**: Connect to external MCP servers for filesystem, GitHub, web search, and database tools
+- **Desktop Mode**: macOS integration with Quick Actions, menubar, and notifications
 - **CLI Management**: Simple CLI to start, run, list, and check status of agents
 
 ## Quick Start
+
+### 🚀 New to Ronin? Start Here!
+
+```bash
+# Interactive setup wizard (RECOMMENDED)
+ronin init
+
+# Or use defaults for fastest setup
+ronin init --quick
+```
+
+The setup wizard will guide you through:
+- **Privacy Mode**: Choose between Offline Mode (most private) or Hybrid Mode
+- **Desktop Integration** (macOS): Enable Quick Actions, menubar controls, and notifications
+- **Cloudflare**: Optional secure tunnel setup for remote access
+- **AI Providers**: Configure Grok/Gemini (optional - uses local AI by default)
+
+### Manual Setup
 
 ```bash
 # Install dependencies
 bun install
 
-# Setup environment variables (optional)
-./setup-env.sh  # Interactive setup for API keys and GPU config
+# Setup environment (interactive)
+./setup-env.sh
 
 # List available agents
 bun run ronin list
@@ -49,6 +70,12 @@ bun run ronin ask gemini "how to create plugins"  # Use Gemini
 bun run ronin ask  # Interactive mode
 bun run ronin ask "question" --ask-model qwen3:1.7b  # Use specific Ollama model
 
+# Manage MCP servers for extended capabilities
+bun run ronin mcp discover                      # Show available MCP servers
+bun run ronin mcp add filesystem --path ~/Documents  # Add filesystem access
+bun run ronin mcp add brave-search               # Add web search (requires API key)
+bun run ronin mcp list                          # List configured servers
+
 # Start all agents (schedules them and keeps running)
 bun run ronin start
 
@@ -57,6 +84,39 @@ bun start
 ```
 
 **Note:** After installing globally (`bun link` or `npm install -g`), you can use `ronin` directly instead of `bun run ronin`.
+
+## First-Time Setup
+
+### Interactive Wizard (Recommended)
+
+Ronin includes an interactive setup wizard that explains all options:
+
+```bash
+# Full interactive setup
+ronin init
+
+# Quick setup with recommended defaults
+ronin init --quick
+
+# Skip specific features
+ronin init --skip-cloudflare --skip-desktop
+```
+
+The wizard will help you:
+1. **Choose Privacy Mode**: Offline Mode (local AI only) or Hybrid Mode
+2. **Enable Desktop Mode** (macOS): Right-click integration, menubar, notifications
+3. **Set up Cloudflare**: Secure remote access with zero-trust security
+4. **Configure AI Providers**: Optional Grok/Gemini keys
+
+### Privacy-First Defaults
+
+Ronin defaults to the most private configuration:
+- ✅ **Offline Mode**: Uses only local AI (Ollama)
+- ✅ **No data leaves your machine**
+- ✅ **Works without internet**
+- ✅ **Optional features are truly optional**
+
+You can change any setting later via the CLI or menubar.
 
 ## AI Definitions (CLI)
 
@@ -164,6 +224,67 @@ curl -X POST http://localhost:3000/api/plans/approve \
 **Events:** PlanProposed → PlanApproved → PlanCompleted/Failed
 
 See [docs/PLAN_WORKFLOW.md](./docs/PLAN_WORKFLOW.md) for complete documentation.
+
+## Desktop Mode (macOS)
+
+Seamlessly integrate Ronin with your macOS workflow:
+
+- **Quick Actions**: Right-click files → Services → Send to Ronin
+- **Native Notifications**: macOS notifications grouped under "Ronin"
+- **Menubar Controls**: 🥷 Toggle Desktop/Offline/Clipboard modes
+- **Clipboard Watching**: Opt-in clipboard monitoring
+- **File Watching**: Monitor Desktop, Downloads, etc.
+
+```bash
+# Install macOS integrations
+bun run ronin os install mac
+
+# Enable Desktop Mode
+bun run ronin config set desktop.enabled true
+
+# Start with Desktop Mode
+bun run ronin start --desktop
+```
+
+**Menubar Features:**
+- Toggle Desktop Mode on/off
+- Enable/disable Offline Mode (local AI only)
+- Enable/disable Clipboard monitoring
+- Switch AI provider (Local/Grok/Gemini)
+- View recent files/texts
+- Open dashboard
+
+See [docs/DESKTOP_MODE.md](./docs/DESKTOP_MODE.md) for complete documentation.
+
+## Hybrid Intelligence
+
+Ronin includes a powerful Hybrid Intelligence system for tool orchestration and workflow management:
+
+- **6 Local Tools**: memory.search, file.read/list, shell.safe, http.request, reasoning
+- **4 Cloud Adapters**: OpenAI, Anthropic, Gemini, Ollama (free, default)
+- **6 Pre-built Workflows**: research, code-review, documentation, analysis, bug investigation
+- **Cost Tracking**: Built-in cost management and policy enforcement
+- **Offline Mode**: Works 100% offline with local tools
+
+```typescript
+// Use ToolChat for high-level interactions
+import { ToolChat } from "@ronin/tools";
+
+const chat = new ToolChat(api);
+const result = await chat.complete("Analyze this codebase", {
+  tools: ["file.list", "reasoning"],
+  allowCloud: true, // Allow cloud AI if needed
+});
+```
+
+**Available Tools:**
+- `memory.search` - Semantic search through agent memory
+- `file.read/list` - File system operations
+- `shell.safe` - Safe shell command execution
+- `http.request` - HTTP requests with retry logic
+- `reasoning` - Chain-of-thought reasoning
+
+See [docs/HYBRID_INTELLIGENCE.md](./docs/HYBRID_INTELLIGENCE.md) for complete documentation.
 
 ## Configuration
 

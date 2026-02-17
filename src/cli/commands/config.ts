@@ -13,6 +13,7 @@ export interface ConfigOptions {
   init?: boolean;
   grokApiKey?: string;
   geminiApiKey?: string;
+  braveApiKey?: string;
   geminiModel?: string;
   realmUrl?: string;
   realmCallsign?: string;
@@ -44,6 +45,7 @@ function getConfigPath(): string {
  * Get the default local agents directory
  */
 export function getDefaultAgentDir(): string {
+  // Local agents should be in ./agents relative to where ronin is run
   return join(process.cwd(), "agents");
 }
 
@@ -77,10 +79,11 @@ export function ensureDefaultExternalAgentDir(): string {
 }
 
 /**
- * Get the default local plugins directory
+ * Get the default plugins directory (user's home .ronin folder for global installs)
  */
 export function getDefaultPluginDir(): string {
-  return join(process.cwd(), "plugins");
+  // Use ~/.ronin/plugins instead of process.cwd()/plugins for global installs
+  return join(homedir(), ".ronin", "plugins");
 }
 
 /**
@@ -179,6 +182,9 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       for (const [key, value] of Object.entries(config)) {
         if (key === "grokApiKey" || key === "geminiApiKey" || key === "realmToken") {
           console.log(`   ${key}: ${maskValue(value)}`);
+        } else if (key === "braveSearch" && value && typeof value === "object" && "apiKey" in value) {
+          const bs = value as { apiKey?: string };
+          console.log(`   braveSearch.apiKey: ${bs.apiKey ? maskValue(bs.apiKey) : "(not set)"}`);
         } else if (key === "geminiModel") {
           console.log(`   ${key}: ${value} (default: gemini-pro if not set)`);
         } else {
@@ -215,7 +221,25 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     } else {
       console.log(`   WEBHOOK_PORT: (not set, using default: ${webhookPort})`);
     }
+    if (process.env.BRAVE_API_KEY) {
+      console.log(`   BRAVE_API_KEY: ${maskValue(process.env.BRAVE_API_KEY)}`);
+    } else {
+      console.log("   BRAVE_API_KEY: (not set)");
+    }
     
+    console.log("\nMCP Servers:");
+    const mcp = config.mcp as { servers?: Record<string, unknown> } | undefined;
+    if (mcp?.servers && Object.keys(mcp.servers).length > 0) {
+      for (const [name, server] of Object.entries(mcp.servers)) {
+        const s = server as { enabled?: boolean; command?: string; args?: string[] };
+        const status = s.enabled ? "enabled" : "disabled";
+        const cmd = s.command ? [s.command, ...(s.args ?? [])].join(" ") : "(no command)";
+        console.log(`   ${name}: ${status} - ${cmd}`);
+      }
+    } else {
+      console.log("   (none configured - use 'ronin mcp discover' to see options)");
+    }
+
     console.log("\nDirectories:");
     console.log(`   Built-in plugins: ${getDefaultPluginDir()}`);
     console.log(`   User plugins: ${getDefaultUserPluginDir()}`);
@@ -261,6 +285,32 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       console.log("✅ Gemini API key saved to configuration");
       console.log("\n💡 The API key is stored in ~/.ronin/config.json");
       console.log("💡 Environment variable GEMINI_API_KEY takes precedence if set");
+    }
+    return;
+  }
+
+  if (options.braveApiKey !== undefined) {
+    const config = await loadConfig();
+    if (!config.braveSearch || typeof config.braveSearch !== "object") {
+      config.braveSearch = { apiKey: "" };
+    }
+    const braveSearch = config.braveSearch as { apiKey?: string };
+    
+    if (options.braveApiKey === "") {
+      braveSearch.apiKey = "";
+      if (Object.keys(braveSearch).length === 0) {
+        delete config.braveSearch;
+      }
+      await saveConfig(config);
+      console.log("✅ Removed Brave Search API key from configuration");
+      console.log("\n💡 Note: Environment variable BRAVE_API_KEY takes precedence if set");
+    } else {
+      braveSearch.apiKey = options.braveApiKey;
+      config.braveSearch = braveSearch;
+      await saveConfig(config);
+      console.log("✅ Brave Search API key saved to configuration");
+      console.log("\n💡 The API key is stored in ~/.ronin/config.json");
+      console.log("💡 Environment variable BRAVE_API_KEY takes precedence if set");
     }
     return;
   }
@@ -650,6 +700,8 @@ Usage:
   ronin config --grok-api-key ""         Remove Grok API key
   ronin config --gemini-api-key <key>     Set Gemini API key
   ronin config --gemini-api-key ""        Remove Gemini API key
+  ronin config --brave-api-key <key>      Set Brave Search API key (for MCP web search)
+  ronin config --brave-api-key ""         Remove Brave Search API key
   ronin config --gemini-model <model>     Set Gemini model (e.g., gemini-1.5-pro)
   ronin config --gemini-model ""          Remove Gemini model (use default)
   ronin config --realm-url <url>          Set Realm discovery server URL
@@ -679,6 +731,7 @@ Examples:
   ronin config --user-plugin-dir ~/my-plugins
   ronin config --grok-api-key sk-xxxxx
   ronin config --gemini-api-key AIxxxxx
+  ronin config --brave-api-key <key>      # Get from brave.com/search/api
   ronin config --gemini-model gemini-1.5-flash
   ronin config --realm-url wss://realm.afiwi.net
   ronin config --realm-callsign Roninito

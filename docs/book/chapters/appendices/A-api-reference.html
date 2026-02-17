@@ -77,11 +77,35 @@ joinGuild(clientId: string, inviteCode: string): Promise&lt;{ code: string; guil
 getChannel(clientId: string, channelId: string): Promise&lt;{ id: string; name: string; type: string; guildId: string | null }&gt;</code></pre>
 
     <h2>api.langchain</h2>
-    <pre><code>runChain(promptTemplate: string, input: Record&lt;string, any&gt;, api?: AgentAPI): Promise&lt;string&gt;
-runAgent(query: string, tools?: any[], api?: AgentAPI): Promise&lt;any&gt;
-buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise&lt;any&gt;
-runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise&lt;string&gt;
-buildResearchGraph(api?: AgentAPI): Promise&lt;any&gt;</code></pre>
+    <pre><code>runChain(promptTemplate: string, input: Record<string, any>, api?: AgentAPI): Promise<string>
+runAgent(query: string, tools?: any[], api?: AgentAPI): Promise<any>
+buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise<any>
+runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise<string>
+buildResearchGraph(api?: AgentAPI): Promise<any></code></pre>
+
+    <h2>api.tools</h2>
+    <pre><code>register(tool: ToolDefinition): void
+unregister(toolName: string): void
+execute(name: string, args: Record<string, any>, context?: Partial<ToolContext>): Promise<ToolResult>
+list(): ToolDefinition[]
+getSchemas(): OpenAIFunctionSchema[]
+has(name: string): boolean
+registerWorkflow(workflow: WorkflowDefinition): void
+executeWorkflow(name: string, args: Record<string, any>, context?: Partial<ToolContext>): Promise<any>
+getWorkflow(name: string): WorkflowDefinition | undefined
+listWorkflows(): WorkflowDefinition[]
+setPolicy(policy: ToolPolicy): void
+getPolicy(): ToolPolicy
+getCostStats(): { daily: number; monthly: number }</code></pre>
+
+    <h2>api.notify</h2>
+    <p>Native notification API (available when Desktop Mode is enabled):</p>
+    <pre><code>notify(options: {
+  title: string;
+  message: string;
+  subtitle?: string;
+  sound?: boolean;
+}): Promise<void></code></pre>
 
     <h2>Type Definitions</h2>
 
@@ -109,6 +133,11 @@ buildResearchGraph(api?: AgentAPI): Promise&lt;any&gt;</code></pre>
     <p>
       Most API methods return Promises that resolve to the operation result. Error handling should be done with try-catch blocks.
     </p>
+
+    <div class="navigation">
+      <a href="../24-hybrid-intelligence.html" class="prev">← Chapter 24: Hybrid Intelligence</a>
+      <a href="B-config-reference.html" class="next">Appendix B: Configuration Reference →</a>
+    </div>
   </div>
 </body>
 </html>

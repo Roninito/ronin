@@ -22,7 +22,7 @@
     <div class="diagram">
       <pre><code>┌─────────────────────────────────────────────────────────────┐
 │                      CLI Interface                          │
-│  (start, run, list, status, create plugin, plugins list)   │
+│    (start, run, list, status, create, plugins, mcp)        │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ▼
@@ -39,14 +39,28 @@
 │  ┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────┐     │
 │  │  AI  │ │Memory  │ │Files │ │   DB   │ │ Plugins  │     │
 │  └──────┘ └────────┘ └──────┘ └────────┘ └──────────┘     │
+│                                                             │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │              Tool System                         │     │
+│  │  ┌──────────────┐  ┌──────────────────────┐     │     │
+│  │  │ ToolRouter   │  │  MCP Client Manager  │     │     │
+│  │  └──────────────┘  └──────────────────────┘     │     │
+│  └──────────────────────────────────────────────────┘     │
 └──────────────────────┬──────────────────────────────────────┘
                        │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│   Ollama    │ │   SQLite    │ │   Plugins   │
-│  (qwen3:1.7b)│ │  (Memory)   │ │  Directory  │
-└─────────────┘ └─────────────┘ └─────────────┘</code></pre>
+        ┌──────────────┼──────────────┬───────────────┐
+        ▼              ▼              ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐
+│   Ollama    │ │   SQLite    │ │   Plugins   │ │   MCP    │
+│ (qwen3:1.7b)│ │  (Memory)   │ │  Directory  │ │ Servers  │
+└─────────────┘ └─────────────┘ └─────────────┘ └──────────┘
+                                                    │
+                                    ┌───────────────┼────────┐
+                                    ▼               ▼        ▼
+                                ┌──────┐        ┌──────┐ ┌──────┐
+                                │ FS   │        │ GH   │ │Brave │
+                                │SQLite│        │ ...  │ │ ...  │
+                                └──────┘        └──────┘ └──────┘</code></pre>
     </div>
 
     <h2>Core Components</h2>
@@ -181,7 +195,42 @@
       <li>Auto-generates tool schemas from plugin methods</li>
     </ul>
 
-    <h3>5. CLI Interface</h3>
+    <h3>5. Tool System</h3>
+
+    <h4>ToolRouter</h4>
+    <p>
+      The <code>ToolRouter</code> (<code>src/api/tools/ToolRouter.ts</code>) provides unified tool management:
+    </p>
+    <ul>
+      <li>Central registry for all tool types (local, plugin, MCP)</li>
+      <li>Tool registration, discovery, and execution</li>
+      <li><code>register(tool)</code> - Register a new tool</li>
+      <li><code>list()</code> - Get all registered tools</li>
+      <li><code>get(name)</code> - Get tool by name</li>
+      <li><code>execute(name, params)</code> - Execute a tool</li>
+    </ul>
+
+    <h4>MCPClientManager</h4>
+    <p>
+      The <code>MCPClientManager</code> (<code>src/mcp/MCPClientManager.ts</code>) manages external MCP servers:
+    </p>
+    <ul>
+      <li>Connects to Model Context Protocol servers</li>
+      <li>Implements MCP client protocol via <code>@modelcontextprotocol/sdk</code></li>
+      <li>Translates MCP tools to Ronin's <code>ToolDefinition</code> format</li>
+      <li>Proxies tool execution to MCP servers via stdio transport</li>
+      <li>Tool naming: <code>mcp_&lt;server&gt;_&lt;tool&gt;</code> (e.g., <code>mcp_filesystem_read_file</code>)</li>
+      <li>Supports filesystem, GitHub, Brave Search, and SQLite servers</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-title">ℹ️ MCP Integration</div>
+      <p>
+        MCP servers are configured in <code>~/.ronin/config.json</code> under <code>mcp.servers</code>. Use <code>ronin mcp</code> commands to manage connections. See <a href="../MCP.md">MCP.md</a> for complete documentation.
+      </p>
+    </div>
+
+    <h3>6. CLI Interface</h3>
 
     <p>
       The CLI (<code>src/cli/</code>) provides commands for managing Ronin:
@@ -193,6 +242,7 @@
       <li><code>status</code> - Show runtime status</li>
       <li><code>create plugin &lt;name&gt;</code> - Create new plugin template</li>
       <li><code>plugins list</code> - List loaded plugins</li>
+      <li><code>mcp &lt;command&gt;</code> - Manage MCP server connections</li>
       <li><code>config</code> - Manage configuration</li>
       <li><code>ask</code> - Ask questions about Ronin</li>
     </ul>

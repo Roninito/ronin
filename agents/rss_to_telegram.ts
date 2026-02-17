@@ -23,7 +23,7 @@ interface RSSItem {
  */
 export default class RSSToTelegramAgent extends BaseAgent {
   // Schedule: Run every 15 minutes
-  static schedule = "*/15 * * * *";
+  static schedule = "0 */3 * * *";
 
   constructor(api: AgentAPI) {
     super(api);

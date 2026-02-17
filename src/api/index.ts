@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import { AIAPI } from "./ai.js";
 import { FilesAPI } from "./files.js";
 import { DatabaseAPI } from "./database.js";
@@ -9,7 +10,7 @@ import { PluginLoader } from "../plugins/PluginLoader.js";
 import { pluginsToTools } from "../plugins/toolGenerator.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { initializeTools, getToolsAPI } from "./tools.js";
-import type { AgentAPI } from "../types/api.js";
+import type { AgentAPI, Message, CompletionOptions, ChatOptions, Tool } from "../types/api.js";
 
 export interface APIOptions {
   ollamaUrl?: string;
@@ -43,125 +44,223 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   }
 
   if (plugins.length > 0) {
-    console.log(`✅ Loaded ${plugins.length} plugin(s): ${plugins.map(p => p.name).join(", ")}`);
+    logger.info("Plugins loaded", { count: plugins.length, plugins: plugins.map(p => p.name) });
   }
 
-  // Create direct plugin APIs if plugins are loaded
-  const gitPlugin = plugins.find(p => p.name === "git");
-  const gitAPI: AgentAPI["git"] = gitPlugin ? {
-    init: gitPlugin.plugin.methods.init as NonNullable<AgentAPI["git"]>["init"],
-    clone: gitPlugin.plugin.methods.clone as NonNullable<AgentAPI["git"]>["clone"],
-    status: gitPlugin.plugin.methods.status as NonNullable<AgentAPI["git"]>["status"],
-    add: gitPlugin.plugin.methods.add as NonNullable<AgentAPI["git"]>["add"],
-    commit: gitPlugin.plugin.methods.commit as NonNullable<AgentAPI["git"]>["commit"],
-    push: gitPlugin.plugin.methods.push as NonNullable<AgentAPI["git"]>["push"],
-    pull: gitPlugin.plugin.methods.pull as NonNullable<AgentAPI["git"]>["pull"],
-    branch: gitPlugin.plugin.methods.branch as NonNullable<AgentAPI["git"]>["branch"],
-    checkout: gitPlugin.plugin.methods.checkout as NonNullable<AgentAPI["git"]>["checkout"],
-  } : undefined;
+  // ── Generic plugin-to-API binder ──────────────────────────────────────
+  // Replaces ~120 lines of repetitive per-plugin wiring with a single helper.
+  function bindPluginAPI<K extends keyof AgentAPI>(
+    pluginName: string,
+  ): AgentAPI[K] | undefined {
+    const found = plugins.find(p => p.name === pluginName);
+    if (!found) return undefined;
+    return { ...found.plugin.methods } as AgentAPI[K];
+  }
 
-  const shellPlugin = plugins.find(p => p.name === "shell");
-  const shellAPI: AgentAPI["shell"] = shellPlugin ? {
-    exec: shellPlugin.plugin.methods.exec as NonNullable<AgentAPI["shell"]>["exec"],
-    execAsync: shellPlugin.plugin.methods.execAsync as NonNullable<AgentAPI["shell"]>["execAsync"],
-    which: shellPlugin.plugin.methods.which as NonNullable<AgentAPI["shell"]>["which"],
-    env: shellPlugin.plugin.methods.env as NonNullable<AgentAPI["shell"]>["env"],
-    cwd: shellPlugin.plugin.methods.cwd as NonNullable<AgentAPI["shell"]>["cwd"],
-  } : undefined;
+  const gitAPI = bindPluginAPI<"git">("git");
+  const shellAPI = bindPluginAPI<"shell">("shell");
+  const scrapeAPI = bindPluginAPI<"scrape">("scrape");
+  const torrentAPI = bindPluginAPI<"torrent">("torrent");
+  const telegramAPI = bindPluginAPI<"telegram">("telegram");
+  const discordAPI = bindPluginAPI<"discord">("discord");
+  const langchainAPI = bindPluginAPI<"langchain">("langchain");
+  const ragAPI = bindPluginAPI<"rag">("rag");
 
-  const scrapePlugin = plugins.find(p => p.name === "scrape");
-  const scrapeAPI: AgentAPI["scrape"] = scrapePlugin ? {
-    scrape_to_markdown: scrapePlugin.plugin.methods.scrape_to_markdown as NonNullable<AgentAPI["scrape"]>["scrape_to_markdown"],
-  } : undefined;
-
-  const torrentPlugin = plugins.find(p => p.name === "torrent");
-  const torrentAPI: AgentAPI["torrent"] = torrentPlugin ? {
-    search: torrentPlugin.plugin.methods.search as NonNullable<AgentAPI["torrent"]>["search"],
-    add: torrentPlugin.plugin.methods.add as NonNullable<AgentAPI["torrent"]>["add"],
-    list: torrentPlugin.plugin.methods.list as NonNullable<AgentAPI["torrent"]>["list"],
-    status: torrentPlugin.plugin.methods.status as NonNullable<AgentAPI["torrent"]>["status"],
-    pause: torrentPlugin.plugin.methods.pause as NonNullable<AgentAPI["torrent"]>["pause"],
-    resume: torrentPlugin.plugin.methods.resume as NonNullable<AgentAPI["torrent"]>["resume"],
-    remove: torrentPlugin.plugin.methods.remove as NonNullable<AgentAPI["torrent"]>["remove"],
-  } : undefined;
-
-  const telegramPlugin = plugins.find(p => p.name === "telegram");
-  const telegramAPI: AgentAPI["telegram"] = telegramPlugin ? {
-    initBot: telegramPlugin.plugin.methods.initBot as NonNullable<AgentAPI["telegram"]>["initBot"],
-    sendMessage: telegramPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["telegram"]>["sendMessage"],
-    sendPhoto: telegramPlugin.plugin.methods.sendPhoto as NonNullable<AgentAPI["telegram"]>["sendPhoto"],
-    getUpdates: telegramPlugin.plugin.methods.getUpdates as NonNullable<AgentAPI["telegram"]>["getUpdates"],
-    joinChannel: telegramPlugin.plugin.methods.joinChannel as NonNullable<AgentAPI["telegram"]>["joinChannel"],
-    setWebhook: telegramPlugin.plugin.methods.setWebhook as NonNullable<AgentAPI["telegram"]>["setWebhook"],
-    onMessage: telegramPlugin.plugin.methods.onMessage as NonNullable<AgentAPI["telegram"]>["onMessage"],
-    getBotInfo: telegramPlugin.plugin.methods.getBotInfo as NonNullable<AgentAPI["telegram"]>["getBotInfo"],
-  } : undefined;
-
-  const discordPlugin = plugins.find(p => p.name === "discord");
-  const discordAPI: AgentAPI["discord"] = discordPlugin ? {
-    initBot: discordPlugin.plugin.methods.initBot as NonNullable<AgentAPI["discord"]>["initBot"],
-    sendMessage: discordPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["discord"]>["sendMessage"],
-    getMessages: discordPlugin.plugin.methods.getMessages as NonNullable<AgentAPI["discord"]>["getMessages"],
-    onMessage: discordPlugin.plugin.methods.onMessage as NonNullable<AgentAPI["discord"]>["onMessage"],
-    onReady: discordPlugin.plugin.methods.onReady as NonNullable<AgentAPI["discord"]>["onReady"],
-    joinGuild: discordPlugin.plugin.methods.joinGuild as NonNullable<AgentAPI["discord"]>["joinGuild"],
-    getChannel: discordPlugin.plugin.methods.getChannel as NonNullable<AgentAPI["discord"]>["getChannel"],
-  } : undefined;
+  // Realm needs special handling for setEventsAPI
+  const realmPlugin = plugins.find(p => p.name === "realm");
+  const realmAPI = bindPluginAPI<"realm">("realm");
 
   // Generate tool definitions from plugins for function calling
   const pluginTools = pluginsToTools(plugins.map(p => p.plugin));
-  
-  const aiAPI = new AIAPI(options.ollamaUrl, options.ollamaModel);
-  
-  // Wrap callTools to automatically include plugin tools
-  const originalCallTools = aiAPI.callTools.bind(aiAPI);
-  aiAPI.callTools = async (prompt, tools, options) => {
-    // Merge provided tools with plugin tools
-    const allTools = [...pluginTools, ...tools];
-    return originalCallTools(prompt, allTools, options);
-  };
+
+  // Resolve AI config with proper priority: CLI flag > env var > config file > hardcoded default
+  const aiConfig = configService.getAI();
+  const geminiConfig = configService.getGemini();
+  const grokConfig = configService.getGrok();
+  const resolvedOllamaUrl = options.ollamaUrl ?? aiConfig.ollamaUrl;
+  const resolvedOllamaModel = options.ollamaModel ?? aiConfig.ollamaModel;
+  const resolvedTimeoutMs = aiConfig.ollamaTimeoutMs;
+  const aiAPI = new AIAPI(resolvedOllamaUrl, resolvedOllamaModel, resolvedTimeoutMs, aiConfig, geminiConfig, grokConfig);
 
   const eventsAPI = new EventsAPI();
 
-  // Set events API for realm plugin if loaded
-  const realmPlugin = plugins.find(p => p.name === "realm");
+  // Wire events API into realm plugin if loaded
   if (realmPlugin && realmPlugin.plugin.methods.setEventsAPI) {
     (realmPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
   }
 
-  const realmAPI: AgentAPI["realm"] = realmPlugin ? {
-    init: realmPlugin.plugin.methods.init as NonNullable<AgentAPI["realm"]>["init"],
-    disconnect: realmPlugin.plugin.methods.disconnect as NonNullable<AgentAPI["realm"]>["disconnect"],
-    sendMessage: realmPlugin.plugin.methods.sendMessage as NonNullable<AgentAPI["realm"]>["sendMessage"],
-    beam: realmPlugin.plugin.methods.beam as NonNullable<AgentAPI["realm"]>["beam"],
-    query: realmPlugin.plugin.methods.query as NonNullable<AgentAPI["realm"]>["query"],
-    getPeerStatus: realmPlugin.plugin.methods.getPeerStatus as NonNullable<AgentAPI["realm"]>["getPeerStatus"],
-    sendMedia: realmPlugin.plugin.methods.sendMedia as NonNullable<AgentAPI["realm"]>["sendMedia"],
-  } : undefined;
+  // Wrap api.ai to emit analytics events for every completion, stream, and callTools
+  const AI_SOURCE = "api.ai";
+  const defaultModel = resolvedOllamaModel;
 
-  const langchainPlugin = plugins.find(p => p.name === "langchain");
-  const langchainAPI: AgentAPI["langchain"] = langchainPlugin ? {
-    runChain: langchainPlugin.plugin.methods.runChain as NonNullable<AgentAPI["langchain"]>["runChain"],
-    runAgent: langchainPlugin.plugin.methods.runAgent as NonNullable<AgentAPI["langchain"]>["runAgent"],
-    buildAgentCreationGraph: langchainPlugin.plugin.methods.buildAgentCreationGraph as NonNullable<AgentAPI["langchain"]>["buildAgentCreationGraph"],
-    runAnalysisChain: langchainPlugin.plugin.methods.runAnalysisChain as NonNullable<AgentAPI["langchain"]>["runAnalysisChain"],
-    buildResearchGraph: langchainPlugin.plugin.methods.buildResearchGraph as NonNullable<AgentAPI["langchain"]>["buildResearchGraph"],
-  } : undefined;
+  const wrappedAi: AgentAPI["ai"] = {
+    checkModel: (model?: string) => aiAPI.checkModel(model),
 
-  const ragPlugin = plugins.find(p => p.name === "rag");
-  const ragAPI: AgentAPI["rag"] = ragPlugin ? {
-    init: ragPlugin.plugin.methods.init as NonNullable<AgentAPI["rag"]>["init"],
-    addDocuments: ragPlugin.plugin.methods.addDocuments as NonNullable<AgentAPI["rag"]>["addDocuments"],
-    search: ragPlugin.plugin.methods.search as NonNullable<AgentAPI["rag"]>["search"],
-    query: ragPlugin.plugin.methods.query as NonNullable<AgentAPI["rag"]>["query"],
-    removeDocuments: ragPlugin.plugin.methods.removeDocuments as NonNullable<AgentAPI["rag"]>["removeDocuments"],
-    listDocuments: ragPlugin.plugin.methods.listDocuments as NonNullable<AgentAPI["rag"]>["listDocuments"],
-    getStats: ragPlugin.plugin.methods.getStats as NonNullable<AgentAPI["rag"]>["getStats"],
-    clearNamespace: ragPlugin.plugin.methods.clearNamespace as NonNullable<AgentAPI["rag"]>["clearNamespace"],
-  } : undefined;
+    async complete(prompt: string, options?: CompletionOptions): Promise<string> {
+      const start = Date.now();
+      const model = options?.model ?? defaultModel;
+      try {
+        const result = await aiAPI.complete(prompt, options);
+        eventsAPI.emit(
+          "ai.completion",
+          { type: "complete", model, duration: Date.now() - start, success: true, timestamp: Date.now() },
+          AI_SOURCE,
+        );
+        return result;
+      } catch (err) {
+        eventsAPI.emit(
+          "ai.completion",
+          {
+            type: "complete",
+            model,
+            duration: Date.now() - start,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        throw err;
+      }
+    },
+
+    async chat(messages: Message[], options?: Omit<ChatOptions, "messages">): Promise<Message> {
+      const start = Date.now();
+      const model = options?.model ?? defaultModel;
+      try {
+        const result = await aiAPI.chat(messages, options);
+        eventsAPI.emit(
+          "ai.completion",
+          { type: "chat", model, duration: Date.now() - start, success: true, timestamp: Date.now() },
+          AI_SOURCE,
+        );
+        return result;
+      } catch (err) {
+        eventsAPI.emit(
+          "ai.completion",
+          {
+            type: "chat",
+            model,
+            duration: Date.now() - start,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        throw err;
+      }
+    },
+
+    async *stream(prompt: string, options?: CompletionOptions): AsyncIterable<string> {
+      const start = Date.now();
+      const model = options?.model ?? defaultModel;
+      let emitted = false;
+      try {
+        yield* aiAPI.stream(prompt, options);
+      } catch (err) {
+        emitted = true;
+        eventsAPI.emit(
+          "ai.stream",
+          {
+            type: "stream",
+            model,
+            duration: Date.now() - start,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        throw err;
+      } finally {
+        if (!emitted) {
+          eventsAPI.emit(
+            "ai.stream",
+            { type: "stream", model, duration: Date.now() - start, success: true, timestamp: Date.now() },
+            AI_SOURCE,
+          );
+        }
+      }
+    },
+
+    async *streamChat(
+      messages: Message[],
+      options?: Omit<ChatOptions, "messages">,
+    ): AsyncIterable<string> {
+      const start = Date.now();
+      const model = options?.model ?? defaultModel;
+      let emitted = false;
+      try {
+        yield* aiAPI.streamChat(messages, options);
+      } catch (err) {
+        emitted = true;
+        eventsAPI.emit(
+          "ai.stream",
+          {
+            type: "streamChat",
+            model,
+            duration: Date.now() - start,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        throw err;
+      } finally {
+        if (!emitted) {
+          eventsAPI.emit(
+            "ai.stream",
+            { type: "streamChat", model, duration: Date.now() - start, success: true, timestamp: Date.now() },
+            AI_SOURCE,
+          );
+        }
+      }
+    },
+
+    async callTools(
+      prompt: string,
+      tools: Tool[],
+      options?: CompletionOptions,
+    ): Promise<{ message: Message; toolCalls: import("../types/api.js").ToolCall[] }> {
+      const start = Date.now();
+      const model = options?.model ?? defaultModel;
+      const allTools = [...pluginTools, ...tools];
+      try {
+        const result = await aiAPI.callTools(prompt, allTools, options);
+        eventsAPI.emit(
+          "ai.toolCall",
+          {
+            model,
+            duration: Date.now() - start,
+            success: true,
+            toolCount: result.toolCalls.length,
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        return result;
+      } catch (err) {
+        eventsAPI.emit(
+          "ai.toolCall",
+          {
+            model,
+            duration: Date.now() - start,
+            success: false,
+            toolCount: 0,
+            error: err instanceof Error ? err.message : String(err),
+            timestamp: Date.now(),
+          },
+          AI_SOURCE,
+        );
+        throw err;
+      }
+    },
+  };
 
   const api: AgentAPI = {
-    ai: aiAPI,
+    ai: wrappedAi,
     memory: {
       store: (key: string, value: unknown) => memoryStore.store(key, value),
       retrieve: (key: string) => memoryStore.retrieve(key),
@@ -190,6 +289,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
       getAI: () => configService.getAI(),
       getGemini: () => configService.getGemini(),
       getGrok: () => configService.getGrok(),
+      getBraveSearch: () => configService.getBraveSearch(),
       getSystem: () => configService.getSystem(),
       getCLIOptions: () => configService.getCLIOptions(),
       getEventMonitor: () => configService.getEventMonitor(),
@@ -197,6 +297,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
       getConfigEditor: () => configService.getConfigEditor(),
       getRssToTelegram: () => configService.getRssToTelegram(),
       getRealm: () => configService.getRealm(),
+      getMCP: () => configService.getMCP(),
       isFromEnv: (path: string) => configService.isFromEnv(path as any),
       reload: () => configService.reload(),
     },
@@ -209,12 +310,12 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(realmAPI && { realm: realmAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
     ...(ragAPI && { rag: ragAPI }),
-    tools: {} as AgentAPI["tools"], // Placeholder, will be set after init
+    tools: {} as AgentAPI["tools"],
   };
 
   // Initialize tool system with full API
-  initializeTools(api);
-  
+  await initializeTools(api);
+
   // Add tools API to the api object
   const toolsAPI = getToolsAPI(api);
   (api as any).tools = toolsAPI;

@@ -2,6 +2,8 @@ import { createAPI } from "../../api/index.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import { AgentRegistry } from "../../agent/AgentRegistry.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { logger } from "../../utils/logger.js";
+import { formatCronTable } from "../../utils/cron.js";
 
 export interface ListOptions {
   agentDir?: string;
@@ -33,24 +35,21 @@ export async function listCommand(options: ListOptions = {}): Promise<void> {
   const agents = await loader.loadAllAgents(api);
 
   if (agents.length === 0) {
-    console.log("No agents found.");
+    logger.info("No agents found.");
     return;
   }
 
-  console.log(`\n📋 Found ${agents.length} agent(s):\n`);
-
+  logger.info(`\n📋 Found ${agents.length} agent(s):\n`);
   for (const agent of agents) {
-    console.log(`🤖 ${agent.name}`);
+    logger.info(`🤖 ${agent.name}`);
     if (agent.schedule) {
-      console.log(`   Schedule: ${agent.schedule}`);
+      logger.info(`   Schedule: ${agent.schedule}`);
+      const table = formatCronTable(agent.schedule);
+      console.log(table);
     }
-    if (agent.watch && agent.watch.length > 0) {
-      console.log(`   Watch: ${agent.watch.join(", ")}`);
-    }
-    if (agent.webhook) {
-      console.log(`   Webhook: ${agent.webhook}`);
-    }
-    console.log();
+    if (agent.watch && agent.watch.length > 0) logger.info(`   Watch: ${agent.watch.join(", ")}`);
+    if (agent.webhook) logger.info(`   Webhook: ${agent.webhook}`);
+    logger.info("");
   }
 }
 

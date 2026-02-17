@@ -224,6 +224,28 @@ export default class OnboardingWizardAgent extends BaseAgent {
           
         case "platforms":
           console.log("[onboarding-wizard] Processing platforms step");
+          // Persist Brave Search API key if provided
+          const braveSearchApiKey = formData.get("braveSearchApiKey") as string;
+          if (braveSearchApiKey && braveSearchApiKey.trim()) {
+            try {
+              const configPath = join(this.configDir, "config.json");
+              let fileConfig: Record<string, unknown> = {};
+              try {
+                await access(configPath);
+                const content = await readFile(configPath, "utf-8");
+                fileConfig = JSON.parse(content);
+              } catch {
+                // File doesn't exist or invalid, start fresh
+              }
+              if (!fileConfig.braveSearch || typeof fileConfig.braveSearch !== "object") {
+                fileConfig.braveSearch = { apiKey: "" };
+              }
+              (fileConfig.braveSearch as Record<string, string>).apiKey = braveSearchApiKey.trim();
+              await writeFile(configPath, JSON.stringify(fileConfig, null, 2), "utf-8");
+            } catch (err) {
+              console.error("[onboarding-wizard] Failed to save Brave Search API key:", err);
+            }
+          }
           // Mark platforms step as done
           status.steps = status.steps || {};
           status.steps.platforms = true;
@@ -375,6 +397,9 @@ export default class OnboardingWizardAgent extends BaseAgent {
           openaiKey: config.ai?.openaiApiKey || '',
           provider: config.ai?.provider || 'ollama'
         },
+        braveSearch: {
+          apiKey: config.braveSearch?.apiKey || ''
+        },
         cliTools
       };
     } catch (error) {
@@ -383,6 +408,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
         telegram: { botToken: '', enabled: false },
         discord: { botToken: '', enabled: false },
         ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' },
+        braveSearch: { apiKey: '' },
         cliTools: { opencode: false, cursor: false, qwen: false, anyInstalled: false }
       };
     }
@@ -813,6 +839,12 @@ export default class OnboardingWizardAgent extends BaseAgent {
                <label>Discord Bot Token ${config.discord.enabled ? '✓' : ''}</label>
                <input type="password" name="discordToken" placeholder="From Discord Developer Portal" value="${config.discord.botToken ? '••••••••••••' : ''}">
                <small>${config.discord.enabled ? '✓ Bot configured and enabled' : 'Enter token from Discord Developer Portal to enable Discord'}</small>
+             </div>
+             
+             <div class="form-group">
+               <label>Brave Search API Key (Optional)</label>
+               <input type="password" name="braveSearchApiKey" placeholder="Get from brave.com/search/api" value="${config.braveSearch?.apiKey ? '••••••••••••' : ''}">
+               <small>Enables web search via MCP. Add with: ronin mcp add brave-search</small>
              </div>
              
              <div class="info-box">

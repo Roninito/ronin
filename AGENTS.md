@@ -78,9 +78,11 @@ Agents receive an `api` object with the following capabilities:
 - `post(url, data, options?)` - Make POST request
 
 ### `api.events`
-- `emit(event, data)` - Emit an event
+- `emit(event, data, source)` - Emit an event (source is required, e.g. agent name)
 - `on(event, handler)` - Listen to events
 - `off(event, handler)` - Remove event listener
+
+When using tool-enabled chat or `callTools`, the AI can emit events via the `local.events.emit` tool. The event `source` defaults to `"ai"` unless the AI passes `source` in the tool args or the caller passes `metadata: { agentName: "..." }` in the tool context.
 
 ### `api.plugins`
 - `call(pluginName, method, ...args)` - Call a plugin method

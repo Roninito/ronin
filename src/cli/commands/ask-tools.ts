@@ -4,6 +4,7 @@ import type { Tool } from "../../types/api.js";
 import { PluginLoader } from "../../plugins/PluginLoader.js";
 import { AgentLoader } from "../../agent/AgentLoader.js";
 import type { AgentAPI } from "../../types/api.js";
+import { formatCronTable } from "../../utils/cron.js";
 
 /**
  * System tools that the AI can call to gather information
@@ -84,7 +85,11 @@ async function getAgentInfo(
 
     const info = agents.map(a => {
       const parts = [`${a.name}: ${a.filePath}`];
-      if (a.schedule) parts.push(`  Schedule: ${a.schedule}`);
+      if (a.schedule) {
+        parts.push(`  Schedule: ${a.schedule}`);
+        const table = formatCronTable(a.schedule);
+        parts.push(table.split('\n').map(line => `  ${line}`).join('\n'));
+      }
       if (a.watch && a.watch.length > 0) parts.push(`  Watch: ${a.watch.join(", ")}`);
       if (a.webhook) parts.push(`  Webhook: ${a.webhook}`);
       return parts.join("\n");

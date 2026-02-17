@@ -70,6 +70,12 @@ export default class IntentIngressAgent extends BaseAgent {
     this.startSessionCleanup();
     this.startApprovalCleanup();
     this.registerCompletionListeners();
+
+    // Analytics: report lifecycle
+    this.api.events.emit("agent.lifecycle", {
+      agent: "intent-ingress", status: "started", timestamp: Date.now(),
+    }, "intent-ingress");
+
     console.log("[intent-ingress] Agent initialized successfully");
   }
 
@@ -191,6 +197,10 @@ export default class IntentIngressAgent extends BaseAgent {
 
       // Only initialize if not already done
       if (!this.botId) {
+        if (!this.api.telegram) {
+          console.log("[intent-ingress] Telegram plugin not loaded, skipping initialization");
+          return;
+        }
         this.botId = await this.api.telegram.initBot(botToken, {
           allowed_updates: ["message"]
         });
@@ -914,12 +924,26 @@ What would you like to do?`;
       createdAt: Date.now(),
     });
 
+    // Analytics: track plan creation as a task
+    const taskStartTime = Date.now();
+    this.api.events.emit("agent.task.started", {
+      agent: "intent-ingress", taskId: id, taskName: `plan-${params.command}`, timestamp: taskStartTime,
+    }, "intent-ingress");
+
     // Emit the event
     this.api.events.emit("PlanProposed", payload, "intent-ingress");
     console.log(`[intent-ingress] Emitted PlanProposed: ${id} (${params.command})`);
 
     // Send acknowledgment with approval request
     this.sendAcknowledgment(params.source, params.sourceChannel, params.command, title, id);
+
+    // Analytics: plan created successfully
+    this.api.events.emit("agent.task.completed", {
+      agent: "intent-ingress", taskId: id, duration: Date.now() - taskStartTime, timestamp: Date.now(),
+    }, "intent-ingress");
+    this.api.events.emit("agent.metric", {
+      agent: "intent-ingress", metric: "plans_created", value: this.pendingApprovals.size, timestamp: Date.now(),
+    }, "intent-ingress");
   }
 
   /**

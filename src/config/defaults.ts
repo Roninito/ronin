@@ -43,10 +43,28 @@ export const DEFAULT_CONFIG: FullConfig = {
   },
   
   ai: {
+    provider: "ollama",
+    temperature: 0.7,
     ollamaUrl: "http://localhost:11434",
     ollamaModel: "qwen3:4b",
+    ollamaSmartUrl: "",
     ollamaTimeoutMs: 300000,
     ollamaEmbeddingModel: "nomic-embed-text",
+    models: {
+      default: "qwen3:4b",
+      fast: "qwen3:1.7b",
+      smart: "qwen3:8b",
+      embedding: "nomic-embed-text",
+    },
+    fallback: {
+      enabled: false,
+      chain: [],
+    },
+    openai: {
+      apiKey: "",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+    },
   },
   
   gemini: {
@@ -57,6 +75,10 @@ export const DEFAULT_CONFIG: FullConfig = {
   },
   
   grok: {
+    apiKey: "",
+  },
+
+  braveSearch: {
     apiKey: "",
   },
   
@@ -99,7 +121,27 @@ export const DEFAULT_CONFIG: FullConfig = {
     token: "",
     localPort: 4000,
   },
-  
+
+  desktop: {
+    enabled: false,
+    features: {
+      notifications: true,
+      clipboard: false,
+      shortcuts: true,
+      fileWatching: true,
+    },
+    folders: ["~/Desktop", "~/Downloads"],
+    bridge: {
+      port: 17341,
+      host: "localhost",
+    },
+    menubar: true,
+  },
+
+  mcp: {
+    servers: {},
+  },
+
   pluginDir: join(process.cwd(), "plugins"),
   geminiModel: "gemini-3-pro-preview",
 };
@@ -113,15 +155,22 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "telegram.chatId": "TELEGRAM_CHAT_ID",
   "discord.botToken": "DISCORD_BOT_TOKEN",
   "discord.channelIds": "DISCORD_CHANNEL_IDS",
+  "ai.provider": "RONIN_AI_PROVIDER",
+  "ai.temperature": "RONIN_AI_TEMPERATURE",
   "ai.ollamaUrl": "OLLAMA_URL",
   "ai.ollamaModel": "OLLAMA_MODEL",
+  "ai.ollamaSmartUrl": "OLLAMA_SMART_URL",
   "ai.ollamaTimeoutMs": "OLLAMA_TIMEOUT_MS",
   "ai.ollamaEmbeddingModel": "OLLAMA_EMBEDDING_MODEL",
+  "ai.openai.apiKey": "OPENAI_API_KEY",
+  "ai.openai.baseUrl": "OPENAI_BASE_URL",
+  "ai.openai.model": "OPENAI_MODEL",
   "gemini.apiKey": "GEMINI_API_KEY",
   "gemini.model": "GEMINI_MODEL",
   "gemini.apiVersion": "GEMINI_API_VERSION",
   "gemini.debug": "DEBUG_GEMINI",
   "grok.apiKey": "GROK_API_KEY",
+  "braveSearch.apiKey": "BRAVE_API_KEY",
   "system.dataDir": "RONIN_DATA_DIR",
   "system.webhookPort": "WEBHOOK_PORT",
   "system.httpIdleTimeout": "HTTP_IDLE_TIMEOUT",

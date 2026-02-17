@@ -6,6 +6,7 @@ import { AgentLoader } from "../../agent/AgentLoader.js";
 import { createAPI } from "../../api/index.js";
 import { getSystemTools } from "./ask-tools.js";
 import { pluginsToTools } from "../../plugins/toolGenerator.js";
+import { formatCronTable } from "../../utils/cron.js";
 
 export interface SystemContext {
   plugins: string;
@@ -105,7 +106,11 @@ export async function gatherAgentContext(
 
     const agentInfo = agents.map((a) => {
       const parts = [`Agent: ${a.name}`, `  File: ${a.filePath}`];
-      if (a.schedule) parts.push(`  Schedule: ${a.schedule}`);
+      if (a.schedule) {
+        parts.push(`  Schedule: ${a.schedule}`);
+        const table = formatCronTable(a.schedule);
+        parts.push(table.split('\n').map(line => `  ${line}`).join('\n'));
+      }
       if (a.watch && a.watch.length > 0)
         parts.push(`  Watch: ${a.watch.join(", ")}`);
       if (a.webhook) parts.push(`  Webhook: ${a.webhook}`);

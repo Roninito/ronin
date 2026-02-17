@@ -1,5 +1,6 @@
 import type { AgentConstructor, AgentMetadata } from "../types/agent.js";
 import type { AgentAPI } from "../types/api.js";
+import { logger } from "../utils/logger.js";
 import { readdir } from "fs/promises";
 import { join, extname } from "path";
 
@@ -38,7 +39,7 @@ export class AgentLoader {
       } catch (error) {
         // External directory might not exist, that's okay
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-          console.warn(`Warning: Could not read external agent directory ${this.externalAgentDir}:`, error);
+          logger.warn("Could not read external agent directory", { dir: this.externalAgentDir, error });
         }
       }
     }
@@ -68,7 +69,7 @@ export class AgentLoader {
     } catch (error) {
       // Directory might not exist, ignore
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn(`Error reading directory ${dir}:`, error);
+        logger.warn("Error reading directory", { dir, error });
       }
     }
   }
@@ -85,13 +86,13 @@ export class AgentLoader {
       const AgentClass = module.default;
       
       if (!AgentClass) {
-        console.warn(`No default export found in ${filePath}`);
+        logger.warn("No default export in agent file", { filePath });
         return null;
       }
 
       // Validate it's a constructor function
       if (typeof AgentClass !== "function") {
-        console.warn(`Default export in ${filePath} is not a constructor`);
+        logger.warn("Default export is not a constructor", { filePath });
         return null;
       }
 
@@ -106,7 +107,7 @@ export class AgentLoader {
 
       // Validate instance has execute method
       if (typeof instance.execute !== "function") {
-        console.warn(`Agent ${name} does not have an execute method`);
+        logger.warn("Agent missing execute method", { agent: name });
         return null;
       }
 
@@ -119,7 +120,7 @@ export class AgentLoader {
         instance,
       };
     } catch (error) {
-      console.error(`Failed to load agent from ${filePath}:`, error);
+      logger.error("Failed to load agent", { filePath, error });
       return null;
     }
   }

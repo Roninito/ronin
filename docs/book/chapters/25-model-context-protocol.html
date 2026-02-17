@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 25: Model Context Protocol (MCP) - Ronin & Realm Documentation</title>
+  <link rel="stylesheet" href="../styles/book.css">
+</head>
+<body>
+  <div class="chapter-header">
+    <div class="chapter-number">Chapter 25</div>
+    <h1 class="chapter-title">Model Context Protocol (MCP)</h1>
+  </div>
+
+  <div class="content">
+    <h2>Overview</h2>
+
+    <p>
+      The Model Context Protocol (MCP) is an open standard that enables AI systems to securely connect with external data sources and tools. Ronin includes a built-in MCP client that can connect to MCP servers, extending your agents' capabilities with filesystem access, web search, GitHub operations, database queries, and more.
+    </p>
+
+    <p><strong>Key Benefits:</strong></p>
+    <ul>
+      <li><strong>Standardized Interface</strong>: MCP provides a consistent API across different tool providers</li>
+      <li><strong>Security</strong>: Sandboxed execution with configurable permissions</li>
+      <li><strong>Extensibility</strong>: Add new capabilities without modifying Ronin core</li>
+      <li><strong>Discovery</strong>: Automatic tool discovery and registration</li>
+      <li><strong>Isolation</strong>: Each MCP server runs in its own process</li>
+    </ul>
+
+    <h2>Architecture</h2>
+
+    <pre><code>┌─────────────────────────────────────────────────────────────┐
+│                         Ronin Agent                          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                    MCP Client Manager                  │  │
+│  └───────────────────────┬───────────────────────────────┘  │
+└──────────────────────────┼──────────────────────────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  Filesystem  │  │ Brave Search │  │   SQLite     │
+│    Server    │  │    Server    │  │   Server     │
+└──────────────┘  └──────────────┘  └──────────────┘
+       │                  │                  │
+       ▼                  ▼                  ▼
+   File Access       Web Search       Database
+   (read/write)      (search API)     (SQL queries)</code></pre>
+
+    <h2>Quick Start</h2>
+
+    <h3>1. Discover Available Servers</h3>
+    <pre><code>ronin mcp discover</code></pre>
+
+    <h3>2. Add a Server</h3>
+    <pre><code># Filesystem access
+ronin mcp add filesystem --path ~/Documents
+
+# Web search (requires API key)
+ronin config --brave-api-key YOUR_KEY
+ronin mcp add brave-search
+
+# GitHub integration
+ronin mcp add github</code></pre>
+
+    <h3>3. Use MCP Tools in Agents</h3>
+    <pre><code class="language-typescript">export default class MyAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Check if MCP tools are available
+    if (this.api.plugins.has("mcp_filesystem")) {
+      // Read a file via MCP
+      const content = await this.api.plugins.call(
+        "mcp_filesystem",
+        "read_file",
+        { path: "/home/user/document.txt" }
+      );
+      console.log(content);
+    }
+
+    // Search the web
+    if (this.api.plugins.has("mcp_brave-search")) {
+      const results = await this.api.plugins.call(
+        "mcp_brave-search",
+        "brave_web_search",
+        { query: "TypeScript best practices" }
+      );
+      console.log(results);
+    }
+  }
+}</code></pre>
+
+    <h2>Available MCP Servers</h2>
+
+    <h3>Official Servers</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Server</th>
+          <th>Description</th>
+          <th>Required Setup</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>filesystem</code></td>
+          <td>Read and write files in a directory</td>
+          <td><code>--path</code> argument</td>
+        </tr>
+        <tr>
+          <td><code>brave-search</code></td>
+          <td>Web search via Brave Search API</td>
+          <td><code>BRAVE_API_KEY</code></td>
+        </tr>
+        <tr>
+          <td><code>github</code></td>
+          <td>GitHub issues, PRs, repositories</td>
+          <td>Optional <code>GITHUB_TOKEN</code></td>
+        </tr>
+        <tr>
+          <td><code>sqlite</code></td>
+          <td>Query SQLite databases</td>
+          <td><code>--path</code> to database</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Community Servers</h3>
+    <p>
+      Many community-maintained MCP servers are available. Install them using the custom server syntax:
+    </p>
+    <pre><code>ronin mcp add custom-server --command npx --args '["-y","@org/server-name"]'</code></pre>
+
+    <h2>CLI Reference</h2>
+
+    <h3>mcp list</h3>
+    <p>List all configured MCP servers with their status.</p>
+    <pre><code>ronin mcp list</code></pre>
+
+    <h3>mcp discover</h3>
+    <p>Show all known MCP servers available for installation.</p>
+    <pre><code>ronin mcp discover</code></pre>
+
+    <h3>mcp add</h3>
+    <p>Add an MCP server from the known list or custom configuration.</p>
+    <pre><code># Add known server
+ronin mcp add filesystem --path ~/Documents
+
+# Add custom server
+ronin mcp add my-server --command npx --args '["-y","@org/server"]'</code></pre>
+
+    <h3>mcp enable / disable</h3>
+    <p>Toggle server availability without removing configuration.</p>
+    <pre><code>ronin mcp enable filesystem
+ronin mcp disable brave-search</code></pre>
+
+    <h3>mcp remove</h3>
+    <p>Permanently remove a server from configuration.</p>
+    <pre><code>ronin mcp remove filesystem</code></pre>
+
+    <h3>mcp status</h3>
+    <p>Show summary of configured and enabled servers.</p>
+    <pre><code>ronin mcp status</code></pre>
+
+    <h2>Configuration</h2>
+
+    <h3>Config File Location</h3>
+    <p>MCP configuration is stored in <code>~/.ronin/config.json</code> under the <code>mcp</code> key:</p>
+
+    <pre><code>{
+  "mcp": {
+    "enabled": true,
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"],
+        "enabled": true
+      },
+      "brave-search": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {
+          "BRAVE_API_KEY": "BSA-xxxxx"
+        },
+        "enabled": true
+      }
+    }
+  }
+}</code></pre>
+
+    <h3>Server Configuration Schema</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Required</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>command</code></td>
+          <td>string</td>
+          <td>Executable to run</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>args</code></td>
+          <td>array</td>
+          <td>Command-line arguments</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>env</code></td>
+          <td>object</td>
+          <td>Environment variables</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>enabled</code></td>
+          <td>boolean</td>
+          <td>Whether server is active</td>
+          <td>Yes</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Using MCP Tools</h2>
+
+    <h3>Direct Plugin API</h3>
+    <pre><code class="language-typescript">// Call an MCP tool directly
+const result = await this.api.plugins.call(
+  "mcp_filesystem",
+  "read_file",
+  { path: "/path/to/file.txt" }
+);</code></pre>
+
+    <h3>With ToolChat</h3>
+    <pre><code class="language-typescript">import { ToolChat } from "@ronin/tools";
+
+const chat = new ToolChat(this.api);
+
+// MCP tools are automatically available
+const result = await chat.complete(
+  "Search the web for TypeScript tips and save them to a file",
+  { 
+    tools: ["mcp_brave-search_brave_web_search", "mcp_filesystem_write_file"],
+    allowCloud: false  // Keep it local
+  }
+);</code></pre>
+
+    <h3>With AI Function Calling</h3>
+    <pre><code class="language-typescript">const { toolCalls } = await this.api.ai.callTools(
+  "List files in my Documents folder",
+  []  // MCP tools are automatically registered
+);
+
+// Execute the tool calls
+for (const call of toolCalls) {
+  const result = await this.api.plugins.call(
+    call.name.replace(/_/g, "."),  // Convert mcp_filesystem_read_file to format
+    call.arguments
+  );
+}</code></pre>
+
+    <h2>Tool Naming Convention</h2>
+
+    <p>MCP tools are registered with the following naming pattern:</p>
+    <pre><code>mcp_&lt;server-name&gt;_&lt;tool-name&gt;</code></pre>
+
+    <h3>Examples</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>mcp_filesystem_read_file</code></td>
+          <td>Read file contents</td>
+        </tr>
+        <tr>
+          <td><code>mcp_filesystem_write_file</code></td>
+          <td>Write file contents</td>
+        </tr>
+        <tr>
+          <td><code>mcp_filesystem_list_directory</code></td>
+          <td>List directory contents</td>
+        </tr>
+        <tr>
+          <td><code>mcp_brave-search_brave_web_search</code></td>
+          <td>Search the web</td>
+        </tr>
+        <tr>
+          <td><code>mcp_github_create_issue</code></td>
+          <td>Create GitHub issue</td>
+        </tr>
+        <tr>
+          <td><code>mcp_sqlite_query</code></td>
+          <td>Execute SQL query</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Security Best Practices</h2>
+
+    <h3>1. Limit Filesystem Access</h3>
+    <p>Only grant access to specific directories:</p>
+    <pre><code># Good - limited access
+ronin mcp add filesystem --path ~/Documents/projects
+
+# Avoid - broad access
+ronin mcp add filesystem --path /</code></pre>
+
+    <h3>2. Use Environment Variables for Secrets</h3>
+    <p>Never hardcode API keys in config files:</p>
+    <pre><code># Good - use env var
+export BRAVE_API_KEY=BSA-xxxxx
+ronin mcp add brave-search
+
+# Avoid - in config file
+{
+  "env": { "BRAVE_API_KEY": "BSA-xxxxx" }
+}</code></pre>
+
+    <h3>3. Disable Unused Servers</h3>
+    <p>Disable servers when not in use:</p>
+    <pre><code>ronin mcp disable filesystem</code></pre>
+
+    <h3>4. Review Tool Permissions</h3>
+    <p>Use <code>ronin mcp list</code> to see what tools each server provides and ensure they match your needs.</p>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Server Won't Start</h3>
+    <pre><code># Check server configuration
+ronin mcp list
+
+# Verify the command works
+npx -y @modelcontextprotocol/server-filesystem /tmp
+
+# Check logs
+ronin daemon logs</code></pre>
+
+    <h3>Tools Not Available</h3>
+    <pre><code># Verify server is enabled
+ronin mcp status
+
+# Check if plugin loaded
+if (this.api.plugins.has("mcp_filesystem")) {
+  console.log("Filesystem MCP is available");
+}</code></pre>
+
+    <h3>Permission Denied</h3>
+    <p>Ensure the directory/path you provided exists and is accessible:</p>
+    <pre><code>ls -la ~/Documents  # Verify directory exists</code></pre>
+
+    <h3>API Key Issues</h3>
+    <p>For Brave Search and other API-key services:</p>
+    <pre><code># Verify key is set
+ronin config --show | grep brave
+
+# Check environment variable
+echo $BRAVE_API_KEY</code></pre>
+
+    <h2>Next Steps</h2>
+
+    <p>
+      Now that you understand MCP, you can:
+    </p>
+    <ul>
+      <li>Explore <a href="https://github.com/modelcontextprotocol/servers" target="_blank">official MCP servers</a> on GitHub</li>
+      <li>Build your own MCP server for custom tools</li>
+      <li>Integrate MCP tools with the <a href="24-hybrid-intelligence.html">Hybrid Intelligence system</a></li>
+    </ul>
+
+    <div class="navigation">
+      <a href="24-hybrid-intelligence.html" class="prev">← Chapter 24: Hybrid Intelligence</a>
+      <a href="../appendices/A-api-reference.html" class="next">Appendix A: API Reference →</a>
+    </div>
+  </div>
+</body>
+</html>

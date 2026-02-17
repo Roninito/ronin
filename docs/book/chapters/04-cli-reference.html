@@ -66,6 +66,16 @@
           <td>Database file path</td>
           <td><code>ronin.db</code></td>
         </tr>
+        <tr>
+          <td><code>--desktop</code></td>
+          <td>Enable Desktop Mode on startup</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>--daemon</code></td>
+          <td>Run as background daemon</td>
+          <td><code>false</code></td>
+        </tr>
       </tbody>
     </table>
 
@@ -133,6 +143,129 @@ ronin run my-agent --ollama-model llama2</code></pre>
     <p>
       Output shows active agents, next scheduled runs, file watchers, and webhooks.
     </p>
+
+    <h3>schedule</h3>
+    <p>
+      Parse and validate cron expressions with human-readable explanations.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin schedule &lt;cron-expression&gt; [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--explain</code> - Show detailed explanation of each field</li>
+      <li><code>--next &lt;count&gt;</code> - Show next N execution times (default: 5)</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Parse a cron expression
+ronin schedule "0 */6 * * *"
+
+# Get detailed explanation
+ronin schedule "0 9 * * 1-5" --explain
+
+# Show next 10 runs
+ronin schedule "0 0 * * *" --next 10</code></pre>
+
+    <h3>doctor</h3>
+    <p>
+      Diagnose common issues and verify system health. Checks Ollama, API keys, directories, and configuration.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin doctor [options]</code></pre>
+    </div>
+
+    <h4>Options</h4>
+    <ul>
+      <li><code>--fix</code> - Attempt to fix detected issues automatically</li>
+      <li><code>--verbose</code> - Show detailed diagnostic information</li>
+    </ul>
+
+    <h4>Examples</h4>
+    <pre><code># Run diagnostics
+ronin doctor
+
+# Fix issues automatically
+ronin doctor --fix
+
+# Verbose output
+ronin doctor --verbose</code></pre>
+
+    <h3>interactive</h3>
+    <p>
+      Start an interactive REPL session with the Ronin API loaded. Useful for testing and experimentation.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin interactive [options]</code></pre>
+    </div>
+
+    <h4>Examples</h4>
+    <pre><code># Start interactive session
+ronin interactive
+
+# With custom settings
+ronin interactive --ollama-model llama2</code></pre>
+
+    <h2>Cloudflare Integration</h2>
+
+    <h3>cloudflare</h3>
+    <p>
+      Manage Cloudflare tunnels for secure remote access to your Ronin instance.
+    </p>
+
+    <div class="code-example">
+      <div class="code-example-title">Usage</div>
+      <pre><code>ronin cloudflare &lt;subcommand&gt; [options]</code></pre>
+    </div>
+
+    <h4>Subcommands</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ronin cloudflare status</code></td>
+          <td>Show tunnel status</td>
+        </tr>
+        <tr>
+          <td><code>ronin cloudflare start</code></td>
+          <td>Start the tunnel</td>
+        </tr>
+        <tr>
+          <td><code>ronin cloudflare stop</code></td>
+          <td>Stop the tunnel</td>
+        </tr>
+        <tr>
+          <td><code>ronin cloudflare restart</code></td>
+          <td>Restart the tunnel</td>
+        </tr>
+        <tr>
+          <td><code>ronin cloudflare url</code></td>
+          <td>Show public URL</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Examples</h4>
+    <pre><code># Check tunnel status
+ronin cloudflare status
+
+# Start tunnel
+ronin cloudflare start
+
+# Get public URL
+ronin cloudflare url</code></pre>
 
     <h2>Agent Management</h2>
 

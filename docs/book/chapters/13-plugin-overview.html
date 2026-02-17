@@ -116,6 +116,60 @@ await this.api.plugins.call("custom-plugin", "method", arg1, arg2);</code></pre>
       <li><strong>web-scraper</strong> - Advanced web scraping (alias for scrape)</li>
     </ul>
 
+    <h2>External Tool Integration via MCP</h2>
+
+    <p>
+      In addition to Ronin's plugin system, you can extend functionality through <strong>Model Context Protocol (MCP)</strong> servers. MCP is an open standard for connecting AI systems with external data sources and tools.
+    </p>
+
+    <p>
+      <strong>Key Differences from Plugins:</strong>
+    </p>
+
+    <ul>
+      <li><strong>Standardized</strong>: MCP follows an open standard used across AI systems</li>
+      <li><strong>External</strong>: MCP servers run as separate processes, providing isolation</li>
+      <li><strong>Official Servers</strong>: Many pre-built MCP servers available (filesystem, web search, GitHub, SQLite)</li>
+      <li><strong>Security</strong>: Sandboxed execution with configurable permissions</li>
+    </ul>
+
+    <p>
+      <strong>Available MCP Servers:</strong>
+    </p>
+
+    <ul>
+      <li><strong>filesystem</strong> - Read and write files in specific directories</li>
+      <li><strong>brave-search</strong> - Web search via Brave Search API</li>
+      <li><strong>github</strong> - GitHub issues, PRs, and repository operations</li>
+      <li><strong>sqlite</strong> - Query SQLite databases</li>
+    </ul>
+
+    <div class="code-example">
+      <div class="code-example-title">Using MCP Tools</div>
+      <pre><code>// Check if MCP filesystem is available
+if (this.api.plugins.has("mcp_filesystem")) {
+  // Read a file via MCP
+  const content = await this.api.plugins.call(
+    "mcp_filesystem",
+    "read_file",
+    { path: "/home/user/document.txt" }
+  );
+}
+
+// Search the web via MCP
+if (this.api.plugins.has("mcp_brave-search")) {
+  const results = await this.api.plugins.call(
+    "mcp_brave-search",
+    "brave_web_search",
+    { query: "TypeScript best practices" }
+  );
+}</code></pre>
+    </div>
+
+    <p>
+      See <a href="25-model-context-protocol.html">Chapter 25: Model Context Protocol</a> for complete MCP documentation.
+    </p>
+
     <h2>Function Calling Integration</h2>
 
     <p>

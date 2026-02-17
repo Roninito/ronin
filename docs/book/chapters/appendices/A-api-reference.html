@@ -16,48 +16,166 @@
     <h2>Complete API Method Signatures</h2>
 
     <p>
-      This appendix provides complete API method signatures and type definitions. For detailed usage examples, see the relevant chapters.
+      This appendix provides complete API method signatures and type definitions for all available APIs. For detailed usage examples, see the relevant chapters.
     </p>
 
-    <h2>api.ai</h2>
-    <pre><code>complete(prompt: string, options?: AIOptions): Promise&lt;string&gt;
-stream(prompt: string, options?: AIOptions): AsyncIterable&lt;string&gt;
-chat(messages: Message[], options?: AIOptions): Promise&lt;Message&gt;
-callTools(prompt: string, tools: Tool[], options?: AIOptions): Promise&lt;ToolCallResult&gt;</code></pre>
+    <div class="note">
+      <strong>Note:</strong> Plugin APIs (git, shell, telegram, discord, rag, email, etc.) are only available when their respective plugins are loaded. Check availability with <code>api.plugins.has("plugin-name")</code>.
+    </div>
 
-    <h2>api.memory</h2>
+    <h2>api.ai - AI Operations</h2>
+    <pre><code>complete(prompt: string, options?: CompletionOptions): Promise&lt;string&gt;
+stream(prompt: string, options?: CompletionOptions): AsyncIterable&lt;string&gt;
+chat(messages: Message[], options?: ChatOptions): Promise&lt;Message&gt;
+streamChat(messages: Message[], options?: ChatOptions): AsyncIterable&lt;string&gt;
+callTools(prompt: string, tools: Tool[], options?: CompletionOptions): Promise&lt;{ message: Message; toolCalls: ToolCall[] }&gt;
+checkModel(model?: string): Promise&lt;boolean&gt;</code></pre>
+
+    <h3>CompletionOptions</h3>
+    <pre><code>{
+  model?: string;           // Model to use (e.g., "qwen3:1.7b")
+  temperature?: number;     // 0.0 - 1.0, default 0.7
+  maxTokens?: number;       // Maximum tokens to generate
+  stream?: boolean;         // Enable streaming
+  timeoutMs?: number;       // Request timeout in milliseconds
+  thinking?: boolean;       // Enable thinking mode (Qwen3)
+  retries?: number;         // Retry attempts, default 3
+}</code></pre>
+
+    <h2>api.memory - Memory & Context</h2>
     <pre><code>store(key: string, value: unknown): Promise&lt;void&gt;
 retrieve(key: string): Promise&lt;unknown&gt;
 search(query: string, limit?: number): Promise&lt;Memory[]&gt;
-addContext(text: string, metadata?: Record&lt;string, unknown&gt;): Promise&lt;void&gt;
+addContext(text: string, metadata?: Record&lt;string, unknown&gt;): Promise&lt;string&gt;  // Returns document ID
 getRecent(limit?: number): Promise&lt;Memory[]&gt;
 getByMetadata(metadata: Record&lt;string, unknown&gt;): Promise&lt;Memory[]&gt;</code></pre>
 
-    <h2>api.files</h2>
+    <h2>api.files - File Operations</h2>
     <pre><code>read(path: string): Promise&lt;string&gt;
 write(path: string, content: string): Promise&lt;void&gt;
-list(dir: string, pattern?: string): Promise&lt;string[]&gt;</code></pre>
+list(dir: string, pattern?: string): Promise&lt;string[]&gt;
+watch(pattern: string, callback: (path: string, event: "create" | "update" | "delete") => void): void</code></pre>
 
-    <h2>api.db</h2>
+    <h2>api.db - Database Operations</h2>
     <pre><code>query&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T[]&gt;
 execute(sql: string, params?: unknown[]): Promise&lt;void&gt;
 transaction&lt;T&gt;(fn: (tx: Transaction) => Promise&lt;T&gt;): Promise&lt;T&gt;</code></pre>
 
-    <h2>api.http</h2>
-    <pre><code>get(url: string, options?: RequestOptions): Promise&lt;unknown&gt;
-post(url: string, data: unknown, options?: RequestOptions): Promise&lt;unknown&gt;</code></pre>
+    <h2>api.http - HTTP Server & Client</h2>
+    <pre><code>// Client methods
+get(url: string, options?: RequestOptions): Promise&lt;Response&gt;
+post(url: string, data: unknown, options?: RequestOptions): Promise&lt;Response&gt;
 
-    <h2>api.events</h2>
-    <pre><code>emit(event: string, data: unknown): void
+// Server methods
+serve(handler: (req: Request) => Response | Promise&lt;Response&gt;): void
+registerRoute(
+  path: string, 
+  handler: (req: Request) => Response | Promise&lt;Response&gt;, 
+  metadata?: { title?: string; description?: string; icon?: string }
+): void
+registerRoutes(routes: Record&lt;string, (req: Request) => Response | Promise&lt;Response&gt;&gt;): void
+getAllRoutes(): Map&lt;string, (req: Request) => Response | Promise&lt;Response&gt;&gt;
+getRouteMetadata(path: string): { title?: string; description?: string; icon?: string } | undefined
+getAllRoutesWithMetadata(): Array&lt;{ path: string; metadata?: {...} }&gt;</code></pre>
+
+    <h2>api.events - Event System</h2>
+    <pre><code>emit(event: string, data: unknown, source?: string): void
 on(event: string, handler: (data: unknown) => void): void
-off(event: string, handler: (data: unknown) => void): void</code></pre>
+off(event: string, handler: (data: unknown) => void): void
 
-    <h2>api.plugins</h2>
+// Realm/Inter-agent communication
+beam(targets: string | string[], eventType: string, payload: unknown): void
+query(targets: string | string[], queryType: string, payload: unknown, timeout?: number): Promise&lt;unknown&gt;
+reply(requestId: string, data: unknown, error?: string | null): void
+
+// Event inspection
+getRegisteredEvents(): Array&lt;{ event: string; handlerCount: number }&gt;</code></pre>
+
+    <h2>api.plugins - Plugin System</h2>
     <pre><code>call(pluginName: string, method: string, ...args: unknown[]): Promise&lt;unknown&gt;
 has(pluginName: string): boolean
 list(): string[]</code></pre>
 
-    <h2>api.telegram</h2>
+    <h2>api.config - Configuration Access</h2>
+    <pre><code>get&lt;T&gt;(path: string): T                    // Get config value by path (e.g., "ai.ollamaUrl")
+getAll(): FullConfig                        // Get entire configuration
+getTelegram(): TelegramConfig
+getDiscord(): DiscordConfig
+getAI(): AIConfig
+getGemini(): GeminiConfig
+getGrok(): GrokConfig
+getBraveSearch(): BraveSearchConfig
+getSystem(): SystemConfig
+getCLIOptions(): CLIOptions
+getEventMonitor(): EventMonitorConfig
+getBlogBoy(): BlogBoyConfig
+getConfigEditor(): ConfigEditorConfig
+getRssToTelegram(): RssToTelegramConfig
+getRealm(): RealmConfig
+getMCP(): MCPConfig
+getDesktop(): DesktopConfig
+isFromEnv(path: string): boolean            // Check if value came from env var
+reload(): Promise&lt;void&gt;                     // Reload configuration from disk</code></pre>
+
+    <h2>api.tools - Tool System (Hybrid Intelligence)</h2>
+    <pre><code>// Tool management
+register(tool: ToolDefinition): void
+unregister(toolName: string): void
+execute(name: string, args: Record&lt;string, any&gt;, context?: Partial&lt;ToolContext&gt;): Promise&lt;ToolResult&gt;
+list(): ToolDefinition[]
+getSchemas(): OpenAIFunctionSchema[]
+has(name: string): boolean
+
+// Workflow management
+registerWorkflow(workflow: WorkflowDefinition): void
+executeWorkflow(name: string, args: Record&lt;string, any&gt;, context?: Partial&lt;ToolContext&gt;): Promise&lt;any&gt;
+getWorkflow(name: string): WorkflowDefinition | undefined
+listWorkflows(): WorkflowDefinition[]
+
+// Policy & Cost tracking
+setPolicy(policy: ToolPolicy): void
+getPolicy(): ToolPolicy
+getCostStats(): { daily: number; monthly: number }</code></pre>
+
+    <h2>Plugin APIs (Optional)</h2>
+
+    <h3>api.git - Git Operations</h3>
+    <pre><code>init(): Promise&lt;{ success: boolean; message: string }&gt;
+clone(url: string, dir?: string): Promise&lt;{ success: boolean; output: string }&gt;
+status(): Promise&lt;{ clean: boolean; files: Array&lt;{ status: string; file: string }&gt; }&gt;
+add(files: string | string[]): Promise&lt;{ success: boolean }&gt;
+commit(message: string, files?: string[]): Promise&lt;{ success: boolean; output: string }&gt;
+push(remote?: string, branch?: string): Promise&lt;{ success: boolean; output: string }&gt;
+pull(remote?: string, branch?: string): Promise&lt;{ success: boolean; output: string }&gt;
+branch(name?: string): Promise&lt;{ success?: boolean; output?: string; branches?: string[] }&gt;
+checkout(branch: string): Promise&lt;{ success: boolean; output: string }&gt;</code></pre>
+
+    <h3>api.shell - Shell Operations</h3>
+    <pre><code>exec(command: string, args?: string[], options?: { cwd?: string; env?: Record&lt;string, string&gt; }): 
+  Promise&lt;{ exitCode: number; stdout: string; stderr: string; success: boolean }&gt;
+execAsync(command: string, args?: string[], options?: { cwd?: string; env?: Record&lt;string, string&gt; }):
+  Promise&lt;{ process: Subprocess; readOutput(): Promise&lt;{ exitCode: number; stdout: string; stderr: string; success: boolean }&gt; }&gt;
+which(command: string): Promise&lt;string | null&gt;
+env(): Promise&lt;Record&lt;string, string&gt;&gt;
+cwd(): Promise&lt;string&gt;</code></pre>
+
+    <h3>api.scrape - Web Scraping</h3>
+    <pre><code>scrape_to_markdown(url: string, options?: {
+  instructions?: string;
+  selector?: string;
+  includeImages?: boolean;
+  timeoutMs?: number;
+  userAgent?: string;
+}): Promise&lt;{
+  url: string;
+  finalUrl: string;
+  title?: string;
+  markdown: string;
+  images: string[];
+  links: string[];
+}&gt;</code></pre>
+
+    <h3>api.telegram - Telegram Bot</h3>
     <pre><code>initBot(token: string, options?: { webhookUrl?: string }): Promise&lt;string&gt;
 sendMessage(botId: string, chatId: string | number, text: string, options?: { parseMode?: "HTML" | "Markdown" | "MarkdownV2" }): Promise&lt;void&gt;
 sendPhoto(botId: string, chatId: string | number, photo: string | Buffer, caption?: string): Promise&lt;void&gt;
@@ -65,9 +183,9 @@ getUpdates(botId: string, options?: { limit?: number; offset?: number }): Promis
 joinChannel(botId: string, channelId: string): Promise&lt;void&gt;
 setWebhook(botId: string, url: string): Promise&lt;void&gt;
 onMessage(botId: string, callback: (update: TelegramUpdate) => void): void
-getBotInfo(botId: string): Promise&lt;{ id: number; username: string; first_name: string; ... }&gt;</code></pre>
+getBotInfo(botId: string): Promise&lt;{ id: number; username: string; first_name: string; can_join_groups: boolean; can_read_all_group_messages: boolean }&gt;</code></pre>
 
-    <h2>api.discord</h2>
+    <h3>api.discord - Discord Bot</h3>
     <pre><code>initBot(token: string, options?: { intents?: number[] }): Promise&lt;string&gt;
 sendMessage(clientId: string, channelId: string, content: string, options?: { embed?: {...} }): Promise&lt;void&gt;
 getMessages(clientId: string, channelId: string, options?: { limit?: number; before?: string }): Promise&lt;DiscordMessage[]&gt;
@@ -76,40 +194,62 @@ onReady(clientId: string, callback: () => void): void
 joinGuild(clientId: string, inviteCode: string): Promise&lt;{ code: string; guild?: {...}; channel?: {...} }&gt;
 getChannel(clientId: string, channelId: string): Promise&lt;{ id: string; name: string; type: string; guildId: string | null }&gt;</code></pre>
 
-    <h2>api.langchain</h2>
-    <pre><code>runChain(promptTemplate: string, input: Record<string, any>, api?: AgentAPI): Promise<string>
-runAgent(query: string, tools?: any[], api?: AgentAPI): Promise<any>
-buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise<any>
-runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise<string>
-buildResearchGraph(api?: AgentAPI): Promise<any></code></pre>
+    <h3>api.rag - RAG (Retrieval-Augmented Generation)</h3>
+    <pre><code>init(namespace: string, options?: { embeddingModel?: string; chunkSize?: number; chunkOverlap?: number }): 
+  Promise&lt;{ success: boolean; namespace: string; dbPath: string }&gt;
 
-    <h2>api.tools</h2>
-    <pre><code>register(tool: ToolDefinition): void
-unregister(toolName: string): void
-execute(name: string, args: Record<string, any>, context?: Partial<ToolContext>): Promise<ToolResult>
-list(): ToolDefinition[]
-getSchemas(): OpenAIFunctionSchema[]
-has(name: string): boolean
-registerWorkflow(workflow: WorkflowDefinition): void
-executeWorkflow(name: string, args: Record<string, any>, context?: Partial<ToolContext>): Promise<any>
-getWorkflow(name: string): WorkflowDefinition | undefined
-listWorkflows(): WorkflowDefinition[]
-setPolicy(policy: ToolPolicy): void
-getPolicy(): ToolPolicy
-getCostStats(): { daily: number; monthly: number }</code></pre>
+addDocuments(namespace: string, documents: Array&lt;{ content: string; metadata?: Record&lt;string, unknown&gt; }&gt;, options?: {...}):
+  Promise&lt;{ documentIds: string[]; chunksCreated: number }&gt;
 
-    <h2>api.notify</h2>
-    <p>Native notification API (available when Desktop Mode is enabled):</p>
-    <pre><code>notify(options: {
-  title: string;
-  message: string;
-  subtitle?: string;
-  sound?: boolean;
-}): Promise<void></code></pre>
+search(namespace: string, query: string, limit?: number, options?: { embeddingModel?: string }):
+  Promise&lt;Array&lt;{ documentId: string; chunkIndex: number; chunkText: string; score: number; metadata?: Record&lt;string, unknown&gt; }&gt;&gt;
+
+query(namespace: string, query: string, options?: { limit?: number; embeddingModel?: string; temperature?: number; systemPrompt?: string }, api?: AgentAPI):
+  Promise&lt;{ response: string; sources: Array&lt;{ documentId: string; chunkText: string; score: number }&gt; }&gt;
+
+removeDocuments(namespace: string, documentIds: string[]): Promise&lt;{ removed: number }&gt;
+listDocuments(namespace: string, limit?: number): Promise&lt;Array&lt;{ id: string; content: string; metadata?: Record&lt;string, unknown&gt;; createdAt: number; chunkCount: number }&gt;&gt;
+getStats(namespace: string): Promise&lt;{ documentCount: number; chunkCount: number; dbPath: string }&gt;
+clearNamespace(namespace: string): Promise&lt;{ cleared: boolean }&gt;</code></pre>
+
+    <h3>api.email - Email Management</h3>
+    <pre><code>addAccount(config: { name: string; email: string; imap: {...}; smtp: {...} }): Promise&lt;{ id: string; email: string; name: string }&gt;
+removeAccount(accountId: string): Promise&lt;{ success: boolean }&gt;
+listAccounts(): Promise&lt;Array&lt;{ id: string; name: string; email: string; isMonitoring: boolean; createdAt: number }&gt;&gt;
+getInbox(accountId: string, options?: { limit?: number; offset?: number }): Promise&lt;Email[]&gt;
+getEmail(accountId: string, messageId: string): Promise&lt;Email&gt;
+sendEmail(accountId: string, to: string | string[], subject: string, body: string, options?: {...}): Promise&lt;{ messageId: string; success: boolean }&gt;
+replyToEmail(accountId: string, messageId: string, body: string, options?: {...}): Promise&lt;{ messageId: string; success: boolean }&gt;
+forwardEmail(accountId: string, messageId: string, to: string | string[], body?: string): Promise&lt;{ messageId: string; success: boolean }&gt;
+deleteEmail(accountId: string, messageId: string, options?: { permanent?: boolean }): Promise&lt;{ success: boolean }&gt;
+markRead(accountId: string, messageId: string): Promise&lt;{ success: boolean }&gt;
+markUnread(accountId: string, messageId: string): Promise&lt;{ success: boolean }&gt;
+searchEmails(accountId: string, query: string, options?: { limit?: number; folder?: string }): Promise&lt;Email[]&gt;
+startMonitoring(accountId: string): Promise&lt;{ success: boolean }&gt;
+stopMonitoring(accountId: string): Promise&lt;{ success: boolean }&gt;
+onNewEmail(accountId: string, callback: (email: Email) => void): void
+offNewEmail(accountId: string, callback: (email: unknown) => void): void
+listFolders(accountId: string): Promise&lt;Array&lt;{ name: string; path: string; specialUse?: string }&gt;&gt;</code></pre>
+
+    <h3>api.realm - Peer-to-Peer Communication</h3>
+    <pre><code>init(discoveryUrl: string, callSign: string, options?: { token?: string; localWsPort?: number; heartbeatInterval?: number; stunServers?: RTCIceServer[]; turnServers?: RTCIceServer[] }): Promise&lt;void&gt;
+disconnect(): void
+sendMessage(to: string, content: string): Promise&lt;void&gt;
+beam(target: string | string[], eventType: string, payload: unknown): Promise&lt;void&gt;
+query(target: string, queryType: string, payload: unknown, timeout?: number): Promise&lt;unknown&gt;
+getPeerStatus(callSign: string): Promise&lt;{ online: boolean; wsAddress?: string }&gt;
+sendMedia(to: string, stream: MediaStream): Promise&lt;void&gt;</code></pre>
+
+    <h3>api.langchain - LangChain Integration</h3>
+    <pre><code>runChain(prompt: string, input: any, api?: AgentAPI): Promise&lt;string&gt;
+runAgent(query: string, tools?: any[], api?: AgentAPI): Promise&lt;any&gt;
+buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise&lt;any&gt;
+runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise&lt;string&gt;
+buildResearchGraph(api?: AgentAPI): Promise&lt;any&gt;</code></pre>
 
     <h2>Type Definitions</h2>
 
-    <h3>AgentAPI</h3>
+    <h3>Core Types</h3>
     <pre><code>interface AgentAPI {
   ai: AIAPI;
   memory: MemoryAPI;
@@ -118,6 +258,10 @@ getCostStats(): { daily: number; monthly: number }</code></pre>
   http: HTTPAPI;
   events: EventsAPI;
   plugins: PluginsAPI;
+  config: ConfigAPI;
+  tools: ToolsAPI;
+  
+  // Optional plugin APIs
   git?: GitAPI;
   shell?: ShellAPI;
   scrape?: ScrapeAPI;
@@ -126,13 +270,72 @@ getCostStats(): { daily: number; monthly: number }</code></pre>
   discord?: DiscordAPI;
   realm?: RealmAPI;
   langchain?: LangChainAPI;
+  rag?: RagAPI;
+  email?: EmailAPI;
+}
+
+interface Message {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+interface Memory {
+  id: string;
+  key?: string;
+  value: unknown;
+  text?: string;
+  metadata?: Record&lt;string, unknown&gt;;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Tool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record&lt;string, { type: string; description?: string }&gt;;
+      required?: string[];
+    };
+  };
+}
+
+interface ToolCall {
+  name: string;
+  arguments: Record&lt;string, unknown&gt;;
 }</code></pre>
 
-    <h2>Return Types</h2>
+    <h2>Usage Examples</h2>
 
-    <p>
-      Most API methods return Promises that resolve to the operation result. Error handling should be done with try-catch blocks.
-    </p>
+    <h3>AI Completion</h3>
+    <pre><code class="language-typescript">const response = await this.api.ai.complete("Hello, world!", {
+  model: "qwen3:1.7b",
+  temperature: 0.7,
+  maxTokens: 500
+});</code></pre>
+
+    <h3>Memory Storage</h3>
+    <pre><code class="language-typescript">await this.api.memory.store("user-preferences", { theme: "dark" });
+const prefs = await this.api.memory.retrieve("user-preferences");</code></pre>
+
+    <h3>Tool Execution</h3>
+    <pre><code class="language-typescript">const result = await this.api.tools.execute("file.read", {
+  path: "/path/to/file.txt"
+}, { agent: this });</code></pre>
+
+    <h3>Configuration Access</h3>
+    <pre><code class="language-typescript">const aiConfig = this.api.config.getAI();
+const ollamaUrl = this.api.config.get("ai.ollamaUrl");
+await this.api.config.reload();  // Reload after changes</code></pre>
+
+    <div class="note">
+      <strong>Tip:</strong> All plugin APIs are dynamically loaded. Always check if a plugin is available before using it:
+      <pre><code class="language-typescript">if (this.api.plugins.has("git")) {
+  const status = await this.api.git?.status();
+}</code></pre>
+    </div>
 
     <div class="navigation">
       <a href="../24-hybrid-intelligence.html" class="prev">← Chapter 24: Hybrid Intelligence</a>

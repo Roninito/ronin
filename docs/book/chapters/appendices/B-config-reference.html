@@ -15,6 +15,7 @@
   <div class="content">
     <h2>Environment Variables</h2>
 
+    <h3>AI Configuration</h3>
     <table>
       <thead>
         <tr>
@@ -49,6 +50,19 @@
           <td>Brave Search API key (for MCP web search)</td>
           <td>-</td>
         </tr>
+      </tbody>
+    </table>
+
+    <h3>Server Configuration</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
         <tr>
           <td><code>WEBHOOK_PORT</code></td>
           <td>Webhook server port</td>
@@ -60,9 +74,32 @@
           <td><code>3000</code></td>
         </tr>
         <tr>
+          <td><code>DESKTOP_BRIDGE_PORT</code></td>
+          <td>Desktop Mode bridge port</td>
+          <td><code>17341</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Directory Configuration</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
           <td><code>RONIN_EXTERNAL_AGENT_DIR</code></td>
           <td>External agent directory</td>
           <td><code>~/.ronin/agents</code></td>
+        </tr>
+        <tr>
+          <td><code>RONIN_USER_PLUGIN_DIR</code></td>
+          <td>User plugins directory</td>
+          <td><code>~/.ronin/plugins</code></td>
         </tr>
         <tr>
           <td><code>FISHY_DATA_DIR</code></td>
@@ -77,6 +114,34 @@
       </tbody>
     </table>
 
+    <h3>Plugin-Specific Variables</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+          <th>Plugin</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>TELEGRAM_BOT_TOKEN</code></td>
+          <td>Telegram Bot API token</td>
+          <td>telegram</td>
+        </tr>
+        <tr>
+          <td><code>DISCORD_BOT_TOKEN</code></td>
+          <td>Discord Bot token</td>
+          <td>discord</td>
+        </tr>
+        <tr>
+          <td><code>GITHUB_TOKEN</code></td>
+          <td>GitHub Personal Access Token</td>
+          <td>git (MCP)</td>
+        </tr>
+      </tbody>
+    </table>
+
     <h2>Config File Format</h2>
 
     <p>
@@ -86,12 +151,60 @@
     <pre><code>{
   "agentDir": "./agents",
   "externalAgentDir": "~/.ronin/agents",
-  "grokApiKey": "sk-xxxxx",
-  "geminiApiKey": "AIxxxxx",
+  "userPluginDir": "~/.ronin/plugins",
+  "ai": {
+    "ollamaUrl": "http://localhost:11434",
+    "ollamaModel": "qwen3:1.7b",
+    "ollamaTimeoutMs": 120000,
+    "defaultProvider": "ollama",
+    "fallback": {
+      "enabled": true,
+      "order": ["ollama", "gemini", "grok"]
+    }
+  },
+  "gemini": {
+    "apiKey": "AIxxxxx",
+    "model": "gemini-1.5-pro"
+  },
+  "grok": {
+    "apiKey": "sk-xxxxx"
+  },
   "braveSearch": {
     "apiKey": "BSA-xxxxx"
   },
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "allowedUsers": [],
+    "webhookUrl": ""
+  },
+  "discord": {
+    "enabled": false,
+    "botToken": "",
+    "allowedGuilds": [],
+    "allowedUsers": []
+  },
+  "realm": {
+    "enabled": false,
+    "url": "wss://realm.afiwi.net",
+    "callsign": "",
+    "token": "",
+    "localPort": 4000
+  },
+  "tools": {
+    "enabled": true,
+    "allowCloud": true,
+    "costLimit": {
+      "daily": 5.0,
+      "monthly": 50.0
+    },
+    "policy": {
+      "defaultAction": "allow",
+      "rules": []
+    }
+  },
   "mcp": {
+    "enabled": true,
     "servers": {
       "filesystem": {
         "command": "npx",
@@ -121,6 +234,174 @@
     "menubar": true
   }
 }</code></pre>
+
+    <h2>AI Configuration</h2>
+
+    <h3>ai</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ai.ollamaUrl</code></td>
+          <td>Ollama server URL</td>
+          <td><code>"http://localhost:11434"</code></td>
+        </tr>
+        <tr>
+          <td><code>ai.ollamaModel</code></td>
+          <td>Default Ollama model</td>
+          <td><code>"qwen3:1.7b"</code></td>
+        </tr>
+        <tr>
+          <td><code>ai.ollamaTimeoutMs</code></td>
+          <td>Request timeout in milliseconds</td>
+          <td><code>120000</code></td>
+        </tr>
+        <tr>
+          <td><code>ai.defaultProvider</code></td>
+          <td>Default AI provider</td>
+          <td><code>"ollama"</code></td>
+        </tr>
+        <tr>
+          <td><code>ai.fallback.enabled</code></td>
+          <td>Enable fallback to other providers</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>ai.fallback.order</code></td>
+          <td>Fallback provider order</td>
+          <td><code>["ollama", "gemini", "grok"]</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>gemini</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>gemini.apiKey</code></td>
+          <td>Google Gemini API key</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>gemini.model</code></td>
+          <td>Gemini model name</td>
+          <td><code>"gemini-1.5-pro"</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>grok</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>grok.apiKey</code></td>
+          <td>xAI Grok API key</td>
+          <td><code>""</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Realm Configuration</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>realm.enabled</code></td>
+          <td>Enable Realm P2P communication</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>realm.url</code></td>
+          <td>Realm discovery server URL</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>realm.callsign</code></td>
+          <td>Your unique call sign</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>realm.token</code></td>
+          <td>Authentication token (optional)</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>realm.localPort</code></td>
+          <td>Local WebSocket port</td>
+          <td><code>4000</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Note:</strong> When Realm is enabled, Ronin automatically connects on startup.
+    </div>
+
+    <h2>Tools Configuration (Hybrid Intelligence)</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>tools.enabled</code></td>
+          <td>Enable tool system</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>tools.allowCloud</code></td>
+          <td>Allow cloud AI providers for tools</td>
+          <td><code>true</code></td>
+        </tr>
+        <tr>
+          <td><code>tools.costLimit.daily</code></td>
+          <td>Daily cost limit (USD)</td>
+          <td><code>5.0</code></td>
+        </tr>
+        <tr>
+          <td><code>tools.costLimit.monthly</code></td>
+          <td>Monthly cost limit (USD)</td>
+          <td><code>50.0</code></td>
+        </tr>
+        <tr>
+          <td><code>tools.policy.defaultAction</code></td>
+          <td>Default policy action</td>
+          <td><code>"allow"</code></td>
+        </tr>
+      </tbody>
+    </table>
 
     <h2>Desktop Mode Configuration</h2>
 
@@ -177,6 +458,74 @@
           <td><code>desktop.menubar</code></td>
           <td>Show menubar status indicator</td>
           <td><code>true</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Telegram Configuration</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>telegram.enabled</code></td>
+          <td>Enable Telegram bot integration</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>telegram.botToken</code></td>
+          <td>Bot API token from @BotFather</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>telegram.allowedUsers</code></td>
+          <td>Array of allowed user IDs</td>
+          <td><code>[]</code></td>
+        </tr>
+        <tr>
+          <td><code>telegram.webhookUrl</code></td>
+          <td>Webhook URL (optional, uses polling if empty)</td>
+          <td><code>""</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Discord Configuration</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>discord.enabled</code></td>
+          <td>Enable Discord bot integration</td>
+          <td><code>false</code></td>
+        </tr>
+        <tr>
+          <td><code>discord.botToken</code></td>
+          <td>Discord bot token</td>
+          <td><code>""</code></td>
+        </tr>
+        <tr>
+          <td><code>discord.allowedGuilds</code></td>
+          <td>Array of allowed server IDs</td>
+          <td><code>[]</code></td>
+        </tr>
+        <tr>
+          <td><code>discord.allowedUsers</code></td>
+          <td>Array of allowed user IDs</td>
+          <td><code>[]</code></td>
         </tr>
       </tbody>
     </table>

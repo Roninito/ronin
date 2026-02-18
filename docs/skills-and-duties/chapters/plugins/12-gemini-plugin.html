@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Gemini Plugin</h1>
+      
+      <p class="lead">
+        The Gemini plugin integrates Google's Gemini AI models into Ronin, enabling agents 
+        to generate text, answer questions, and engage in conversations using Google's 
+        state-of-the-art language models.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Google's Gemini models offer powerful language understanding and generation capabilities. 
+        The Gemini plugin supports both streaming and non-streaming chat completions, with 
+        options for model selection, temperature control, and output token limits.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Multiple Models</strong>: Support for various Gemini models (Pro, Flash, etc.)</li>
+        <li><strong>Streaming & Non-streaming</strong>: Both real-time and complete response modes</li>
+        <li><strong>System Instructions</strong>: Support for system prompts to guide model behavior</li>
+        <li><strong>Multi-turn Chat</strong>: Conversation history support</li>
+        <li><strong>API Version Selection</strong>: Choose between v1 and v1beta APIs</li>
+        <li><strong>Debug Mode</strong>: Optional logging for troubleshooting</li>
+        <li><strong>Flexible Auth</strong>: API key via config, env vars, or CLI</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Chat Methods</h3>
+      
+      <h4><code>chat(messages, options?)</code></h4>
+      <p>Send a chat request to Gemini and receive a complete response.</p>
+      <pre><code class="language-typescript">const response = await this.api.gemini?.chat([
+  { role: "system", content: "You are a helpful coding assistant." },
+  { role: "user", content: "Explain async/await in JavaScript." }
+], {
+  model: "gemini-1.5-flash",
+  temperature: 0.7,
+  maxOutputTokens: 500
+});
+
+console.log(response);</code></pre>
+
+      <h4><code>streamChat(messages, options?)</code></h4>
+      <p>Stream chat responses in real-time as tokens are generated.</p>
+      <pre><code class="language-typescript">const stream = this.api.gemini?.streamChat([
+  { role: "user", content: "Write a haiku about programming." }
+], {
+  model: "gemini-1.5-flash",
+  temperature: 0.8
+});
+
+// Process stream
+for await (const chunk of stream) {
+  process.stdout.write(chunk);
+}
+console.log("\n[Complete]");</code></pre>
+
+      <h2>API Key Configuration</h2>
+
+      <p>Configure your Gemini API key through multiple methods (checked in order):</p>
+
+      <h3>1. ConfigService (Recommended)</h3>
+      <pre><code class="language-typescript">const configService = getConfigService();
+configService.setGemini({
+  apiKey: "your-api-key-here",
+  model: "gemini-1.5-flash",
+  apiVersion: "v1beta",
+  debug: false
+});</code></pre>
+
+      <h3>2. Environment Variables</h3>
+      <pre><code class="language-bash"># .env file or shell
+export GEMINI_API_KEY="your-api-key-here"
+export GEMINI_MODEL="gemini-1.5-flash"
+export GEMINI_API_VERSION="v1beta"
+export DEBUG_GEMINI="true"  # Enable debug logging</code></pre>
+
+      <h3>3. CLI Configuration</h3>
+      <pre><code class="language-typescript"># Set via Ronin CLI
+ronin config --gemini-api-key "your-api-key-here"
+ronin config --gemini-model "gemini-1.5-flash"</code></pre>
+
+      <h3>4. Legacy Config File</h3>
+      <pre><code class="language-typescript">// ~/.ronin/config.json
+{
+  "geminiApiKey": "your-api-key-here",
+  "geminiModel": "gemini-1.5-flash"
+}</code></pre>
+
+      <h2>Model Options</h2>
+
+      <p>Available Gemini models (check Google's documentation for latest):</p>
+
+      <table>
+        <tr>
+          <th>Model</th>
+          <th>Description</th>
+          <th>API Version</th>
+        </tr>
+        <tr>
+          <td><code>gemini-1.5-flash</code></td>
+          <td>Fast, efficient model (default)</td>
+          <td>v1beta</td>
+        </tr>
+        <tr>
+          <td><code>gemini-1.5-pro</code></td>
+          <td>Higher quality, more capable</td>
+          <td>v1beta</td>
+        </tr>
+        <tr>
+          <td><code>gemini-1.0-pro</code></td>
+          <td>Original Pro model</td>
+          <td>v1</td>
+        </tr>
+      </table>
+
+      <h2>API Versions</h2>
+
+      <p>Google offers two API versions:</p>
+
+      <h3>v1 (Stable)</h3>
+      <ul>
+        <li>Production-ready, stable API</li>
+        <li>System instructions sent as first user message</li>
+        <li>May have fewer model options</li>
+      </ul>
+
+      <h3>v1beta (Preview)</h3>
+      <ul>
+        <li>Latest features and models</li>
+        <li>Native system instruction support</li>
+        <li>May have breaking changes</li>
+      </ul>
+
+      <h2>Message Format</h2>
+
+      <p>Gemini uses a standard message format:</p>
+
+      <pre><code class="language-typescript">interface GeminiMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+// Example conversation with system instruction
+const messages = [
+  {
+    role: "system",
+    content: "You are an expert Python developer. Provide code examples."
+  },
+  {
+    role: "user",
+    content: "How do I read a file in Python?"
+  }
+];
+
+// Note: System messages are handled differently based on API version:
+// - v1: Prepended to first user message
+// - v1beta: Sent as systemInstruction field</code></pre>
+
+      <h2>Chat Options</h2>
+
+      <table>
+        <tr>
+          <th>Option</th>
+          <th>Type</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>model</code></td>
+          <td>string</td>
+          <td>"gemini-1.5-flash"</td>
+          <td>Gemini model to use</td>
+        </tr>
+        <tr>
+          <td><code>temperature</code></td>
+          <td>number</td>
+          <td>0.7</td>
+          <td>Creativity control (0-1)</td>
+        </tr>
+        <tr>
+          <td><code>maxOutputTokens</code></td>
+          <td>number</td>
+          <td>undefined</td>
+          <td>Maximum response length</td>
+        </tr>
+      </table>
+
+      <h2>Example Usage</h2>
+
+      <h3>Simple Question</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class GeminiQA extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const answer = await this.api.gemini?.chat([
+      { role: "user", content: "What is machine learning?" }
+    ], {
+      model: "gemini-1.5-flash",
+      temperature: 0.3  // Lower for factual responses
+    });
+
+    console.log("Answer:", answer);
+  }
+}</code></pre>
+
+      <h3>Code Generation</h3>
+      <pre><code class="language-bash">export default class GeminiCoder extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const code = await this.api.gemini?.chat([
+      { 
+        role: "system", 
+        content: "You generate TypeScript code. Output only code, no explanations." 
+      },
+      { 
+        role: "user", 
+        content: "Create a function to validate email addresses using regex." 
+      }
+    ], {
+      model: "gemini-1.5-pro",  // Use Pro for code
+      temperature: 0.2
+    });
+
+    console.log("Generated code:\n", code);
+  }
+}</code></pre>
+
+      <h3>Streaming Conversation</h3>
+      <pre><code class="language-bash">export default class GeminiStream extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const stream = this.api.gemini?.streamChat([
+      { 
+        role: "system", 
+        content: "You are a creative writer." 
+      },
+      { 
+        role: "user", 
+        content: "Write a short science fiction story about AI." 
+      }
+    ], {
+      model: "gemini-1.5-flash",
+      temperature: 0.9  // Higher for creativity
+    });
+
+    if (!stream) {
+      console.error("Failed to create stream");
+      return;
+    }
+
+    console.log("Story:\n");
+    for await (const chunk of stream) {
+      process.stdout.write(chunk);
+    }
+    console.log("\n\n[The End]");
+  }
+}</code></pre>
+
+      <h3>Multi-turn Chat with History</h3>
+      <pre><code class="language-bash">export default class GeminiConversation extends BaseAgent {
+  private history: Array<{role: string; content: string}> = [];
+
+  constructor(api: AgentAPI) {
+    super(api);
+    this.history = [
+      { role: "system", content: "You are a helpful math tutor." }
+    ];
+  }
+
+  async ask(question: string): Promise<string> {
+    this.history.push({ role: "user", content: question });
+    
+    const response = await this.api.gemini?.chat(this.history);
+    
+    this.history.push({ role: "assistant", content: response });
+    return response;
+  }
+
+  async execute(): Promise<void> {
+    console.log("Q: What is the Pythagorean theorem?");
+    console.log("A:", await this.ask("What is the Pythagorean theorem?"));
+
+    console.log("\nQ: Can you give me an example?");
+    console.log("A:", await this.ask("Can you give me an example?"));
+  }
+}</code></pre>
+
+      <h2>API Endpoints</h2>
+
+      <p>The plugin connects to Google's Generative Language API:</p>
+      <ul>
+        <li><strong>Base URL:</strong> <code>https://generativelanguage.googleapis.com</code></li>
+        <li><strong>Chat:</strong> <code>/{version}/models/{model}:generateContent</code></li>
+        <li><strong>Stream:</strong> <code>/{version}/models/{model}:streamGenerateContent</code></li>
+        <li><strong>Auth:</strong> x-goog-api-key header</li>
+      </ul>
+
+      <h2>Debug Mode</h2>
+
+      <p>Enable debug logging to troubleshoot API calls:</p>
+
+      <pre><code class="language-bash">// Via ConfigService
+configService.setGemini({ debug: true });
+
+// Via environment
+export DEBUG_GEMINI=true
+
+// Debug output includes:
+// - API URL being called
+// - Model and API version
+// - Request/response details</code></pre>
+
+      <h2>Error Handling</h2>
+
+      <p>Common errors and solutions:</p>
+      <ul>
+        <li><strong>400 Bad Request</strong>: Invalid request format or unsupported model</li>
+        <li><strong>401 Unauthorized</strong>: Invalid API key</li>
+        <li><strong>403 Forbidden</strong>: API key doesn't have access to the model</li>
+        <li><strong>429 Rate Limited</strong>: Too many requests - implement backoff</li>
+        <li><strong>5xx Errors</strong>: Google server issues - retry with exponential backoff</li>
+      </ul>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Never commit API keys to version control</li>
+        <li>Use environment variables or ConfigService for production</li>
+        <li>Rotate API keys regularly</li>
+        <li>Monitor API usage in Google Cloud Console</li>
+        <li>Restrict API key usage to specific IP addresses if possible</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="11-grok-plugin.html">Grok Plugin</a> - xAI alternative</li>
+        <li><a href="https://ai.google.dev/">Google AI Documentation</a> - Official Gemini docs</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

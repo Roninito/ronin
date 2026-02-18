@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shell Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Shell Plugin</h1>
+      
+      <p class="lead">
+        The Shell plugin enables Ronin agents to execute system commands safely, 
+        providing access to the underlying operating system while maintaining security boundaries.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Shell plugin provides methods for executing shell commands, both synchronously 
+        and asynchronously with streaming output. It supports custom working directories, 
+        environment variables, and includes utility methods for common system operations.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Command Execution</strong>: Execute any shell command with arguments</li>
+        <li><strong>Smart Parsing</strong>: Automatically splits command strings with spaces</li>
+        <li><strong>Async Support</strong>: Execute commands asynchronously with streaming</li>
+        <li><strong>Working Directory</strong>: Run commands in specific directories</li>
+        <li><strong>Environment Variables</strong>: Pass custom environment to commands</li>
+        <li><strong>Command Lookup</strong>: Find command paths (like <code>which</code>)</li>
+        <li><strong>System Info</strong>: Get environment variables and current directory</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Command Execution</h3>
+      
+      <h4><code>exec(command, args?, options?)</code></h4>
+      <p>Execute a shell command and wait for completion. Returns exit code, stdout, and stderr.</p>
+      <pre><code class="language-bash">// Simple command
+const result = await this.api.shell?.exec("ls", ["-la"]);
+console.log(result.stdout);
+console.log(result.exitCode);
+
+// Command with spaces (auto-parsed)
+const result = await this.api.shell?.exec("git status");
+
+// With working directory
+const result = await this.api.shell?.exec("npm", ["install"], {
+  cwd: "/path/to/project"
+});
+
+// With environment variables
+const result = await this.api.shell?.exec("echo", ["$CUSTOM_VAR"], {
+  env: { CUSTOM_VAR: "hello" }
+});</code></pre>
+
+      <h4><code>execAsync(command, args?, options?)</code></h4>
+      <p>Execute a command asynchronously. Returns a process object and a method to read output later.</p>
+      <pre><code class="language-bash">// Start long-running process
+const { process, readOutput } = await this.api.shell?.execAsync(
+  "npm", ["run", "build"], { cwd: "./my-project" }
+);
+
+// Do other work while process runs...
+console.log("Building...");
+
+// Get results when ready
+const result = await readOutput();
+console.log("Build complete:", result.success);
+console.log(result.stdout);</code></pre>
+
+      <h3>Utility Methods</h3>
+
+      <h4><code>which(command)</code></h4>
+      <p>Find the path to a command (like Unix <code>which</code>).</p>
+      <pre><code class="language-typescript">const nodePath = await this.api.shell?.which("node");
+if (nodePath) {
+  console.log(`Node is at: ${nodePath}`);
+} else {
+  console.log("Node not found in PATH");
+}
+
+// Check if command exists
+const hasGit = await this.api.shell?.which("git") !== null;</code></pre>
+
+      <h4><code>env()</code></h4>
+      <p>Get all environment variables as an object.</p>
+      <pre><code class="language-typescript">const env = await this.api.shell?.env();
+console.log(env.PATH);
+console.log(env.HOME);
+console.log(env.NODE_ENV);</code></pre>
+
+      <h4><code>cwd()</code></h4>
+      <p>Get the current working directory.</p>
+      <pre><code class="language-typescript">const currentDir = await this.api.shell?.cwd();
+console.log(`Currently in: ${currentDir}`);</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">// Run system checks
+const nodeVersion = await this.api.shell?.exec("node", ["--version"]);
+console.log(`Node: ${nodeVersion.stdout.trim()}`);
+
+const gitStatus = await this.api.shell?.exec("git", ["status", "--short"]);
+if (gitStatus.stdout) {
+  console.log("Uncommitted changes:");
+  console.log(gitStatus.stdout);
+}
+
+// Check available tools
+const tools = ["docker", "kubectl", "aws", "gcloud"];
+for (const tool of tools) {
+  const path = await this.api.shell?.which(tool);
+  console.log(`${tool}: ${path ? "✓" : "✗"}`);
+}
+
+// Run build process
+const buildResult = await this.api.shell?.exec("npm", ["run", "build"]);
+if (!buildResult.success) {
+  console.error("Build failed!");
+  console.error(buildResult.stderr);
+} else {
+  console.log("Build successful!");
+}
+
+// Execute in specific directory
+const testResult = await this.api.shell?.exec("npm", ["test"], {
+  cwd: "./packages/core"
+});
+
+// Async with large output
+const { readOutput } = await this.api.shell?.execAsync(
+  "find", [".", "-name", "*.log"]
+);
+console.log("Searching...");
+const result = await readOutput();
+const logFiles = result.stdout.split("\\n").filter(Boolean);
+console.log(`Found ${logFiles.length} log files`);</code></pre>
+
+      <h2>Return Values</h2>
+      <p>All execution methods return an object with:</p>
+      <ul>
+        <li><code>exitCode</code> - The process exit code (null if not exited)</li>
+        <li><code>stdout</code> - Standard output as string</li>
+        <li><code>stderr</code> - Standard error as string</li>
+        <li><code>success</code> - Boolean (true if exitCode === 0)</li>
+      </ul>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li><strong>Input Validation</strong>: Never pass unsanitized user input directly to shell commands</li>
+        <li><strong>Injection Attacks</strong>: Be careful with command concatenation</li>
+        <li><strong>Permissions</strong>: Commands run with Ronin's permissions</li>
+        <li><strong>Timeouts</strong>: Long-running commands may need async execution</li>
+        <li><strong>Resource Limits</strong>: Be mindful of CPU/memory intensive commands</li>
+      </ul>
+
+      <h2>Best Practices</h2>
+      <ul>
+        <li>Use <code>which()</code> to check if tools exist before using them</li>
+        <li>Always check <code>result.success</code> after execution</li>
+        <li>Use <code>execAsync</code> for long-running tasks</li>
+        <li>Set <code>cwd</code> instead of using <code>cd</code> in commands</li>
+        <li>Validate command output before using it</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="01-git-plugin.html">Git Plugin</a> - Higher-level Git operations</li>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

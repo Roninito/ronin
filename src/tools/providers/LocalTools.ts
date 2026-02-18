@@ -461,5 +461,5 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
     riskLevel: "low",
   });
 
-  console.log("[LocalTools] Registered 7 local tools");
+  if (!process.env.RONIN_QUIET) console.log("[LocalTools] Registered 7 local tools");
 }

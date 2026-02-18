@@ -24,10 +24,11 @@ export async function runCommand(options: RunOptions): Promise<void> {
 
   logger.info(`Running agent: ${options.agentName}`);
 
-  // Create API
+  // Create API (use fast model by default for agent execution speed)
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
+    useFastModelForAgents: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
   });

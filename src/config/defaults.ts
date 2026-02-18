@@ -123,7 +123,7 @@ export const DEFAULT_CONFIG: FullConfig = {
   },
 
   desktop: {
-    enabled: false,
+    enabled: true,
     features: {
       notifications: true,
       clipboard: false,

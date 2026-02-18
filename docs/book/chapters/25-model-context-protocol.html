@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 25: Model Context Protocol (MCP) - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -30,7 +37,7 @@
 
     <h2>Architecture</h2>
 
-    <pre><code>┌─────────────────────────────────────────────────────────────┐
+    <pre><code class="language-typescript">┌─────────────────────────────────────────────────────────────┐
 │                         Ronin Agent                          │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │                    MCP Client Manager                  │  │
@@ -51,10 +58,10 @@
     <h2>Quick Start</h2>
 
     <h3>1. Discover Available Servers</h3>
-    <pre><code>ronin mcp discover</code></pre>
+    <pre><code class="language-typescript">ronin mcp discover</code></pre>
 
     <h3>2. Add a Server</h3>
-    <pre><code># Filesystem access
+    <pre><code class="language-typescript"># Filesystem access
 ronin mcp add filesystem --path ~/Documents
 
 # Web search (requires API key)
@@ -129,21 +136,21 @@ ronin mcp add github</code></pre>
     <p>
       Many community-maintained MCP servers are available. Install them using the custom server syntax:
     </p>
-    <pre><code>ronin mcp add custom-server --command npx --args '["-y","@org/server-name"]'</code></pre>
+    <pre><code class="language-typescript">ronin mcp add custom-server --command npx --args '["-y","@org/server-name"]'</code></pre>
 
     <h2>CLI Reference</h2>
 
     <h3>mcp list</h3>
     <p>List all configured MCP servers with their status.</p>
-    <pre><code>ronin mcp list</code></pre>
+    <pre><code class="language-typescript">ronin mcp list</code></pre>
 
     <h3>mcp discover</h3>
     <p>Show all known MCP servers available for installation.</p>
-    <pre><code>ronin mcp discover</code></pre>
+    <pre><code class="language-typescript">ronin mcp discover</code></pre>
 
     <h3>mcp add</h3>
     <p>Add an MCP server from the known list or custom configuration.</p>
-    <pre><code># Add known server
+    <pre><code class="language-typescript"># Add known server
 ronin mcp add filesystem --path ~/Documents
 
 # Add custom server
@@ -151,23 +158,23 @@ ronin mcp add my-server --command npx --args '["-y","@org/server"]'</code></pre>
 
     <h3>mcp enable / disable</h3>
     <p>Toggle server availability without removing configuration.</p>
-    <pre><code>ronin mcp enable filesystem
+    <pre><code class="language-typescript">ronin mcp enable filesystem
 ronin mcp disable brave-search</code></pre>
 
     <h3>mcp remove</h3>
     <p>Permanently remove a server from configuration.</p>
-    <pre><code>ronin mcp remove filesystem</code></pre>
+    <pre><code class="language-typescript">ronin mcp remove filesystem</code></pre>
 
     <h3>mcp status</h3>
     <p>Show summary of configured and enabled servers.</p>
-    <pre><code>ronin mcp status</code></pre>
+    <pre><code class="language-typescript">ronin mcp status</code></pre>
 
     <h2>Configuration</h2>
 
     <h3>Config File Location</h3>
     <p>MCP configuration is stored in <code>~/.ronin/config.json</code> under the <code>mcp</code> key:</p>
 
-    <pre><code>{
+    <pre><code class="language-json">{
   "mcp": {
     "enabled": true,
     "servers": {
@@ -267,7 +274,7 @@ for (const call of toolCalls) {
     <h2>Tool Naming Convention</h2>
 
     <p>MCP tools are registered with the following naming pattern:</p>
-    <pre><code>mcp_&lt;server-name&gt;_&lt;tool-name&gt;</code></pre>
+    <pre><code class="language-typescript">mcp_&lt;server-name&gt;_&lt;tool-name&gt;</code></pre>
 
     <h3>Examples</h3>
     <table>
@@ -309,7 +316,7 @@ for (const call of toolCalls) {
 
     <h3>1. Limit Filesystem Access</h3>
     <p>Only grant access to specific directories:</p>
-    <pre><code># Good - limited access
+    <pre><code class="language-typescript"># Good - limited access
 ronin mcp add filesystem --path ~/Documents/projects
 
 # Avoid - broad access
@@ -317,7 +324,7 @@ ronin mcp add filesystem --path /</code></pre>
 
     <h3>2. Use Environment Variables for Secrets</h3>
     <p>Never hardcode API keys in config files:</p>
-    <pre><code># Good - use env var
+    <pre><code class="language-bash"># Good - use env var
 export BRAVE_API_KEY=BSA-xxxxx
 ronin mcp add brave-search
 
@@ -328,7 +335,7 @@ ronin mcp add brave-search
 
     <h3>3. Disable Unused Servers</h3>
     <p>Disable servers when not in use:</p>
-    <pre><code>ronin mcp disable filesystem</code></pre>
+    <pre><code class="language-typescript">ronin mcp disable filesystem</code></pre>
 
     <h3>4. Review Tool Permissions</h3>
     <p>Use <code>ronin mcp list</code> to see what tools each server provides and ensure they match your needs.</p>
@@ -336,7 +343,7 @@ ronin mcp add brave-search
     <h2>Troubleshooting</h2>
 
     <h3>Server Won't Start</h3>
-    <pre><code># Check server configuration
+    <pre><code class="language-typescript"># Check server configuration
 ronin mcp list
 
 # Verify the command works
@@ -346,7 +353,7 @@ npx -y @modelcontextprotocol/server-filesystem /tmp
 ronin daemon logs</code></pre>
 
     <h3>Tools Not Available</h3>
-    <pre><code># Verify server is enabled
+    <pre><code class="language-typescript"># Verify server is enabled
 ronin mcp status
 
 # Check if plugin loaded
@@ -356,11 +363,11 @@ if (this.api.plugins.has("mcp_filesystem")) {
 
     <h3>Permission Denied</h3>
     <p>Ensure the directory/path you provided exists and is accessible:</p>
-    <pre><code>ls -la ~/Documents  # Verify directory exists</code></pre>
+    <pre><code class="language-bash">ls -la ~/Documents  # Verify directory exists</code></pre>
 
     <h3>API Key Issues</h3>
     <p>For Brave Search and other API-key services:</p>
-    <pre><code># Verify key is set
+    <pre><code class="language-typescript"># Verify key is set
 ronin config --show | grep brave
 
 # Check environment variable

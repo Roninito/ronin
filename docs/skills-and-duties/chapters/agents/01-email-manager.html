@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email Manager Agent - Skills and Duties</title>
   <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -146,7 +153,7 @@
       <p>
         The agent listens for targeted commands from other agents via the event system:
       </p>
-      <pre><code>// Other agents can command the email agent
+      <pre><code class="language-typescript">// Other agents can command the email agent
 this.api.events.beam("email-manager", "email:command", {
   action: "reply" | "delete" | "forward" | "send" | "mark-read" | "mark-unread",
   accountId: string,
@@ -157,7 +164,7 @@ this.api.events.beam("email-manager", "email:command", {
       <h3>Command Actions</h3>
 
       <h4>Reply to Email</h4>
-      <pre><code>this.api.events.beam("email-manager", "email:command", {
+      <pre><code class="language-typescript">this.api.events.beam("email-manager", "email:command", {
   action: "reply",
   accountId: "account-id",
   messageId: "message-uid",
@@ -169,7 +176,7 @@ this.api.events.beam("email-manager", "email:command", {
 });</code></pre>
 
       <h4>Delete Email</h4>
-      <pre><code>this.api.events.beam("email-manager", "email:command", {
+      <pre><code class="language-typescript">this.api.events.beam("email-manager", "email:command", {
   action: "delete",
   accountId: "account-id",
   messageId: "message-uid",
@@ -179,7 +186,7 @@ this.api.events.beam("email-manager", "email:command", {
 });</code></pre>
 
       <h4>Send Email</h4>
-      <pre><code>this.api.events.beam("email-manager", "email:command", {
+      <pre><code class="language-typescript">this.api.events.beam("email-manager", "email:command", {
   action: "send",
   accountId: "account-id",
   payload: {
@@ -192,7 +199,7 @@ this.api.events.beam("email-manager", "email:command", {
 });</code></pre>
 
       <h4>Forward Email</h4>
-      <pre><code>this.api.events.beam("email-manager", "email:command", {
+      <pre><code class="language-typescript">this.api.events.beam("email-manager", "email:command", {
   action: "forward",
   accountId: "account-id",
   messageId: "message-uid",
@@ -203,7 +210,7 @@ this.api.events.beam("email-manager", "email:command", {
 });</code></pre>
 
       <h4>Mark as Read/Unread</h4>
-      <pre><code>// Mark as read
+      <pre><code class="language-typescript">// Mark as read
 this.api.events.beam("email-manager", "email:command", {
   action: "mark-read",
   accountId: "account-id",
@@ -221,7 +228,7 @@ this.api.events.beam("email-manager", "email:command", {
       <p>
         Use the query system for request/response patterns:
       </p>
-      <pre><code>try {
+      <pre><code class="language-typescript">try {
   const result = await this.api.events.query(
     "email-manager",
     "email:command",
@@ -256,7 +263,7 @@ this.api.events.beam("email-manager", "email:command", {
       <p>
         Here's how another agent can use the email manager:
       </p>
-      <pre><code>import { BaseAgent } from "@ronin/agent";
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent";
 
 export default class EmailAssistantAgent extends BaseAgent {
   async execute(): Promise&lt;void&gt; {
@@ -301,13 +308,13 @@ export default class EmailAssistantAgent extends BaseAgent {
       <p>
         The Email Manager agent is located at:
       </p>
-      <pre><code>~/.ronin/agents/email-manager.ts</code></pre>
+      <pre><code class="language-typescript">~/.ronin/agents/email-manager.ts</code></pre>
 
       <h2>Configuration</h2>
       <p>
         The agent uses the email plugin for all operations. Account configurations are stored in:
       </p>
-      <pre><code>~/.ronin/data/email-accounts.json</code></pre>
+      <pre><code class="language-typescript">~/.ronin/data/email-accounts.json</code></pre>
 
       <h2>See Also</h2>
       <ul>

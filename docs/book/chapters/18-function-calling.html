@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 18: Function Calling - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -33,7 +40,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Simple Tool Calling</div>
-      <pre><code>const { toolCalls, message } = await this.api.ai.callTools(
+      <pre><code class="language-bash">const { toolCalls, message } = await this.api.ai.callTools(
   "Check git status and tell me what files have changed",
   [] // Plugin tools are automatically included
 );
@@ -54,7 +61,7 @@ for (const toolCall of toolCalls) {
 
     <div class="code-example">
       <div class="code-example-title">Multi-Step Operations</div>
-      <pre><code>const prompt = "Check git status, and if there are changes, commit them";
+      <pre><code class="language-bash">const prompt = "Check git status, and if there are changes, commit them";
 const { toolCalls } = await this.api.ai.callTools(prompt, []);
 
 const results = [];
@@ -84,7 +91,7 @@ const followUp = await this.api.ai.chat([
 
     <div class="code-example">
       <div class="code-example-title">Custom Tool</div>
-      <pre><code>const customTool = {
+      <pre><code class="language-bash">const customTool = {
   type: "function",
   function: {
     name: "calculate",
@@ -109,7 +116,7 @@ const { toolCalls } = await this.api.ai.callTools(
 
     <div class="code-example">
       <div class="code-example-title">Error Handling</div>
-      <pre><code>for (const toolCall of toolCalls) {
+      <pre><code class="language-typescript">for (const toolCall of toolCalls) {
   try {
     const [pluginName, methodName] = toolCall.name.split("_");
     const result = await this.api.plugins.call(

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 24: Hybrid Intelligence - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -32,7 +39,7 @@
 
     <h3>System Components</h3>
 
-    <pre><code>┌─────────────────────────────────────────────────────────────┐
+    <pre><code class="language-bash">┌─────────────────────────────────────────────────────────────┐
 │                        User Request                          │
 └────────────────────┬────────────────────────────────────────┘
                      │
@@ -67,7 +74,7 @@
 
     <p>The easiest way to use Hybrid Intelligence is through <code>ToolChat</code>:</p>
 
-    <pre><code>import { ToolChat } from "@ronin/tools";
+    <pre><code class="language-bash">import { ToolChat } from "@ronin/tools";
 
 export default class MyAgent extends BaseAgent {
   async execute(): Promise&lt;void&gt; {
@@ -94,7 +101,7 @@ export default class MyAgent extends BaseAgent {
 
     <h3>Direct ToolRouter Access</h3>
 
-    <pre><code>// Register a custom tool
+    <pre><code class="language-typescript">// Register a custom tool
 this.api.tools.register({
   name: "my.custom.tool",
   description: "Does something useful",
@@ -260,7 +267,7 @@ console.log(`Daily: $${stats.daily}, Monthly: $${stats.monthly}`);</code></pre>
 
     <h3>Pre-built Workflows</h3>
 
-    <pre><code>// Research and visualize
+    <pre><code class="language-typescript">// Research and visualize
 const result = await this.api.tools.executeWorkflow(
   "research-and-visualize",
   { topic: "Rust vs Go performance" }
@@ -305,7 +312,7 @@ const content = await this.api.tools.executeWorkflow(
 
     <h3>Creating Custom Workflows</h3>
 
-    <pre><code>this.api.tools.registerWorkflow({
+    <pre><code class="language-typescript">this.api.tools.registerWorkflow({
   name: "my.custom.workflow",
   description: "Does something specific",
   steps: [
@@ -330,7 +337,7 @@ const content = await this.api.tools.executeWorkflow(
 
     <h3>Viewing Costs</h3>
 
-    <pre><code>// Get cost statistics
+    <pre><code class="language-typescript">// Get cost statistics
 const stats = this.api.tools.getCostStats();
 console.log(`Daily: $${stats.daily.toFixed(2)}`);
 console.log(`Monthly: $${stats.monthly.toFixed(2)}`);
@@ -341,7 +348,7 @@ console.log(`Monthly: $${stats.monthly.toFixed(2)}`);
 
     <h3>Cost Policy</h3>
 
-    <pre><code>// Set spending limits
+    <pre><code class="language-typescript">// Set spending limits
 this.api.tools.setPolicy({
   maxDailyCost: 5.00,      // $5/day
   maxMonthlyCost: 50.00,   // $50/month
@@ -357,7 +364,7 @@ const policy = this.api.tools.getPolicy();</code></pre>
 
     <p>Hybrid Intelligence works 100% offline using only local tools:</p>
 
-    <pre><code>// Enable offline mode via policy
+    <pre><code class="language-typescript">// Enable offline mode via policy
 this.api.tools.setPolicy({
   offlineMode: true
 });
@@ -380,7 +387,7 @@ ronin config set desktop.offlineMode true</code></pre>
 
     <h3>Basic Tool</h3>
 
-    <pre><code>this.api.tools.register({
+    <pre><code class="language-typescript">this.api.tools.register({
   name: "my.tool.name",
   description: "Clear, concise description",
   parameters: {
@@ -408,7 +415,7 @@ ronin config set desktop.offlineMode true</code></pre>
 
     <h3>Async Tool with Progress</h3>
 
-    <pre><code>this.api.tools.register({
+    <pre><code class="language-typescript">this.api.tools.register({
   name: "long.running.task",
   description: "A task that takes time",
   parameters: {
@@ -446,7 +453,7 @@ ronin config set desktop.offlineMode true</code></pre>
 
     <h3>2. Set Budgets</h3>
     <p>Configure spending limits to avoid surprises:</p>
-    <pre><code>this.api.tools.setPolicy({
+    <pre><code class="language-typescript">this.api.tools.setPolicy({
   maxDailyCost: 2.00,
   maxMonthlyCost: 20.00
 });</code></pre>
@@ -456,7 +463,7 @@ ronin config set desktop.offlineMode true</code></pre>
 
     <h3>4. Cache Results</h3>
     <p>Store expensive cloud results in memory:</p>
-    <pre><code>const cacheKey = `analysis:${filePath}`;
+    <pre><code class="language-typescript">const cacheKey = `analysis:${filePath}`;
 let result = await this.api.memory.retrieve(cacheKey);
 
 if (!result) {
@@ -473,7 +480,7 @@ if (!result) {
     <h2>Troubleshooting</h2>
 
     <h3>Tool Not Found</h3>
-    <pre><code>// List available tools
+    <pre><code class="language-bash">// List available tools
 const tools = this.api.tools.list();
 console.log(tools.map(t =&gt; t.name));
 
@@ -481,7 +488,7 @@ console.log(tools.map(t =&gt; t.name));
 const hasTool = this.api.tools.has("memory.search");</code></pre>
 
     <h3>Policy Blocking Tool</h3>
-    <pre><code>// Check current policy
+    <pre><code class="language-typescript">// Check current policy
 const policy = this.api.tools.getPolicy();
 console.log(policy);
 
@@ -492,7 +499,7 @@ this.api.tools.setPolicy({
 });</code></pre>
 
     <h3>Workflow Failing</h3>
-    <pre><code>// Execute with verbose logging
+    <pre><code class="language-typescript">// Execute with verbose logging
 const result = await this.api.tools.executeWorkflow(
   "my.workflow",
   args,
@@ -503,7 +510,7 @@ const result = await this.api.tools.executeWorkflow(
 
     <p>If you're currently using direct API calls, here's how to migrate:</p>
 
-    <pre><code>// Before: Direct API
+    <pre><code class="language-typescript">// Before: Direct API
 const files = await this.api.files.list("./docs");
 
 // After: Via ToolRouter (enables policy, cost tracking)

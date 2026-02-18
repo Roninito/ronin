@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 13: Plugin System Overview - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -56,7 +63,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Direct API Access</div>
-      <pre><code>// Clean, type-safe direct API
+      <pre><code class="language-typescript">// Clean, type-safe direct API
 const status = await this.api.git?.status();
 await this.api.shell?.exec("ls", ["-la"]);
 await this.api.scrape?.scrape_to_markdown("https://example.com");
@@ -91,7 +98,7 @@ const result = await this.api.langchain?.runChain("Hello {name}!", { name: "Worl
 
     <div class="code-example">
       <div class="code-example-title">Generic API</div>
-      <pre><code>// Generic API for any plugin
+      <pre><code class="language-typescript">// Generic API for any plugin
 await this.api.plugins.call("custom-plugin", "method", arg1, arg2);</code></pre>
     </div>
 
@@ -146,7 +153,7 @@ await this.api.plugins.call("custom-plugin", "method", arg1, arg2);</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Using MCP Tools</div>
-      <pre><code>// Check if MCP filesystem is available
+      <pre><code class="language-typescript">// Check if MCP filesystem is available
 if (this.api.plugins.has("mcp_filesystem")) {
   // Read a file via MCP
   const content = await this.api.plugins.call(
@@ -178,7 +185,7 @@ if (this.api.plugins.has("mcp_brave-search")) {
 
     <div class="code-example">
       <div class="code-example-title">Function Calling with Plugins</div>
-      <pre><code>const { toolCalls } = await this.api.ai.callTools(
+      <pre><code class="language-bash">const { toolCalls } = await this.api.ai.callTools(
   "Check git status and commit if there are changes",
   [] // Plugin tools are automatically included
 );</code></pre>

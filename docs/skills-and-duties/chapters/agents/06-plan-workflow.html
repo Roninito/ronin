@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plan Workflow Agents - Skills and Duties</title>
   <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -64,7 +71,7 @@
       </p>
 
       <h4>Usage</h4>
-      <pre><code>Send Telegram message:
+      <pre><code class="language-typescript">Send Telegram message:
 "#ronin #plan Create user authentication system"</code></pre>
 
       <h4>Configuration</h4>
@@ -122,7 +129,7 @@
       </ul>
 
       <h4>Integration Options</h4>
-      <pre><code>// Cursor
+      <pre><code class="language-typescript">// Cursor
 await this.api.shell.execAsync(
   `cursor --agent "${plan.description}"`
 );
@@ -177,7 +184,7 @@ await this.api.shell.execAsync(
       </table>
 
       <h4>Example Requests</h4>
-      <pre><code># List pending plans
+      <pre><code class="language-bash"># List pending plans
 curl http://localhost:3000/api/plans
 
 # Approve a plan
@@ -212,7 +219,7 @@ curl -X POST http://localhost:3000/api/plans/reject \
       </p>
 
       <h4>Log Format</h4>
-      <pre><code>{"timestamp":1707312345678,"eventType":"PlanProposed",
+      <pre><code class="language-json">{"timestamp":1707312345678,"eventType":"PlanProposed",
   "payload":{"id":"plan-123","title":"..."},"source":"log-observer"}</code></pre>
 
       <h2>Event Types</h2>
@@ -250,7 +257,7 @@ curl -X POST http://localhost:3000/api/plans/reject \
       <p>
         Add a ConfidenceGateAgent that auto-approves plans meeting criteria:
       </p>
-      <pre><code>this.api.events.on("PlanProposed", (plan) => {
+      <pre><code class="language-typescript">this.api.events.on("PlanProposed", (plan) => {
   if (plan.confidence > 0.8 && plan.risk === "low") {
     this.api.events.emit("PlanApproved", { id: plan.id });
   }

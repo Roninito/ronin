@@ -137,6 +137,8 @@ export interface DesktopBridgeConfig {
 
 export interface MenubarRoutesConfig {
   enabled: boolean;
+  /** When set, only these paths are listable (exact or prefix match). Overrides include/exclude patterns. */
+  allowedPaths?: string[];
   includePatterns?: string[];
   excludePatterns?: string[];
   maxItems?: number;
@@ -278,5 +280,7 @@ export type ConfigPath =
   | 'desktop.bridge.port'
   | 'desktop.bridge.host'
   | 'desktop.menubar'
+  | 'desktop.menubarRoutes'
+  | 'desktop.menubarRoutes.allowedPaths'
   | 'pluginDir'
   | 'geminiModel';

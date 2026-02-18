@@ -7,6 +7,8 @@ import { logger } from "../utils/logger.js";
 import { join } from "path";
 import { networkInterfaces } from "os";
 import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../utils/theme.js";
+import { getConfigService } from "../config/ConfigService.js";
+import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {
@@ -291,15 +293,97 @@ export class AgentRegistry {
           }
           try {
             const body = await req.json();
-            const { event, data } = body;
+            const { event, data, source } = body;
             if (!event) {
               return Response.json({ error: "Event name required" }, { status: 400 });
             }
-            this.events.emit(event, data || {});
-            return Response.json({ success: true, event, data });
+            const payload = data ?? {};
+            const eventSource = typeof source === "string" && source ? source : "http";
+            this.events.emit(event, payload, eventSource);
+            return Response.json({ success: true, event, data: payload });
           } catch (error) {
             return Response.json({ error: "Invalid JSON" }, { status: 400 });
           }
+        }
+
+        // Menubar routes config: GET and PUT
+        if (path === "/api/menubar-routes") {
+          const configService = getConfigService();
+          const desktop = configService.get<{ menubar?: boolean; bridge?: { port?: number }; menubarRoutes?: Record<string, unknown> }>("desktop") ?? {};
+          const menubarRoutes = desktop.menubarRoutes ?? { enabled: true, excludePatterns: ["/api/"] };
+          const routesConfig = menubarRoutes as { enabled?: boolean; allowedPaths?: string[]; includePatterns?: string[]; excludePatterns?: string[]; maxItems?: number };
+
+          if (req.method === "GET") {
+            const effectiveRoutes = discoverRoutes(
+              () => this.http.getAllRoutes(),
+              (p) => this.http.getRouteMetadata(p),
+              routesConfig
+            );
+            return Response.json(
+              { menubarRoutes: routesConfig, effectiveRoutes },
+              { headers: { "Content-Type": "application/json" } }
+            );
+          }
+
+          if (req.method === "PUT") {
+            try {
+              const body = await req.json() as Record<string, unknown>;
+              const allowedPaths = body.allowedPaths;
+              if (allowedPaths !== undefined && !Array.isArray(allowedPaths)) {
+                return Response.json({ error: "allowedPaths must be an array of strings" }, { status: 400, headers: { "Content-Type": "application/json" } });
+              }
+              if (allowedPaths !== undefined) {
+                for (const p of allowedPaths as unknown[]) {
+                  if (typeof p !== "string") {
+                    return Response.json({ error: "allowedPaths must contain only strings" }, { status: 400, headers: { "Content-Type": "application/json" } });
+                  }
+                }
+              }
+              const maxItems = body.maxItems;
+              if (maxItems !== undefined && (typeof maxItems !== "number" || maxItems < 0)) {
+                return Response.json({ error: "maxItems must be a non-negative number" }, { status: 400, headers: { "Content-Type": "application/json" } });
+              }
+              const enabled = body.enabled;
+              if (enabled !== undefined && typeof enabled !== "boolean") {
+                return Response.json({ error: "enabled must be a boolean" }, { status: 400, headers: { "Content-Type": "application/json" } });
+              }
+              const includePatterns = body.includePatterns;
+              if (includePatterns !== undefined && (!Array.isArray(includePatterns) || includePatterns.some((x: unknown) => typeof x !== "string"))) {
+                return Response.json({ error: "includePatterns must be an array of strings" }, { status: 400, headers: { "Content-Type": "application/json" } });
+              }
+              const excludePatterns = body.excludePatterns;
+              if (excludePatterns !== undefined && (!Array.isArray(excludePatterns) || excludePatterns.some((x: unknown) => typeof x !== "string"))) {
+                return Response.json({ error: "excludePatterns must be an array of strings" }, { status: 400, headers: { "Content-Type": "application/json" } });
+              }
+
+              const mergedMenubarRoutes = { ...routesConfig, ...body };
+              const fullDesktop = configService.get<Record<string, unknown>>("desktop") ?? {};
+              await configService.set("desktop", { ...fullDesktop, menubarRoutes: mergedMenubarRoutes });
+
+              const desktopNow = configService.get<{ menubar?: boolean; bridge?: { port?: number } }>("desktop") ?? {};
+              if (desktopNow.menubar) {
+                const port = desktopNow.bridge?.port ?? 17341;
+                const routes = discoverRoutes(
+                  () => this.http.getAllRoutes(),
+                  (p) => this.http.getRouteMetadata(p),
+                  mergedMenubarRoutes as { enabled?: boolean; allowedPaths?: string[]; includePatterns?: string[]; excludePatterns?: string[]; maxItems?: number }
+                );
+                stopMenubar();
+                try {
+                  startMenubar(port, routes);
+                } catch (err) {
+                  logger.warn("Menubar restart failed after config update", { error: err });
+                }
+              }
+
+              return Response.json({ success: true, menubarRoutes: mergedMenubarRoutes }, { headers: { "Content-Type": "application/json" } });
+            } catch (err) {
+              logger.error("PUT /api/menubar-routes failed", { error: err });
+              return Response.json({ error: "Invalid request or config save failed" }, { status: 400, headers: { "Content-Type": "application/json" } });
+            }
+          }
+
+          return new Response("Method Not Allowed", { status: 405 });
         }
 
         // Check HTTP API registered routes (agents can register routes via this.api.http.registerRoute)

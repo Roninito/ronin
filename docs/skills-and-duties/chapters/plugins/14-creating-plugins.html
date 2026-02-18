@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creating Plugins - Skills and Duties</title>
+  <link rel="stylesheet" href="../../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Creating Plugins</h1>
+      
+      <p class="lead">
+        Plugins extend Ronin's capabilities by providing reusable functionality that agents can access.
+        Learn how to create your own plugins with proper structure, error handling, and testing.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Plugins are TypeScript files placed in the <code>plugins/</code> directory that export a default
+        object implementing the Plugin interface. Each plugin provides a set of methods that agents
+        can call via <code>this.api.plugins.call()</code> or through direct API access.
+      </p>
+
+      <h2>Key Concepts</h2>
+      <ul>
+        <li><strong>Plugin Interface</strong>: Required fields for name, description, and methods</li>
+        <li><strong>Method Signatures</strong>: Sync and async methods with typed parameters and returns</li>
+        <li><strong>Error Handling</strong>: Proper error propagation and descriptive messages</li>
+        <li><strong>Type Safety</strong>: TypeScript types for parameters and return values</li>
+        <li><strong>Auto-Discovery</strong>: Plugins are automatically loaded from the plugins directory</li>
+        <li><strong>Tool Generation</strong>: Methods are automatically available as AI tools</li>
+      </ul>
+
+      <h2>Plugin Structure and Boilerplate</h2>
+
+      <h3>Basic Plugin Template</h3>
+      <p>Every plugin must export a default object with three required fields:</p>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+const myPlugin: Plugin = {
+  name: "my-plugin",
+  description: "Description of what this plugin does",
+  methods: {
+    // Your methods here
+  },
+};
+
+export default myPlugin;</code></pre>
+
+      <h3>Complete Example Plugin</h3>
+      <p>Here's a fully-featured plugin with multiple methods:</p>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+const userPlugin: Plugin = {
+  name: "users",
+  description: "User management operations",
+  methods: {
+    // Synchronous method
+    validateEmail: (email: string): boolean => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(email);
+    },
+
+    // Asynchronous method
+    createUser: async (name: string, email: string): Promise&lt;User&gt; => {
+      if (!name || !email) {
+        throw new Error("Name and email are required");
+      }
+      
+      // Simulate async operation
+      await new Promise(resolve =&gt; setTimeout(resolve, 100));
+      
+      return {
+        id: crypto.randomUUID(),
+        name,
+        email,
+      };
+    },
+
+    // Method with optional parameters
+    getUser: async (id: string, includeMetadata?: boolean): Promise&lt;User | null&gt; =&gt; {
+      // Implementation
+      return null;
+    },
+
+    // Method returning void
+    deleteUser: async (id: string): Promise&lt;void&gt; =&gt; {
+      if (!id) {
+        throw new Error("User ID is required");
+      }
+      // Implementation
+    },
+  },
+};
+
+export default userPlugin;</code></pre>
+
+      <h2>Plugin Interface</h2>
+
+      <h3>Required Fields</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>name</code></td>
+            <td><code>string</code></td>
+            <td>Unique plugin identifier (lowercase, alphanumeric with hyphens)</td>
+          </tr>
+          <tr>
+            <td><code>description</code></td>
+            <td><code>string</code></td>
+            <td>Human-readable description of plugin functionality</td>
+          </tr>
+          <tr>
+            <td><code>methods</code></td>
+            <td><code>Record&lt;string, Function&gt;</code></td>
+            <td>Object containing callable method functions</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Method Signatures and Return Types</h3>
+      <p>Methods can have various signatures depending on their purpose:</p>
+
+      <h4>Synchronous Methods</h4>
+      <pre><code class="language-typescript">// Simple return
+formatDate: (date: Date, format: string): string =&gt; {
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: format === 'short' ? 'short' : 'long' 
+  });
+},
+
+// Boolean return
+isValid: (value: string): boolean =&gt; {
+  return value.length &gt; 0;
+}</code></pre>
+
+      <h4>Asynchronous Methods</h4>
+      <pre><code class="language-typescript">// Promise with object return
+fetchData: async (url: string): Promise&lt;{ data: unknown; status: number }&gt; =&gt; {
+  const response = await fetch(url);
+  const data = await response.json();
+  return { data, status: response.status };
+},
+
+// Promise with array return
+listItems: async (): Promise&lt;string[]&gt; =&gt; {
+  return ["item1", "item2", "item3"];
+},
+
+// Promise with void return
+saveConfig: async (config: object): Promise&lt;void&gt; =&gt; {
+  await Bun.write("config.json", JSON.stringify(config));
+}</code></pre>
+
+      <h4>Optional Parameters</h4>
+      <pre><code class="language-typescript">// Optional parameter with default
+greet: (name: string, greeting?: string): string =&gt; {
+  return `${greeting || "Hello"}, ${name}!`;
+},
+
+// Multiple optional parameters
+search: async (
+  query: string, 
+  options?: { limit?: number; offset?: number }
+): Promise&lt;unknown[]&gt; =&gt; {
+  const limit = options?.limit || 10;
+  const offset = options?.offset || 0;
+  // Implementation
+}</code></pre>
+
+      <h2>Error Handling in Plugins</h2>
+
+      <h3>Throwing Errors</h3>
+      <p>Always throw descriptive errors for failure cases:</p>
+      <pre><code class="language-yaml">methods: {
+  divide: (a: number, b: number): number =&gt; {
+    if (b === 0) {
+      throw new Error("Division by zero is not allowed");
+    }
+    return a / b;
+  },
+
+  readFile: async (path: string): Promise&lt;string&gt; =&gt; {
+    try {
+      const file = Bun.file(path);
+      if (!(await file.exists())) {
+        throw new Error(`File not found: ${path}`);
+      }
+      return await file.text();
+    } catch (error) {
+      throw new Error(`Failed to read file: ${error.message}`);
+    }
+  },
+}</code></pre>
+
+      <h3>Error Handling Best Practices</h3>
+      <ul>
+        <li>Validate inputs before processing</li>
+        <li>Throw errors with descriptive messages</li>
+        <li>Wrap external calls in try-catch blocks</li>
+        <li>Include context in error messages (e.g., file paths, parameter values)</li>
+        <li>Don't swallow errors - always propagate them</li>
+      </ul>
+
+      <h2>Testing Plugins</h2>
+
+      <h3>Manual Testing</h3>
+      <p>Test your plugin using the CLI:</p>
+      <pre><code class="language-typescript"># List all plugins to verify yours is loaded
+$ ronin plugins list
+
+# Test a specific method
+$ ronin plugins call my-plugin myMethod arg1 arg2</code></pre>
+
+      <h3>Unit Testing Example</h3>
+      <pre><code class="language-typescript">// plugins/__tests__/my-plugin.test.ts
+import { describe, it, expect } from "bun:test";
+import myPlugin from "../my-plugin";
+
+describe("my-plugin", () =&gt; {
+  describe("validateEmail", () =&gt; {
+    it("should return true for valid email", () =&gt; {
+      const result = myPlugin.methods.validateEmail("test@example.com");
+      expect(result).toBe(true);
+    });
+
+    it("should return false for invalid email", () =&gt; {
+      const result = myPlugin.methods.validateEmail("invalid-email");
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("createUser", () =&gt; {
+    it("should create user with valid data", async () =&gt; {
+      const user = await myPlugin.methods.createUser("John", "john@example.com");
+      expect(user.name).toBe("John");
+      expect(user.email).toBe("john@example.com");
+      expect(user.id).toBeDefined();
+    });
+
+    it("should throw error for missing name", async () =&gt; {
+      await expect(
+        myPlugin.methods.createUser("", "john@example.com")
+      ).rejects.toThrow("Name and email are required");
+    });
+  });
+});</code></pre>
+
+      <h2>Example: Simple Plugin Walkthrough</h2>
+
+      <h3>Step 1: Create the Plugin File</h3>
+      <p>Create <code>plugins/calculator.ts</code>:</p>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+const calculatorPlugin: Plugin = {
+  name: "calculator",
+  description: "Basic calculator operations",
+  methods: {
+    add: (a: number, b: number): number =&gt; {
+      return a + b;
+    },
+
+    subtract: (a: number, b: number): number =&gt; {
+      return a - b;
+    },
+
+    multiply: (a: number, b: number): number =&gt; {
+      return a * b;
+    },
+
+    divide: (a: number, b: number): number =&gt; {
+      if (b === 0) {
+        throw new Error("Division by zero is not allowed");
+      }
+      return a / b;
+    },
+
+    power: (base: number, exponent: number): number =&gt; {
+      return Math.pow(base, exponent);
+    },
+
+    sqrt: (value: number): number =&gt; {
+      if (value &lt; 0) {
+        throw new Error("Cannot calculate square root of negative number");
+      }
+      return Math.sqrt(value);
+    },
+  },
+};
+
+export default calculatorPlugin;</code></pre>
+
+      <h3>Step 2: Use in an Agent</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+
+export default class CalculatorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Call the plugin
+    const sum = await this.api.plugins.call("calculator", "add", 5, 3);
+    console.log(`5 + 3 = ${sum}`); // 8
+
+    const product = await this.api.plugins.call("calculator", "multiply", 4, 7);
+    console.log(`4 * 7 = ${product}`); // 28
+
+    // Handle errors
+    try {
+      await this.api.plugins.call("calculator", "divide", 10, 0);
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
+  }
+}</code></pre>
+
+      <h3>Step 3: Test the Plugin</h3>
+      <pre><code class="language-typescript">$ ronin plugins list
+# Should show: calculator - Basic calculator operations
+
+$ ronin plugins call calculator add 10 20
+# Result: 30
+
+$ ronin plugins call calculator divide 100 4
+# Result: 25</code></pre>
+
+      <h2>Plugin Discovery</h2>
+      <p>Plugins are automatically discovered from:</p>
+      <ul>
+        <li><code>plugins/</code> directory (default)</li>
+        <li>Recursive subdirectories</li>
+        <li>Files matching <code>*.ts</code> or <code>*.js</code></li>
+        <li>Excludes test files (<code>*.test.ts</code>, <code>*.spec.ts</code>)</li>
+      </ul>
+
+      <h2>Tool Generation</h2>
+      <p>Plugins are automatically converted to AI tool definitions:</p>
+      <ul>
+        <li><strong>Tool name</strong>: <code>{pluginName}_{methodName}</code> (e.g., <code>calculator_add</code>)</li>
+        <li><strong>Parameters</strong>: Generic <code>args</code> array</li>
+        <li><strong>Description</strong>: Auto-generated from plugin and method names</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="15-plugin-patterns.html">Plugin Patterns</a> - Common patterns and best practices</li>
+        <li><a href="../../../PLUGINS.md">Plugin Development Guide</a> - Complete plugin documentation</li>
+        <li><a href="../agents/05-creating-agents.html">Creating Agents</a> - Build agents that use plugins</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

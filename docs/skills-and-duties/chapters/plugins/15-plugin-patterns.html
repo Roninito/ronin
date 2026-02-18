@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plugin Patterns - Skills and Duties</title>
+  <link rel="stylesheet" href="../../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Plugin Patterns</h1>
+      
+      <p class="lead">
+        Learn common patterns and best practices for building robust, maintainable, and secure plugins.
+        These patterns help you manage state, handle events, clean up resources, and configure plugins effectively.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Well-designed plugins follow established patterns that make them reliable and easy to use.
+        This guide covers patterns for state management, event emission, resource cleanup, async initialization,
+        error handling, configuration, and security.
+      </p>
+
+      <h2>Common Patterns</h2>
+      <ul>
+        <li><strong>Singleton Pattern</strong>: Shared state across plugin instances</li>
+        <li><strong>Event Emitters</strong>: Notifying agents of important changes</li>
+        <li><strong>Resource Cleanup</strong>: Proper cleanup on process exit</li>
+        <li><strong>Async Initialization</strong>: Handling setup that requires async operations</li>
+        <li><strong>Configuration Management</strong>: Flexible plugin configuration</li>
+        <li><strong>Security Best Practices</strong>: Input validation and safe operations</li>
+      </ul>
+
+      <h2>Singleton Pattern</h2>
+      <p>
+        Use the singleton pattern when you need shared state across all plugin method calls.
+        This is useful for caching, connection pools, or maintaining global state.
+      </p>
+
+      <h3>Shared State Example</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+// Shared state outside the plugin object
+const cache = new Map&lt;string, unknown&gt;();
+let initialized = false;
+
+const cachePlugin: Plugin = {
+  name: "cache",
+  description: "Simple in-memory cache with shared state",
+  methods: {
+    get: (key: string): unknown =&gt; {
+      return cache.get(key);
+    },
+
+    set: (key: string, value: unknown): void =&gt; {
+      cache.set(key, value);
+    },
+
+    has: (key: string): boolean =&gt; {
+      return cache.has(key);
+    },
+
+    delete: (key: string): boolean =&gt; {
+      return cache.delete(key);
+    },
+
+    clear: (): void =&gt; {
+      cache.clear();
+    },
+
+    getAll: (): Record&lt;string, unknown&gt; =&gt; {
+      return Object.fromEntries(cache);
+    },
+
+    isInitialized: (): boolean =&gt; {
+      return initialized;
+    },
+  },
+};
+
+// Initialize on module load
+initialized = true;
+
+export default cachePlugin;</code></pre>
+
+      <h3>Connection Pool Example</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+interface DatabaseConnection {
+  id: string;
+  query: (sql: string) =&gt; Promise&lt;unknown[]&gt;;
+  close: () =&gt; Promise&lt;void&gt;;
+}
+
+// Connection pool shared across all calls
+const connectionPool: DatabaseConnection[] = [];
+const maxConnections = 10;
+
+const dbPlugin: Plugin = {
+  name: "database",
+  description: "Database connection pool",
+  methods: {
+    getConnection: async (): Promise&lt;DatabaseConnection&gt; =&gt; {
+      // Return existing available connection
+      const available = connectionPool.find(c =&gt; !c.isBusy);
+      if (available) {
+        return available;
+      }
+
+      // Create new connection if under limit
+      if (connectionPool.length &lt; maxConnections) {
+        const conn = await createConnection();
+        connectionPool.push(conn);
+        return conn;
+      }
+
+      throw new Error("Connection pool exhausted");
+    },
+
+    releaseConnection: (id: string): void =&gt; {
+      const conn = connectionPool.find(c =&gt; c.id === id);
+      if (conn) {
+        conn.isBusy = false;
+      }
+    },
+
+    getPoolStats: (): { total: number; available: number; busy: number } =&gt; {
+      return {
+        total: connectionPool.length,
+        available: connectionPool.filter(c =&gt; !c.isBusy).length,
+        busy: connectionPool.filter(c =&gt; c.isBusy).length,
+      };
+    },
+  },
+};
+
+async function createConnection(): Promise&lt;DatabaseConnection&gt; {
+  // Implementation
+  return {
+    id: crypto.randomUUID(),
+    isBusy: false,
+    query: async (sql) =&gt; [],
+    close: async () =&gt; {},
+  };
+}
+
+export default dbPlugin;</code></pre>
+
+      <h2>Event Emitters</h2>
+      <p>
+        Plugins can emit events to notify agents of important changes or completions.
+        This enables reactive programming patterns and inter-agent communication.
+      </p>
+
+      <h3>Basic Event Emitter Pattern</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+// Store event handlers
+const eventHandlers: Map&lt;string, Set&lt;(data: unknown) =&gt; void&gt;&gt; = new Map();
+
+const eventPlugin: Plugin = {
+  name: "evented-service",
+  description: "Service that emits events",
+  methods: {
+    // Method to register event handlers
+    on: (event: string, handler: (data: unknown) =&gt; void): void =&gt; {
+      if (!eventHandlers.has(event)) {
+        eventHandlers.set(event, new Set());
+      }
+      eventHandlers.get(event)!.add(handler);
+    },
+
+    // Method to remove event handlers
+    off: (event: string, handler: (data: unknown) =&gt; void): void =&gt; {
+      eventHandlers.get(event)?.delete(handler);
+    },
+
+    // Method that triggers events
+    processData: async (data: string): Promise&lt;void&gt; =&gt; {
+      // Process the data
+      const result = await heavyProcessing(data);
+      
+      // Emit completion event
+      emitEvent("processing:complete", { input: data, result });
+      
+      // Emit progress events during processing
+      emitEvent("processing:progress", { percent: 100 });
+    },
+  },
+};
+
+function emitEvent(event: string, data: unknown): void {
+  eventHandlers.get(event)?.forEach(handler =&gt; {
+    try {
+      handler(data);
+    } catch (error) {
+      console.error(`Error in event handler for ${event}:`, error);
+    }
+  });
+}
+
+export default eventPlugin;</code></pre>
+
+      <h3>Usage in Agents</h3>
+      <pre><code class="language-bash">export default class DataProcessorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Register event handler
+    await this.api.plugins.call("evented-service", "on", "processing:complete", 
+      (data: any) =&gt; {
+        console.log("Processing complete:", data.result);
+      }
+    );
+
+    // Start processing
+    await this.api.plugins.call("evented-service", "processData", "my-data");
+  }
+}</code></pre>
+
+      <h2>Resource Cleanup</h2>
+      <p>
+        Plugins that acquire resources (file handles, network connections, etc.) should clean up
+        properly when the process exits. Use process event listeners to ensure cleanup.
+      </p>
+
+      <h3>Cleanup on Process Exit</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+// Track resources that need cleanup
+const openFiles: Set&lt;string&gt; = new Set();
+const activeConnections: Map&lt;string, any&gt; = new Map();
+
+// Register cleanup handlers
+process.on("exit", cleanup);
+process.on("SIGINT", () =&gt; {
+  cleanup();
+  process.exit(0);
+});
+process.on("SIGTERM", () =&gt; {
+  cleanup();
+  process.exit(0);
+});
+
+async function cleanup(): Promise&lt;void&gt; {
+  console.log("Cleaning up resources...");
+  
+  // Close all open files
+  for (const filePath of openFiles) {
+    try {
+      // Close file logic
+      console.log(`Closing file: ${filePath}`);
+    } catch (error) {
+      console.error(`Error closing file ${filePath}:`, error);
+    }
+  }
+  openFiles.clear();
+
+  // Close all connections
+  for (const [id, connection] of activeConnections) {
+    try {
+      await connection.close();
+      console.log(`Closed connection: ${id}`);
+    } catch (error) {
+      console.error(`Error closing connection ${id}:`, error);
+    }
+  }
+  activeConnections.clear();
+}
+
+const resourcePlugin: Plugin = {
+  name: "resource-manager",
+  description: "Manages resources with automatic cleanup",
+  methods: {
+    openFile: async (path: string): Promise&lt;void&gt; =&gt; {
+      // Open file logic
+      openFiles.add(path);
+    },
+
+    createConnection: async (id: string): Promise&lt;void&gt; =&gt; {
+      const conn = await createConnection();
+      activeConnections.set(id, conn);
+    },
+
+    getActiveResources: (): { files: number; connections: number } =&gt; {
+      return {
+        files: openFiles.size,
+        connections: activeConnections.size,
+      };
+    },
+  },
+};
+
+export default resourcePlugin;</code></pre>
+
+      <h2>Async Initialization</h2>
+      <p>
+        Some plugins need to perform async setup before they're ready to use.
+        Use a lazy initialization pattern that performs setup on the first method call.
+      </p>
+
+      <h3>Lazy Initialization Pattern</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+let initialized = false;
+let initializing = false;
+let initError: Error | null = null;
+
+async function ensureInitialized(): Promise&lt;void&gt; {
+  if (initialized) return;
+  if (initError) throw initError;
+  
+  if (initializing) {
+    // Wait for initialization to complete
+    await waitForInit();
+    return;
+  }
+
+  initializing = true;
+  
+  try {
+    // Perform async initialization
+    await loadConfig();
+    await connectToService();
+    await warmUpCache();
+    
+    initialized = true;
+  } catch (error) {
+    initError = error as Error;
+    throw error;
+  } finally {
+    initializing = false;
+  }
+}
+
+function waitForInit(): Promise&lt;void&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    const check = () =&gt; {
+      if (initialized) {
+        resolve();
+      } else if (initError) {
+        reject(initError);
+      } else {
+        setTimeout(check, 10);
+      }
+    };
+    check();
+  });
+}
+
+const asyncInitPlugin: Plugin = {
+  name: "async-service",
+  description: "Service with async initialization",
+  methods: {
+    doWork: async (data: string): Promise&lt;string&gt; =&gt; {
+      await ensureInitialized();
+      // Now safe to do work
+      return processData(data);
+    },
+
+    getStatus: (): { initialized: boolean; initializing: boolean; error: string | null } =&gt; {
+      return {
+        initialized,
+        initializing,
+        error: initError?.message || null,
+      };
+    },
+
+    // Explicit initialization method
+    initialize: async (): Promise&lt;void&gt; =&gt; {
+      await ensureInitialized();
+    },
+  },
+};
+
+async function loadConfig(): Promise&lt;void&gt; { /* ... */ }
+async function connectToService(): Promise&lt;void&gt; { /* ... */ }
+async function warmUpCache(): Promise&lt;void&gt; { /* ... */ }
+function processData(data: string): string { return data; }
+
+export default asyncInitPlugin;</code></pre>
+
+      <h2>Error Handling Best Practices</h2>
+
+      <h3>Comprehensive Error Handling</h3>
+      <pre><code class="language-yaml">methods: {
+  safeOperation: async (input: string): Promise&lt;{ success: boolean; data?: unknown; error?: string }&gt; =&gt; {
+    try {
+      // Validate input
+      if (!input || typeof input !== "string") {
+        throw new Error("Invalid input: expected non-empty string");
+      }
+
+      // Perform operation
+      const result = await performOperation(input);
+      
+      return { success: true, data: result };
+    } catch (error) {
+      // Log error for debugging
+      console.error("Operation failed:", error);
+      
+      // Return error in structured format
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      };
+    }
+  },
+}</code></pre>
+
+      <h3>Input Validation</h3>
+      <pre><code class="language-yaml">methods: {
+  processUser: async (user: { name: string; age: number; email: string }) =&gt; {
+    // Validate required fields
+    if (!user?.name || typeof user.name !== "string") {
+      throw new Error("Invalid user.name: expected string");
+    }
+    
+    if (!user?.email || !isValidEmail(user.email)) {
+      throw new Error("Invalid user.email: expected valid email address");
+    }
+    
+    if (typeof user.age !== "number" || user.age &lt; 0 || user.age &gt; 150) {
+      throw new Error("Invalid user.age: expected number between 0 and 150");
+    }
+
+    // Safe to process
+    return await saveUser(user);
+  },
+}</code></pre>
+
+      <h2>Configuration Management</h2>
+
+      <h3>Environment-Based Configuration</h3>
+      <pre><code class="language-bash">import type { Plugin } from "@ronin/plugins/base.js";
+
+// Configuration with defaults
+const config = {
+  apiKey: process.env.MY_PLUGIN_API_KEY || "",
+  endpoint: process.env.MY_PLUGIN_ENDPOINT || "https://api.example.com",
+  timeout: parseInt(process.env.MY_PLUGIN_TIMEOUT || "5000"),
+  retries: parseInt(process.env.MY_PLUGIN_RETRIES || "3"),
+  debug: process.env.MY_PLUGIN_DEBUG === "true",
+};
+
+const configurablePlugin: Plugin = {
+  name: "configurable-service",
+  description: "Service with environment configuration",
+  methods: {
+    getConfig: () =&gt; {
+      // Return config without sensitive data
+      return {
+        endpoint: config.endpoint,
+        timeout: config.timeout,
+        retries: config.retries,
+        debug: config.debug,
+        hasApiKey: !!config.apiKey,
+      };
+    },
+
+    updateConfig: (updates: Partial&lt;typeof config&gt;) =&gt; {
+      Object.assign(config, updates);
+      return { success: true };
+    },
+
+    makeRequest: async (path: string) =&gt; {
+      if (!config.apiKey) {
+        throw new Error("API key not configured");
+      }
+
+      // Use configuration
+      return await fetch(`${config.endpoint}${path}`, {
+        headers: { Authorization: `Bearer ${config.apiKey}` },
+        signal: AbortSignal.timeout(config.timeout),
+      });
+    },
+  },
+};
+
+export default configurablePlugin;</code></pre>
+
+      <h2>Security Considerations</h2>
+
+      <h3>Input Sanitization</h3>
+      <pre><code class="language-yaml">methods: {
+  executeCommand: async (command: string, args: string[]) =&gt; {
+    // Whitelist allowed commands
+    const allowedCommands = ["ls", "cat", "grep", "find"];
+    if (!allowedCommands.includes(command)) {
+      throw new Error(`Command "${command}" is not allowed`);
+    }
+
+    // Sanitize arguments (prevent injection)
+    const sanitizedArgs = args.map(arg =&gt; {
+      // Remove dangerous characters
+      return arg.replace(/[;&|`$]/g, "");
+    });
+
+    // Safe to execute
+    return await Bun.spawn([command, ...sanitizedArgs]);
+  },
+}</code></pre>
+
+      <h3>Path Traversal Protection</h3>
+      <pre><code class="language-typescript">import { resolve, normalize } from "path";
+
+const BASE_DIR = "/allowed/base/directory";
+
+methods: {
+  readFile: async (filePath: string) =&gt; {
+    // Resolve to absolute path
+    const resolved = resolve(BASE_DIR, filePath);
+    
+    // Normalize and check it's within base directory
+    const normalized = normalize(resolved);
+    if (!normalized.startsWith(BASE_DIR)) {
+      throw new Error("Access denied: path outside allowed directory");
+    }
+
+    // Safe to read
+    return await Bun.file(normalized).text();
+  },
+}</code></pre>
+
+      <h3>Rate Limiting</h3>
+      <pre><code class="language-typescript">const rateLimits = new Map&lt;string, { count: number; resetTime: number }&gt;();
+const MAX_REQUESTS = 100;
+const WINDOW_MS = 60000; // 1 minute
+
+methods: {
+  rateLimitedOperation: async (clientId: string) =&gt; {
+    const now = Date.now();
+    const clientLimit = rateLimits.get(clientId);
+
+    if (clientLimit) {
+      if (now &gt; clientLimit.resetTime) {
+        // Reset window
+        clientLimit.count = 0;
+        clientLimit.resetTime = now + WINDOW_MS;
+      }
+
+      if (clientLimit.count &gt;= MAX_REQUESTS) {
+        throw new Error("Rate limit exceeded. Try again later.");
+      }
+
+      clientLimit.count++;
+    } else {
+      rateLimits.set(clientId, {
+        count: 1,
+        resetTime: now + WINDOW_MS,
+      });
+    }
+
+    // Proceed with operation
+    return await performOperation();
+  },
+}</code></pre>
+
+      <h2>Best Practices Summary</h2>
+      <ul>
+        <li><strong>State Management</strong>: Use module-level variables for shared state</li>
+        <li><strong>Events</strong>: Emit events for important state changes</li>
+        <li><strong>Cleanup</strong>: Always register process exit handlers for resources</li>
+        <li><strong>Async Init</strong>: Use lazy initialization for async setup</li>
+        <li><strong>Errors</strong>: Validate inputs and provide descriptive error messages</li>
+        <li><strong>Config</strong>: Use environment variables for configuration</li>
+        <li><strong>Security</strong>: Sanitize inputs, validate paths, implement rate limiting</li>
+        <li><strong>Types</strong>: Use TypeScript types for all parameters and returns</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="14-creating-plugins.html">Creating Plugins</a> - Basic plugin development</li>
+        <li><a href="../../../PLUGINS.md">Plugin Development Guide</a> - Complete plugin documentation</li>
+        <li><a href="../agents/05-creating-agents.html">Creating Agents</a> - Build agents that use plugins</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

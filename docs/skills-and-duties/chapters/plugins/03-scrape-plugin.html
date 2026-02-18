@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Scraper Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Web Scraper Plugin</h1>
+      
+      <p class="lead">
+        The Web Scraper plugin fetches web pages and converts HTML content to clean Markdown, 
+        making it easy for agents to read and process web content.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Web Scraper plugin uses Cheerio for HTML parsing and Turndown for Markdown conversion. 
+        It automatically removes noise (scripts, ads, navigation) and extracts the main content. 
+        Images are preserved as Markdown links, and all URLs are made absolute.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>HTML to Markdown</strong>: Convert web pages to clean Markdown</li>
+        <li><strong>Noise Removal</strong>: Strips ads, scripts, navigation, and clutter</li>
+        <li><strong>Smart Content Detection</strong>: Automatically finds main content (main, article, .content)</li>
+        <li><strong>Custom Selectors</strong>: Target specific content areas with CSS selectors</li>
+        <li><strong>Image Handling</strong>: Preserves images as Markdown links</li>
+        <li><strong>Absolute URLs</strong>: Converts relative links to absolute</li>
+        <li><strong>Configurable Timeout</strong>: Set custom request timeouts</li>
+        <li><strong>User Agent</strong>: Customizable user agent string</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3><code>scrape_to_markdown(url, options?)</code></h3>
+      <p>Fetch a URL and convert the HTML content to Markdown.</p>
+      
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> - The URL to scrape (string)</li>
+        <li><code>options</code> - Optional configuration object:
+          <ul>
+            <li><code>instructions</code> - Optional guidance text (prepended as blockquote)</li>
+            <li><code>selector</code> - CSS selector to target specific content</li>
+            <li><code>includeImages</code> - Include images in output (default: true)</li>
+            <li><code>timeoutMs</code> - Request timeout in milliseconds (default: 20000)</li>
+            <li><code>userAgent</code> - Custom user agent string</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h4>Return Value</h4>
+      <pre><code class="language-json">{
+  url: string;           // Original URL
+  finalUrl: string;      // Final URL (after redirects)
+  title?: string;        // Page title
+  markdown: string;      // Converted Markdown content
+  images: string[];      // Array of image URLs found
+  links: string[];       // Array of absolute link URLs
+}</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">// Basic scraping
+const result = await this.api.scrape?.scrape_to_markdown("https://example.com/article");
+console.log(result.title);
+console.log(result.markdown);
+
+// With custom selector
+const result = await this.api.scrape?.scrape_to_markdown(
+  "https://example.com/page",
+  { selector: ".article-content" }
+);
+
+// Exclude images for text-only extraction
+const result = await this.api.scrape?.scrape_to_markdown(
+  "https://example.com/blog",
+  { includeImages: false }
+);
+
+// With instructions (prepended to output)
+const result = await this.api.scrape?.scrape_to_markdown(
+  "https://example.com/docs",
+  { 
+    instructions: "Focus on API endpoints",
+    selector: "#api-documentation"
+  }
+);
+
+// Process multiple pages
+const urls = [
+  "https://example.com/page1",
+  "https://example.com/page2",
+  "https://example.com/page3"
+];
+
+for (const url of urls) {
+  const result = await this.api.scrape?.scrape_to_markdown(url);
+  await this.api.memory.store(`content:${url}`, result.markdown);
+}
+
+// Extract images for processing
+const result = await this.api.scrape?.scrape_to_markdown("https://example.com/gallery");
+console.log(`Found ${result.images.length} images`);
+for (const imgUrl of result.images) {
+  console.log(imgUrl);
+}
+
+// Custom timeout for slow sites
+const result = await this.api.scrape?.scrape_to_markdown(
+  "https://slow-site.example.com",
+  { timeoutMs: 60000 }
+);</code></pre>
+
+      <h2>Content Detection</h2>
+      <p>The scraper automatically detects the main content area by checking for these selectors in order:</p>
+      <ol>
+        <li>Custom selector (if provided)</li>
+        <li><code>&lt;main&gt;</code> element</li>
+        <li><code>&lt;article&gt;</code> element</li>
+        <li><code>.content</code> class</li>
+        <li><code>&lt;body&gt;</code> (fallback)</li>
+      </ol>
+
+      <h2>Removed Elements</h2>
+      <p>The following elements are automatically stripped from the page:</p>
+      <ul>
+        <li>Scripts, styles, noscript, iframes, SVG, canvas</li>
+        <li>Navigation, headers, footers</li>
+        <li>Forms</li>
+        <li>Cookie banners and consent dialogs</li>
+        <li>Advertisements</li>
+        <li>Newsletter subscriptions</li>
+      </ul>
+
+      <h2>Markdown Conversion</h2>
+      <p>The plugin uses Turndown with these settings:</p>
+      <ul>
+        <li>ATX-style headers (# Header)</li>
+        <li>Fenced code blocks (```)</li>
+        <li>Dash bullets (-)</li>
+        <li>Underscore emphasis (_italic_)</li>
+        <li>Double asterisk bold (**bold**)</li>
+      </ul>
+
+      <h2>Error Handling</h2>
+      <p>The plugin throws errors for common issues:</p>
+      <ul>
+        <li><code>HTTP 404</code> - Page not found</li>
+        <li><code>HTTP 5xx</code> - Server errors</li>
+        <li><code>Timeout</code> - Request exceeded timeoutMs</li>
+        <li><code>Network errors</code> - Connection failures</li>
+      </ul>
+
+      <h2>Rate Limiting & Ethics</h2>
+      <ul>
+        <li>Respect robots.txt files</li>
+        <li>Add delays between requests to the same domain</li>
+        <li>Be mindful of server load</li>
+        <li>Consider using the site API if available</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../docs/RAG.md">RAG Documentation</a> - Store scraped content for search</li>
+        <li><a href="09-langchain-plugin.html">LangChain Plugin</a> - Process scraped content with AI</li>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

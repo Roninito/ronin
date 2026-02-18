@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 17: AI Integration - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -55,14 +62,14 @@
     <h3>complete()</h3>
     <div class="code-example">
       <div class="code-example-title">Text Completion</div>
-      <pre><code>const response = await this.api.ai.complete("Hello!");
+      <pre><code class="language-typescript">const response = await this.api.ai.complete("Hello!");
 console.log(response);</code></pre>
     </div>
 
     <h3>stream()</h3>
     <div class="code-example">
       <div class="code-example-title">Streaming</div>
-      <pre><code>for await (const chunk of this.api.ai.stream("Tell me a story")) {
+      <pre><code class="language-typescript">for await (const chunk of this.api.ai.stream("Tell me a story")) {
   process.stdout.write(chunk);
 }</code></pre>
     </div>
@@ -70,7 +77,7 @@ console.log(response);</code></pre>
     <h3>chat()</h3>
     <div class="code-example">
       <div class="code-example-title">Chat with History</div>
-      <pre><code>const response = await this.api.ai.chat([
+      <pre><code class="language-typescript">const response = await this.api.ai.chat([
   { role: "user", content: "Hello!" },
   { role: "assistant", content: "Hi there!" },
   { role: "user", content: "How are you?" }

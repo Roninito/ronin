@@ -422,14 +422,16 @@ export async function initializeGuidelines(): Promise<void> {
         // File doesn't exist, create it
         await writeFile(filepath, content, "utf-8");
         createdCount++;
-        console.log(`[Guidelines] Created: ${filename}`);
+        if (!process.env.RONIN_QUIET) console.log(`[Guidelines] Created: ${filename}`);
       }
     }
     
-    if (createdCount > 0) {
-      console.log(`[Guidelines] Initialized ${createdCount} guideline files in ${guidelinesDir}`);
-    } else {
-      console.log(`[Guidelines] All guideline files already exist`);
+    if (!process.env.RONIN_QUIET) {
+      if (createdCount > 0) {
+        console.log(`[Guidelines] Initialized ${createdCount} guideline files in ${guidelinesDir}`);
+      } else {
+        console.log(`[Guidelines] All guideline files already exist`);
+      }
     }
   } catch (error) {
     console.error("[Guidelines] Error initializing guidelines:", error);

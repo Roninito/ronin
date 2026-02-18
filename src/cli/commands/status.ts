@@ -1,6 +1,3 @@
-import { createAPI } from "../../api/index.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
-import { AgentRegistry } from "../../agent/AgentRegistry.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 import { formatCronTable } from "../../utils/cron.js";
 
@@ -89,75 +86,16 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
     return;
   }
 
-  // If not running, show what would be loaded
+  // If not running, show minimal info without loading plugins or agents (avoids init side effects)
   console.log("🔴 Ronin is not currently running\n");
-  console.log("📋 Agent Configuration (would be loaded on start):\n");
-
-  // Load config
   const config = await loadConfig();
-  // Use same default logic as start command
   const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
   const externalAgentDir =
     process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
-
-  console.log(`   Agent directory: ${agentDir}`);
-  console.log(`   External agent directory: ${externalAgentDir}`);
-
-  // Create API and load agents to show what would be registered
-  // Note: We don't actually register them to avoid scheduling/executing
-  const api = await createAPI({
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
-  });
-
-  // Load agents (but don't register them - just get metadata)
-  const loader = new AgentLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
-
-  // Calculate status without actually registering (to avoid scheduling)
-  const totalAgents = agents.length;
-  const scheduledAgents = agents.filter(a => a.schedule).length;
-  const watchedAgents = agents.filter(a => a.watch && a.watch.length > 0).length;
-  const webhookAgents = agents.filter(a => a.webhook).length;
-  
-  const status = {
-    totalAgents,
-    scheduledAgents,
-    watchedAgents,
-    webhookAgents,
-    agents: agents.map(a => ({
-      name: a.name,
-      schedule: a.schedule,
-      watch: a.watch,
-      webhook: a.webhook,
-    })),
-  };
-
-  console.log(`\n   Total Agents: ${status.totalAgents}`);
-  console.log(`   Scheduled: ${status.scheduledAgents}`);
-  console.log(`   File Watchers: ${status.watchedAgents}`);
-  console.log(`   Webhooks: ${status.webhookAgents}`);
-
-  if (status.agents.length > 0) {
-    console.log("\n🤖 Agents:\n");
-    for (const agent of status.agents) {
-      console.log(`   ${agent.name}`);
-      if (agent.schedule) {
-        console.log(`      ⏰ ${agent.schedule}`);
-        const table = formatCronTable(agent.schedule);
-        console.log(table.split('\n').map(line => `      ${line}`).join('\n'));
-      }
-      if (agent.watch && agent.watch.length > 0) {
-        console.log(`      👁️  ${agent.watch.join(", ")}`);
-      }
-      if (agent.webhook) console.log(`      🔗 ${agent.webhook}`);
-    }
-  }
-
-    console.log("\n💡 To start Ronin, run: ronin start");
-    console.log();
+  console.log("   Agent directory: " + agentDir);
+  console.log("   External agent directory: " + externalAgentDir);
+  console.log("\n💡 To start Ronin, run: ronin start");
+  console.log();
   } catch (error) {
     console.error("❌ Error getting status:", error);
     process.exit(1);

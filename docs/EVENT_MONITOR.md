@@ -261,4 +261,4 @@ All built-in agents have been updated. Custom agents need to be updated:
 
 - [Plan Workflow](PLAN_WORKFLOW.md) - Event-driven architecture
 - [CLI Integration](CLI_INTEGRATION.md) - CLI tool execution
-- [Todo Agent](TODO.md) - Kanban board with event integration
+- [Plan Workflow](PLAN_WORKFLOW.md) - Kanban board with event integration

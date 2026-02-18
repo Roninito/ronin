@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>LangChain Plugin</h1>
+      
+      <p class="lead">
+        The LangChain plugin integrates the LangChain framework with Ronin, enabling agents to 
+        build sophisticated AI chains, agents with tools, and graph-based workflows for complex 
+        multi-step reasoning tasks.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        LangChain provides a framework for building applications with large language models. 
+        This plugin wraps LangChain capabilities and integrates them with Ronin's plugin system, 
+        allowing agents to use chains, agents, and LangGraph workflows while accessing Ronin's 
+        native plugins as tools.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Simple Chains</strong>: Execute prompt-based chains with input variables</li>
+        <li><strong>Tool-Using Agents</strong>: Create agents that can use Ronin plugins as tools</li>
+        <li><strong>Graph Workflows</strong>: Build complex multi-node workflows with LangGraph</li>
+        <li><strong>Agent Creation</strong>: Automated agent generation with planning, research, coding, and testing</li>
+        <li><strong>Research Workflows</strong>: Multi-step research with fetch, analyze, synthesize pattern</li>
+        <li><strong>Ronin Integration</strong>: Seamless access to shell, files, web scraping, and RSS plugins</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Basic Chains</h3>
+      
+      <h4><code>runChain(promptTemplate, input, api?)</code></h4>
+      <p>Execute a simple LangChain chain with a prompt template and input variables.</p>
+      <pre><code class="language-typescript">const result = await this.api.langchain?.runChain(
+  "Summarize the following text in 3 bullet points:\n\n{text}",
+  { text: "Your long text here..." },
+  this.api
+);
+console.log(result);</code></pre>
+
+      <h3>Agent Execution</h3>
+
+      <h4><code>runAgent(query, tools?, api?)</code></h4>
+      <p>Execute a LangChain agent with tool-calling capabilities. Automatically includes Ronin plugins as tools.</p>
+      <pre><code class="language-bash">const result = await this.api.langchain?.runAgent(
+  "Check the disk usage and report the top 5 largest directories",
+  [],  // Additional custom tools (optional)
+  this.api
+);
+console.log(result);</code></pre>
+
+      <h4><code>runAnalysisChain(input, dataSource?, api?)</code></h4>
+      <p>Run an analysis chain that gathers data using available tools and provides comprehensive analysis.</p>
+      <pre><code class="language-typescript">const analysis = await this.api.langchain?.runAnalysisChain(
+  "Analyze recent tech news about AI",
+  "rss_feeds",
+  this.api
+);
+console.log(analysis);</code></pre>
+
+      <h3>Graph Workflows</h3>
+
+      <h4><code>buildAgentCreationGraph(cancellationToken?, api?)</code></h4>
+      <p>Build a LangGraph workflow for automated agent creation. The graph includes planner, researcher, coder, and tester nodes.</p>
+      <pre><code class="language-typescript">// Create cancellation token for long-running operations
+const cancellationToken = { isCancelled: false };
+
+// Build the graph
+const graph = await this.api.langchain?.buildAgentCreationGraph(
+  cancellationToken,
+  this.api
+);
+
+// Execute the graph
+const result = await graph.invoke({
+  task: "Create an agent that monitors disk usage and sends alerts when over 90%"
+});
+
+console.log("Generated code:", result.finalCode);
+console.log("Tests passed:", result.passed);
+
+// Cancel if needed
+cancellationToken.isCancelled = true;</code></pre>
+
+      <h4><code>buildResearchGraph(api?)</code></h4>
+      <p>Build a research workflow graph with fetch, analyze, and synthesize nodes.</p>
+      <pre><code class="language-typescript">const researchGraph = await this.api.langchain?.buildResearchGraph(this.api);
+
+const result = await researchGraph.invoke({
+  query: "Latest developments in quantum computing"
+});
+
+console.log("Research synthesis:", result.synthesis);
+console.log("Raw data:", result.data);
+console.log("Analysis:", result.analysis);</code></pre>
+
+      <h2>Agent Creation Workflow</h2>
+
+      <p>The agent creation graph follows a structured workflow:</p>
+
+      <h3>1. Planner Node</h3>
+      <p>Analyzes the task and creates a detailed plan with:</p>
+      <ul>
+        <li><strong>subtasks</strong>: Array of steps needed</li>
+        <li><strong>tools</strong>: Required tools/plugins</li>
+        <li><strong>tests</strong>: Test criteria for validation</li>
+      </ul>
+
+      <h3>2. Researcher Node</h3>
+      <p>Gathers additional information if the plan requires research:</p>
+      <ul>
+        <li>Uses web search tool if available</li>
+        <li>Supplements the plan with research findings</li>
+      </ul>
+
+      <h3>3. Coder Node</h3>
+      <p>Generates complete TypeScript agent code:</p>
+      <ul>
+        <li>Extends <code>BaseAgent</code></li>
+        <li>Proper imports from <code>@ronin/agent</code> and <code>@ronin/types</code></li>
+        <li>Implements <code>execute()</code> method</li>
+        <li>May include static schedule, watch, or webhook</li>
+      </ul>
+
+      <h3>4. Tester Node</h3>
+      <p>Validates the generated code:</p>
+      <ul>
+        <li>Checks syntax errors</li>
+        <li>Validates imports</li>
+        <li>Runs against test criteria</li>
+        <li>Loops back to coder if tests fail</li>
+      </ul>
+
+      <h2>Available Ronin Tools</h2>
+
+      <p>When you provide the API to LangChain methods, the following Ronin plugins are automatically wrapped as tools:</p>
+
+      <table>
+        <tr>
+          <th>Tool Name</th>
+          <th>Ronin Plugin</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>ronin_shell</code></td>
+          <td>api.shell</td>
+          <td>Execute shell commands</td>
+        </tr>
+        <tr>
+          <td><code>ronin_web_search</code></td>
+          <td>api.scrape</td>
+          <td>Scrape web pages for information</td>
+        </tr>
+        <tr>
+          <td><code>ronin_rss_query</code></td>
+          <td>api.db</td>
+          <td>Query RSS feed database</td>
+        </tr>
+        <tr>
+          <td><code>ronin_files</code></td>
+          <td>api.files</td>
+          <td>Read and write files</td>
+        </tr>
+      </table>
+
+      <h2>Configuration</h2>
+
+      <p>LangChain uses Ollama for LLM inference. Configure via ConfigService or environment variables:</p>
+
+      <pre><code class="language-typescript">// Via ConfigService
+const configService = getConfigService();
+configService.setAI({
+  ollamaUrl: "http://localhost:11434",
+  ollamaModel: "qwen3:4b"
+});
+
+// Via environment variables
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3:4b</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <h3>Simple Chain</h3>
+      <pre><code class="language-bash">export default class ChainExampleAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const result = await this.api.langchain?.runChain(
+      "Translate the following to French: {text}",
+      { text: "Hello, how are you today?" },
+      this.api
+    );
+    
+    console.log("Translation:", result);
+  }
+}</code></pre>
+
+      <h3>Tool-Using Agent</h3>
+      <pre><code class="language-bash">export default class ToolAgentExample extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const result = await this.api.langchain?.runAgent(
+      "Find all JavaScript files in the current directory and count them",
+      [],
+      this.api
+    );
+    
+    console.log("Agent result:", result);
+  }
+}</code></pre>
+
+      <h3>Agent Creation</h3>
+      <pre><code class="language-bash">export default class AgentCreator extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const graph = await this.api.langchain?.buildAgentCreationGraph(
+      undefined,
+      this.api
+    );
+
+    const result = await graph.invoke({
+      task: "Create an agent that monitors a directory for new files and logs them"
+    });
+
+    if (result.passed) {
+      // Save the generated agent
+      await this.api.files?.write(
+        "./agents/GeneratedFileMonitor.ts",
+        result.finalCode
+      );
+      console.log("Agent created successfully!");
+    } else {
+      console.error("Agent creation failed:", result.errors);
+    }
+  }
+}</code></pre>
+
+      <h2>Dependencies</h2>
+
+      <p>The LangChain plugin requires these packages:</p>
+      <ul>
+        <li><code>@langchain/community</code> - Ollama integration</li>
+        <li><code>@langchain/core</code> - Core LangChain types</li>
+        <li><code>langchain</code> - Main LangChain library</li>
+        <li><code>@langchain/langgraph</code> - Graph workflows</li>
+        <li><code>zod</code> - Schema validation for tools</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="10-rag-plugin.html">RAG Plugin</a> - Document retrieval and semantic search</li>
+        <li><a href="https://js.langchain.com/">LangChain Documentation</a> - Official LangChain docs</li>
+        <li><a href="https://langchain-ai.github.io/langgraphjs/">LangGraph Documentation</a> - Graph workflow docs</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

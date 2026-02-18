@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>RAG Plugin</h1>
+      
+      <p class="lead">
+        The RAG (Retrieval-Augmented Generation) plugin enables agents to store documents, 
+        generate embeddings, perform semantic search, and use retrieved context to enhance 
+        AI responses with relevant information from your document collections.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        RAG combines document retrieval with language model generation to provide context-aware 
+        responses. The plugin manages document storage in SQLite databases, generates vector 
+        embeddings using Ollama, and performs cosine similarity search to find relevant document 
+        chunks for any query.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Document Storage</strong>: Store documents with metadata in namespaced collections</li>
+        <li><strong>Text Chunking</strong>: Automatic document splitting with configurable size and overlap</li>
+        <li><strong>Embedding Generation</strong>: Generate embeddings using Ollama embedding models</li>
+        <li><strong>Semantic Search</strong>: Find relevant content using cosine similarity</li>
+        <li><strong>Context-Aware Queries</strong>: Retrieve context and generate AI responses</li>
+        <li><strong>Namespace Isolation</strong>: Separate document collections for different use cases</li>
+        <li><strong>Statistics & Management</strong>: Track document counts, chunks, and storage usage</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Namespace Management</h3>
+      
+      <h4><code>init(namespace, options?)</code></h4>
+      <p>Initialize a RAG namespace (creates database if needed).</p>
+      <pre><code class="language-typescript">const result = await this.api.rag?.init("my-docs", {
+  embeddingModel: "nomic-embed-text",
+  chunkSize: 500,
+  chunkOverlap: 50
+});
+console.log(`Database: ${result.dbPath}`);</code></pre>
+
+      <h4><code>getStats(namespace)</code></h4>
+      <p>Get statistics for a namespace including document and chunk counts.</p>
+      <pre><code class="language-typescript">const stats = await this.api.rag?.getStats("my-docs");
+console.log(`${stats.documentCount} documents, ${stats.chunkCount} chunks`);
+console.log(`Database: ${stats.dbPath}`);</code></pre>
+
+      <h4><code>clearNamespace(namespace)</code></h4>
+      <p>Remove all documents from a namespace.</p>
+      <pre><code class="language-typescript">await this.api.rag?.clearNamespace("my-docs");
+console.log("Namespace cleared");</code></pre>
+
+      <h3>Document Management</h3>
+
+      <h4><code>addDocuments(namespace, documents, options?)</code></h4>
+      <p>Add documents to a namespace. Documents are automatically chunked and embedded.</p>
+      <pre><code class="language-typescript">const result = await this.api.rag?.addDocuments("my-docs", [
+  {
+    content: "Your document content here...",
+    metadata: { 
+      title: "Document Title",
+      source: "https://example.com/doc1",
+      category: "tutorial"
+    }
+  },
+  {
+    content: "Another document...",
+    metadata: { title: "Doc 2" }
+  }
+], {
+  chunkSize: 500,        // Characters per chunk
+  chunkOverlap: 50,      // Overlap between chunks
+  embeddingModel: "nomic-embed-text"
+});
+
+console.log(`Added ${result.documentIds.length} documents`);
+console.log(`Created ${result.chunksCreated} chunks`);</code></pre>
+
+      <h4><code>removeDocuments(namespace, documentIds)</code></h4>
+      <p>Remove specific documents and their embeddings from a namespace.</p>
+      <pre><code class="language-typescript">await this.api.rag?.removeDocuments("my-docs", ["doc-uuid-1", "doc-uuid-2"]);</code></pre>
+
+      <h4><code>listDocuments(namespace, limit?)</code></h4>
+      <p>List documents in a namespace with metadata and chunk counts.</p>
+      <pre><code class="language-typescript">const docs = await this.api.rag?.listDocuments("my-docs", 10);
+for (const doc of docs) {
+  console.log(`${doc.id}: ${doc.content.substring(0, 50)}...`);
+  console.log(`  Chunks: ${doc.chunkCount}`);
+  console.log(`  Metadata:`, doc.metadata);
+}</code></pre>
+
+      <h3>Search & Query</h3>
+
+      <h4><code>search(namespace, query, limit?, options?)</code></h4>
+      <p>Perform semantic search to find relevant document chunks.</p>
+      <pre><code class="language-typescript">const results = await this.api.rag?.search(
+  "my-docs",
+  "how to configure the system",
+  5,  // Return top 5 results
+  { embeddingModel: "nomic-embed-text" }
+);
+
+for (const result of results) {
+  console.log(`Score: ${result.score.toFixed(3)}`);
+  console.log(`Text: ${result.chunkText.substring(0, 100)}...`);
+  console.log(`Document: ${result.documentId}`);
+  console.log(`Metadata:`, result.metadata);
+}</code></pre>
+
+      <h4><code>query(namespace, query, options?, api?)</code></h4>
+      <p>Full RAG query: search for relevant context and generate AI response.</p>
+      <pre><code class="language-bash">const response = await this.api.rag?.query(
+  "my-docs",
+  "What are the installation requirements?",
+  {
+    limit: 3,                    // Use top 3 chunks
+    temperature: 0.3,            // Lower temperature for factual responses
+    systemPrompt: "You are a helpful assistant...",
+    embeddingModel: "nomic-embed-text"
+  },
+  this.api  // AgentAPI for AI completion
+);
+
+console.log("Answer:", response.response);
+console.log("\nSources:");
+for (const source of response.sources) {
+  console.log(`  - ${source.documentId} (score: ${source.score.toFixed(3)})`);
+  console.log(`    ${source.chunkText.substring(0, 80)}...`);
+}</code></pre>
+
+      <h2>Chunking</h2>
+
+      <p>Documents are automatically split into chunks for better semantic search:</p>
+
+      <h3>Chunking Strategy</h3>
+      <ul>
+        <li><strong>Size-based</strong>: Split at configurable character limits</li>
+        <li><strong>Word boundaries</strong>: Prefer splitting at spaces for readability</li>
+        <li><strong>Overlap</strong>: Maintain context between chunks with overlapping text</li>
+      </ul>
+
+      <h3>Configuration</h3>
+      <pre><code class="language-typescript">// Default settings
+const DEFAULT_CHUNK_SIZE = 500;     // Characters
+const DEFAULT_CHUNK_OVERLAP = 50;   // Characters
+
+// Custom settings for different content types
+await this.api.rag?.addDocuments("code-docs", documents, {
+  chunkSize: 1000,      // Larger chunks for code
+  chunkOverlap: 100
+});
+
+await this.api.rag?.addDocuments("tweets", documents, {
+  chunkSize: 280,       // Smaller chunks for short content
+  chunkOverlap: 20
+});</code></pre>
+
+      <h2>Embeddings</h2>
+
+      <p>RAG uses Ollama to generate vector embeddings for semantic similarity search:</p>
+
+      <h3>Embedding Models</h3>
+      <p>Recommended models for embeddings:</p>
+      <ul>
+        <li><code>nomic-embed-text</code> - Fast, general-purpose (default)</li>
+        <li><code>mxbai-embed-large</code> - Higher quality, slower</li>
+        <li><code>all-minilm</code> - Lightweight, good for edge devices</li>
+      </ul>
+
+      <h3>Configuration</h3>
+      <pre><code class="language-typescript">// Via ConfigService
+const configService = getConfigService();
+configService.setAI({
+  ollamaUrl: "http://localhost:11434",
+  ollamaEmbeddingModel: "nomic-embed-text"
+});
+
+// Via environment variables
+OLLAMA_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text</code></pre>
+
+      <h2>Semantic Search</h2>
+
+      <p>RAG uses cosine similarity to find documents semantically related to queries:</p>
+
+      <h3>How It Works</h3>
+      <ol>
+        <li>Generate embedding for the search query using Ollama</li>
+        <li>Compare query embedding with all stored chunk embeddings</li>
+        <li>Calculate cosine similarity (0 to 1, higher is more similar)</li>
+        <li>Return top-N most similar chunks with scores</li>
+      </ol>
+
+      <h3>Similarity Scores</h3>
+      <ul>
+        <li><strong>0.9+</strong>: Very high relevance</li>
+        <li><strong>0.8-0.9</strong>: High relevance</li>
+        <li><strong>0.7-0.8</strong>: Moderate relevance</li>
+        <li><strong>0.6-0.7</strong>: Low relevance</li>
+        <li><strong>&lt;0.6</strong>: Minimal relevance</li>
+      </ul>
+
+      <h2>Database Schema</h2>
+
+      <p>RAG stores data in SQLite databases with the following schema:</p>
+
+      <h3>rag_documents Table</h3>
+      <pre><code class="language-typescript">CREATE TABLE rag_documents (
+  id TEXT PRIMARY KEY,           -- UUID
+  namespace TEXT NOT NULL,       -- Collection name
+  content TEXT NOT NULL,         -- Full document text
+  metadata TEXT,                 -- JSON metadata
+  created_at INTEGER NOT NULL    -- Unix timestamp
+);</code></pre>
+
+      <h3>rag_embeddings Table</h3>
+      <pre><code class="language-typescript">CREATE TABLE rag_embeddings (
+  id TEXT PRIMARY KEY,           -- UUID
+  document_id TEXT NOT NULL,     -- Parent document
+  chunk_index INTEGER NOT NULL,  -- Position in document
+  chunk_text TEXT NOT NULL,      -- Chunk content
+  embedding TEXT NOT NULL,       -- JSON vector
+  FOREIGN KEY (document_id) REFERENCES rag_documents(id)
+);</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class RAGAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    // Initialize namespace
+    await this.api.rag?.init("documentation");
+
+    // Add documents
+    await this.api.rag?.addDocuments("documentation", [
+      {
+        content: `Installation Guide...
+
+Requirements:
+- Node.js 18+
+- 4GB RAM minimum
+- SQLite3`,
+        metadata: { 
+          title: "Installation Guide",
+          category: "setup"
+        }
+      },
+      {
+        content: `Configuration Options...
+
+Key settings:
+- OLLAMA_URL: Ollama server URL
+- RAG_CHUNK_SIZE: Text chunk size
+- RAG_OVERLAP: Chunk overlap`,
+        metadata: {
+          title: "Configuration",
+          category: "reference"
+        }
+      }
+    ]);
+
+    // Query with context
+    const response = await this.api.rag?.query(
+      "documentation",
+      "What are the system requirements?",
+      { limit: 2 },
+      this.api
+    );
+
+    console.log("Answer:", response.response);
+    console.log("\nBased on:", response.sources.length, "sources");
+
+    // Search directly
+    const results = await this.api.rag?.search(
+      "documentation",
+      "how to configure",
+      3
+    );
+
+    console.log("\nSearch results:");
+    for (const r of results) {
+      console.log(`[${r.score.toFixed(2)}] ${r.chunkText.substring(0, 60)}...`);
+    }
+
+    // Get stats
+    const stats = await this.api.rag?.getStats("documentation");
+    console.log(`\nTotal: ${stats.documentCount} docs, ${stats.chunkCount} chunks`);
+  }
+}</code></pre>
+
+      <h2>Performance Considerations</h2>
+
+      <ul>
+        <li><strong>Chunk Size</strong>: Larger chunks = fewer embeddings but less precise matching</li>
+        <li><strong>Overlap</strong>: More overlap = better context but more storage</li>
+        <li><strong>Database Size</strong>: Each namespace has its own SQLite database file</li>
+        <li><strong>Embedding Speed</strong>: Depends on Ollama model and hardware</li>
+        <li><strong>Search Speed</strong>: Linear scan of embeddings (suitable for thousands of chunks)</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="09-langchain-plugin.html">LangChain Plugin</a> - Advanced AI workflows</li>
+        <li><a href="../agents/">Agent Examples</a> - Sample RAG-powered agents</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

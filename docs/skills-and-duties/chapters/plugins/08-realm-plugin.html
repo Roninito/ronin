@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realm Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Realm Plugin</h1>
+      
+      <p class="lead">
+        The Realm plugin enables peer-to-peer (P2P) communication between Ronin instances, 
+        allowing agents to discover, connect, and exchange messages across different machines 
+        using WebSocket and WebRTC protocols.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Realm provides a decentralized communication layer for Ronin agents. It uses a discovery 
+        server to locate peers, then establishes direct connections via WebSocket or WebRTC. This 
+        enables agents to collaborate, share data, and coordinate actions across the network without 
+        central coordination.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Peer Discovery</strong>: Find and connect to other Ronin instances via discovery server</li>
+        <li><strong>Dual Transport</strong>: WebSocket fallback with WebRTC for direct P2P connections</li>
+        <li><strong>Message Types</strong>: Fire-and-forget (beam) and request-response (query) patterns</li>
+        <li><strong>Media Streaming</strong>: WebRTC support for streaming media between peers</li>
+        <li><strong>Automatic Reconnection</strong>: Handles disconnections and network changes</li>
+        <li><strong>Heartbeat</strong>: Maintains presence and IP address updates</li>
+        <li><strong>Event Integration</strong>: Emits events for received messages</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Connection Management</h3>
+      
+      <h4><code>init(discoveryUrl, callSign, options?)</code></h4>
+      <p>Initialize Realm and connect to the discovery server with your unique call sign.</p>
+      <pre><code class="language-typescript">// Basic initialization
+await this.api.realm?.init(
+  "wss://realm.example.com",
+  "my-agent-001"
+);
+
+// With options
+await this.api.realm?.init(
+  "wss://realm.example.com",
+  "my-agent-001",
+  {
+    token: "optional-auth-token",
+    localWsPort: 4000,           // Local WebSocket server port
+    heartbeatInterval: 30000,    // Heartbeat every 30s
+    stunServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ],
+    turnServers: [
+      { 
+        urls: "turn:turn.example.com:3478",
+        username: "user",
+        credential: "pass"
+      }
+    ]
+  }
+);</code></pre>
+
+      <h4><code>disconnect()</code></h4>
+      <p>Disconnect from Realm and clean up all connections.</p>
+      <pre><code class="language-typescript">this.api.realm?.disconnect();</code></pre>
+
+      <h4><code>getPeerStatus(callSign)</code></h4>
+      <p>Check if a peer is online and get their connection info.</p>
+      <pre><code class="language-typescript">const status = await this.api.realm?.getPeerStatus("other-agent-001");
+if (status.online) {
+  console.log(`Peer is online at ${status.wsAddress}`);
+} else {
+  console.log("Peer is offline");
+}</code></pre>
+
+      <h3>Messaging</h3>
+
+      <h4><code>sendMessage(to, content)</code></h4>
+      <p>Send a text message to a specific peer.</p>
+      <pre><code class="language-typescript">await this.api.realm?.sendMessage("other-agent-001", "Hello from my agent!");</code></pre>
+
+      <h4><code>beam(target, eventType, payload)</code></h4>
+      <p>Fire-and-forget messaging to one or multiple peers. No response expected.</p>
+      <pre><code class="language-typescript">// Send to single peer
+await this.api.realm?.beam("peer-001", "task-completed", {
+  taskId: "123",
+  result: "success"
+});
+
+// Broadcast to multiple peers
+await this.api.realm?.beam(
+  ["peer-001", "peer-002", "peer-003"],
+  "announcement",
+  { message: "System maintenance in 5 minutes" }
+);
+
+// Listen for beamed events
+this.api.events.on("realm:beam:task-completed", (data) => {
+  console.log(`Task ${data.taskId} completed: ${data.result}`);
+});</code></pre>
+
+      <h4><code>query(target, queryType, payload, timeout?)</code></h4>
+      <p>Send a query to a peer and wait for a response.</p>
+      <pre><code class="language-typescript">try {
+  const response = await this.api.realm?.query(
+    "other-agent-001",
+    "get-status",
+    { details: "full" },
+    5000  // 5 second timeout
+  );
+  console.log("Peer status:", response);
+} catch (error) {
+  console.error("Query failed:", error);
+}</code></pre>
+
+      <h3>Media Streaming</h3>
+
+      <h4><code>sendMedia(to, stream)</code></h4>
+      <p>Send a media stream to a peer using WebRTC (browser environments only).</p>
+      <pre><code class="language-typescript">// Browser example with getUserMedia
+const stream = await navigator.mediaDevices.getUserMedia({ 
+  video: true, 
+  audio: true 
+});
+
+await this.api.realm?.sendMedia("peer-001", stream);</code></pre>
+
+      <h2>WebSocket Connection</h2>
+
+      <p>Realm uses WebSocket as the primary transport with automatic fallback:</p>
+
+      <h3>Local WebSocket Server</h3>
+      <p>Each Realm instance starts a local WebSocket server for incoming connections:</p>
+      <ul>
+        <li>Default port: <strong>4000</strong> (auto-increments if in use)</li>
+        <li>Handles incoming peer connections</li>
+        <li>Processes messages and forwards to event system</li>
+      </ul>
+
+      <h3>Discovery Server</h3>
+      <p>The discovery server maintains a registry of online peers:</p>
+      <ul>
+        <li>Registration with call sign and WebSocket address</li>
+        <li>Peer lookup by call sign</li>
+        <li>Heartbeat for presence detection</li>
+        <li>WebRTC signaling relay</li>
+      </ul>
+
+      <h2>WebRTC Connection</h2>
+
+      <p>WebRTC provides direct peer-to-peer connections with lower latency:</p>
+
+      <h3>Connection Flow</h3>
+      <ol>
+        <li>Query discovery server for peer address</li>
+        <li>Attempt WebSocket connection first</li>
+        <li>If WebSocket fails, initiate WebRTC</li>
+        <li>Exchange SDP offers/answers via discovery server</li>
+        <li>Exchange ICE candidates</li>
+        <li>Establish data channel for messaging</li>
+      </ol>
+
+      <h3>ICE Configuration</h3>
+      <p>Configure STUN/TURN servers for NAT traversal:</p>
+      <pre><code class="language-typescript">await this.api.realm?.init(
+  "wss://realm.example.com",
+  "my-agent",
+  {
+    stunServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ],
+    turnServers: [
+      {
+        urls: "turn:turn.example.com:3478",
+        username: "myuser",
+        credential: "mypass"
+      }
+    ]
+  }
+);</code></pre>
+
+      <h2>Event System Integration</h2>
+
+      <p>Realm integrates with the Ronin event system:</p>
+
+      <pre><code class="language-typescript">// Listen for text messages
+this.api.events.on("realm:message", (data) => {
+  console.log(`Message from ${data.from}: ${data.content}`);
+});
+
+// Listen for custom beam events
+this.api.events.on("realm:beam:task-update", (data) => {
+  console.log("Task update received:", data);
+});
+
+// Emit events that other peers can receive
+this.api.events.emit("custom-event", { foo: "bar" }, "my-agent");</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class RealmAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    // Initialize Realm
+    await this.api.realm?.init(
+      process.env.REALM_DISCOVERY_URL!,
+      process.env.REALM_CALLSIGN!,
+      {
+        localWsPort: 4000,
+        heartbeatInterval: 30000
+      }
+    );
+
+    // Listen for incoming messages
+    this.api.events.on("realm:message", async (data: any) => {
+      console.log(`From ${data.from}: ${data.content}`);
+
+      // Reply
+      await this.api.realm?.sendMessage(
+        data.from,
+        "Message received!"
+      );
+    });
+
+    // Listen for task requests
+    this.api.events.on("realm:beam:task-request", async (data: any) => {
+      console.log(`Processing task: ${data.taskId}`);
+      
+      // Process task...
+      
+      // Notify completion
+      await this.api.realm?.beam(data.from, "task-complete", {
+        taskId: data.taskId,
+        result: "success"
+      });
+    });
+
+    // Query another agent
+    try {
+      const status = await this.api.realm?.query(
+        "other-agent",
+        "get-capabilities",
+        {},
+        5000
+      );
+      console.log("Other agent capabilities:", status);
+    } catch (error) {
+      console.error("Query failed:", error);
+    }
+
+    console.log("Realm agent is connected and listening...");
+  }
+}</code></pre>
+
+      <h2>Network Considerations</h2>
+
+      <h3>Firewall & NAT</h3>
+      <ul>
+        <li>WebSocket uses standard HTTP(S) ports (80/443)</li>
+        <li>WebRTC may require TURN servers behind strict NAT</li>
+        <li>Configure firewall rules for your local WebSocket port</li>
+      </ul>
+
+      <h3>Public IP Detection</h3>
+      <p>Realm automatically detects your public IP using ipify.org. The local WebSocket server binds to all interfaces, and the external IP is reported to the discovery server.</p>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Use TLS (wss://) for discovery server connections</li>
+        <li>Implement authentication tokens for peer verification</li>
+        <li>Validate message payloads before processing</li>
+        <li>Use private TURN servers for sensitive communications</li>
+        <li>Be cautious of man-in-the-middle attacks on discovery</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="05-telegram-plugin.html">Telegram Plugin</a> - Centralized messaging alternative</li>
+        <li><a href="https://webrtc.org/">WebRTC Documentation</a> - Official WebRTC resources</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Discord Plugin</h1>
+      
+      <p class="lead">
+        The Discord plugin enables Ronin agents to interact with Discord servers, send messages, 
+        listen to events, and manage bot functionality through the Discord.js library.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Discord plugin provides a comprehensive interface to the Discord Bot API. It supports 
+        sending rich messages with embeds, receiving and handling messages in real-time, managing 
+        multiple bot instances, and accessing channel information. The plugin uses discord.js for 
+        robust WebSocket-based communication with Discord's gateway.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Bot Initialization</strong>: Initialize Discord bot clients with custom intents</li>
+        <li><strong>Message Sending</strong>: Send text messages with rich embed support</li>
+        <li><strong>Message Retrieval</strong>: Fetch recent messages from channels</li>
+        <li><strong>Event Handling</strong>: Register handlers for messages and ready events</li>
+        <li><strong>Guild Management</strong>: Fetch invite information and guild details</li>
+        <li><strong>Channel Info</strong>: Get channel metadata and type information</li>
+        <li><strong>Embed Support</strong>: Create rich embeds with colors, fields, and footers</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Bot Management</h3>
+      
+      <h4><code>initBot(token, options?)</code></h4>
+      <p>Initialize a Discord bot with your bot token. Optionally specify custom gateway intents.</p>
+      <pre><code class="language-typescript">// Basic initialization
+const clientId = await this.api.discord?.initBot("YOUR_BOT_TOKEN");
+
+// With custom intents
+const clientId = await this.api.discord?.initBot("YOUR_BOT_TOKEN", {
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});</code></pre>
+
+      <h3>Messaging</h3>
+
+      <h4><code>sendMessage(clientId, channelId, content, options?)</code></h4>
+      <p>Send a message to a Discord channel. Supports rich embeds for formatted messages.</p>
+      <pre><code class="language-typescript">// Simple message
+await this.api.discord?.sendMessage(
+  clientId,
+  "1234567890123456789",
+  "Hello, Discord!"
+);
+
+// With embed
+await this.api.discord?.sendMessage(
+  clientId,
+  "1234567890123456789",
+  "Check out this embed!",
+  {
+    embed: {
+      title: "My Embed",
+      description: "This is a rich embed message",
+      color: 0x00ff00,  // Green color
+      fields: [
+        { name: "Field 1", value: "Value 1", inline: true },
+        { name: "Field 2", value: "Value 2", inline: true }
+      ],
+      footer: "Powered by Ronin"
+    }
+  }
+);</code></pre>
+
+      <h4><code>getMessages(clientId, channelId, options?)</code></h4>
+      <p>Retrieve recent messages from a channel.</p>
+      <pre><code class="language-typescript">// Get last 10 messages
+const messages = await this.api.discord?.getMessages(
+  clientId,
+  "1234567890123456789",
+  { limit: 10 }
+);
+
+// Get messages before a specific message
+const olderMessages = await this.api.discord?.getMessages(
+  clientId,
+  "1234567890123456789",
+  { limit: 10, before: "message_id_here" }
+);
+
+for (const msg of messages) {
+  console.log(`${msg.author.username}: ${msg.content}`);
+}</code></pre>
+
+      <h3>Event Handling</h3>
+
+      <h4><code>onMessage(clientId, callback)</code></h4>
+      <p>Register a callback for incoming messages.</p>
+      <pre><code class="language-typescript">this.api.discord?.onMessage(clientId, (message) => {
+  // Ignore bot messages
+  if (message.author.bot) return;
+
+  console.log(`[${message.author.username}] ${message.content}`);
+
+  // Handle commands
+  if (message.content === "!ping") {
+    this.api.discord?.sendMessage(
+      clientId,
+      message.channelId,
+      "Pong!"
+    );
+  }
+});</code></pre>
+
+      <h4><code>onReady(clientId, callback)</code></h4>
+      <p>Register a callback for when the bot is ready and connected.</p>
+      <pre><code class="language-typescript">this.api.discord?.onReady(clientId, () => {
+  console.log("Discord bot is online!");
+  
+  // Send a startup message
+  this.api.discord?.sendMessage(
+    clientId,
+    "1234567890123456789",
+    "Bot started successfully!"
+  );
+});</code></pre>
+
+      <h3>Channel & Guild Management</h3>
+
+      <h4><code>getChannel(clientId, channelId)</code></h4>
+      <p>Get information about a Discord channel.</p>
+      <pre><code class="language-typescript">const channel = await this.api.discord?.getChannel(
+  clientId,
+  "1234567890123456789"
+);
+console.log(`Channel: ${channel.name} (${channel.type})`);</code></pre>
+
+      <h4><code>joinGuild(clientId, inviteCode)</code></h4>
+      <p>Fetch information about a Discord invite. Note: Bots join via OAuth2, not invites.</p>
+      <pre><code class="language-typescript">const invite = await this.api.discord?.joinGuild(
+  clientId,
+  "invite-code-here"  // Just the code, not the full URL
+);
+console.log(`Guild: ${invite.guild?.name}`);
+console.log(`Channel: ${invite.channel?.name}`);</code></pre>
+
+      <h2>Intent Configuration</h2>
+
+      <p>Gateway Intents determine what events your bot receives. Common intents:</p>
+
+      <table>
+        <tr>
+          <th>Intent</th>
+          <th>Description</th>
+          <th>Privileged</th>
+        </tr>
+        <tr>
+          <td><code>Guilds</code></td>
+          <td>Guild-related events (join, leave, updates)</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>GuildMessages</code></td>
+          <td>Message events in guilds</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><code>MessageContent</code></td>
+          <td>Access to message content</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>GuildMembers</code></td>
+          <td>Member join/leave events</td>
+          <td>Yes</td>
+        </tr>
+        <tr>
+          <td><code>DirectMessages</code></td>
+          <td>DM events</td>
+          <td>No</td>
+        </tr>
+      </table>
+
+      <h3>Enabling Privileged Intents</h3>
+      <p>To use privileged intents (MessageContent, GuildMembers):</p>
+      <ol>
+        <li>Go to <a href="https://discord.com/developers/applications">Discord Developer Portal</a></li>
+        <li>Select your application</li>
+        <li>Go to the "Bot" section</li>
+        <li>Under "Privileged Gateway Intents", enable required intents</li>
+        <li>Save changes</li>
+      </ol>
+
+      <h2>Embeds</h2>
+
+      <p>Embeds allow rich, formatted messages with titles, descriptions, fields, colors, and more:</p>
+
+      <pre><code class="language-typescript">const embed = {
+  title: "Server Status",
+  description: "Current system status report",
+  color: 0x3498db,  // Blue
+  fields: [
+    { name: "CPU", value: "45%", inline: true },
+    { name: "Memory", value: "2.1GB / 8GB", inline: true },
+    { name: "Uptime", value: "3 days", inline: true },
+    { name: "Services", value: "All systems operational" }
+  ],
+  footer: "Last updated: " + new Date().toLocaleString(),
+  timestamp: new Date().toISOString()
+};
+
+await this.api.discord?.sendMessage(
+  clientId,
+  channelId,
+  "",
+  { embed }
+);</code></pre>
+
+      <h2>Message Handling</h2>
+
+      <p>The Discord message object contains:</p>
+      <pre><code class="language-typescript">interface DiscordMessage {
+  id: string;           // Message ID
+  content: string;      // Message text content
+  author: {
+    id: string;         // User ID
+    username: string;   // Username
+    bot: boolean;       // Is a bot message
+  };
+  channelId: string;    // Channel ID
+  guildId: string | null;  // Guild ID (null for DMs)
+  timestamp: number;    // Creation timestamp (ms)
+}</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class DiscordBotAgent extends BaseAgent {
+  private clientId?: string;
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    // Initialize bot
+    this.clientId = await this.api.discord?.initBot(
+      process.env.DISCORD_BOT_TOKEN!
+    );
+
+    if (!this.clientId) {
+      console.error("Failed to initialize Discord bot");
+      return;
+    }
+
+    // Handle ready event
+    this.api.discord?.onReady(this.clientId, () => {
+      console.log("Discord bot connected!");
+    });
+
+    // Handle messages
+    this.api.discord?.onMessage(this.clientId, async (message) => {
+      // Ignore bot messages and DMs
+      if (message.author.bot || !message.guildId) return;
+
+      console.log(`[${message.author.username}]: ${message.content}`);
+
+      // Command handler
+      if (message.content.startsWith("!")) {
+        const [command, ...args] = message.content.slice(1).split(" ");
+
+        switch (command) {
+          case "hello":
+            await this.api.discord?.sendMessage(
+              this.clientId!,
+              message.channelId,
+              `Hello, ${message.author.username}!`
+            );
+            break;
+
+          case "status":
+            await this.api.discord?.sendMessage(
+              this.clientId!,
+              message.channelId,
+              "All systems operational!",
+              {
+                embed: {
+                  title: "Status",
+                  description: "Running smoothly",
+                  color: 0x00ff00
+                }
+              }
+            );
+            break;
+        }
+      }
+    });
+
+    console.log("Discord bot is running...");
+  }
+}</code></pre>
+
+      <h2>Creating a Discord Bot</h2>
+
+      <ol>
+        <li>Go to <a href="https://discord.com/developers/applications">Discord Developer Portal</a></li>
+        <li>Click "New Application" and name your bot</li>
+        <li>Go to "Bot" section and click "Add Bot"</li>
+        <li>Under "Token", click "Copy" to get your bot token</li>
+        <li>Enable required privileged intents if needed</li>
+        <li>Go to "OAuth2" > "URL Generator"</li>
+        <li>Select scopes: <code>bot</code></li>
+        <li>Select permissions your bot needs</li>
+        <li>Copy and open the generated URL to invite the bot</li>
+      </ol>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Store bot tokens in environment variables</li>
+        <li>Never commit tokens to version control</li>
+        <li>Regenerate tokens immediately if exposed</li>
+        <li>Only request permissions your bot actually needs</li>
+        <li>Be cautious with MessageContent intent - it grants access to all messages</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="05-telegram-plugin.html">Telegram Plugin</a> - Similar messaging platform</li>
+        <li><a href="https://discord.js.org/">discord.js Documentation</a> - Official library docs</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

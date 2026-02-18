@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Email Plugin - Skills and Duties</title>
   <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -40,7 +47,7 @@
       
       <h4><code>addAccount(config)</code></h4>
       <p>Add a new email account with IMAP and SMTP configuration.</p>
-      <pre><code>const account = await this.api.email?.addAccount({
+      <pre><code class="language-typescript">const account = await this.api.email?.addAccount({
   name: "Work Email",
   email: "user@example.com",
   imap: {
@@ -67,7 +74,7 @@
 
       <h4><code>getInbox(accountId, options?)</code></h4>
       <p>Fetch emails from the inbox. Returns an array of email messages.</p>
-      <pre><code>const emails = await this.api.email?.getInbox(accountId, { limit: 20 });</code></pre>
+      <pre><code class="language-bash">const emails = await this.api.email?.getInbox(accountId, { limit: 20 });</code></pre>
 
       <h4><code>getEmail(accountId, messageId)</code></h4>
       <p>Get full details of a single email including body content.</p>
@@ -79,7 +86,7 @@
 
       <h4><code>sendEmail(accountId, to, subject, body, options?)</code></h4>
       <p>Send an email via SMTP. Supports CC, BCC, HTML, attachments, and reply-to.</p>
-      <pre><code>await this.api.email?.sendEmail(
+      <pre><code class="language-typescript">await this.api.email?.sendEmail(
   accountId,
   "recipient@example.com",
   "Hello from Ronin",
@@ -117,7 +124,7 @@
 
       <h4><code>onNewEmail(accountId, callback)</code></h4>
       <p>Register a callback function for new email notifications.</p>
-      <pre><code>this.api.email?.onNewEmail(accountId, (email) => {
+      <pre><code class="language-typescript">this.api.email?.onNewEmail(accountId, (email) => {
   console.log(`New email: ${email.subject}`);
   // Process email with AI, auto-respond, etc.
 });</code></pre>
@@ -139,7 +146,7 @@
       </ul>
 
       <h3>Listening for Email Events</h3>
-      <pre><code>// Listen for new emails
+      <pre><code class="language-bash">// Listen for new emails
 this.api.events.on("email:new", (data) => {
   const { accountId, email } = data as any;
   console.log(`New email from ${email.from[0]?.address}: ${email.subject}`);
@@ -168,7 +175,7 @@ this.api.events.on("email:new", (data) => {
 
       <h2>Example Usage</h2>
 
-      <pre><code>// Add account and start monitoring
+      <pre><code class="language-bash">// Add account and start monitoring
 const account = await this.api.email?.addAccount({
   name: "Gmail",
   email: "user@gmail.com",

@@ -15,6 +15,8 @@ import type { AgentAPI, Message, CompletionOptions, ChatOptions, Tool } from "..
 export interface APIOptions {
   ollamaUrl?: string;
   ollamaModel?: string;
+  /** When true, use the configured "fast" model (e.g. qwen3:1.7b) as default for speed. Used by the agent server. */
+  useFastModelForAgents?: boolean;
   dbPath?: string;
   pluginDir?: string;
   userPluginDir?: string;
@@ -43,7 +45,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     pluginsAPI.register(plugin.name, plugin.plugin.methods);
   }
 
-  if (plugins.length > 0) {
+  if (plugins.length > 0 && !process.env.RONIN_QUIET) {
     logger.info("Plugins loaded", { count: plugins.length, plugins: plugins.map(p => p.name) });
   }
 
@@ -78,7 +80,9 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const geminiConfig = configService.getGemini();
   const grokConfig = configService.getGrok();
   const resolvedOllamaUrl = options.ollamaUrl ?? aiConfig.ollamaUrl;
-  const resolvedOllamaModel = options.ollamaModel ?? aiConfig.ollamaModel;
+  const resolvedOllamaModel =
+    options.ollamaModel ??
+    (options.useFastModelForAgents && aiConfig.models?.fast ? aiConfig.models.fast : aiConfig.ollamaModel);
   const resolvedTimeoutMs = aiConfig.ollamaTimeoutMs;
   const aiAPI = new AIAPI(resolvedOllamaUrl, resolvedOllamaModel, resolvedTimeoutMs, aiConfig, geminiConfig, grokConfig);
 
@@ -87,6 +91,12 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   // Wire events API into realm plugin if loaded
   if (realmPlugin && realmPlugin.plugin.methods.setEventsAPI) {
     (realmPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
+  }
+
+  // Wire events API into STT plugin for transcribe.text → stt.transcribed
+  const sttPlugin = plugins.find(p => p.name === "stt");
+  if (sttPlugin && sttPlugin.plugin.methods.setEventsAPI) {
+    (sttPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
   }
 
   // Wrap api.ai to emit analytics events for every completion, stream, and callTools

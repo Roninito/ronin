@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RSS Feed Agent - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>RSS Feed Agent</h1>
+      
+      <p class="lead">
+        The RSS Feed Agent monitors RSS feeds and sends new items to Telegram channels. 
+        It provides a complete RSS-to-Telegram bridge with a web-based configuration UI.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        This agent runs every 3 hours to check configured RSS feeds for new items. When 
+        new items are found, they are formatted and sent to a specified Telegram channel. 
+        The agent includes a web UI for easy feed management and configuration.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>RSS Polling</strong>: Automatically checks feeds every 3 hours</li>
+        <li><strong>Telegram Integration</strong>: Sends new items to Telegram channels</li>
+        <li><strong>Web UI</strong>: Browser-based configuration interface</li>
+        <li><strong>Feed Management</strong>: Add, remove, and list RSS feeds</li>
+        <li><strong>History Tracking</strong>: Prevents duplicate notifications</li>
+        <li><strong>Rich Formatting</strong>: Includes title, summary, and link</li>
+        <li><strong>Error Handling</strong>: Gracefully handles feed errors</li>
+      </ul>
+
+      <h2>Configuration</h2>
+      
+      <h3>Required Setup</h3>
+      <ol>
+        <li><strong>Telegram Bot Token</strong>:
+          <pre><code class="language-bash"># Via environment
+export TELEGRAM_BOT_TOKEN="your-token"
+
+# Or via config
+this.api.config.setTelegram({ botToken: "your-token" });</code></pre>
+        </li>
+        <li><strong>Telegram Chat ID</strong>:
+          <pre><code class="language-bash"># Via environment  
+export TELEGRAM_CHAT_ID="@yourchannel"</code></pre>
+        </li>
+      </ol>
+
+      <h3>Web UI</h3>
+      <p>Access the configuration UI at:</p>
+      <pre><code class="language-typescript">http://localhost:3000/rss-to-telegram/</code></pre>
+      
+      <p>The UI allows you to:</p>
+      <ul>
+        <li>Add new RSS feed URLs</li>
+        <li>Remove existing feeds</li>
+        <li>View configured feeds</li>
+        <li>Test the connection</li>
+      </ul>
+
+      <h2>How It Works</h2>
+
+      <h3>Execution Flow</h3>
+      <ol>
+        <li>Load configuration (token, chat ID, feeds)</li>
+        <li>Get RSS feeds from memory</li>
+        <li>For each feed:
+          <ul>
+            <li>Fetch and parse RSS</li>
+            <li>Check for new items (not in history)</li>
+            <li>Send new items to Telegram</li>
+            <li>Update history</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h3>RSS Parsing</h3>
+      <p>The agent parses standard RSS 2.0 and Atom feeds:</p>
+      <ul>
+        <li>Title</li>
+        <li>Link</li>
+        <li>Published date</li>
+        <li>Summary/Description (optional)</li>
+      </ul>
+
+      <h3>History Tracking</h3>
+      <p>Prevents duplicate notifications by tracking:</p>
+      <ul>
+        <li>Feed URL</li>
+        <li>Item GUID or link</li>
+        <li>Publication date</li>
+      </ul>
+
+      <h2>Message Format</h2>
+      <p>Messages sent to Telegram are formatted as:</p>
+      <pre><code class="language-typescript">**New Article**
+
+Title: Article Title Here
+
+Summary: Brief description of the article content...
+
+Link: https://example.com/article</code></pre>
+
+      <h2>API Endpoints</h2>
+      <p>The agent registers these HTTP routes:</p>
+      
+      <h3>GET /rss-to-telegram/</h3>
+      <p>Web UI for configuration.</p>
+
+      <h3>POST /rss-to-telegram/feeds</h3>
+      <p>Add a new RSS feed.</p>
+      <pre><code class="language-typescript">// Request body
+{
+  "url": "https://example.com/feed.xml"
+}
+
+// Response
+{
+  "success": true,
+  "message": "Feed added successfully"
+}</code></pre>
+
+      <h3>DELETE /rss-to-telegram/feeds</h3>
+      <p>Remove an RSS feed.</p>
+      <pre><code class="language-typescript">// Request body
+{
+  "url": "https://example.com/feed.xml"
+}</code></pre>
+
+      <h3>GET /rss-to-telegram/feeds</h3>
+      <p>List all configured feeds.</p>
+      <pre><code class="language-typescript">// Response
+{
+  "feeds": [
+    "https://example.com/feed.xml",
+    "https://another.com/rss"
+  ]
+}</code></pre>
+
+      <h2>Configuration Storage</h2>
+      <p>Configuration is stored in memory with these keys:</p>
+      <ul>
+        <li><code>rss_feeds</code> - Array of RSS feed URLs</li>
+        <li><code>rss_history:{feedUrl}</code> - Processed item IDs per feed</li>
+      </ul>
+
+      <h2>Schedule</h2>
+      <p>The agent runs automatically every 3 hours:</p>
+      <pre><code class="language-typescript">static schedule = "0 */3 * * *";</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <h3>Adding Feeds via API</h3>
+      <pre><code class="language-typescript">// Add a feed programmatically
+const response = await fetch('http://localhost:3000/rss-to-telegram/feeds', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    url: 'https://news.ycombinator.com/rss'
+  })
+});
+
+const result = await response.json();
+console.log(result.message);</code></pre>
+
+      <h3>Checking Feed Status</h3>
+      <pre><code class="language-typescript">// List all feeds
+const response = await fetch('http://localhost:3000/rss-to-telegram/feeds');
+const { feeds } = await response.json();
+
+console.log(`Monitoring ${feeds.length} feeds:`);
+feeds.forEach(url => console.log(`  - ${url}`));</code></pre>
+
+      <h2>Error Handling</h2>
+      <p>The agent handles common issues:</p>
+      <ul>
+        <li><strong>Invalid Feed URL</strong> - Logs warning, continues with other feeds</li>
+        <li><strong>Fetch Errors</strong> - Retries with exponential backoff</li>
+        <li><strong>Parse Errors</strong> - Attempts alternate parsers</li>
+        <li><strong>Telegram Errors</strong> - Queues messages for retry</li>
+      </ul>
+
+      <h2>Best Practices</h2>
+      <ul>
+        <li>Don't add too many feeds (rate limiting)</li>
+        <li>Use feed aggregators for multiple sources</li>
+        <li>Monitor logs for feed errors</li>
+        <li>Test feeds in browser first</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../plugins/05-telegram-plugin.html">Telegram Plugin</a> - Direct Telegram API</li>
+        <li><a href="02-telegram-bot.html">Telegram Bot Agent</a> - Related agent</li>
+        <li><a href="../../../docs/RAG.md">RAG Documentation</a> - Store feed content</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

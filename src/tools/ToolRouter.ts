@@ -30,7 +30,7 @@ export class ToolRouter {
     this.api = api;
     this.policy = this.loadDefaultPolicy();
     this.startCostTracking();
-    console.log("[ToolRouter] Initialized");
+    if (!process.env.RONIN_QUIET) console.log("[ToolRouter] Initialized");
   }
 
   /**
@@ -38,10 +38,10 @@ export class ToolRouter {
    */
   register(tool: ToolDefinition): void {
     if (this.tools.has(tool.name)) {
-      console.warn(`[ToolRouter] Tool '${tool.name}' already registered, overwriting`);
+      if (!process.env.RONIN_QUIET) console.warn(`[ToolRouter] Tool '${tool.name}' already registered, overwriting`);
     }
     this.tools.set(tool.name, tool);
-    console.log(`[ToolRouter] Registered tool: ${tool.name} (${tool.provider})`);
+    if (!process.env.RONIN_QUIET) console.log(`[ToolRouter] Registered tool: ${tool.name} (${tool.provider})`);
   }
 
   /**

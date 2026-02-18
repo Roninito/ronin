@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torrent Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Torrent Plugin</h1>
+      
+      <p class="lead">
+        The Torrent plugin enables Ronin agents to search for torrents and manage downloads 
+        using the WebTorrent protocol.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Torrent plugin provides a complete BitTorrent client within Ronin. It supports 
+        searching torrents on 1337x, adding magnet links, monitoring download progress, and 
+        managing active torrents. All downloads happen via the WebTorrent library.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Torrent Search</strong>: Search 1337x for torrents</li>
+        <li><strong>Magnet Links</strong>: Add torrents via magnet URIs</li>
+        <li><strong>Progress Monitoring</strong>: Track download/upload speeds and completion</li>
+        <li><strong>Torrent Management</strong>: Pause, resume, and remove torrents</li>
+        <li><strong>File Downloads</strong>: Download to configurable paths</li>
+        <li><strong>Peer Statistics</strong>: Track seeders, leechers, and peers</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Search</h3>
+      
+      <h4><code>search(query, options?)</code></h4>
+      <p>Search for torrents on 1337x. Returns an array of search results.</p>
+      
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>query</code> - Search query string</li>
+        <li><code>options</code> - Optional:
+          <ul>
+            <li><code>site</code> - Search site (default: "1337x", only option currently)</li>
+            <li><code>limit</code> - Maximum results (default: 20)</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h4>Return Value</h4>
+      <pre><code class="language-json">[{
+  title: string;         // Torrent name
+  magnet: string;        // Magnet link (first 5 results only)
+  size: string;          // Human-readable size
+  seeders: number;       // Number of seeders
+  leechers: number;      // Number of leechers
+  uploadDate: string;    // Upload date
+  category: string;      // Content category
+  url: string;           // Detail page URL
+}]</code></pre>
+
+      <h3>Download Management</h3>
+
+      <h4><code>add(magnetOrPath, options?)</code></h4>
+      <p>Add a torrent via magnet link or .torrent file path.</p>
+      <pre><code class="language-typescript">const result = await this.api.torrent?.add(
+  "magnet:?xt=urn:btih:...",
+  { downloadPath: "./downloads" }
+);
+console.log(result.infoHash);  // Torrent identifier
+console.log(result.name);      // Torrent name
+console.log(result.status);    // Current status</code></pre>
+
+      <h4><code>list()</code></h4>
+      <p>Get status of all active torrents.</p>
+      <pre><code class="language-typescript">const torrents = await this.api.torrent?.list();
+for (const t of torrents) {
+  console.log(`${t.name}: ${t.progress}%`);
+  console.log(`  Speed: ${formatBytes(t.downloadSpeed)}/s`);
+  console.log(`  Peers: ${t.peers}`);
+}</code></pre>
+
+      <h4><code>status(infoHash)</code></h4>
+      <p>Get detailed status for a specific torrent.</p>
+      <pre><code class="language-typescript">const status = await this.api.torrent?.status("abc123...");
+console.log(status.progress);       // Download progress %
+console.log(status.downloadSpeed);  // Bytes per second
+console.log(status.uploadSpeed);    // Bytes per second
+console.log(status.peers);          // Connected peers
+console.log(status.done);           // Is complete?</code></pre>
+
+      <h3>Torrent Control</h3>
+
+      <h4><code>pause(infoHash)</code></h4>
+      <p>Pause a torrent download.</p>
+      <pre><code class="language-typescript">await this.api.torrent?.pause("abc123...");</code></pre>
+
+      <h4><code>resume(infoHash)</code></h4>
+      <p>Resume a paused torrent.</p>
+      <pre><code class="language-typescript">await this.api.torrent?.resume("abc123...");</code></pre>
+
+      <h4><code>remove(infoHash, options?)</code></h4>
+      <p>Remove a torrent from the client. Optionally delete downloaded files.</p>
+      <pre><code class="language-typescript">// Just remove from client (keep files)
+await this.api.torrent?.remove("abc123...");
+
+// Remove and delete files
+await this.api.torrent?.remove("abc123...", { removeFiles: true });</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-typescript">// Search for Linux ISO
+const results = await this.api.torrent?.search("ubuntu 24.04 iso", { limit: 10 });
+
+if (results.length === 0) {
+  console.log("No torrents found");
+  return;
+}
+
+// Pick the one with most seeders
+const best = results.reduce((a, b) => a.seeders > b.seeders ? a : b);
+console.log(`Best torrent: ${best.title}`);
+console.log(`Seeders: ${best.seeders}`);
+
+// Check if we have a magnet link
+if (!best.magnet) {
+  console.log("No magnet link available (only first 5 results have magnets)");
+  return;
+}
+
+// Start download
+const torrent = await this.api.torrent?.add(best.magnet, {
+  downloadPath: "~/Downloads/ISOs"
+});
+
+console.log(`Started: ${torrent.name}`);
+
+// Monitor progress
+const checkProgress = async () => {
+  const status = await this.api.torrent?.status(torrent.infoHash);
+  console.log(`Progress: ${status.progress.toFixed(2)}%`);
+  console.log(`Speed: ${formatBytes(status.downloadSpeed)}/s`);
+  
+  if (!status.done) {
+    setTimeout(checkProgress, 5000);  // Check every 5 seconds
+  } else {
+    console.log("Download complete!");
+  }
+};
+
+checkProgress();
+
+// List all active downloads
+const allTorrents = await this.api.torrent?.list();
+console.log(`Active torrents: ${allTorrents.length}`);
+
+// Helper function
+function formatBytes(bytes: number): string {
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  if (bytes === 0) return "0 Bytes";
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + " " + sizes[i];
+}</code></pre>
+
+      <h2>Status Object</h2>
+      <p>The status object contains detailed information:</p>
+      <ul>
+        <li><code>infoHash</code> - Unique torrent identifier</li>
+        <li><code>name</code> - Torrent name</li>
+        <li><code>progress</code> - Download progress (0-100)</li>
+        <li><code>downloadSpeed</code> - Current download speed (bytes/s)</li>
+        <li><code>uploadSpeed</code> - Current upload speed (bytes/s)</li>
+        <li><code>downloaded</code> - Total bytes downloaded</li>
+        <li><code>uploaded</code> - Total bytes uploaded</li>
+        <li><code>timeRemaining</code> - Estimated seconds remaining (-1 if unknown)</li>
+        <li><code>peers</code> - Number of connected peers</li>
+        <li><code>length</code> - Total torrent size (bytes)</li>
+        <li><code>ready</code> - Is metadata available?</li>
+        <li><code>done</code> - Is download complete?</li>
+      </ul>
+
+      <h2>Legal & Ethical Considerations</h2>
+      <p><strong>Important:</strong> This plugin is for legal use only:</p>
+      <ul>
+        <li>Only download content you have the right to access</li>
+        <li>Respect copyright laws in your jurisdiction</li>
+        <li>Many Linux distributions use torrents for legitimate distribution</li>
+        <li>Creative Commons and public domain content is generally safe</li>
+      </ul>
+
+      <h2>Limitations</h2>
+      <ul>
+        <li>Search currently only supports 1337x</li>
+        <li>Magnet links only fetched for first 5 results (rate limiting)</li>
+        <li>Some ISPs may block torrent traffic</li>
+        <li>No DHT/PEX configuration exposed</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

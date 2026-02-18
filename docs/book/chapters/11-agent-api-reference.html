@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 11: Agent API Reference - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -29,13 +36,13 @@
     <p>
       Get AI completion from Ollama or remote providers.
     </p>
-    <pre><code>const response = await this.api.ai.complete("Hello!");</code></pre>
+    <pre><code class="language-typescript">const response = await this.api.ai.complete("Hello!");</code></pre>
 
     <h3>stream(prompt, options?)</h3>
     <p>
       Stream AI responses for real-time output.
     </p>
-    <pre><code>for await (const chunk of this.api.ai.stream("Tell me a story")) {
+    <pre><code class="language-typescript">for await (const chunk of this.api.ai.stream("Tell me a story")) {
   process.stdout.write(chunk);
 }</code></pre>
 
@@ -43,7 +50,7 @@
     <p>
       Chat with message history.
     </p>
-    <pre><code>const response = await this.api.ai.chat([
+    <pre><code class="language-typescript">const response = await this.api.ai.chat([
   { role: "user", content: "Hello!" },
   { role: "assistant", content: "Hi there!" },
   { role: "user", content: "How are you?" }
@@ -53,7 +60,7 @@
     <p>
       Function calling with tool definitions. Plugin tools are automatically included.
     </p>
-    <pre><code>const { toolCalls, message } = await this.api.ai.callTools(
+    <pre><code class="language-bash">const { toolCalls, message } = await this.api.ai.callTools(
   "Check git status",
   [] // Plugin tools automatically included
 );</code></pre>
@@ -68,37 +75,37 @@
     <p>
       Store a value with a key.
     </p>
-    <pre><code>await this.api.memory.store("lastRun", Date.now());</code></pre>
+    <pre><code class="language-typescript">await this.api.memory.store("lastRun", Date.now());</code></pre>
 
     <h3>retrieve(key)</h3>
     <p>
       Retrieve a value by key.
     </p>
-    <pre><code>const lastRun = await this.api.memory.retrieve("lastRun");</code></pre>
+    <pre><code class="language-typescript">const lastRun = await this.api.memory.retrieve("lastRun");</code></pre>
 
     <h3>search(query, limit?)</h3>
     <p>
       Search memories by text content.
     </p>
-    <pre><code>const results = await this.api.memory.search("error", 10);</code></pre>
+    <pre><code class="language-typescript">const results = await this.api.memory.search("error", 10);</code></pre>
 
     <h3>addContext(text, metadata?)</h3>
     <p>
       Add context text with optional metadata.
     </p>
-    <pre><code>await this.api.memory.addContext("User logged in", { userId: 123 });</code></pre>
+    <pre><code class="language-typescript">await this.api.memory.addContext("User logged in", { userId: 123 });</code></pre>
 
     <h3>getRecent(limit?)</h3>
     <p>
       Get recent memories.
     </p>
-    <pre><code>const recent = await this.api.memory.getRecent(20);</code></pre>
+    <pre><code class="language-typescript">const recent = await this.api.memory.getRecent(20);</code></pre>
 
     <h3>getByMetadata(metadata)</h3>
     <p>
       Get memories matching metadata.
     </p>
-    <pre><code>const userMemories = await this.api.memory.getByMetadata({ userId: 123 });</code></pre>
+    <pre><code class="language-typescript">const userMemories = await this.api.memory.getByMetadata({ userId: 123 });</code></pre>
 
     <h2>api.files</h2>
 
@@ -110,19 +117,19 @@
     <p>
       Read a file as text.
     </p>
-    <pre><code>const content = await this.api.files.read("./file.txt");</code></pre>
+    <pre><code class="language-typescript">const content = await this.api.files.read("./file.txt");</code></pre>
 
     <h3>write(path, content)</h3>
     <p>
       Write content to a file.
     </p>
-    <pre><code>await this.api.files.write("./output.txt", "content");</code></pre>
+    <pre><code class="language-typescript">await this.api.files.write("./output.txt", "content");</code></pre>
 
     <h3>list(dir, pattern?)</h3>
     <p>
       List files in a directory, optionally filtered by pattern.
     </p>
-    <pre><code>const files = await this.api.files.list("./data", "*.json");</code></pre>
+    <pre><code class="language-typescript">const files = await this.api.files.list("./data", "*.json");</code></pre>
 
     <h2>api.db</h2>
 
@@ -134,7 +141,7 @@
     <p>
       Execute a SELECT query and return results.
     </p>
-    <pre><code>const rows = await this.api.db.query&lt;{id: number, name: string}&gt;(
+    <pre><code class="language-typescript">const rows = await this.api.db.query&lt;{id: number, name: string}&gt;(
   "SELECT * FROM users WHERE id = ?",
   [123]
 );</code></pre>
@@ -143,7 +150,7 @@
     <p>
       Execute INSERT/UPDATE/DELETE statements.
     </p>
-    <pre><code>await this.api.db.execute(
+    <pre><code class="language-typescript">await this.api.db.execute(
   "INSERT INTO users (name) VALUES (?)",
   ["John"]
 );</code></pre>
@@ -152,7 +159,7 @@
     <p>
       Execute operations in a transaction.
     </p>
-    <pre><code>await this.api.db.transaction(async (tx) => {
+    <pre><code class="language-typescript">await this.api.db.transaction(async (tx) => {
   await tx.execute("INSERT INTO users (name) VALUES (?)", ["John"]);
   await tx.execute("INSERT INTO logs (message) VALUES (?)", ["User created"]);
 });</code></pre>
@@ -167,13 +174,13 @@
     <p>
       Make a GET request.
     </p>
-    <pre><code>const data = await this.api.http.get("https://api.example.com/data");</code></pre>
+    <pre><code class="language-typescript">const data = await this.api.http.get("https://api.example.com/data");</code></pre>
 
     <h3>post(url, data, options?)</h3>
     <p>
       Make a POST request.
     </p>
-    <pre><code>const result = await this.api.http.post(
+    <pre><code class="language-typescript">const result = await this.api.http.post(
   "https://api.example.com/endpoint",
   { key: "value" }
 );</code></pre>
@@ -188,13 +195,13 @@
     <p>
       Emit an event.
     </p>
-    <pre><code>this.api.events.emit("user:login", { userId: 123 });</code></pre>
+    <pre><code class="language-typescript">this.api.events.emit("user:login", { userId: 123 });</code></pre>
 
     <h3>on(event, handler)</h3>
     <p>
       Listen to events.
     </p>
-    <pre><code>this.api.events.on("user:login", (data) => {
+    <pre><code class="language-typescript">this.api.events.on("user:login", (data) => {
   console.log("User logged in:", data);
 });</code></pre>
 
@@ -202,7 +209,7 @@
     <p>
       Remove an event listener.
     </p>
-    <pre><code>this.api.events.off("user:login", handler);</code></pre>
+    <pre><code class="language-typescript">this.api.events.off("user:login", handler);</code></pre>
 
     <h2>api.plugins</h2>
 
@@ -214,13 +221,13 @@
     <p>
       Execute a plugin method.
     </p>
-    <pre><code>const result = await this.api.plugins.call("git", "status");</code></pre>
+    <pre><code class="language-typescript">const result = await this.api.plugins.call("git", "status");</code></pre>
 
     <h3>has(pluginName)</h3>
     <p>
       Check if a plugin exists.
     </p>
-    <pre><code>if (this.api.plugins.has("git")) {
+    <pre><code class="language-bash">if (this.api.plugins.has("git")) {
   // Use git plugin
 }</code></pre>
 
@@ -228,7 +235,7 @@
     <p>
       Get all plugin names.
     </p>
-    <pre><code>const plugins = this.api.plugins.list();</code></pre>
+    <pre><code class="language-typescript">const plugins = this.api.plugins.list();</code></pre>
 
     <h2>Direct Plugin APIs</h2>
 
@@ -240,7 +247,7 @@
     <p>
       Git operations (when git plugin is loaded).
     </p>
-    <pre><code>const status = await this.api.git?.status();
+    <pre><code class="language-typescript">const status = await this.api.git?.status();
 await this.api.git?.add(["."]);
 await this.api.git?.commit("Message");</code></pre>
 
@@ -248,32 +255,32 @@ await this.api.git?.commit("Message");</code></pre>
     <p>
       Shell command execution (when shell plugin is loaded).
     </p>
-    <pre><code>const result = await this.api.shell?.exec("ls", ["-la"]);</code></pre>
+    <pre><code class="language-typescript">const result = await this.api.shell?.exec("ls", ["-la"]);</code></pre>
 
     <h3>api.scrape</h3>
     <p>
       Web scraping (when scrape plugin is loaded).
     </p>
-    <pre><code>const result = await this.api.scrape?.scrape_to_markdown("https://example.com");</code></pre>
+    <pre><code class="language-typescript">const result = await this.api.scrape?.scrape_to_markdown("https://example.com");</code></pre>
 
     <h3>api.torrent</h3>
     <p>
       Torrent operations (when torrent plugin is loaded).
     </p>
-    <pre><code>const results = await this.api.torrent?.search("ubuntu");</code></pre>
+    <pre><code class="language-typescript">const results = await this.api.torrent?.search("ubuntu");</code></pre>
 
     <h3>api.realm</h3>
     <p>
       Realm peer-to-peer communication (when realm plugin is loaded).
     </p>
-    <pre><code>await this.api.realm?.init("ws://...", "Leerie");
+    <pre><code class="language-typescript">await this.api.realm?.init("ws://...", "Leerie");
 await this.api.realm?.sendMessage("Tyro", "Hello!");</code></pre>
 
     <h3>api.telegram</h3>
     <p>
       Telegram Bot API operations (when telegram plugin is loaded).
     </p>
-    <pre><code>const botId = await this.api.telegram?.initBot("YOUR_TOKEN");
+    <pre><code class="language-typescript">const botId = await this.api.telegram?.initBot("YOUR_TOKEN");
 await this.api.telegram?.sendMessage(botId, "@channel", "Hello!");
 await this.api.telegram?.onMessage(botId, (update) => {
   console.log("Received:", update.message?.text);
@@ -283,7 +290,7 @@ await this.api.telegram?.onMessage(botId, (update) => {
     <p>
       Discord Bot API operations (when discord plugin is loaded).
     </p>
-    <pre><code>const clientId = await this.api.discord?.initBot("YOUR_TOKEN");
+    <pre><code class="language-typescript">const clientId = await this.api.discord?.initBot("YOUR_TOKEN");
 await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
 this.api.discord?.onMessage(clientId, (message) => {
   console.log(`${message.author.username}: ${message.content}`);
@@ -293,7 +300,7 @@ this.api.discord?.onMessage(clientId, (message) => {
     <p>
       LangChain integration for chains, agents, and graphs (when langchain plugin is loaded).
     </p>
-    <pre><code>// Run a simple chain
+    <pre><code class="language-bash">// Run a simple chain
 const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });
 
 // Run an agent with tools

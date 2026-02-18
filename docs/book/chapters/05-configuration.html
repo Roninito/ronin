@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 5: Configuration & Environment - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -145,7 +152,7 @@
     </p>
 
     <h3>Setting Configuration</h3>
-    <pre><code># Set external agent directory
+    <pre><code class="language-typescript"># Set external agent directory
 ronin config --external-agent-dir ~/my-agents
 
 # Set API keys
@@ -154,10 +161,10 @@ ronin config --gemini-api-key AIxxxxx
 ronin config --brave-api-key BSA-xxxxx</code></pre>
 
     <h3>Viewing Configuration</h3>
-    <pre><code>ronin config --show</code></pre>
+    <pre><code class="language-typescript">ronin config --show</code></pre>
 
     <h3>Removing Configuration</h3>
-    <pre><code># Remove API keys
+    <pre><code class="language-typescript"># Remove API keys
 ronin config --grok-api-key ""
 ronin config --gemini-api-key ""
 
@@ -194,7 +201,7 @@ ronin config --external-agent-dir ""</code></pre>
     </ul>
 
     <h3>Setting External Agent Directory</h3>
-    <pre><code># Using config command (recommended)
+    <pre><code class="language-bash"># Using config command (recommended)
 ronin config --external-agent-dir ~/my-agents
 
 # Or using environment variable
@@ -218,7 +225,7 @@ export RONIN_EXTERNAL_AGENT_DIR=~/my-agents</code></pre>
       Specify a custom database path using the <code>--db-path</code> CLI option:
     </p>
 
-    <pre><code>ronin start --db-path /path/to/custom.db
+    <pre><code class="language-typescript">ronin start --db-path /path/to/custom.db
 ronin run my-agent --db-path /path/to/custom.db</code></pre>
 
     <h2>MCP Configuration</h2>
@@ -232,7 +239,7 @@ ronin run my-agent --db-path /path/to/custom.db</code></pre>
       The Brave Search MCP server requires an API key. Set it using:
     </p>
 
-    <pre><code># Using config command (recommended)
+    <pre><code class="language-bash"># Using config command (recommended)
 ronin config --brave-api-key BSA-xxxxx
 
 # Or using environment variable
@@ -243,7 +250,7 @@ export BRAVE_API_KEY=BSA-xxxxx</code></pre>
     </p>
 
     <h3>Managing MCP Servers</h3>
-    <pre><code># Discover available servers
+    <pre><code class="language-typescript"># Discover available servers
 ronin mcp discover
 
 # Add servers
@@ -267,7 +274,7 @@ ronin mcp remove github</code></pre>
       MCP servers are stored in <code>~/.ronin/config.json</code> under the <code>mcp.servers</code> key:
     </p>
 
-    <pre><code>{
+    <pre><code class="language-json">{
   "braveSearch": {
     "apiKey": "BSA-xxxxxxxxxxxx"
   },
@@ -304,7 +311,7 @@ ronin mcp remove github</code></pre>
       The webhook server runs on port 3000 by default. Change it using:
     </p>
 
-    <pre><code>export WEBHOOK_PORT=3001
+    <pre><code class="language-bash">export WEBHOOK_PORT=3001
 ronin start</code></pre>
 
     <h3>Available Endpoints</h3>
@@ -325,10 +332,10 @@ ronin start</code></pre>
     <h3>Linux (systemd)</h3>
 
     <h4>1. Create Service File</h4>
-    <pre><code>sudo nano /etc/systemd/system/ronin.service</code></pre>
+    <pre><code class="language-typescript">sudo nano /etc/systemd/system/ronin.service</code></pre>
 
     <h4>2. Add Service Configuration</h4>
-    <pre><code>[Unit]
+    <pre><code class="language-json">[Unit]
 Description=Ronin AI Agent System
 After=network.target
 
@@ -351,21 +358,21 @@ StandardError=journal
 WantedBy=multi-user.target</code></pre>
 
     <h4>3. Enable and Start</h4>
-    <pre><code>sudo systemctl daemon-reload
+    <pre><code class="language-typescript">sudo systemctl daemon-reload
 sudo systemctl enable ronin
 sudo systemctl start ronin</code></pre>
 
     <h4>4. Check Status</h4>
-    <pre><code>sudo systemctl status ronin
+    <pre><code class="language-typescript">sudo systemctl status ronin
 sudo journalctl -u ronin -f  # View logs</code></pre>
 
     <h3>macOS (launchd)</h3>
 
     <h4>1. Create Plist File</h4>
-    <pre><code>nano ~/Library/LaunchAgents/com.ronin.agent.plist</code></pre>
+    <pre><code class="language-typescript">nano ~/Library/LaunchAgents/com.ronin.agent.plist</code></pre>
 
     <h4>2. Add Configuration</h4>
-    <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+    <pre><code class="language-typescript">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
 &lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
 &lt;plist version="1.0"&gt;
 &lt;dict&gt;
@@ -403,7 +410,7 @@ sudo journalctl -u ronin -f  # View logs</code></pre>
 &lt;/plist&gt;</code></pre>
 
     <h4>3. Load and Start</h4>
-    <pre><code>launchctl load ~/Library/LaunchAgents/com.ronin.agent.plist
+    <pre><code class="language-typescript">launchctl load ~/Library/LaunchAgents/com.ronin.agent.plist
 launchctl start com.ronin.agent</code></pre>
 
     <h3>Windows (NSSM)</h3>
@@ -414,7 +421,7 @@ launchctl start com.ronin.agent</code></pre>
     </p>
 
     <h4>2. Create Service</h4>
-    <pre><code># Open Command Prompt or PowerShell as Administrator
+    <pre><code class="language-typescript"># Open Command Prompt or PowerShell as Administrator
 nssm install RoninAgent "C:\path\to\bun.exe" "run ronin start"
 
 # Set working directory
@@ -432,7 +439,7 @@ nssm set RoninAgent AppRestartDelay 10000
 nssm set RoninAgent AppExit Default Restart</code></pre>
 
     <h4>3. Start Service</h4>
-    <pre><code>nssm start RoninAgent</code></pre>
+    <pre><code class="language-typescript">nssm start RoninAgent</code></pre>
 
     <div class="callout">
       <div class="callout-title">⚠️ Important</div>
@@ -444,16 +451,16 @@ nssm set RoninAgent AppExit Default Restart</code></pre>
     <h2>Verifying Configuration</h2>
 
     <h3>Check Configuration</h3>
-    <pre><code>ronin config --show</code></pre>
+    <pre><code class="language-typescript">ronin config --show</code></pre>
 
     <h3>Test Agent Execution</h3>
-    <pre><code>ronin run example-agent</code></pre>
+    <pre><code class="language-typescript">ronin run example-agent</code></pre>
 
     <h3>Check Webhook Server</h3>
-    <pre><code>curl http://localhost:3000/health</code></pre>
+    <pre><code class="language-bash">curl http://localhost:3000/health</code></pre>
 
     <h3>List Routes</h3>
-    <pre><code>ronin listRoutes</code></pre>
+    <pre><code class="language-typescript">ronin listRoutes</code></pre>
 
     <h2>Best Practices</h2>
 

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Example Agents - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Example Agents</h1>
+      
+      <p class="lead">
+        Ronin includes several example agents that demonstrate common patterns and best practices 
+        for agent development. These serve as reference implementations and starting points for 
+        building your own agents.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Example agents are fully functional but simple implementations designed to teach 
+        Ronin concepts. They demonstrate scheduling, API usage, memory storage, and event handling.
+      </p>
+
+      <h2>Included Examples</h2>
+
+      <h3>1. Basic Example Agent</h3>
+      <p><strong>File:</strong> <code>agents/example-agent.ts</code></p>
+      
+      <p>A minimal agent that demonstrates:</p>
+      <ul>
+        <li>Agent class structure</li>
+        <li>Cron scheduling</li>
+        <li>AI API calls</li>
+        <li>Memory storage</li>
+        <li>File reading</li>
+      </ul>
+
+      <h4>Code</h4>
+      <pre><code class="language-bash">import { BaseAgent } from "../src/agent/index.js";
+import type { AgentAPI } from "../src/types/index.js";
+
+export default class ExampleAgent extends BaseAgent {
+  // Schedule: Run every day at 7 AM
+  static schedule = "0 7 * * *";
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    console.log("🤖 Example agent executing...");
+    
+    // Use AI API
+    try {
+      const response = await this.api.ai.complete(
+        "Say hello in a friendly way!"
+      );
+      console.log("AI Response:", response);
+      
+      // Store in memory
+      await this.api.memory.store("lastGreeting", response);
+    } catch (error) {
+      console.error("Error calling AI:", error);
+    }
+
+    // Read a file
+    try {
+      const content = await this.api.files.read("./package.json");
+      console.log("Package.json size:", content.length, "bytes");
+    } catch (error) {
+      console.log("Could not read package.json (this is okay)");
+    }
+
+    console.log("✅ Example agent completed");
+  }
+}</code></pre>
+
+      <h4>Key Concepts Demonstrated</h4>
+      <ul>
+        <li><strong>Class Structure</strong>: Extends BaseAgent, implements execute()</li>
+        <li><strong>Scheduling</strong>: Uses static schedule property</li>
+        <li><strong>AI Integration</strong>: Calls this.api.ai.complete()</li>
+        <li><strong>Memory</strong>: Stores/retrieves with this.api.memory</li>
+        <li><strong>Files</strong>: Reads files with this.api.files.read()</li>
+        <li><strong>Error Handling</strong>: Try-catch blocks for resilience</li>
+      </ul>
+
+      <h3>2. Test Agent</h3>
+      <p><strong>File:</strong> <code>agents/test-agent.ts</code></p>
+      
+      <p>A testing utility agent that demonstrates:</p>
+      <ul>
+        <li>Plugin usage patterns</li>
+        <li>Multiple API calls</li>
+        <li>Conditional logic</li>
+        <li>Debug output</li>
+      </ul>
+
+      <h3>3. Tool Calling Agent</h3>
+      <p><strong>File:</strong> <code>agents/tool-calling-agent.ts</code></p>
+      
+      <p>Demonstrates AI function calling:</p>
+      <ul>
+        <li>Defining tool schemas</li>
+        <li>Registering tools with AI</li>
+        <li>Handling tool invocations</li>
+        <li>Multi-step conversations</li>
+      </ul>
+
+      <h2>Agent Patterns</h2>
+
+      <h3>Basic Structure</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class MyAgent extends BaseAgent {
+  // Optional: Schedule using cron
+  static schedule = "0 * * * *"; // Every hour
+  
+  // Optional: Watch files for changes
+  static watch = ["**/*.log"];
+  
+  // Optional: HTTP webhook endpoint
+  static webhook = "/webhook/my-agent";
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    // Main agent logic
+  }
+  
+  // Optional: Handle file changes
+  async onFileChange(path: string, event: "create" | "update" | "delete") {
+    console.log(`File ${event}: ${path}`);
+  }
+  
+  // Optional: Handle webhook requests
+  async onWebhook(payload: unknown) {
+    console.log("Webhook received:", payload);
+  }
+}</code></pre>
+
+      <h3>Using Plugins</h3>
+      <pre><code class="language-typescript">async execute(): Promise<void> {
+  // Check if plugin is available
+  if (this.api.git) {
+    const status = await this.api.git.status();
+    console.log("Git status:", status);
+  }
+  
+  // Use shell commands
+  if (this.api.shell) {
+    const result = await this.api.shell.exec("ls", ["-la"]);
+    console.log(result.stdout);
+  }
+  
+  // Send Telegram messages
+  if (this.api.telegram) {
+    await this.api.telegram.sendMessage(
+      botId, 
+      chatId, 
+      "Hello from agent!"
+    );
+  }
+}</code></pre>
+
+      <h3>Event Handling</h3>
+      <pre><code class="language-typescript">constructor(api: AgentAPI) {
+  super(api);
+  
+  // Listen to events
+  this.api.events.on("custom:event", (data) => {
+    console.log("Event received:", data);
+  });
+}
+
+async execute(): Promise<void> {
+  // Emit events
+  this.api.events.emit("agent:started", {
+    agent: "MyAgent",
+    timestamp: Date.now()
+  });
+}</code></pre>
+
+      <h3>Memory Usage</h3>
+      <pre><code class="language-typescript">async execute(): Promise<void> {
+  // Store data
+  await this.api.memory.store("counter", 42);
+  await this.api.memory.store("user", { name: "Alice", id: 123 });
+  
+  // Retrieve data
+  const counter = await this.api.memory.retrieve("counter");
+  const user = await this.api.memory.retrieve("user");
+  
+  // Search memories
+  const results = await this.api.memory.search("user", 10);
+}</code></pre>
+
+      <h3>Database Access</h3>
+      <pre><code class="language-typescript">async execute(): Promise<void> {
+  // Query data
+  const users = await this.api.db.query(
+    "SELECT * FROM users WHERE active = ?",
+    [true]
+  );
+  
+  // Execute commands
+  await this.api.db.execute(
+    "INSERT INTO logs (message, timestamp) VALUES (?, ?)",
+    ["Agent started", Date.now()]
+  );
+  
+  // Transactions
+  await this.api.db.transaction(async (trx) => {
+    await trx.execute("UPDATE accounts SET balance = balance - ?", [100]);
+    await trx.execute("UPDATE accounts SET balance = balance + ?", [100]);
+  });
+}</code></pre>
+
+      <h2>Running Examples</h2>
+
+      <h3>Enable Example Agent</h3>
+      <p>By default, example agents are disabled. To enable:</p>
+      <ol>
+        <li>Copy the example agent file</li>
+        <li>Rename it (remove "example-" prefix)</li>
+        <li>Or enable in configuration</li>
+      </ol>
+
+      <h3>Manual Execution</h3>
+      <pre><code class="language-typescript"># Run specific agent
+ronin agent run example-agent
+
+# Run all agents
+ronin agent run-all</code></pre>
+
+      <h2>Creating Your Own</h2>
+
+      <h3>Step 1: Create File</h3>
+      <pre><code class="language-typescript">touch agents/my-agent.ts</code></pre>
+
+      <h3>Step 2: Implement</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class MyAgent extends BaseAgent {
+  static schedule = "0 */6 * * *"; // Every 6 hours
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    console.log("My agent is running!");
+    
+    // Your logic here
+    const greeting = await this.api.ai.complete("Say hello!");
+    console.log(greeting);
+  }
+}</code></pre>
+
+      <h3>Step 3: Run</h3>
+      <pre><code class="language-typescript">ronin agent run my-agent</code></pre>
+
+      <h2>Best Practices</h2>
+      <ul>
+        <li><strong>Always check</strong> if plugins are available before using them</li>
+        <li><strong>Handle errors</strong> gracefully with try-catch</li>
+        <li><strong>Use logging</strong> for debugging and monitoring</li>
+        <li><strong>Respect rate limits</strong> when calling external APIs</li>
+        <li><strong>Store state</strong> in memory or database as needed</li>
+        <li><strong>Clean up</strong> resources in onFileChange handlers</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../../AGENTS.md">Writing Agents Guide</a> - Complete agent documentation</li>
+        <li><a href="05-creating-agents.html">Creating Custom Agents</a> - Advanced patterns</li>
+        <li><a href="../plugins/">Plugin Documentation</a> - Available APIs</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

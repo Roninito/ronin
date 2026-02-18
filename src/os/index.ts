@@ -20,6 +20,7 @@ export {
   setEventEmitter,
   setCallbacks,
   emitMenubarEvent,
+  discoverRoutes,
 } from "./menubar.js";
 
-export type { MenubarState, MenubarCallbacks, MenubarEventEmitter } from "./menubar.js";
+export type { MenubarState, MenubarCallbacks, MenubarEventEmitter, MenubarRoute } from "./menubar.js";

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 23: Desktop Mode - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -38,7 +45,7 @@
 
     <h3>Install macOS Integrations</h3>
 
-    <pre><code># Install macOS integrations
+    <pre><code class="language-typescript"># Install macOS integrations
 ronin os install mac</code></pre>
 
     <p>This installs:</p>
@@ -50,7 +57,7 @@ ronin os install mac</code></pre>
 
     <h3>Enable Desktop Mode</h3>
 
-    <pre><code># Enable Desktop Mode
+    <pre><code class="language-typescript"># Enable Desktop Mode
 ronin config set desktop.enabled true
 
 # Start Ronin with Desktop Mode
@@ -79,7 +86,7 @@ ronin start --desktop</code></pre>
 
     <p>All menubar interactions emit events that agents can listen to:</p>
 
-    <pre><code>export default class MyAgent extends BaseAgent {
+    <pre><code class="language-bash">export default class MyAgent extends BaseAgent {
   async onMount(): Promise&lt;void&gt; {
     // Listen for Desktop Mode changes
     this.api.events.on("menubar.desktop.enabled", (data) =&gt; {
@@ -168,7 +175,7 @@ ronin start --desktop</code></pre>
 
     <p>Agents can send native macOS notifications:</p>
 
-    <pre><code>await this.api.notify({
+    <pre><code class="language-typescript">await this.api.notify({
   title: "Task Complete",
   message: "Your analysis is ready",
   subtitle: "MyAgent",
@@ -179,12 +186,12 @@ ronin start --desktop</code></pre>
 
     <p><strong>Important:</strong> Clipboard watching is disabled by default and requires explicit user consent.</p>
 
-    <pre><code># Enable clipboard watching
+    <pre><code class="language-typescript"># Enable clipboard watching
 ronin os clipboard enable</code></pre>
 
     <h2>Configuration</h2>
 
-    <pre><code>{
+    <pre><code class="language-json">{
   "desktop": {
     "enabled": false,
     "features": {
@@ -254,7 +261,7 @@ ronin os clipboard enable</code></pre>
 
     <h2>CLI Commands</h2>
 
-    <pre><code># Install macOS integrations
+    <pre><code class="language-typescript"># Install macOS integrations
 ronin os install mac
 
 # Remove all macOS integrations
@@ -293,14 +300,14 @@ ronin os install mac --bridge-port 8080 --folders "~/Desktop,~/Downloads,~/Docum
     <h2>Troubleshooting</h2>
 
     <h3>Quick Action Not Appearing</h3>
-    <pre><code># Rebuild services cache
+    <pre><code class="language-typescript"># Rebuild services cache
 /System/Library/CoreServices/pbs -flush
 
 # Or reinstall
 ronin os install mac</code></pre>
 
     <h3>LaunchAgent Not Starting</h3>
-    <pre><code># Check LaunchAgent status
+    <pre><code class="language-typescript"># Check LaunchAgent status
 launchctl list | grep ronin
 
 # Load manually

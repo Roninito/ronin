@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inter-Agent Communication - Skills and Duties</title>
+  <link rel="stylesheet" href="../../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Inter-Agent Communication</h1>
+      
+      <p class="lead">
+        Learn how agents communicate with each other through events, shared state, and coordinated
+        workflows. Enable your agents to work together to accomplish complex tasks.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Ronin provides multiple mechanisms for agents to communicate and coordinate:
+      </p>
+      <ul>
+        <li><strong>Event System</strong>: Publish-subscribe pattern for loose coupling</li>
+        <li><strong>Shared Memory</strong>: Store and retrieve data across agents</li>
+        <li><strong>Database</strong>: Persistent shared state with transactions</li>
+        <li><strong>Targeted Messages</strong>: Direct communication with specific agents</li>
+      </ul>
+
+      <h2>Key Concepts</h2>
+      <ul>
+        <li><strong>Event Emitting</strong>: Broadcast events to all listening agents</li>
+        <li><strong>Event Listening</strong>: Subscribe to events and react to them</li>
+        <li><strong>Event Naming</strong>: Conventions for clear event identification</li>
+        <li><strong>Cross-Agent Coordination</strong>: Coordinate complex multi-agent workflows</li>
+        <li><strong>Shared State</strong>: Use memory and database for shared data</li>
+      </ul>
+
+      <h2>Event System Overview</h2>
+      <p>
+        The event system uses a publish-subscribe pattern where agents can emit events
+        and listen for events from other agents. This enables loose coupling and reactive
+        architectures.
+      </p>
+
+      <h3>Event Flow</h3>
+      <pre><code class="language-typescript">┌─────────────┐     emit("event", data)      ┌─────────────┐
+│  Agent A    │ ───────────────────────────&gt; │  Event Bus  │
+└─────────────┘                               └──────┬──────┘
+                                                     │
+                         ┌───────────────────────────┼───────────┐
+                         │                           │           │
+                         ▼                           ▼           ▼
+                   ┌─────────────┐             ┌─────────────┐  ┌─────────────┐
+                   │  Agent B    │             │  Agent C    │  │  Agent D    │
+                   │  (listener) │             │  (listener) │  │  (listener) │
+                   └─────────────┘             └─────────────┘  └─────────────┘</code></pre>
+
+      <h3>Event API Methods</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>emit(event, data, source)</code></td>
+            <td>Broadcast an event to all listeners</td>
+          </tr>
+          <tr>
+            <td><code>on(event, handler)</code></td>
+            <td>Subscribe to an event</td>
+          </tr>
+          <tr>
+            <td><code>off(event, handler)</code></td>
+            <td>Unsubscribe from an event</td>
+          </tr>
+          <tr>
+            <td><code>beam(target, event, data)</code></td>
+            <td>Send targeted message to specific agent</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Emitting Events from Agents</h2>
+
+      <h3>Basic Event Emission</h3>
+      <pre><code class="language-bash">export default class DataProcessorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Process data
+    const results = await this.processData();
+
+    // Emit event with results
+    this.api.events?.emit("data:processed", {
+      timestamp: Date.now(),
+      recordCount: results.length,
+      summary: this.summarize(results),
+    }, "data-processor"); // Source is required
+
+    console.log(`Emitted data:processed event with ${results.length} records`);
+  }
+
+  private async processData(): Promise&lt;any[]&gt; {
+    // Processing logic
+    return [];
+  }
+
+  private summarize(results: any[]): object {
+    return {
+      total: results.length,
+      successful: results.filter(r =&gt; r.success).length,
+      failed: results.filter(r =&gt; !r.success).length,
+    };
+  }
+}</code></pre>
+
+      <h3>Emitting Multiple Events</h3>
+      <pre><code class="language-bash">export default class PipelineAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Phase 1: Extract
+    this.api.events?.emit("pipeline:phase", { phase: "extract", status: "started" }, "pipeline");
+    const rawData = await this.extractData();
+    this.api.events?.emit("pipeline:phase", { 
+      phase: "extract", 
+      status: "completed",
+      recordCount: rawData.length 
+    }, "pipeline");
+
+    // Phase 2: Transform
+    this.api.events?.emit("pipeline:phase", { phase: "transform", status: "started" }, "pipeline");
+    const transformedData = await this.transformData(rawData);
+    this.api.events?.emit("pipeline:phase", { 
+      phase: "transform", 
+      status: "completed",
+      recordCount: transformedData.length 
+    }, "pipeline");
+
+    // Phase 3: Load
+    this.api.events?.emit("pipeline:phase", { phase: "load", status: "started" }, "pipeline");
+    await this.loadData(transformedData);
+    this.api.events?.emit("pipeline:phase", { 
+      phase: "load", 
+      status: "completed" 
+    }, "pipeline");
+
+    // Final completion event
+    this.api.events?.emit("pipeline:complete", {
+      timestamp: Date.now(),
+      totalRecords: transformedData.length,
+    }, "pipeline");
+  }
+
+  private async extractData(): Promise&lt;any[]&gt; { return []; }
+  private async transformData(data: any[]): Promise&lt;any[]&gt; { return data; }
+  private async loadData(data: any[]): Promise&lt;void&gt; {}
+}</code></pre>
+
+      <h3>Error Events</h3>
+      <pre><code class="language-bash">export default class ResilientAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    try {
+      await this.doWork();
+      
+      this.api.events?.emit("agent:success", {
+        agent: "resilient-agent",
+        timestamp: Date.now(),
+      }, "resilient-agent");
+      
+    } catch (error) {
+      // Emit error event for monitoring/handling
+      this.api.events?.emit("agent:error", {
+        agent: "resilient-agent",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: Date.now(),
+        stack: error instanceof Error ? error.stack : undefined,
+      }, "resilient-agent");
+
+      // Re-throw if needed
+      throw error;
+    }
+  }
+
+  private async doWork(): Promise&lt;void&gt; {
+    // Work that might fail
+  }
+}</code></pre>
+
+      <h2>Listening to Events</h2>
+
+      <h3>Basic Event Listener</h3>
+      <pre><code class="language-bash">export default class EventConsumerAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    console.log("📡 Setting up event listeners...");
+
+    // Listen to specific events
+    this.api.events?.on("data:processed", this.onDataProcessed.bind(this));
+    this.api.events?.on("pipeline:complete", this.onPipelineComplete.bind(this));
+    this.api.events?.on("agent:error", this.onAgentError.bind(this));
+
+    console.log("✅ Event listeners registered");
+  }
+
+  private async onDataProcessed(data: {
+    timestamp: number;
+    recordCount: number;
+    summary: object;
+  }): Promise&lt;void&gt; {
+    console.log(`📊 Data processed: ${data.recordCount} records`);
+    
+    // Store for later use
+    await this.api.memory?.store("lastDataProcess", data);
+    
+    // Trigger follow-up action
+    if (data.recordCount &gt; 1000) {
+      await this.handleLargeDataset(data);
+    }
+  }
+
+  private async onPipelineComplete(data: {
+    timestamp: number;
+    totalRecords: number;
+  }): Promise&lt;void&gt; {
+    console.log(`✅ Pipeline completed with ${data.totalRecords} records`);
+    
+    // Generate report
+    await this.generateReport(data);
+  }
+
+  private async onAgentError(data: {
+    agent: string;
+    error: string;
+    timestamp: number;
+  }): Promise&lt;void&gt; {
+    console.error(`❌ Error in ${data.agent}: ${data.error}`);
+    
+    // Log to database
+    await this.api.db?.execute(
+      "INSERT INTO error_log (agent, error, timestamp) VALUES (?, ?, ?)",
+      [data.agent, data.error, data.timestamp]
+    );
+  }
+
+  private async handleLargeDataset(data: any): Promise&lt;void&gt; {
+    // Handle large dataset
+  }
+
+  private async generateReport(data: any): Promise&lt;void&gt; {
+    // Generate report
+  }
+}</code></pre>
+
+      <h3>Dynamic Event Subscription</h3>
+      <pre><code class="language-bash">export default class DynamicListenerAgent extends BaseAgent {
+  private activeListeners: Map&lt;string, (data: any) =&gt; void&gt; = new Map();
+
+  async execute(): Promise&lt;void&gt; {
+    // Subscribe to events dynamically based on configuration
+    const config = await this.loadConfig();
+    
+    for (const eventName of config.eventsToListen) {
+      this.subscribeToEvent(eventName);
+    }
+  }
+
+  subscribeToEvent(eventName: string): void {
+    if (this.activeListeners.has(eventName)) {
+      console.log(`Already subscribed to ${eventName}`);
+      return;
+    }
+
+    const handler = (data: any) =&gt; {
+      this.handleEvent(eventName, data);
+    };
+
+    this.api.events?.on(eventName, handler);
+    this.activeListeners.set(eventName, handler);
+    
+    console.log(`✅ Subscribed to ${eventName}`);
+  }
+
+  unsubscribeFromEvent(eventName: string): void {
+    const handler = this.activeListeners.get(eventName);
+    if (handler) {
+      this.api.events?.off(eventName, handler);
+      this.activeListeners.delete(eventName);
+      console.log(`❌ Unsubscribed from ${eventName}`);
+    }
+  }
+
+  private handleEvent(eventName: string, data: any): void {
+    console.log(`Received ${eventName}:`, data);
+    // Handle the event
+  }
+
+  private async loadConfig(): Promise&lt;{ eventsToListen: string[] }&gt; {
+    return { eventsToListen: ["event1", "event2"] };
+  }
+}</code></pre>
+
+      <h2>Event Naming Conventions</h2>
+      <p>
+        Use consistent naming conventions to make events clear and organized:
+      </p>
+
+      <h3>Recommended Format</h3>
+      <pre><code class="language-typescript">// Format: domain:action or domain:subdomain:action
+
+// Data events
+data:received
+data:processed
+data:validated
+data:stored
+
+// Pipeline events
+pipeline:started
+pipeline:phase:extract
+pipeline:phase:transform
+pipeline:phase:load
+pipeline:completed
+pipeline:failed
+
+// Agent lifecycle events
+agent:started
+agent:completed
+agent:error
+agent:retry
+
+// User events
+user:created
+user:updated
+user:deleted
+user:login
+user:logout
+
+// System events
+system:startup
+system:shutdown
+system:config:updated
+system:maintenance:started</code></pre>
+
+      <h3>Best Practices</h3>
+      <ul>
+        <li>Use lowercase with colons for namespacing</li>
+        <li>Keep event names descriptive but concise</li>
+        <li>Use past tense for completed actions (processed, completed)</li>
+        <li>Use present tense for ongoing actions (processing, validating)</li>
+        <li>Include the source agent name in the source parameter</li>
+        <li>Document event payloads for other developers</li>
+      </ul>
+
+      <h2>Cross-Agent Coordination</h2>
+
+      <h3>Workflow Orchestration</h3>
+      <pre><code class="language-bash">export default class WorkflowOrchestratorAgent extends BaseAgent {
+  private workflowState: Map&lt;string, { status: string; completedSteps: string[] }&gt; = new Map();
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("🎼 Workflow orchestrator started");
+
+    // Listen to step completion events
+    this.api.events?.on("workflow:step:complete", this.onStepComplete.bind(this));
+    this.api.events?.on("workflow:step:failed", this.onStepFailed.bind(this));
+
+    // Start initial workflow
+    await this.startWorkflow("daily-report", [
+      "data-collection",
+      "data-processing",
+      "report-generation",
+      "report-delivery",
+    ]);
+  }
+
+  async startWorkflow(workflowId: string, steps: string[]): Promise&lt;void&gt; {
+    console.log(`🚀 Starting workflow ${workflowId} with ${steps.length} steps`);
+
+    this.workflowState.set(workflowId, {
+      status: "running",
+      completedSteps: [],
+    });
+
+    // Emit event to trigger first step
+    this.api.events?.emit("workflow:step:start", {
+      workflowId,
+      step: steps[0],
+      stepIndex: 0,
+      totalSteps: steps.length,
+      steps, // Pass all steps for context
+    }, "orchestrator");
+  }
+
+  private async onStepComplete(data: {
+    workflowId: string;
+    step: string;
+    stepIndex: number;
+    totalSteps: number;
+    steps: string[];
+    result: any;
+  }): Promise&lt;void&gt; {
+    console.log(`✅ Step ${data.step} completed for workflow ${data.workflowId}`);
+
+    const state = this.workflowState.get(data.workflowId);
+    if (!state) return;
+
+    state.completedSteps.push(data.step);
+
+    // Check if workflow is complete
+    if (state.completedSteps.length === data.totalSteps) {
+      state.status = "completed";
+      this.api.events?.emit("workflow:complete", {
+        workflowId: data.workflowId,
+        completedSteps: state.completedSteps,
+        timestamp: Date.now(),
+      }, "orchestrator");
+      return;
+    }
+
+    // Trigger next step
+    const nextStepIndex = data.stepIndex + 1;
+    const nextStep = data.steps[nextStepIndex];
+
+    console.log(`➡️ Triggering next step: ${nextStep}`);
+    this.api.events?.emit("workflow:step:start", {
+      workflowId: data.workflowId,
+      step: nextStep,
+      stepIndex: nextStepIndex,
+      totalSteps: data.totalSteps,
+      steps: data.steps,
+      previousResult: data.result,
+    }, "orchestrator");
+  }
+
+  private async onStepFailed(data: {
+    workflowId: string;
+    step: string;
+    error: string;
+  }): Promise&lt;void&gt; {
+    console.error(`❌ Step ${data.step} failed in workflow ${data.workflowId}: ${data.error}`);
+
+    const state = this.workflowState.get(data.workflowId);
+    if (state) {
+      state.status = "failed";
+    }
+
+    this.api.events?.emit("workflow:failed", {
+      workflowId: data.workflowId,
+      failedStep: data.step,
+      error: data.error,
+      timestamp: Date.now(),
+    }, "orchestrator");
+  }
+}</code></pre>
+
+      <h3>Worker Pool Pattern</h3>
+      <pre><code class="language-bash">export default class WorkerPoolAgent extends BaseAgent {
+  private taskQueue: Array&lt;{ id: string; type: string; payload: any }&gt; = [];
+  private activeWorkers = 0;
+  private readonly MAX_WORKERS = 5;
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("🏭 Worker pool started");
+
+    // Listen for new tasks
+    this.api.events?.on("worker:task", this.onNewTask.bind(this));
+    this.api.events?.on("worker:completed", this.onTaskCompleted.bind(this));
+
+    // Process any queued tasks
+    this.processQueue();
+  }
+
+  private async onNewTask(task: {
+    id: string;
+    type: string;
+    payload: any;
+  }): Promise&lt;void&gt; {
+    console.log(`📥 New task received: ${task.id} (${task.type})`);
+
+    // Add to queue
+    this.taskQueue.push(task);
+
+    // Try to process immediately
+    this.processQueue();
+  }
+
+  private async onTaskCompleted(data: {
+    taskId: string;
+    result: any;
+    error?: string;
+  }): Promise&lt;void&gt; {
+    console.log(`✅ Task completed: ${data.taskId}`);
+    
+    this.activeWorkers--;
+
+    // Emit completion event
+    this.api.events?.emit("pool:task:completed", data, "worker-pool");
+
+    // Process next task in queue
+    this.processQueue();
+  }
+
+  private async processQueue(): Promise&lt;void&gt; {
+    while (this.activeWorkers &lt; this.MAX_WORKERS && this.taskQueue.length &gt; 0) {
+      const task = this.taskQueue.shift();
+      if (!task) continue;
+
+      this.activeWorkers++;
+
+      // Emit event to assign task to a worker
+      this.api.events?.emit("worker:assign", {
+        taskId: task.id,
+        type: task.type,
+        payload: task.payload,
+      }, "worker-pool");
+
+      console.log(`👷 Assigned task ${task.id} to worker (${this.activeWorkers}/${this.MAX_WORKERS} active)`);
+    }
+
+    if (this.taskQueue.length &gt; 0) {
+      console.log(`⏳ ${this.taskQueue.length} tasks waiting in queue`);
+    }
+  }
+
+  getStatus(): { activeWorkers: number; queueSize: number } {
+    return {
+      activeWorkers: this.activeWorkers,
+      queueSize: this.taskQueue.length,
+    };
+  }
+}</code></pre>
+
+      <h2>Shared State via Memory/Database</h2>
+
+      <h3>Memory-Based Coordination</h3>
+      <pre><code class="language-bash">export default class MemoryCoordinatorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Check if another agent is working on the same task
+    const lockKey = "task:process-users";
+    const lock = await this.api.memory?.retrieve&lt;{
+      agent: string;
+      timestamp: number;
+    }&gt;(lockKey);
+
+    if (lock) {
+      const lockAge = Date.now() - lock.timestamp;
+      if (lockAge &lt; 300000) { // 5 minutes
+        console.log(`🔒 Task locked by ${lock.agent}, skipping...`);
+        return;
+      }
+    }
+
+    // Acquire lock
+    await this.api.memory?.store(lockKey, {
+      agent: "memory-coordinator",
+      timestamp: Date.now(),
+    });
+
+    try {
+      // Load shared progress
+      const progress = await this.api.memory?.retrieve&lt;{
+        processedIds: string[];
+        totalCount: number;
+      }&gt;("
+      ");
+
+      const processedIds = progress?.processedIds || [];
+      const totalCount = progress?.totalCount || 0;
+
+      console.log(`📊 Progress: ${processedIds.length}/${totalCount} processed`);
+
+      // Get next batch to process
+      const batch = await this.getNextBatch(processedIds, 100);
+
+      if (batch.length === 0) {
+        console.log("✅ All items processed");
+        return;
+      }
+
+      // Process batch
+      const newProcessedIds = await this.processBatch(batch);
+
+      // Update shared progress
+      await this.api.memory?.store("userProgress", {
+        processedIds: [...processedIds, ...newProcessedIds],
+        totalCount: await this.getTotalCount(),
+      });
+
+      console.log(`✅ Processed ${newProcessedIds.length} items`);
+
+    } finally {
+      // Release lock
+      await this.api.memory?.store(lockKey, null);
+    }
+  }
+
+  private async getNextBatch(excludeIds: string[], limit: number): Promise&lt;any[]&gt; {
+    return [];
+  }
+
+  private async processBatch(batch: any[]): Promise&lt;string[]&gt; {
+    return batch.map(item =&gt; item.id);
+  }
+
+  private async getTotalCount(): Promise&lt;number&gt; {
+    return 0;
+  }
+}</code></pre>
+
+      <h3>Database-Based Coordination</h3>
+      <pre><code class="language-bash">export default class DatabaseCoordinatorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    await this.api.db?.transaction(async (trx) =&gt; {
+      // Try to acquire lock
+      const lockResult = await trx.execute(
+        `INSERT INTO agent_locks (task_name, agent_name, acquired_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT (task_name) DO UPDATE SET
+           agent_name = excluded.agent_name,
+           acquired_at = excluded.acquired_at
+         WHERE agent_locks.acquired_at &lt; ?`,
+        ["sync-data", "db-coordinator", Date.now(), Date.now() - 300000]
+      );
+
+      if (lockResult.changes === 0) {
+        console.log("🔒 Could not acquire lock, another agent is working");
+        return;
+      }
+
+      // Get shared state
+      const state = await trx.query&lt;{
+        last_sync: number;
+        processed_count: number;
+      }&gt;("
+      ");
+
+      const lastSync = state[0]?.last_sync || 0;
+      const processedCount = state[0]?.processed_count || 0;
+
+      // Fetch and process new data
+      const newData = await this.fetchDataSince(lastSync);
+      const processed = await this.processData(newData);
+
+      // Update state
+      await trx.execute(
+        `INSERT INTO sync_state (id, last_sync, processed_count, updated_at)
+         VALUES (1, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET
+           last_sync = excluded.last_sync,
+           processed_count = excluded.processed_count,
+           updated_at = excluded.updated_at`,
+        [Date.now(), processedCount + processed.length, Date.now()]
+      );
+
+      // Release lock
+      await trx.execute(
+        "DELETE FROM agent_locks WHERE task_name = ?",
+        ["sync-data"]
+      );
+
+      console.log(`✅ Processed ${processed.length} records`);
+    });
+  }
+
+  private async fetchDataSince(timestamp: number): Promise&lt;any[]&gt; {
+    return [];
+  }
+
+  private async processData(data: any[]): Promise&lt;any[]&gt; {
+    return data;
+  }
+}</code></pre>
+
+      <h2>Example: Coordinating Multiple Agents</h2>
+      <p>
+        Here's a complete example showing how multiple agents work together to process
+        a data pipeline:
+      </p>
+
+      <h3>Agent 1: Data Collector</h3>
+      <pre><code class="language-bash">export default class DataCollectorAgent extends BaseAgent {
+  static schedule = "0 */1 * * *"; // Every hour
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("📥 Collecting data...");
+
+    // Collect data from various sources
+    const data = await this.collectFromSources();
+
+    // Store raw data
+    await this.api.memory?.store("rawData", data);
+
+    // Emit event for next agent
+    this.api.events?.emit("data:collected", {
+      timestamp: Date.now(),
+      sourceCount: data.length,
+      totalRecords: data.reduce((sum, s) =&gt; sum + s.records.length, 0),
+    }, "data-collector");
+
+    console.log(`✅ Collected ${data.length} sources`);
+  }
+
+  private async collectFromSources(): Promise&lt;any[]&gt; {
+    // Implementation
+    return [];
+  }
+}</code></pre>
+
+      <h3>Agent 2: Data Processor</h3>
+      <pre><code class="language-bash">export default class DataProcessorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Listen for collection events
+    this.api.events?.on("data:collected", this.onDataCollected.bind(this));
+    console.log("🔄 Data processor waiting for events...");
+  }
+
+  private async onDataCollected(event: {
+    timestamp: number;
+    sourceCount: number;
+    totalRecords: number;
+  }): Promise&lt;void&gt; {
+    console.log(`🔄 Processing ${event.totalRecords} records...`);
+
+    // Load raw data
+    const rawData = await this.api.memory?.retrieve&lt;any[]&gt;("
+    ");
+
+    if (!rawData) {
+      console.error("❌ No raw data found");
+      return;
+    }
+
+    // Process data
+    const processedData = await this.processRawData(rawData);
+
+    // Store processed data
+    await this.api.memory?.store("processedData", processedData);
+
+    // Emit completion event
+    this.api.events?.emit("data:processed", {
+      timestamp: Date.now(),
+      inputCount: event.totalRecords,
+      outputCount: processedData.length,
+      quality: this.calculateQuality(processedData),
+    }, "data-processor");
+
+    console.log(`✅ Processed ${processedData.length} records`);
+  }
+
+  private async processRawData(data: any[]): Promise&lt;any[]&gt; {
+    return data.filter(record =&gt; this.isValid(record));
+  }
+
+  private isValid(record: any): boolean {
+    return record != null;
+  }
+
+  private calculateQuality(data: any[]): number {
+    return 100; // Placeholder
+  }
+}</code></pre>
+
+      <h3>Agent 3: Report Generator</h3>
+      <pre><code class="language-bash">export default class ReportGeneratorAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Listen for processing events
+    this.api.events?.on("data:processed", this.onDataProcessed.bind(this));
+    console.log("📊 Report generator waiting for events...");
+  }
+
+  private async onDataProcessed(event: {
+    timestamp: number;
+    inputCount: number;
+    outputCount: number;
+    quality: number;
+  }): Promise&lt;void&gt; {
+    console.log("📊 Generating report...");
+
+    // Load processed data
+    const data = await this.api.memory?.retrieve&lt;any[]&gt;("
+    ");
+
+    if (!data) {
+      console.error("❌ No processed data found");
+      return;
+    }
+
+    // Generate report
+    const report = await this.generateReport(data, event);
+
+    // Store report
+    const reportPath = `reports/report-${Date.now()}.html`;
+    await this.api.files?.write(reportPath, report);
+
+    // Emit completion
+    this.api.events?.emit("report:generated", {
+      timestamp: Date.now(),
+      path: reportPath,
+      metrics: event,
+    }, "report-generator");
+
+    console.log(`✅ Report generated: ${reportPath}`);
+  }
+
+  private async generateReport(data: any[], metrics: any): Promise&lt;string&gt; {
+    return `
+      &lt;h1&gt;Data Processing Report&lt;/h1&gt;
+      &lt;p&gt;Generated: ${new Date().toISOString()}&lt;/p&gt;
+      &lt;p&gt;Records Processed: ${metrics.outputCount}/${metrics.inputCount}&lt;/p&gt;
+      &lt;p&gt;Quality Score: ${metrics.quality}%&lt;/p&gt;
+    `;
+  }
+}</code></pre>
+
+      <h3>Agent 4: Notification Agent</h3>
+      <pre><code class="language-bash">export default class NotificationAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Listen for report generation
+    this.api.events?.on("report:generated", this.onReportGenerated.bind(this));
+    
+    // Listen for errors from any agent
+    this.api.events?.on("agent:error", this.onAgentError.bind(this));
+    
+    console.log("🔔 Notification agent ready");
+  }
+
+  private async onReportGenerated(event: {
+    timestamp: number;
+    path: string;
+    metrics: any;
+  }): Promise&lt;void&gt; {
+    // Send notification
+    await this.sendNotification({
+      type: "success",
+      message: `Report generated: ${event.path}`,
+      metrics: event.metrics,
+    });
+  }
+
+  private async onAgentError(event: {
+    agent: string;
+    error: string;
+  }): Promise&lt;void&gt; {
+    // Send alert
+    await this.sendNotification({
+      type: "error",
+      message: `Error in ${event.agent}: ${event.error}`,
+    });
+  }
+
+  private async sendNotification(notification: {
+    type: string;
+    message: string;
+    metrics?: any;
+  }): Promise&lt;void&gt; {
+    console.log(`🔔 ${notification.type.toUpperCase()}: ${notification.message}`);
+    // Could send email, Slack, etc.
+  }
+}</code></pre>
+
+      <h2>Best Practices</h2>
+      <ul>
+        <li><strong>Event Payloads</strong>: Keep payloads small and serializable</li>
+        <li><strong>Error Handling</strong>: Always handle event processing errors gracefully</li>
+        <li><strong>Idempotency</strong>: Make event handlers idempotent when possible</li>
+        <li><strong>Ordering</strong>: Don't rely on event order; include timestamps if needed</li>
+        <li><strong>Cleanup</strong>: Unsubscribe from events when no longer needed</li>
+        <li><strong>Documentation</strong>: Document event schemas and expected payloads</li>
+        <li><strong>Source Attribution</strong>: Always include source agent name in emit</li>
+        <li><strong>Locking</strong>: Use locks for operations that shouldn't run concurrently</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="05-creating-agents.html">Creating Agents</a> - Basic agent development</li>
+        <li><a href="06-agent-patterns.html">Agent Patterns</a> - Common agent patterns</li>
+        <li><a href="../../../AGENTS.md">Agent Development Guide</a> - Complete agent documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

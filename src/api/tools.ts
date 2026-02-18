@@ -30,11 +30,11 @@ let mcpManager: MCPClientManager | null = null;
  */
 export async function initializeTools(api: AgentAPI): Promise<void> {
   if (toolRouter) {
-    console.log("[ToolsAPI] Already initialized");
+    if (!process.env.RONIN_QUIET) console.log("[ToolsAPI] Already initialized");
     return;
   }
 
-  console.log("[ToolsAPI] Initializing tool system...");
+  if (!process.env.RONIN_QUIET) console.log("[ToolsAPI] Initializing tool system...");
 
   // Create router
   toolRouter = new ToolRouter(api);
@@ -51,7 +51,7 @@ export async function initializeTools(api: AgentAPI): Promise<void> {
   mcpManager = new MCPClientManager(toolRouter, api);
   await mcpManager.connectEnabledServers(mcpConfig);
 
-  console.log("[ToolsAPI] Tool system initialized");
+  if (!process.env.RONIN_QUIET) console.log("[ToolsAPI] Tool system initialized");
 }
 
 /**

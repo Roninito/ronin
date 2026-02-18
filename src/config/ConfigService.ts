@@ -36,7 +36,9 @@ export class ConfigService {
     // Layer 1: Override with environment variables (highest priority)
     this.loadFromEnv();
     
-    logger.info("Configuration loaded");
+    if (!process.env.RONIN_QUIET) {
+      logger.info("Configuration loaded");
+    }
   }
 
   /**

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 2: Installation & Setup - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -26,19 +33,19 @@
 
     <div class="code-example">
       <div class="code-example-title">Installation via curl (macOS, Linux, WSL)</div>
-      <pre><code>curl -fsSL https://bun.sh/install | bash</code></pre>
+      <pre><code class="language-bash">curl -fsSL https://bun.sh/install | bash</code></pre>
     </div>
 
     <div class="code-example">
       <div class="code-example-title">Installation via npm</div>
-      <pre><code>npm install -g bun</code></pre>
+      <pre><code class="language-bash">npm install -g bun</code></pre>
     </div>
 
     <p>
       Verify your installation:
     </p>
 
-    <pre><code>bun --version</code></pre>
+    <pre><code class="language-typescript">bun --version</code></pre>
 
     <h3>Ollama (Optional but Recommended)</h3>
     <p>
@@ -49,13 +56,13 @@
       Install Ollama from <a href="https://ollama.ai">ollama.ai</a>, then pull a model:
     </p>
 
-    <pre><code>ollama pull qwen3:1.7b</code></pre>
+    <pre><code class="language-typescript">ollama pull qwen3:1.7b</code></pre>
 
     <p>
       Start Ollama (if not running as a service):
     </p>
 
-    <pre><code>ollama serve</code></pre>
+    <pre><code class="language-typescript">ollama serve</code></pre>
 
     <h3>Node.js (Optional)</h3>
     <p>
@@ -69,7 +76,7 @@
       Clone the Ronin repository to your local machine:
     </p>
 
-    <pre><code>git clone https://github.com/your-org/ronin.git
+    <pre><code class="language-bash">git clone https://github.com/your-org/ronin.git
 cd ronin</code></pre>
 
     <h3>Install Dependencies</h3>
@@ -77,14 +84,14 @@ cd ronin</code></pre>
       Install all required dependencies using Bun:
     </p>
 
-    <pre><code>bun install</code></pre>
+    <pre><code class="language-typescript">bun install</code></pre>
 
     <h3>Verify Installation</h3>
     <p>
       Verify that Ronin is installed correctly:
     </p>
 
-    <pre><code>bun run ronin --help</code></pre>
+    <pre><code class="language-typescript">bun run ronin --help</code></pre>
 
     <p>
       You should see a list of available commands. If you see an error, check that:
@@ -103,7 +110,7 @@ cd ronin</code></pre>
       Ronin includes an interactive setup script for configuring API keys and GPU settings:
     </p>
 
-    <pre><code>./setup-env.sh</code></pre>
+    <pre><code class="language-typescript">./setup-env.sh</code></pre>
 
     <p>
       This script will prompt you for:
@@ -122,7 +129,7 @@ cd ronin</code></pre>
     </p>
 
     <h4>Using the Config Command</h4>
-    <pre><code># Set API keys
+    <pre><code class="language-typescript"># Set API keys
 bun run ronin config --grok-api-key "your-grok-key"
 bun run ronin config --gemini-api-key "your-gemini-key"
 
@@ -134,7 +141,7 @@ bun run ronin config --show</code></pre>
       Add to your shell profile (<code>~/.bashrc</code>, <code>~/.zshrc</code>, etc.):
     </p>
 
-    <pre><code>export GROK_API_KEY="your-grok-api-key"
+    <pre><code class="language-bash">export GROK_API_KEY="your-grok-api-key"
 export GEMINI_API_KEY="your-gemini-api-key"
 export OLLAMA_URL="http://localhost:11434"
 export OLLAMA_MODEL="qwen3:1.7b"
@@ -171,7 +178,7 @@ export WEBHOOK_PORT="3000"</code></pre>
       First, see what agents are available:
     </p>
 
-    <pre><code>bun run ronin list</code></pre>
+    <pre><code class="language-typescript">bun run ronin list</code></pre>
 
     <p>
       This will show all agents in the default directories (<code>./agents</code> and <code>~/.ronin/agents</code>).
@@ -182,7 +189,7 @@ export WEBHOOK_PORT="3000"</code></pre>
       Run the example agent to verify everything works:
     </p>
 
-    <pre><code>bun run ronin run example-agent</code></pre>
+    <pre><code class="language-typescript">bun run ronin run example-agent</code></pre>
 
     <p>
       You should see output indicating the agent executed successfully. If you see errors, check:
@@ -199,7 +206,7 @@ export WEBHOOK_PORT="3000"</code></pre>
       Start the Ronin system to schedule and run all agents:
     </p>
 
-    <pre><code>bun run ronin start</code></pre>
+    <pre><code class="language-typescript">bun run ronin start</code></pre>
 
     <p>
       This command will:
@@ -224,7 +231,7 @@ export WEBHOOK_PORT="3000"</code></pre>
       After installation, your Ronin directory should look like this:
     </p>
 
-    <pre><code>ronin/
+    <pre><code class="language-bash">ronin/
 ├── src/
 │   ├── agent/          # Agent base class, loader, and registry
 │   ├── memory/         # SQLite-based memory system
@@ -251,7 +258,7 @@ export WEBHOOK_PORT="3000"</code></pre>
     <p>
       <strong>Solution:</strong> Ensure Bun is installed and in your PATH. Add Bun to your PATH:
     </p>
-    <pre><code>export PATH="$HOME/.bun/bin:$PATH"</code></pre>
+    <pre><code class="language-bash">export PATH="$HOME/.bun/bin:$PATH"</code></pre>
 
     <h3>Ollama Connection Error</h3>
     <p>
@@ -273,7 +280,7 @@ export WEBHOOK_PORT="3000"</code></pre>
     <p>
       <strong>Solution:</strong> Pull the model:
     </p>
-    <pre><code>ollama pull qwen3:1.7b</code></pre>
+    <pre><code class="language-typescript">ollama pull qwen3:1.7b</code></pre>
 
     <h3>Permission Errors</h3>
     <p>
@@ -282,7 +289,7 @@ export WEBHOOK_PORT="3000"</code></pre>
     <p>
       <strong>Solution:</strong> Ensure you have write permissions in the Ronin directory and <code>~/.ronin</code> directory:
     </p>
-    <pre><code>mkdir -p ~/.ronin/agents ~/.ronin/data
+    <pre><code class="language-typescript">mkdir -p ~/.ronin/agents ~/.ronin/data
 chmod -R 755 ~/.ronin</code></pre>
 
     <h3>Port Already in Use</h3>
@@ -292,7 +299,7 @@ chmod -R 755 ~/.ronin</code></pre>
     <p>
       <strong>Solution:</strong> Change the webhook port:
     </p>
-    <pre><code>export WEBHOOK_PORT=3001
+    <pre><code class="language-bash">export WEBHOOK_PORT=3001
 bun run ronin start</code></pre>
 
     <h2>Next Steps</h2>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Git Plugin</h1>
+      
+      <p class="lead">
+        The Git plugin provides basic Git operations for Ronin agents, enabling version control 
+        automation, repository management, and code collaboration workflows.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Git plugin wraps standard Git commands in a JavaScript API, making it easy for agents 
+        to initialize repositories, clone projects, manage branches, commit changes, and sync with 
+        remote repositories. It automatically initializes repositories when needed and provides 
+        structured responses for all operations.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Repository Management</strong>: Initialize new repos or work with existing ones</li>
+        <li><strong>Clone Operations</strong>: Clone repositories from remote URLs</li>
+        <li><strong>Status Tracking</strong>: Check repository status and modified files</li>
+        <li><strong>Staging & Committing</strong>: Stage files and create commits with messages</li>
+        <li><strong>Branch Operations</strong>: Create, list, and checkout branches</li>
+        <li><strong>Remote Sync</strong>: Push and pull from remote repositories</li>
+        <li><strong>Auto-Initialization</strong>: Automatically initializes Git repos when needed</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Repository Operations</h3>
+      
+      <h4><code>init()</code></h4>
+      <p>Initialize a new Git repository in the current directory.</p>
+      <pre><code class="language-typescript">const result = await this.api.git?.init();
+console.log(result.message); // "Git repository initialized"</code></pre>
+
+      <h4><code>clone(url, dir?)</code></h4>
+      <p>Clone a repository from a remote URL. Optionally specify a directory name.</p>
+      <pre><code class="language-typescript">// Clone to default directory (repo name)
+await this.api.git?.clone("https://github.com/user/repo.git");
+
+// Clone to specific directory
+await this.api.git?.clone("https://github.com/user/repo.git", "my-project");</code></pre>
+
+      <h3>Status & Staging</h3>
+
+      <h4><code>status()</code></h4>
+      <p>Get the current repository status. Auto-initializes repo if needed.</p>
+      <pre><code class="language-typescript">const status = await this.api.git?.status();
+console.log(status.clean); // true if no changes
+console.log(status.files); // Array of {status, file} objects</code></pre>
+
+      <h4><code>add(files)</code></h4>
+      <p>Stage files for commit. Accepts a single file path or array of paths.</p>
+      <pre><code class="language-typescript">// Stage single file
+await this.api.git?.add("README.md");
+
+// Stage multiple files
+await this.api.git?.add(["file1.ts", "file2.ts", "file3.ts"]);
+
+// Stage all changes
+await this.api.git?.add(".");</code></pre>
+
+      <h3>Commits</h3>
+
+      <h4><code>commit(message, files?)</code></h4>
+      <p>Create a commit with the given message. Optionally specify files to commit.</p>
+      <pre><code class="language-typescript">// Commit all staged changes
+await this.api.git?.commit("Initial commit");
+
+// Commit specific files
+await this.api.git?.commit("Fix typo", ["README.md"]);</code></pre>
+
+      <h3>Branch Operations</h3>
+
+      <h4><code>branch(name?)</code></h4>
+      <p>List branches or create a new branch if name is provided.</p>
+      <pre><code class="language-typescript">// List all branches
+const branches = await this.api.git?.branch();
+console.log(branches.branches); // ["main", "feature-branch"]
+
+// Create new branch
+await this.api.git?.branch("feature/new-feature");</code></pre>
+
+      <h4><code>checkout(branch)</code></h4>
+      <p>Switch to a different branch.</p>
+      <pre><code class="language-typescript">await this.api.git?.checkout("feature/new-feature");
+await this.api.git?.checkout("main");</code></pre>
+
+      <h3>Remote Operations</h3>
+
+      <h4><code>push(remote?, branch?)</code></h4>
+      <p>Push commits to a remote repository.</p>
+      <pre><code class="language-typescript">// Push current branch to default remote
+await this.api.git?.push();
+
+// Push specific branch to specific remote
+await this.api.git?.push("origin", "main");</code></pre>
+
+      <h4><code>pull(remote?, branch?)</code></h4>
+      <p>Pull changes from a remote repository.</p>
+      <pre><code class="language-typescript">// Pull from default remote
+await this.api.git?.pull();
+
+// Pull specific branch
+await this.api.git?.pull("origin", "main");</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-typescript">// Initialize and setup a new repository
+await this.api.git?.init();
+await this.api.git?.add(".");
+await this.api.git?.commit("Initial commit");
+
+// Clone and work with existing repository
+await this.api.git?.clone("https://github.com/user/project.git");
+process.chdir("project");
+
+// Check status and make changes
+const status = await this.api.git?.status();
+if (!status.clean) {
+  console.log("Modified files:", status.files);
+  await this.api.git?.add(".");
+  await this.api.git?.commit("Update files");
+  await this.api.git?.push();
+}
+
+// Create and switch to feature branch
+await this.api.git?.branch("feature/awesome");
+await this.api.git?.checkout("feature/awesome");
+// ... make changes ...
+await this.api.git?.add(".");
+await this.api.git?.commit("Add awesome feature");
+await this.api.git?.push("origin", "feature/awesome");</code></pre>
+
+      <h2>Error Handling</h2>
+      <p>
+        All methods throw descriptive errors on failure. Common errors include:
+      </p>
+      <ul>
+        <li><code>Git clone failed</code> - Invalid URL or network issues</li>
+        <li><code>Git commit failed</code> - Nothing to commit or merge conflicts</li>
+        <li><code>Git push failed</code> - Authentication or permission issues</li>
+        <li><code>Git checkout failed</code> - Branch doesn't exist</li>
+      </ul>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Ensure SSH keys or credentials are configured for private repos</li>
+        <li>Be careful with automatic push operations</li>
+        <li>Review changes before committing in production environments</li>
+        <li>Use environment variables for sensitive repository URLs</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="02-shell-plugin.html">Shell Plugin</a> - For advanced Git operations</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 9: Agent Basics - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -39,7 +46,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Basic Agent Structure</div>
-      <pre><code>import { BaseAgent } from "@ronin/agent/index.js";
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
 
 export default class MyAgent extends BaseAgent {
@@ -109,7 +116,7 @@ export default class MyAgent extends BaseAgent {
 
     <div class="code-example">
       <div class="code-example-title">Scheduled Agent</div>
-      <pre><code>export default class ScheduledAgent extends BaseAgent {
+      <pre><code class="language-bash">export default class ScheduledAgent extends BaseAgent {
   static schedule = "0 */6 * * *"; // Every 6 hours
 
   async execute(): Promise&lt;void&gt; {
@@ -125,7 +132,7 @@ export default class MyAgent extends BaseAgent {
 
     <div class="code-example">
       <div class="code-example-title">File Watching Agent</div>
-      <pre><code>export default class FileWatcherAgent extends BaseAgent {
+      <pre><code class="language-bash">export default class FileWatcherAgent extends BaseAgent {
   static watch = ["**/*.log", "data/**/*.json"];
 
   async execute(): Promise&lt;void&gt; {
@@ -145,7 +152,7 @@ export default class MyAgent extends BaseAgent {
 
     <div class="code-example">
       <div class="code-example-title">Webhook Agent</div>
-      <pre><code>export default class WebhookAgent extends BaseAgent {
+      <pre><code class="language-bash">export default class WebhookAgent extends BaseAgent {
   static webhook = "/webhook/my-agent";
 
   async execute(): Promise&lt;void&gt; {
@@ -178,7 +185,7 @@ export default class MyAgent extends BaseAgent {
 
     <div class="code-example">
       <div class="code-example-title">Using the API</div>
-      <pre><code>async execute(): Promise&lt;void&gt; {
+      <pre><code class="language-typescript">async execute(): Promise&lt;void&gt; {
   // AI operations
   const response = await this.api.ai.complete("Hello!");
   
@@ -212,7 +219,7 @@ export default class MyAgent extends BaseAgent {
 
     <div class="code-example">
       <div class="code-example-title">Error Handling</div>
-      <pre><code>async execute(): Promise&lt;void&gt; {
+      <pre><code class="language-typescript">async execute(): Promise&lt;void&gt; {
   try {
     const response = await this.api.ai.complete("Hello!");
     await this.api.memory.store("lastResponse", response);

@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Patterns - Skills and Duties</title>
+  <link rel="stylesheet" href="../../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Agent Patterns</h1>
+      
+      <p class="lead">
+        Learn common patterns for building effective agents. These patterns cover polling, reactive
+        behavior, webhooks, event-driven architecture, state management, error handling, and testing.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Well-designed agents follow established patterns that make them reliable, maintainable, and scalable.
+        This guide covers patterns for different agent types and common concerns like state management,
+        error handling, and testing.
+      </p>
+
+      <h2>Common Agent Patterns</h2>
+      <ul>
+        <li><strong>Polling Agents</strong>: Scheduled execution for periodic tasks</li>
+        <li><strong>Reactive Agents</strong>: File watchers that respond to changes</li>
+        <li><strong>Webhook Agents</strong>: HTTP endpoints for external triggers</li>
+        <li><strong>Event-Driven Agents</strong>: Listen and respond to system events</li>
+        <li><strong>State Management</strong>: Persisting data across executions</li>
+        <li><strong>Error Handling</strong>: Retry logic and graceful failures</li>
+        <li><strong>Logging & Monitoring</strong>: Observability best practices</li>
+      </ul>
+
+      <h2>Polling Agents (Scheduled Execution)</h2>
+      <p>
+        Polling agents run on a schedule to perform periodic tasks like checking for updates,
+        generating reports, or syncing data.
+      </p>
+
+      <h3>Basic Polling Agent</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+
+export default class HealthCheckAgent extends BaseAgent {
+  // Run every 5 minutes
+  static schedule = "*/5 * * * *";
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("🏥 Running health check...");
+    
+    try {
+      // Check system health
+      const health = await this.checkHealth();
+      
+      // Store result
+      await this.api.memory?.store("healthStatus", {
+        timestamp: Date.now(),
+        status: health.ok ? "healthy" : "unhealthy",
+        details: health,
+      });
+      
+      // Alert if unhealthy
+      if (!health.ok) {
+        await this.sendAlert(health);
+      }
+      
+    } catch (error) {
+      console.error("Health check failed:", error);
+    }
+  }
+
+  private async checkHealth(): Promise&lt;{ ok: boolean; [key: string]: unknown }&gt; {
+    // Implementation
+    return { ok: true };
+  }
+
+  private async sendAlert(health: any): Promise&lt;void&gt; {
+    this.api.events?.emit("health:alert", health, "health-check");
+  }
+}</code></pre>
+
+      <h3>Smart Polling with State</h3>
+      <pre><code class="language-bash">export default class SmartPollerAgent extends BaseAgent {
+  static schedule = "0 */6 * * *"; // Every 6 hours
+
+  async execute(): Promise&lt;void&gt; {
+    // Load last run state
+    const lastRun = await this.api.memory?.retrieve&lt;{
+      timestamp: number;
+      lastItemId: string;
+    }&gt;("
+    ");
+    
+    const since = lastRun?.timestamp || Date.now() - 86400000; // 24 hours ago
+    
+    // Only fetch new items since last run
+    const newItems = await this.fetchItems(since);
+    
+    if (newItems.length &gt; 0) {
+      // Process new items
+      for (const item of newItems) {
+        await this.processItem(item);
+      }
+      
+      // Update state with latest item
+      await this.api.memory?.store("lastRun", {
+        timestamp: Date.now(),
+        lastItemId: newItems[newItems.length - 1].id,
+      });
+      
+      console.log(`Processed ${newItems.length} new items`);
+    } else {
+      console.log("No new items to process");
+    }
+  }
+
+  private async fetchItems(since: number): Promise&lt;any[]&gt; {
+    // Fetch only items newer than 'since'
+    return [];
+  }
+
+  private async processItem(item: any): Promise&lt;void&gt; {
+    // Process individual item
+  }
+}</code></pre>
+
+      <h2>Reactive Agents (File Watchers)</h2>
+      <p>
+        Reactive agents respond to file system changes, making them perfect for build automation,
+        log analysis, or real-time data processing.
+      </p>
+
+      <h3>File Processing Agent</h3>
+      <pre><code class="language-bash">export default class FileProcessorAgent extends BaseAgent {
+  static watch = ["uploads/*.{csv,json,xml}"];
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("📁 Watching for new files...");
+  }
+
+  async onFileChange(
+    path: string,
+    event: "create" | "update" | "delete"
+  ): Promise&lt;void&gt; {
+    if (event === "delete") {
+      await this.handleFileDelete(path);
+      return;
+    }
+
+    console.log(`📝 Processing ${event}: ${path}`);
+
+    try {
+      // Determine file type
+      const extension = path.split(".").pop()?.toLowerCase();
+
+      // Parse file based on type
+      let data: any;
+      switch (extension) {
+        case "csv":
+          data = await this.parseCSV(path);
+          break;
+        case "json":
+          data = await this.parseJSON(path);
+          break;
+        case "xml":
+          data = await this.parseXML(path);
+          break;
+        default:
+          console.log(`Unsupported file type: ${extension}`);
+          return;
+      }
+
+      // Validate data
+      if (!this.validateData(data)) {
+        await this.moveToFailed(path, "Validation failed");
+        return;
+      }
+
+      // Process data
+      await this.processData(data);
+
+      // Move to processed folder
+      await this.moveToProcessed(path);
+
+      // Emit event
+      this.api.events?.emit("file:processed", { path, records: data.length }, "file-processor");
+
+    } catch (error) {
+      console.error(`Failed to process ${path}:`, error);
+      await this.moveToFailed(path, error instanceof Error ? error.message : "Unknown error");
+    }
+  }
+
+  private async parseCSV(path: string): Promise&lt;any[]&gt; {
+    const content = await this.api.files?.read(path);
+    // Parse CSV logic
+    return [];
+  }
+
+  private async parseJSON(path: string): Promise&lt;any&gt; {
+    const content = await this.api.files?.read(path);
+    return JSON.parse(content || "{}");
+  }
+
+  private async parseXML(path: string): Promise&lt;any&gt; {
+    // XML parsing logic
+    return {};
+  }
+
+  private validateData(data: any): boolean {
+    // Validation logic
+    return true;
+  }
+
+  private async processData(data: any): Promise&lt;void&gt; {
+    // Processing logic
+  }
+
+  private async moveToProcessed(path: string): Promise&lt;void&gt; {
+    // Move file to processed directory
+  }
+
+  private async moveToFailed(path: string, reason: string): Promise&lt;void&gt; {
+    // Move file to failed directory
+    await this.api.memory?.store(`failed:${path}`, { path, reason, timestamp: Date.now() });
+  }
+
+  private async handleFileDelete(path: string): Promise&lt;void&gt; {
+    console.log(`🗑️ File deleted: ${path}`);
+  }
+}</code></pre>
+
+      <h2>Webhook Agents (HTTP Endpoints)</h2>
+      <p>
+        Webhook agents expose HTTP endpoints that external services can call to trigger actions.
+      </p>
+
+      <h3>GitHub Webhook Handler</h3>
+      <pre><code class="language-bash">export default class GitHubWebhookAgent extends BaseAgent {
+  static webhook = "/webhook/github";
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("🔗 GitHub webhook handler ready");
+  }
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    try {
+      // Validate payload
+      if (!this.isValidGitHubPayload(payload)) {
+        console.error("Invalid GitHub payload");
+        return;
+      }
+
+      const event = payload as {
+        action: string;
+        repository?: { full_name: string };
+        pull_request?: { title: string; user: { login: string } };
+        ref?: string;
+      };
+
+      console.log(`📦 GitHub event: ${event.action}`);
+
+      // Handle different event types
+      switch (event.action) {
+        case "opened":
+          if (event.pull_request) {
+            await this.handlePullRequestOpened(event);
+          }
+          break;
+        case "synchronize":
+          await this.handlePullRequestUpdate(event);
+          break;
+        case "push":
+          await this.handlePush(event);
+          break;
+        default:
+          console.log(`Unhandled action: ${event.action}`);
+      }
+
+    } catch (error) {
+      console.error("Webhook processing failed:", error);
+    }
+  }
+
+  private isValidGitHubPayload(payload: unknown): boolean {
+    return (
+      typeof payload === "object" &&
+      payload !== null &&
+      "action" in payload &&
+      typeof (payload as any).action === "string"
+    );
+  }
+
+  private async handlePullRequestOpened(event: any): Promise&lt;void&gt; {
+    const { title, user } = event.pull_request;
+    const repo = event.repository?.full_name;
+
+    console.log(`📝 New PR in ${repo}: ${title} by ${user.login}`);
+
+    // Run automated checks
+    await this.runChecks(event);
+
+    // Post comment
+    await this.postComment(event, "👋 Thanks for the PR! Running automated checks...");
+  }
+
+  private async handlePullRequestUpdate(event: any): Promise&lt;void&gt; {
+    console.log("🔄 PR updated, re-running checks...");
+    await this.runChecks(event);
+  }
+
+  private async handlePush(event: any): Promise&lt;void&gt; {
+    const branch = event.ref?.replace("refs/heads/", "");
+    console.log(`⬆️ Push to ${branch}`);
+
+    // Trigger CI pipeline
+    if (branch === "main") {
+      await this.triggerDeployment(event);
+    }
+  }
+
+  private async runChecks(event: any): Promise&lt;void&gt; {
+    // Run automated checks
+  }
+
+  private async postComment(event: any, message: string): Promise&lt;void&gt; {
+    // Post comment on PR
+  }
+
+  private async triggerDeployment(event: any): Promise&lt;void&gt; {
+    // Trigger deployment pipeline
+    this.api.events?.emit("deploy:trigger", event, "github-webhook");
+  }
+}</code></pre>
+
+      <h2>Event-Driven Agents</h2>
+      <p>
+        Event-driven agents listen to system events and respond to them, enabling reactive
+        and decoupled architectures.
+      </p>
+
+      <h3>Event Listener Agent</h3>
+      <pre><code class="language-bash">export default class EventDrivenAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    console.log("📡 Setting up event listeners...");
+
+    // Listen to various events
+    this.api.events?.on("file:processed", this.onFileProcessed.bind(this));
+    this.api.events?.on("user:signup", this.onUserSignup.bind(this));
+    this.api.events?.on("order:created", this.onOrderCreated.bind(this));
+    this.api.events?.on("system:alert", this.onSystemAlert.bind(this));
+
+    // Listen to specific agent events
+    this.api.events?.on("log-analyzer:complete", this.onLogAnalysisComplete.bind(this));
+
+    console.log("✅ Event listeners registered");
+  }
+
+  private async onFileProcessed(data: { path: string; records: number }): Promise&lt;void&gt; {
+    console.log(`📄 File processed: ${data.path} (${data.records} records)`);
+
+    // Update dashboard
+    await this.api.memory?.store("lastProcessedFile", data);
+
+    // Notify if large file
+    if (data.records &gt; 10000) {
+      this.api.events?.emit("notification:large-file", data, "event-driven");
+    }
+  }
+
+  private async onUserSignup(data: { userId: string; email: string }): Promise&lt;void&gt; {
+    console.log(`👤 New user: ${data.email}`);
+
+    // Send welcome email
+    await this.sendWelcomeEmail(data);
+
+    // Update user count
+    const count = await this.api.memory?.retrieve&lt;number&gt;("
+    ") || 0;
+    await this.api.memory?.store("userCount", count + 1);
+  }
+
+  private async onOrderCreated(data: { orderId: string; amount: number }): Promise&lt;void&gt; {
+    console.log(`🛒 New order: ${data.orderId} ($${data.amount})`);
+
+    // Process order
+    await this.processOrder(data);
+
+    // Update metrics
+    await this.updateRevenueMetrics(data.amount);
+  }
+
+  private async onSystemAlert(data: { level: string; message: string }): Promise&lt;void&gt; {
+    console.log(`🚨 System alert [${data.level}]: ${data.message}`);
+
+    // Log to database
+    await this.api.db?.execute(
+      "INSERT INTO alerts (level, message, timestamp) VALUES (?, ?, ?)",
+      [data.level, data.message, Date.now()]
+    );
+
+    // Send notification for critical alerts
+    if (data.level === "critical") {
+      await this.sendUrgentNotification(data);
+    }
+  }
+
+  private async onLogAnalysisComplete(data: any): Promise&lt;void&gt; {
+    console.log("📊 Log analysis completed");
+    // React to log analysis completion
+  }
+
+  private async sendWelcomeEmail(data: any): Promise&lt;void&gt; {
+    // Send email logic
+  }
+
+  private async processOrder(data: any): Promise&lt;void&gt; {
+    // Process order logic
+  }
+
+  private async updateRevenueMetrics(amount: number): Promise&lt;void&gt; {
+    // Update metrics logic
+  }
+
+  private async sendUrgentNotification(data: any): Promise&lt;void&gt; {
+    // Send urgent notification logic
+  }
+}</code></pre>
+
+      <h2>State Management</h2>
+      <p>
+        Agents need to persist state across executions. Use memory, database, or files
+        depending on the requirements.
+      </p>
+
+      <h3>Memory-Based State</h3>
+      <pre><code class="language-bash">export default class MemoryStateAgent extends BaseAgent {
+  static schedule = "0 */1 * * *"; // Every hour
+
+  async execute(): Promise&lt;void&gt; {
+    // Load previous state
+    const state = await this.api.memory?.retrieve&lt;{
+      processedCount: number;
+      lastProcessedId: string;
+      errors: string[];
+    }&gt;("
+    ");
+
+    const processedCount = state?.processedCount || 0;
+    const lastProcessedId = state?.lastProcessedId || "";
+    const errors = state?.errors || [];
+
+    // Do work
+    const newItems = await this.getItemsSince(lastProcessedId);
+    let newCount = 0;
+
+    for (const item of newItems) {
+      try {
+        await this.processItem(item);
+        newCount++;
+      } catch (error) {
+        errors.push(`${item.id}: ${error instanceof Error ? error.message : "Unknown"}`);
+      }
+    }
+
+    // Save state
+    await this.api.memory?.store("agentState", {
+      processedCount: processedCount + newCount,
+      lastProcessedId: newItems[newItems.length - 1]?.id || lastProcessedId,
+      errors: errors.slice(-100), // Keep last 100 errors
+    });
+
+    console.log(`Processed ${newCount} items (total: ${processedCount + newCount})`);
+  }
+
+  private async getItemsSince(lastId: string): Promise&lt;any[]&gt; {
+    return [];
+  }
+
+  private async processItem(item: any): Promise&lt;void&gt; {
+    // Process item
+  }
+}</code></pre>
+
+      <h3>Database-Based State</h3>
+      <pre><code class="language-bash">export default class DatabaseStateAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // Get or create agent state record
+    let state = await this.api.db?.query&lt;{
+      id: number;
+      processed_count: number;
+      last_run: number;
+      config: string;
+    }&gt;("
+    ");
+
+    if (!state || state.length === 0) {
+      await this.api.db?.execute(
+        "INSERT INTO agent_state (agent_name, processed_count, last_run, config) VALUES (?, ?, ?, ?)",
+        ["database-state-agent", 0, 0, "{}"]
+      );
+      state = [{ id: 1, processed_count: 0, last_run: 0, config: "{}" }];
+    }
+
+    const currentState = state[0];
+    const config = JSON.parse(currentState.config);
+
+    // Do work
+    const results = await this.performWork(config);
+
+    // Update state
+    await this.api.db?.execute(
+      "UPDATE agent_state SET processed_count = ?, last_run = ?, config = ? WHERE agent_name = ?",
+      [
+        currentState.processed_count + results.count,
+        Date.now(),
+        JSON.stringify(results.newConfig),
+        "database-state-agent",
+      ]
+    );
+  }
+
+  private async performWork(config: any): Promise&lt;{ count: number; newConfig: any }&gt; {
+    return { count: 0, newConfig: config };
+  }
+}</code></pre>
+
+      <h2>Error Handling and Retry Logic</h2>
+
+      <h3>Retry with Exponential Backoff</h3>
+      <pre><code class="language-bash">export default class ResilientAgent extends BaseAgent {
+  private readonly MAX_RETRIES = 3;
+  private readonly BASE_DELAY = 1000; // 1 second
+
+  async execute(): Promise&lt;void&gt; {
+    const result = await this.withRetry(() =&gt; this.doWork());
+
+    if (result.success) {
+      console.log("✅ Work completed successfully");
+    } else {
+      console.error("❌ Work failed after retries:", result.error);
+      await this.handleFailure(result.error);
+    }
+  }
+
+  private async withRetry&lt;T&gt;(
+    fn: () =&gt; Promise&lt;T&gt;
+  ): Promise&lt;{ success: true; data: T } | { success: false; error: Error }&gt; {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt &lt;= this.MAX_RETRIES; attempt++) {
+      try {
+        const data = await fn();
+        return { success: true, data };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (attempt &lt; this.MAX_RETRIES) {
+          const delay = this.BASE_DELAY * Math.pow(2, attempt - 1);
+          console.log(`⚠️ Attempt ${attempt} failed, retrying in ${delay}ms...`);
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    return { success: false, error: lastError! };
+  }
+
+  private async doWork(): Promise&lt;any&gt; {
+    // Work that might fail
+    return {};
+  }
+
+  private async handleFailure(error: Error): Promise&lt;void&gt; {
+    // Log failure
+    await this.api.db?.execute(
+      "INSERT INTO failures (agent, error, timestamp) VALUES (?, ?, ?)",
+      ["resilient-agent", error.message, Date.now()]
+    );
+
+    // Emit failure event
+    this.api.events?.emit("agent:failure", { agent: "resilient-agent", error: error.message }, "resilient");
+  }
+
+  private sleep(ms: number): Promise&lt;void&gt; {
+    return new Promise(resolve =&gt; setTimeout(resolve, ms));
+  }
+}</code></pre>
+
+      <h3>Circuit Breaker Pattern</h3>
+      <pre><code class="language-bash">export default class CircuitBreakerAgent extends BaseAgent {
+  private circuitState: "closed" | "open" | "half-open" = "closed";
+  private failureCount = 0;
+  private readonly FAILURE_THRESHOLD = 5;
+  private readonly RESET_TIMEOUT = 60000; // 1 minute
+  private lastFailureTime = 0;
+
+  async execute(): Promise&lt;void&gt; {
+    // Check circuit state
+    if (this.circuitState === "open") {
+      if (Date.now() - this.lastFailureTime &gt; this.RESET_TIMEOUT) {
+        console.log("🔄 Circuit entering half-open state");
+        this.circuitState = "half-open";
+      } else {
+        console.log("⛔ Circuit is open, skipping execution");
+        return;
+      }
+    }
+
+    try {
+      await this.doWork();
+
+      // Success - reset circuit
+      if (this.circuitState === "half-open") {
+        console.log("✅ Circuit closed");
+        this.circuitState = "closed";
+      }
+      this.failureCount = 0;
+
+    } catch (error) {
+      await this.handleFailure(error);
+    }
+  }
+
+  private async handleFailure(error: unknown): Promise&lt;void&gt; {
+    this.failureCount++;
+    this.lastFailureTime = Date.now();
+
+    if (this.failureCount &gt;= this.FAILURE_THRESHOLD) {
+      console.log("🔴 Circuit opened due to failures");
+      this.circuitState = "open";
+    }
+
+    console.error(`Failure ${this.failureCount}/${this.FAILURE_THRESHOLD}:`, error);
+  }
+
+  private async doWork(): Promise&lt;void&gt; {
+    // Work that might fail
+  }
+}</code></pre>
+
+      <h2>Logging and Monitoring</h2>
+
+      <h3>Structured Logging</h3>
+      <pre><code class="language-bash">export default class MonitoredAgent extends BaseAgent {
+  private startTime = 0;
+
+  async execute(): Promise&lt;void&gt; {
+    this.startTime = Date.now();
+    
+    this.log("info", "Agent execution started");
+
+    try {
+      await this.doWork();
+      
+      const duration = Date.now() - this.startTime;
+      this.log("info", "Agent execution completed", { duration });
+      
+      // Store metrics
+      await this.recordMetrics({ success: true, duration });
+      
+    } catch (error) {
+      const duration = Date.now() - this.startTime;
+      this.log("error", "Agent execution failed", { 
+        error: error instanceof Error ? error.message : "Unknown",
+        duration 
+      });
+      
+      await this.recordMetrics({ success: false, duration, error });
+      throw error;
+    }
+  }
+
+  private log(
+    level: "info" | "warn" | "error",
+    message: string,
+    meta?: Record&lt;string, unknown&gt;
+  ): void {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      agent: "monitored-agent",
+      level,
+      message,
+      ...meta,
+    };
+
+    console.log(JSON.stringify(entry));
+  }
+
+  private async recordMetrics(metrics: {
+    success: boolean;
+    duration: number;
+    error?: unknown;
+  }): Promise&lt;void&gt; {
+    await this.api.db?.execute(
+      "INSERT INTO agent_metrics (agent, success, duration, timestamp) VALUES (?, ?, ?, ?)",
+      ["monitored-agent", metrics.success, metrics.duration, Date.now()]
+    );
+  }
+
+  private async doWork(): Promise&lt;void&gt; {
+    // Work logic
+  }
+}</code></pre>
+
+      <h2>Testing Agents</h2>
+
+      <h3>Unit Testing Example</h3>
+      <pre><code class="language-typescript">// agents/__tests__/my-agent.test.ts
+import { describe, it, expect, beforeEach } from "bun:test";
+import MyAgent from "../my-agent";
+
+// Mock API
+const mockApi = {
+  memory: {
+    store: async () =&gt; {},
+    retrieve: async () =&gt; null,
+  },
+  db: {
+    query: async () =&gt; [],
+    execute: async () =&gt; {},
+  },
+  events: {
+    emit: () =&gt; {},
+    on: () =&gt; {},
+  },
+};
+
+describe("MyAgent", () =&gt; {
+  let agent: MyAgent;
+
+  beforeEach(() =&gt; {
+    agent = new MyAgent(mockApi as any);
+  });
+
+  describe("execute", () =&gt; {
+    it("should complete without errors", async () =&gt; {
+      await expect(agent.execute()).resolves.not.toThrow();
+    });
+
+    it("should store results in memory", async () =&gt; {
+      const storeSpy = spyOn(mockApi.memory, "store");
+      
+      await agent.execute();
+      
+      expect(storeSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe("onFileChange", () =&gt; {
+    it("should handle file creation", async () =&gt; {
+      const emitSpy = spyOn(mockApi.events, "emit");
+      
+      await agent.onFileChange?.("test.txt", "create");
+      
+      expect(emitSpy).toHaveBeenCalledWith(
+        expect.stringContaining("file"),
+        expect.any(Object),
+        expect.any(String)
+      );
+    });
+  });
+
+  describe("onWebhook", () =&gt; {
+    it("should process valid webhook payload", async () =&gt; {
+      const payload = { action: "test", data: "value" };
+      
+      await expect(agent.onWebhook?.(payload)).resolves.not.toThrow();
+    });
+  });
+});</code></pre>
+
+      <h3>Integration Testing</h3>
+      <pre><code class="language-typescript">// agents/__tests__/integration.test.ts
+import { describe, it, expect } from "bun:test";
+import { AgentLoader } from "@ronin/agent/AgentLoader";
+
+describe("Agent Integration", () =&gt; {
+  it("should load and execute agent", async () =&gt; {
+    const loader = new AgentLoader();
+    const agents = await loader.loadFromDirectory("./agents");
+    
+    expect(agents.length).toBeGreaterThan(0);
+    
+    // Test specific agent
+    const myAgent = agents.find(a =&gt; a.name === "my-agent");
+    expect(myAgent).toBeDefined();
+    
+    // Execute agent
+    await expect(myAgent!.instance.execute()).resolves.not.toThrow();
+  });
+});</code></pre>
+
+      <h2>Best Practices Summary</h2>
+      <ul>
+        <li><strong>Polling</strong>: Use state to avoid duplicate work, implement backoff</li>
+        <li><strong>Reactive</strong>: Validate files, handle all event types, move files after processing</li>
+        <li><strong>Webhooks</strong>: Validate payloads, handle errors gracefully, return quickly</li>
+        <li><strong>Events</strong>: Use typed event data, unsubscribe when not needed</li>
+        <li><strong>State</strong>: Choose appropriate storage (memory/db/file) based on requirements</li>
+        <li><strong>Errors</strong>: Implement retry logic, use circuit breakers, log failures</li>
+        <li><strong>Logging</strong>: Use structured logging, record metrics, monitor performance</li>
+        <li><strong>Testing</strong>: Mock the API, test each lifecycle method, use integration tests</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="05-creating-agents.html">Creating Agents</a> - Basic agent development</li>
+        <li><a href="07-inter-agent-communication.html">Inter-Agent Communication</a> - Events and coordination</li>
+        <li><a href="../../../AGENTS.md">Agent Development Guide</a> - Complete agent documentation</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 8: Using Realm - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -22,7 +29,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Initialize Realm</div>
-      <pre><code>await api.realm?.init("ws://realm.example.com:3033", "Leerie", {
+      <pre><code class="language-typescript">await api.realm?.init("ws://realm.example.com:3033", "Leerie", {
   token: "optional-auth-token",
   localWsPort: 4000,
   heartbeatInterval: 30000,
@@ -45,7 +52,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Disconnect</div>
-      <pre><code>await api.realm?.disconnect();</code></pre>
+      <pre><code class="language-typescript">await api.realm?.disconnect();</code></pre>
     </div>
 
     <h3>realm.sendMessage(to, content)</h3>
@@ -55,7 +62,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Send Message</div>
-      <pre><code>await api.realm?.sendMessage("Tyro", "Hello!");</code></pre>
+      <pre><code class="language-typescript">await api.realm?.sendMessage("Tyro", "Hello!");</code></pre>
     </div>
 
     <h4>Parameters</h4>
@@ -71,7 +78,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Beam to Single Peer</div>
-      <pre><code>await api.realm?.beam("Tyro", "fishing-data", {
+      <pre><code class="language-typescript">await api.realm?.beam("Tyro", "fishing-data", {
   location: "NY Harbor",
   species: "Bass"
 });</code></pre>
@@ -79,7 +86,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Beam to Multiple Peers</div>
-      <pre><code>await api.realm?.beam(["Tyro", "Alice"], "group-update", {
+      <pre><code class="language-typescript">await api.realm?.beam(["Tyro", "Alice"], "group-update", {
   message: "Hello all"
 });</code></pre>
     </div>
@@ -98,7 +105,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Query Peer</div>
-      <pre><code>const status = await api.realm?.query("Tyro", "get-status", {}, 5000);</code></pre>
+      <pre><code class="language-typescript">const status = await api.realm?.query("Tyro", "get-status", {}, 5000);</code></pre>
     </div>
 
     <h4>Parameters</h4>
@@ -116,7 +123,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Get Peer Status</div>
-      <pre><code>const status = await api.realm?.getPeerStatus("Tyro");
+      <pre><code class="language-typescript">const status = await api.realm?.getPeerStatus("Tyro");
 // { online: true, wsAddress: "ws://192.168.1.100:4000" }</code></pre>
     </div>
 
@@ -127,7 +134,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Send Media</div>
-      <pre><code>// Requires browser MediaStream API
+      <pre><code class="language-typescript">// Requires browser MediaStream API
 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 await api.realm?.sendMedia("Tyro", stream);</code></pre>
     </div>
@@ -145,7 +152,7 @@ await api.realm?.sendMedia("Tyro", stream);</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Handle Incoming Messages</div>
-      <pre><code>api.events.on("realm:message", (data: { from: string; content: string }) => {
+      <pre><code class="language-typescript">api.events.on("realm:message", (data: { from: string; content: string }) => {
   console.log(`Message from ${data.from}: ${data.content}`);
 });</code></pre>
     </div>
@@ -157,7 +164,7 @@ await api.realm?.sendMedia("Tyro", stream);</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Handle Incoming Beams</div>
-      <pre><code>api.events.on("realm:beam:fishing-data", (payload) => {
+      <pre><code class="language-typescript">api.events.on("realm:beam:fishing-data", (payload) => {
   console.log("Fishing data:", payload);
 });</code></pre>
     </div>
@@ -169,7 +176,7 @@ await api.realm?.sendMedia("Tyro", stream);</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Handle Incoming Queries</div>
-      <pre><code>api.events.on("realm:query:get-status", async (data) => {
+      <pre><code class="language-typescript">api.events.on("realm:query:get-status", async (data) => {
   const status = await getMyStatus();
   // Response is handled automatically by Realm
   return status;
@@ -210,7 +217,7 @@ await api.realm?.sendMedia("Tyro", stream);</code></pre>
     <h3>Usage</h3>
     <div class="code-example">
       <div class="code-example-title">Voice Messaging Agent</div>
-      <pre><code>// In your agent
+      <pre><code class="language-typescript">// In your agent
 const agent = new VoiceMessagingAgent(api);
 
 // Handle voice command (when STT is integrated)
@@ -222,14 +229,14 @@ await agent.handleVoiceCommand("Hey Ronin, send Tyro a message: I'll be there ar
     <h3>Agent A (Leerie)</h3>
     <div class="code-example">
       <div class="code-example-title">Send Message</div>
-      <pre><code>await api.realm?.init("ws://realm.example.com:3033", "Leerie");
+      <pre><code class="language-typescript">await api.realm?.init("ws://realm.example.com:3033", "Leerie");
 await api.realm?.sendMessage("Tyro", "Hello from Leerie!");</code></pre>
     </div>
 
     <h3>Agent B (Tyro)</h3>
     <div class="code-example">
       <div class="code-example-title">Receive Message</div>
-      <pre><code>api.events.on("realm:message", (data) => {
+      <pre><code class="language-typescript">api.events.on("realm:message", (data) => {
   console.log(`Received: ${data.content} from ${data.from}`);
 });</code></pre>
     </div>

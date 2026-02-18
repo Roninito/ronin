@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Telegram Plugin</h1>
+      
+      <p class="lead">
+        The Telegram plugin provides seamless integration with the Telegram Bot API, enabling Ronin agents 
+        to send messages, handle incoming messages, manage channels, and interact with Telegram users and groups.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        The Telegram plugin uses the Grammy library to interact with the Telegram Bot API. It supports 
+        both polling and webhook modes for receiving updates, includes built-in rate limiting to prevent 
+        API throttling, and provides a robust message handling system for building interactive Telegram bots.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Bot Initialization</strong>: Create and manage multiple bot instances with unique tokens</li>
+        <li><strong>Message Sending</strong>: Send text messages with HTML/Markdown formatting support</li>
+        <li><strong>Media Support</strong>: Send photos with optional captions</li>
+        <li><strong>Rate Limiting</strong>: Built-in 1-second rate limiting between messages to same chat</li>
+        <li><strong>Polling & Webhooks</strong>: Support for both long-polling and webhook-based updates</li>
+        <li><strong>Message Handlers</strong>: Register callbacks for incoming messages</li>
+        <li><strong>Channel Management</strong>: Join channels and retrieve channel information</li>
+        <li><strong>Error Handling</strong>: Comprehensive error messages for common issues</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Bot Management</h3>
+      
+      <h4><code>initBot(token, options?)</code></h4>
+      <p>Initialize a new Telegram bot with your bot token from @BotFather.</p>
+      <pre><code class="language-typescript">const botId = await this.api.telegram?.initBot("YOUR_BOT_TOKEN");
+// Or with webhook
+const botId = await this.api.telegram?.initBot("YOUR_BOT_TOKEN", {
+  webhookUrl: "https://yourdomain.com/webhook"
+});</code></pre>
+
+      <h4><code>stopBot(botId)</code></h4>
+      <p>Stop a bot instance and clean up resources.</p>
+      <pre><code class="language-typescript">await this.api.telegram?.stopBot(botId);</code></pre>
+
+      <h4><code>getBotInfo(botId)</code></h4>
+      <p>Get information about the bot including username and permissions.</p>
+      <pre><code class="language-typescript">const info = await this.api.telegram?.getBotInfo(botId);
+console.log(`Bot: @${info.username}`);</code></pre>
+
+      <h3>Messaging</h3>
+
+      <h4><code>sendMessage(botId, chatId, text, options?)</code></h4>
+      <p>Send a text message to a chat or channel. Supports HTML and Markdown formatting.</p>
+      <pre><code class="language-typescript">// Simple message
+await this.api.telegram?.sendMessage(botId, "@channelname", "Hello!");
+
+// With HTML formatting
+await this.api.telegram?.sendMessage(
+  botId,
+  123456789,
+  "&lt;b&gt;Bold&lt;/b&gt; and &lt;i&gt;italic&lt;/i&gt; text",
+  { parseMode: "HTML" }
+);
+
+// With Markdown
+await this.api.telegram?.sendMessage(
+  botId,
+  "@channelname",
+  "**Bold** and *italic* text",
+  { parseMode: "Markdown" }
+);</code></pre>
+
+      <h4><code>sendPhoto(botId, chatId, photo, caption?)</code></h4>
+      <p>Send a photo to a chat or channel.</p>
+      <pre><code class="language-typescript">// From URL
+await this.api.telegram?.sendPhoto(
+  botId,
+  "@channelname",
+  "https://example.com/image.jpg",
+  "Photo caption here"
+);
+
+// From local file (Buffer)
+const imageBuffer = await Bun.file("./image.png").arrayBuffer();
+await this.api.telegram?.sendPhoto(
+  botId,
+  123456789,
+  Buffer.from(imageBuffer),
+  "Local image"
+);</code></pre>
+
+      <h3>Updates & Message Handling</h3>
+
+      <h4><code>getUpdates(botId, options?)</code></h4>
+      <p>Manually fetch recent updates (messages). Note: This may conflict with polling mode.</p>
+      <pre><code class="language-typescript">const updates = await this.api.telegram?.getUpdates(botId, { limit: 10 });
+for (const update of updates) {
+  console.log(update.message?.text);
+}</code></pre>
+
+      <h4><code>onMessage(botId, callback)</code></h4>
+      <p>Register a callback function to handle incoming messages.</p>
+      <pre><code class="language-typescript">this.api.telegram?.onMessage(botId, (update) => {
+  const msg = update.message;
+  if (msg?.text) {
+    console.log(`Received: ${msg.text} from ${msg.chat.id}`);
+    
+    // Auto-reply
+    this.api.telegram?.sendMessage(botId, msg.chat.id, `Echo: ${msg.text}`);
+  }
+});</code></pre>
+
+      <h3>Channel Management</h3>
+
+      <h4><code>joinChannel(botId, channelId)</code></h4>
+      <p>Join a channel or group (bot must be invited or be an admin).</p>
+      <pre><code class="language-typescript">await this.api.telegram?.joinChannel(botId, "@channelname");</code></pre>
+
+      <h4><code>getChannelInfo(botId, channelId)</code></h4>
+      <p>Get information about a channel or chat.</p>
+      <pre><code class="language-typescript">const info = await this.api.telegram?.getChannelInfo(botId, "@channelname");
+console.log(`Channel: ${info.title} (${info.type})`);</code></pre>
+
+      <h4><code>getChannelHistory(botId, channelId, options?)</code></h4>
+      <p>Get message history. Note: Bot API limitations apply - only messages received after bot joined are available.</p>
+
+      <h3>Webhook Configuration</h3>
+
+      <h4><code>setWebhook(botId, url)</code></h4>
+      <p>Set a webhook URL for receiving updates. Stops polling if active.</p>
+      <pre><code class="language-typescript">await this.api.telegram?.setWebhook(botId, "https://yourdomain.com/webhook");</code></pre>
+
+      <h2>Bot Token Setup</h2>
+
+      <p>To use the Telegram plugin, you need a bot token from Telegram:</p>
+
+      <ol>
+        <li>Open Telegram and search for <strong>@BotFather</strong></li>
+        <li>Start a chat and send <code>/newbot</code></li>
+        <li>Follow the prompts to name your bot</li>
+        <li>Copy the token provided (looks like <code>123456789:ABCdefGHIjklMNOpqrSTUvwxyz</code>)</li>
+        <li>Store the token securely in your agent configuration</li>
+      </ol>
+
+      <h2>Rate Limiting</h2>
+
+      <p>The plugin implements automatic rate limiting:</p>
+      <ul>
+        <li><strong>1 second</strong> minimum between messages to the same chat</li>
+        <li>Automatic retry on 429 (Too Many Requests) with exponential backoff</li>
+        <li>Respects Telegram's retry_after parameter</li>
+      </ul>
+
+      <h2>Event Handling</h2>
+
+      <p>Messages can contain various data:</p>
+      <pre><code class="language-typescript">interface TelegramUpdate {
+  update_id: number;
+  message?: {
+    message_id: number;
+    chat: {
+      id: number;
+      type: string;  // "private", "group", "supergroup", "channel"
+      title?: string;
+      username?: string;
+    };
+    text?: string;
+    caption?: string;
+    photo?: Array<{ file_id: string }>;
+    date: number;  // Unix timestamp
+  };
+}</code></pre>
+
+      <h2>Example Usage</h2>
+
+      <pre><code class="language-bash">export default class TelegramBotAgent extends BaseAgent {
+  private botId?: string;
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    // Initialize bot
+    this.botId = await this.api.telegram?.initBot(
+      process.env.TELEGRAM_BOT_TOKEN!
+    );
+
+    if (!this.botId) {
+      console.error("Failed to initialize Telegram bot");
+      return;
+    }
+
+    // Register message handler
+    this.api.telegram?.onMessage(this.botId, async (update) => {
+      const msg = update.message;
+      if (!msg?.text) return;
+
+      console.log(`Message from ${msg.chat.id}: ${msg.text}`);
+
+      // Handle commands
+      if (msg.text.startsWith("/start")) {
+        await this.api.telegram?.sendMessage(
+          this.botId!,
+          msg.chat.id,
+          "Welcome! I'm your Ronin agent bot."
+        );
+      }
+    });
+
+    console.log("Telegram bot is running...");
+  }
+}</code></pre>
+
+      <h2>Error Handling</h2>
+
+      <p>The plugin provides helpful error messages for common issues:</p>
+      <ul>
+        <li><strong>Chat not found</strong>: Bot is not in the chat/channel</li>
+        <li><strong>Bot was kicked</strong>: Bot was removed from the chat</li>
+        <li><strong>Bot was blocked</strong>: User blocked the bot</li>
+        <li><strong>409 Conflict</strong>: Another instance is polling with the same token</li>
+      </ul>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Store bot tokens in environment variables, never in code</li>
+        <li>Keep tokens private - anyone with your token can control your bot</li>
+        <li>Use webhook mode in production for better scalability</li>
+        <li>Validate incoming webhook requests to ensure they're from Telegram</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="06-discord-plugin.html">Discord Plugin</a> - Similar messaging platform integration</li>
+        <li><a href="https://core.telegram.org/bots/api">Telegram Bot API Docs</a> - Official API reference</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

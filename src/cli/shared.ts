@@ -114,6 +114,9 @@ Interactive AI assistant. Optionally prefix with a model name.
 
 Models: local (default), grok, gemini
 
+Note: When Ronin is running in the background (ronin start --ninja or --daemon),
+  ronin ask runs as a separate process and does not restart or stop the server.
+
 Examples:
   ronin ask "What is Ronin?"
   ronin ask grok "Explain quantum computing"
@@ -286,6 +289,23 @@ Manage loaded plugins.
 Subcommands:
   list                List all loaded plugins
   info <name>         Show detailed plugin information
+`,
+  emit: `
+Usage: ronin emit <event> [data] [options]
+
+Send an event to a running Ronin instance (for Shortcuts, scripts, testing).
+
+Arguments:
+  event               Event name (e.g. transcribe.text)
+  data                Optional JSON object (e.g. '{"audioPath":"/tmp/audio.wav","source":"shortcuts"}')
+
+Options:
+  --data <json>       Pass data as JSON (instead of positional)
+  --port <port>       Ronin server port (default: 3000 or WEBHOOK_PORT)
+
+Examples:
+  ronin emit transcribe.text '{"audioPath":"/tmp/recording.wav","source":"shortcuts"}'
+  ronin emit my.event --data '{"key":"value"}' --port 3141
 `,
 };
 

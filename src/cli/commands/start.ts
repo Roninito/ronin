@@ -35,6 +35,9 @@ export interface RoninServerState {
  * Does not register SIGINT/SIGTERM; caller is responsible for shutdown.
  */
 export async function startRoninServer(options: StartOptions = {}): Promise<RoninServerState | null> {
+  if (process.env.RONIN_READ_ONLY === "1") {
+    return null;
+  }
   await ensureAiRegistry();
   const config = await loadConfig();
   const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
@@ -59,6 +62,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
+    useFastModelForAgents: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
     userPluginDir,
@@ -86,10 +90,6 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   const desktopEnabled = options.desktop || config.desktop?.enabled;
   if (desktopEnabled) {
     logger.info("Desktop Mode enabled");
-    if (config.desktop?.menubar) {
-      const { startMenubar } = await import("../../os/index.js");
-      startMenubar(config.desktop.bridge?.port);
-    }
     const { getStatus } = await import("../../os/index.js");
     const osStatus = getStatus();
     if (!osStatus.quickActionInstalled || !osStatus.launchAgentInstalled) {
@@ -118,6 +118,22 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   });
   registry.startWebhookServerIfNeeded();
   registry.registerAll(agents);
+
+  // Start menubar after agents are registered so route discovery includes agent routes (e.g. /todo, /analytics)
+  if (desktopEnabled && config.desktop?.menubar) {
+    const { startMenubar, discoverRoutes } = await import("../../os/index.js");
+    const port = config.desktop?.bridge?.port ?? 17341;
+    const routesConfig = config.desktop?.menubarRoutes ?? { enabled: true, excludePatterns: ["/api/"] };
+    const routes = discoverRoutes(
+      () => api.http.getAllRoutes(),
+      (path: string) => api.http.getRouteMetadata(path),
+      routesConfig
+    );
+    startMenubar(port, routes);
+    if (routes.length > 0) {
+      logger.info("Menubar routes discovered", { count: routes.length, paths: routes.map((r) => r.path) });
+    }
+  }
 
   (api as { getAgents?: () => ReturnType<AgentRegistry["getAgents"]> }).getAgents = () =>
     registry.getAgents();

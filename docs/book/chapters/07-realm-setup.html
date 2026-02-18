@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 7: Setting Up Realm - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -20,25 +27,25 @@
     </p>
 
     <h3>1. Navigate to Realm Server Directory</h3>
-    <pre><code>cd ../realm-server</code></pre>
+    <pre><code class="language-bash">cd ../realm-server</code></pre>
 
     <p>
       Or from the Ronin directory:
     </p>
-    <pre><code>cd ../../realm-server</code></pre>
+    <pre><code class="language-bash">cd ../../realm-server</code></pre>
 
     <h3>2. Install Dependencies</h3>
-    <pre><code>bun install</code></pre>
+    <pre><code class="language-typescript">bun install</code></pre>
 
     <h3>3. Start the Server</h3>
-    <pre><code>bun run src/index.ts</code></pre>
+    <pre><code class="language-typescript">bun run src/index.ts</code></pre>
 
     <p>
       The server will run on port 3033 by default.
     </p>
 
     <h3>4. Configure Environment Variables (Optional)</h3>
-    <pre><code>PORT=3033 DB_PATH=realm.db bun run src/index.ts</code></pre>
+    <pre><code class="language-typescript">PORT=3033 DB_PATH=realm.db bun run src/index.ts</code></pre>
 
     <h4>Environment Variables</h4>
     <table>
@@ -70,7 +77,7 @@
       Connect Ronin to Realm using the <code>realm connect</code> command:
     </p>
 
-    <pre><code>ronin realm connect --url ws://localhost:3033 --callsign Leerie</code></pre>
+    <pre><code class="language-typescript">ronin realm connect --url ws://localhost:3033 --callsign Leerie</code></pre>
 
     <h4>Options</h4>
     <ul>
@@ -86,7 +93,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Initialize Realm</div>
-      <pre><code>await this.api.realm?.init("ws://realm.example.com:3033", "Leerie", {
+      <pre><code class="language-typescript">await this.api.realm?.init("ws://realm.example.com:3033", "Leerie", {
   token: "optional-auth-token",
   localWsPort: 4000,
   heartbeatInterval: 30000,
@@ -180,7 +187,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Peer Validation Example</div>
-      <pre><code>const allowedPeers = ["Tyro", "Alice", "Bob"];
+      <pre><code class="language-typescript">const allowedPeers = ["Tyro", "Alice", "Bob"];
 
 this.api.events.on("realm:message", (data: { from: string; content: string }) => {
   if (!allowedPeers.includes(data.from)) {
@@ -194,13 +201,13 @@ this.api.events.on("realm:message", (data: { from: string; content: string }) =>
     <h2>Verifying Setup</h2>
 
     <h3>Check Realm Server</h3>
-    <pre><code>curl http://localhost:3033/health</code></pre>
+    <pre><code class="language-bash">curl http://localhost:3033/health</code></pre>
 
     <h3>List Online Peers</h3>
-    <pre><code>curl http://localhost:3033/api/peers</code></pre>
+    <pre><code class="language-bash">curl http://localhost:3033/api/peers</code></pre>
 
     <h3>Discover a Peer</h3>
-    <pre><code>ronin realm discover Tyro</code></pre>
+    <pre><code class="language-typescript">ronin realm discover Tyro</code></pre>
 
     <h2>Troubleshooting</h2>
 

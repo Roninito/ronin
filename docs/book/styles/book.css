@@ -8,37 +8,57 @@
 }
 
 :root {
-  --primary-color: #2563eb;
-  --secondary-color: #1e40af;
-  --text-color: #1f2937;
-  --text-light: #6b7280;
-  --bg-color: #ffffff;
-  --bg-light: #f9fafb;
-  --border-color: #e5e7eb;
-  --code-bg: #f3f4f6;
-  --code-border: #d1d5db;
-  --accent-color: #10b981;
-  --warning-color: #f59e0b;
-  --error-color: #ef4444;
+  /* Ronin Signature Colors - Cyberpunk Lime Theme */
+  --primary-color: #84cc16;
+  --primary-hover: #a3e635;
+  --secondary-color: #65a30d;
+  --accent-color: #22d3ee;
+  --accent-hover: #67e8f9;
   
+  /* Dark Theme Base */
+  --text-color: #e5e7eb;
+  --text-light: #9ca3af;
+  --text-muted: #6b7280;
+  --bg-color: #0a0a0a;
+  --bg-light: #111111;
+  --bg-elevated: #1a1a1a;
+  --border-color: #27272a;
+  --border-hover: #3f3f46;
+  
+  /* Code Colors */
+  --code-bg: #0d1117;
+  --code-border: #30363d;
+  --code-text: #e6edf3;
+  
+  /* Status Colors */
+  --warning-color: #fbbf24;
+  --error-color: #f87171;
+  --success-color: #4ade80;
+  
+  /* Fonts */
   --font-serif: Georgia, 'Times New Roman', serif;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   
+  /* Spacing */
   --line-height: 1.6;
   --line-height-tight: 1.4;
   --spacing-unit: 1rem;
 }
 
 body {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 11pt;
   line-height: var(--line-height);
   color: var(--text-color);
   background: var(--bg-color);
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(132, 204, 22, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.03) 0%, transparent 50%);
   max-width: 100%;
   margin: 0;
   padding: 0;
+  min-height: 100vh;
 }
 
 /* Typography */
@@ -50,6 +70,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 0.5em;
   color: var(--text-color);
   page-break-after: avoid;
+  letter-spacing: -0.02em;
 }
 
 h1 {
@@ -57,6 +78,10 @@ h1 {
   margin-top: 0;
   border-bottom: 3px solid var(--primary-color);
   padding-bottom: 0.3em;
+  background: linear-gradient(135deg, var(--text-color) 0%, var(--primary-color) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 h2 {
@@ -64,19 +89,25 @@ h2 {
   border-bottom: 2px solid var(--border-color);
   padding-bottom: 0.2em;
   margin-top: 2em;
+  color: var(--primary-color);
 }
 
 h3 {
   font-size: 14pt;
   margin-top: 1.5em;
+  color: var(--accent-color);
 }
 
 h4 {
   font-size: 12pt;
+  color: var(--text-light);
 }
 
 h5, h6 {
   font-size: 11pt;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 p {
@@ -86,41 +117,78 @@ p {
   widows: 3;
 }
 
-/* Links */
+/* Links - Cyberpunk Lime Glow Effect */
 a {
   color: var(--primary-color);
   text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--primary-hover);
+  text-shadow: 0 0 8px rgba(132, 204, 22, 0.4);
 }
 
 a:visited {
   color: var(--secondary-color);
 }
 
-/* Code Blocks */
+a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  transition: width 0.3s ease;
+}
+
+a:hover::after {
+  width: 100%;
+}
+
+/* Code Blocks - Dark Theme with Lime Accents */
 code {
   font-family: var(--font-mono);
   font-size: 9pt;
-  background: var(--code-bg);
+  background: var(--bg-elevated);
+  color: var(--primary-color);
   padding: 0.2em 0.4em;
-  border-radius: 3px;
-  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
 }
 
 pre {
   font-family: var(--font-mono);
   font-size: 9pt;
-  line-height: 1.4;
+  line-height: 1.5;
   background: var(--code-bg);
   border: 1px solid var(--code-border);
-  border-radius: 4px;
-  padding: 1em;
+  border-radius: 8px;
+  padding: 1.5em;
   overflow-x: auto;
-  margin: 1em 0;
+  margin: 1.5em 0;
   page-break-inside: avoid;
+  position: relative;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(132, 204, 22, 0.05);
+}
+
+pre::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(132, 204, 22, 0.3) 50%, 
+    transparent 100%
+  );
 }
 
 pre code {
@@ -128,9 +196,10 @@ pre code {
   padding: 0;
   border: none;
   font-size: inherit;
+  color: var(--code-text);
 }
 
-/* Lists */
+/* Lists - Enhanced for Dark Theme */
 ul, ol {
   margin-left: 1.5em;
   margin-bottom: 1em;
@@ -145,37 +214,63 @@ ul ul, ol ol, ul ol, ol ul {
   margin-bottom: 0.5em;
 }
 
-/* Tables */
+/* Custom bullet styling */
+ul li::marker {
+  color: var(--primary-color);
+}
+
+ol li::marker {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+/* Tables - Dark Theme */
 table {
   width: 100%;
   border-collapse: collapse;
   margin: 1em 0;
   page-break-inside: avoid;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 th, td {
   border: 1px solid var(--border-color);
-  padding: 0.5em;
+  padding: 0.75em;
   text-align: left;
 }
 
 th {
-  background: var(--bg-light);
+  background: var(--bg-elevated);
   font-weight: 600;
   font-family: var(--font-sans);
+  color: var(--primary-color);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
 }
 
 tr:nth-child(even) {
   background: var(--bg-light);
 }
 
-/* Blockquotes */
+tr:hover {
+  background: rgba(132, 204, 22, 0.05);
+}
+
+/* Blockquotes - Glowing Border */
 blockquote {
-  border-left: 4px solid var(--primary-color);
-  padding-left: 1em;
-  margin: 1em 0;
+  border-left: 3px solid var(--primary-color);
+  padding: 1em 1.5em;
+  margin: 1.5em 0;
   font-style: italic;
   color: var(--text-light);
+  background: var(--bg-light);
+  border-radius: 0 8px 8px 0;
+  box-shadow: 
+    0 0 15px rgba(132, 204, 22, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Images and Diagrams */
@@ -280,27 +375,50 @@ img {
   color: var(--text-light);
 }
 
-/* Callouts */
+/* Callouts - Neon Accent Style */
 .callout {
-  border-left: 4px solid var(--accent-color);
-  background: var(--bg-light);
-  padding: 1em;
-  margin: 1em 0;
+  border-left: 3px solid var(--accent-color);
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
+  padding: 1em 1.5em;
+  margin: 1.5em 0;
   page-break-inside: avoid;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 
+    0 0 20px rgba(34, 211, 238, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .callout-warning {
   border-left-color: var(--warning-color);
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
+  box-shadow: 
+    0 0 20px rgba(251, 191, 36, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .callout-error {
   border-left-color: var(--error-color);
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.1) 0%, transparent 100%);
+  box-shadow: 
+    0 0 20px rgba(248, 113, 113, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.callout-success {
+  border-left-color: var(--success-color);
+  background: linear-gradient(90deg, rgba(74, 222, 128, 0.1) 0%, transparent 100%);
+  box-shadow: 
+    0 0 20px rgba(74, 222, 128, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .callout-title {
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 0.5em;
   font-family: var(--font-sans);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
 }
 
 /* Diagrams */
@@ -455,10 +573,244 @@ img {
   color: white;
 }
 
-/* Syntax Highlighting (basic) */
-.hljs-keyword { color: #d73a49; }
-.hljs-string { color: #032f62; }
-.hljs-comment { color: #6a737d; font-style: italic; }
-.hljs-function { color: #6f42c1; }
-.hljs-number { color: #005cc5; }
-.hljs-type { color: #e36209; }
+/* ============================================
+   PRISM.JS SYNTAX HIGHLIGHTING
+   Cyberpunk Lime Theme for Code Blocks
+   ============================================ */
+
+/* Prism base styles */
+code[class*="language-"],
+pre[class*="language-"] {
+  color: var(--code-text);
+  text-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 9pt;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.5;
+  tab-size: 2;
+  hyphens: none;
+}
+
+/* Code block container */
+pre[class*="language-"] {
+  padding: 1.5em;
+  margin: 1.5em 0;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  box-shadow: 
+    0 0 20px rgba(132, 204, 22, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  font-size: 0.9em;
+}
+
+/* Token Colors - Cyberpunk Lime Theme */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #9ca3af;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f472b6;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #4ade80;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #22d3ee;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #a3e635;
+  font-weight: 600;
+}
+
+.token.function,
+.token.class-name {
+  color: #60a5fa;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #fbbf24;
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+
+/* Line highlight plugin */
+pre[data-line] {
+  position: relative;
+  padding-left: 3em;
+}
+
+.line-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: inherit 0;
+  margin-top: 1em;
+  background: rgba(132, 204, 22, 0.1);
+  border-left: 3px solid var(--primary-color);
+  pointer-events: none;
+  line-height: inherit;
+  white-space: pre;
+}
+
+/* Line numbers plugin */
+.line-numbers {
+  position: relative;
+  padding-left: 3.8em;
+  counter-reset: linenumber;
+}
+
+.line-numbers > code {
+  position: relative;
+}
+
+.line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  font-size: 100%;
+  left: -3.8em;
+  width: 3em;
+  letter-spacing: -1px;
+  border-right: 1px solid var(--border-color);
+  user-select: none;
+}
+
+.line-numbers-rows > span {
+  display: block;
+  counter-increment: linenumber;
+}
+
+.line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: var(--text-muted);
+  display: block;
+  padding-right: 0.8em;
+  text-align: right;
+}
+
+/* Copy button plugin */
+div.code-toolbar {
+  position: relative;
+}
+
+div.code-toolbar > .toolbar {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+div.code-toolbar:hover > .toolbar {
+  opacity: 1;
+}
+
+div.code-toolbar > .toolbar > .toolbar-item > button {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-light);
+  padding: 0.3em 0.8em;
+  border-radius: 4px;
+  font-size: 8pt;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.2s;
+}
+
+div.code-toolbar > .toolbar > .toolbar-item > button:hover {
+  background: var(--primary-color);
+  color: var(--bg-color);
+  border-color: var(--primary-color);
+}
+
+/* Show language plugin */
+pre[class*="language-"]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.3em 0.8em;
+  font-size: 8pt;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   CODE BLOCK LANGUAGE LABELS
+   ============================================ */
+pre.language-typescript::before { content: "TypeScript"; }
+pre.language-javascript::before { content: "JavaScript"; }
+pre.language-json::before { content: "JSON"; }
+pre.language-bash::before,
+pre.language-shell::before { content: "Shell"; }
+pre.language-css::before { content: "CSS"; }
+pre.language-html::before { content: "HTML"; }
+pre.language-markdown::before { content: "Markdown"; }
+pre.language-python::before { content: "Python"; }
+pre.language-rust::before { content: "Rust"; }
+pre.language-go::before { content: "Go"; }
+pre.language-sql::before { content: "SQL"; }
+pre.language-yaml::before { content: "YAML"; }
+pre.language-docker::before { content: "Docker"; }

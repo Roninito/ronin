@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Bot Agent - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Telegram Bot Agent</h1>
+      
+      <p class="lead">
+        The Telegram Bot Agent polls Telegram channels for new messages and stores them 
+        for other agents to consume. It provides a subscription-based interface for 
+        monitoring Telegram conversations.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        This agent periodically polls Telegram for new messages using the Telegram Plugin. 
+        It processes incoming messages, stores them in memory, and emits events that other 
+        agents can listen to. The agent handles bot initialization, message deduplication, 
+        and automatic reconnection.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Automatic Polling</strong>: Runs every 15 minutes via cron schedule</li>
+        <li><strong>Message Storage</strong>: Stores messages for downstream processing</li>
+        <li><strong>Event Emission</strong>: Emits <code>telegram:message</code> events</li>
+        <li><strong>Auto-Initialization</strong>: Automatically initializes bot if needed</li>
+        <li><strong>Deduplication</strong>: Tracks last update ID to avoid duplicates</li>
+        <li><strong>Reconnection</strong>: Reinitializes bot on connection failures</li>
+        <li><strong>Message Handler</strong>: Supports real-time message processing</li>
+      </ul>
+
+      <h2>Configuration</h2>
+      
+      <h3>Required Setup</h3>
+      <p>The agent requires a Telegram bot token. Configure via:</p>
+      
+      <ol>
+        <li><strong>Config Service</strong> (recommended):
+          <pre><code class="language-typescript"># In your Ronin config or via API
+this.api.config.setTelegram({
+  botToken: "YOUR_BOT_TOKEN"
+});</code></pre>
+        </li>
+        <li><strong>Environment Variable</strong>:
+          <pre><code class="language-bash">export TELEGRAM_BOT_TOKEN="YOUR_BOT_TOKEN"</code></pre>
+        </li>
+        <li><strong>Memory</strong> (fallback):
+          <pre><code class="language-typescript">await this.api.memory.store("telegram_bot_token", "YOUR_BOT_TOKEN");</code></pre>
+        </li>
+      </ol>
+
+      <h3>Getting a Bot Token</h3>
+      <ol>
+        <li>Message <a href="https://t.me/botfather">@BotFather</a> on Telegram</li>
+        <li>Use the <code>/newbot</code> command</li>
+        <li>Follow the prompts to name your bot</li>
+        <li>Save the provided token</li>
+      </ol>
+
+      <h2>How It Works</h2>
+
+      <h3>Execution Flow</h3>
+      <ol>
+        <li>Check if Telegram plugin is available</li>
+        <li>Get bot token from config/env/memory</li>
+        <li>Initialize or reinitialize bot if needed</li>
+        <li>Retrieve last processed update ID from memory</li>
+        <li>Fetch new updates from Telegram</li>
+        <li>Process each message and store in memory</li>
+        <li>Emit <code>telegram:message</code> event</li>
+        <li>Update last update ID</li>
+      </ol>
+
+      <h3>Message Processing</h3>
+      <p>Each message is processed and stored with:</p>
+      <ul>
+        <li>Update ID (for deduplication)</li>
+        <li>Message text or caption</li>
+        <li>Chat/channel information</li>
+        <li>Author details</li>
+        <li>Timestamp</li>
+      </ul>
+
+      <h2>Events</h2>
+      
+      <h3>Emitted Events</h3>
+      <ul>
+        <li><code>telegram:message</code> - Emitted for each new message received
+          <pre><code class="language-typescript">this.api.events.on("telegram:message", (data) => {
+  console.log(`New message: ${data.text}`);
+  console.log(`From: ${data.chat.title || data.chat.username}`);
+});</code></pre>
+        </li>
+      </ul>
+
+      <h2>Memory Storage</h2>
+      <p>The agent stores data in memory with these keys:</p>
+      <ul>
+        <li><code>telegram_bot_id</code> - Bot instance ID</li>
+        <li><code>telegram_last_update_id</code> - Last processed update ID</li>
+        <li><code>telegram:message:{updateId}</code> - Individual messages</li>
+      </ul>
+
+      <h2>Usage Example</h2>
+
+      <h3>Listening for Messages</h3>
+      <pre><code class="language-typescript">// In another agent, listen for Telegram messages
+this.api.events.on("telegram:message", async (data) => {
+  const { message, chat, updateId } = data;
+  
+  // Process the message
+  if (message.text?.includes("#ronin")) {
+    console.log("Ronin tag detected!");
+    
+    // Store for processing
+    await this.api.memory.store(
+      `ronin_request:${updateId}`,
+      {
+        text: message.text,
+        chat: chat.title,
+        timestamp: Date.now()
+      }
+    );
+  }
+});</code></pre>
+
+      <h3>Retrieving Stored Messages</h3>
+      <pre><code class="language-typescript">// Get recent messages
+const recentMessages = await this.api.memory.search("telegram:message", 10);
+
+// Get specific message
+const message = await this.api.memory.retrieve("telegram:message:12345");</code></pre>
+
+      <h2>Schedule</h2>
+      <p>The agent runs automatically every 15 minutes:</p>
+      <pre><code class="language-typescript">static schedule = "*/15 * * * *";</code></pre>
+
+      <h2>Error Handling</h2>
+      <p>The agent handles several error scenarios:</p>
+      <ul>
+        <li><strong>Plugin Not Available</strong> - Logs error and exits</li>
+        <li><strong>Bot Token Missing</strong> - Logs error and exits</li>
+        <li><strong>Bot Not Initialized</strong> - Automatically reinitializes</li>
+        <li><strong>API Errors</strong> - Logs and continues on next run</li>
+      </ul>
+
+      <h2>Limitations</h2>
+      <ul>
+        <li>Bot must be added to channels/groups to receive messages</li>
+        <li>Only receives messages sent after bot joined</li>
+        <li>Rate limited by Telegram (handled automatically)</li>
+        <li>Private channel messages require bot to be member</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../plugins/05-telegram-plugin.html">Telegram Plugin</a> - Direct plugin API</li>
+        <li><a href="03-rss-feed.html">RSS Feed Agent</a> - Similar subscription pattern</li>
+        <li><a href="../../../AGENTS.md">Writing Agents Guide</a> - Agent development</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

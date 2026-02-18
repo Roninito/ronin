@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chapter 4: CLI Reference - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -28,7 +35,7 @@
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin start [options]</code></pre>
+      <pre><code class="language-typescript">ronin start [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -80,7 +87,7 @@
     </table>
 
     <h4>Examples</h4>
-    <pre><code># Start with default settings
+    <pre><code class="language-typescript"># Start with default settings
 ronin start
 
 # Start with custom agent directory
@@ -106,11 +113,11 @@ ronin start --ollama-model llama2</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin run &lt;agent-name&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin run &lt;agent-name&gt; [options]</code></pre>
     </div>
 
     <h4>Examples</h4>
-    <pre><code># Run an agent
+    <pre><code class="language-typescript"># Run an agent
 ronin run example-agent
 
 # Run with custom settings
@@ -123,7 +130,7 @@ ronin run my-agent --ollama-model llama2</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin list [options]</code></pre>
+      <pre><code class="language-typescript">ronin list [options]</code></pre>
     </div>
 
     <p>
@@ -137,7 +144,7 @@ ronin run my-agent --ollama-model llama2</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin status [options]</code></pre>
+      <pre><code class="language-typescript">ronin status [options]</code></pre>
     </div>
 
     <p>
@@ -151,7 +158,7 @@ ronin run my-agent --ollama-model llama2</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin schedule &lt;cron-expression&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin schedule &lt;cron-expression&gt; [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -161,7 +168,7 @@ ronin run my-agent --ollama-model llama2</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Parse a cron expression
+    <pre><code class="language-typescript"># Parse a cron expression
 ronin schedule "0 */6 * * *"
 
 # Get detailed explanation
@@ -177,7 +184,7 @@ ronin schedule "0 0 * * *" --next 10</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin doctor [options]</code></pre>
+      <pre><code class="language-typescript">ronin doctor [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -187,7 +194,7 @@ ronin schedule "0 0 * * *" --next 10</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Run diagnostics
+    <pre><code class="language-typescript"># Run diagnostics
 ronin doctor
 
 # Fix issues automatically
@@ -203,11 +210,11 @@ ronin doctor --verbose</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin interactive [options]</code></pre>
+      <pre><code class="language-typescript">ronin interactive [options]</code></pre>
     </div>
 
     <h4>Examples</h4>
-    <pre><code># Start interactive session
+    <pre><code class="language-typescript"># Start interactive session
 ronin interactive
 
 # With custom settings
@@ -222,7 +229,7 @@ ronin interactive --ollama-model llama2</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin cloudflare &lt;subcommand&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin cloudflare &lt;subcommand&gt; [options]</code></pre>
     </div>
 
     <h4>Subcommands</h4>
@@ -258,7 +265,7 @@ ronin interactive --ollama-model llama2</code></pre>
     </table>
 
     <h4>Examples</h4>
-    <pre><code># Check tunnel status
+    <pre><code class="language-typescript"># Check tunnel status
 ronin cloudflare status
 
 # Start tunnel
@@ -276,7 +283,7 @@ ronin cloudflare url</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin create agent [description] [options]</code></pre>
+      <pre><code class="language-typescript">ronin create agent [description] [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -288,7 +295,7 @@ ronin cloudflare url</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Interactive creation
+    <pre><code class="language-typescript"># Interactive creation
 ronin create agent
 
 # Create with description
@@ -313,7 +320,7 @@ ronin create agent "backup database daily" --local</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin cancel agent-creation [taskId] [options]</code></pre>
+      <pre><code class="language-typescript">ronin cancel agent-creation [taskId] [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -322,7 +329,7 @@ ronin create agent "backup database daily" --local</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Cancel all active agent creations
+    <pre><code class="language-typescript"># Cancel all active agent creations
 ronin cancel agent-creation
 
 # Cancel a specific task
@@ -344,11 +351,11 @@ ronin cancel agent-creation abc123</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin create plugin &lt;name&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin create plugin &lt;name&gt; [options]</code></pre>
     </div>
 
     <h4>Examples</h4>
-    <pre><code>ronin create plugin my-plugin</code></pre>
+    <pre><code class="language-typescript">ronin create plugin my-plugin</code></pre>
 
     <h3>plugins list</h3>
     <p>
@@ -357,7 +364,7 @@ ronin cancel agent-creation abc123</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin plugins list [options]</code></pre>
+      <pre><code class="language-typescript">ronin plugins list [options]</code></pre>
     </div>
 
     <p>
@@ -371,11 +378,11 @@ ronin cancel agent-creation abc123</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin plugins info &lt;plugin-name&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin plugins info &lt;plugin-name&gt; [options]</code></pre>
     </div>
 
     <h4>Examples</h4>
-    <pre><code>ronin plugins info git
+    <pre><code class="language-bash">ronin plugins info git
 ronin plugins info grok</code></pre>
 
     <h2>MCP Server Management</h2>
@@ -387,7 +394,7 @@ ronin plugins info grok</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin mcp &lt;subcommand&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin mcp &lt;subcommand&gt; [options]</code></pre>
     </div>
 
     <h4>Subcommands</h4>
@@ -464,7 +471,7 @@ ronin plugins info grok</code></pre>
     </table>
 
     <h4>Examples</h4>
-    <pre><code># Discover available servers
+    <pre><code class="language-typescript"># Discover available servers
 ronin mcp discover
 
 # Add known servers
@@ -502,7 +509,7 @@ ronin mcp status</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin ai &lt;command&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin ai &lt;command&gt; [options]</code></pre>
     </div>
 
     <h4>Commands</h4>
@@ -526,7 +533,7 @@ ronin mcp status</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code>ronin ai list
+    <pre><code class="language-typescript">ronin ai list
 ronin ai add qwen3 --model qwen3:1.7b --description "Fast local model"
 ronin ai run qwen3</code></pre>
 
@@ -537,7 +544,7 @@ ronin ai run qwen3</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin ask [model] [question] [options]</code></pre>
+      <pre><code class="language-typescript">ronin ask [model] [question] [options]</code></pre>
     </div>
 
     <h4>Models</h4>
@@ -554,7 +561,7 @@ ronin ai run qwen3</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Single question with default (local) model
+    <pre><code class="language-typescript"># Single question with default (local) model
 ronin ask "how do plugins work?"
 
 # Use Grok (model name as first argument)
@@ -592,7 +599,7 @@ ronin ask grok</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin config [options]</code></pre>
+      <pre><code class="language-typescript">ronin config [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -609,7 +616,7 @@ ronin ask grok</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Show current configuration
+    <pre><code class="language-typescript"># Show current configuration
 ronin config --show
 
 # Set external agent directory
@@ -642,7 +649,7 @@ ronin config --gemini-api-key ""</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin realm connect --url &lt;url&gt; --callsign &lt;callsign&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin realm connect --url &lt;url&gt; --callsign &lt;callsign&gt; [options]</code></pre>
     </div>
 
     <h4>Required Options</h4>
@@ -658,7 +665,7 @@ ronin config --gemini-api-key ""</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Connect to Realm server
+    <pre><code class="language-typescript"># Connect to Realm server
 ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie
 
 # Connect with authentication token
@@ -671,7 +678,7 @@ ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie --token 
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin realm status [options]</code></pre>
+      <pre><code class="language-typescript">ronin realm status [options]</code></pre>
     </div>
 
     <p>
@@ -685,11 +692,11 @@ ronin realm connect --url ws://realm.example.com:3033 --callsign Leerie --token 
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin realm discover &lt;callsign&gt; [options]</code></pre>
+      <pre><code class="language-typescript">ronin realm discover &lt;callsign&gt; [options]</code></pre>
     </div>
 
     <h4>Examples</h4>
-    <pre><code># Discover a peer
+    <pre><code class="language-typescript"># Discover a peer
 ronin realm discover Tyro</code></pre>
 
     <p>
@@ -712,7 +719,7 @@ ronin realm discover Tyro</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin docs [document] [options]</code></pre>
+      <pre><code class="language-typescript">ronin docs [document] [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -723,7 +730,7 @@ ronin realm discover Tyro</code></pre>
     </ul>
 
     <h4>Examples</h4>
-    <pre><code># Open main documentation in browser
+    <pre><code class="language-typescript"># Open main documentation in browser
 ronin docs
 
 # Open specific document
@@ -757,7 +764,7 @@ ronin docs --list</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin listRoutes [options]</code></pre>
+      <pre><code class="language-typescript">ronin listRoutes [options]</code></pre>
     </div>
 
     <h4>Options</h4>
@@ -776,7 +783,7 @@ ronin docs --list</code></pre>
 
     <div class="code-example">
       <div class="code-example-title">Usage</div>
-      <pre><code>ronin help
+      <pre><code class="language-typescript">ronin help
 ronin --help
 ronin -h</code></pre>
     </div>
@@ -784,7 +791,7 @@ ronin -h</code></pre>
     <h2>Common Workflows</h2>
 
     <h3>Basic Workflow</h3>
-    <pre><code># 1. Create an agent
+    <pre><code class="language-typescript"># 1. Create an agent
 ronin create agent "monitor system logs" --local
 
 # 2. List agents
@@ -797,7 +804,7 @@ ronin run monitor-system-logs
 ronin start</code></pre>
 
     <h3>Advanced Workflow</h3>
-    <pre><code># 1. Configure system
+    <pre><code class="language-typescript"># 1. Configure system
 ronin config --grok-api-key sk-xxxxx
 ronin config --external-agent-dir ~/shared-agents
 

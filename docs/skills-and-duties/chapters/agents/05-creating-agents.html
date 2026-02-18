@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creating Agents - Skills and Duties</title>
+  <link rel="stylesheet" href="../../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Creating Agents</h1>
+      
+      <p class="lead">
+        Agents are the core building blocks of Ronin. Learn how to create custom agents by extending
+        the BaseAgent class, defining execution schedules, watching files, and handling webhooks.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Agents are TypeScript/JavaScript class files placed in the <code>agents/</code> directory.
+        Each agent must export a default class that extends <code>BaseAgent</code> and implements
+        the <code>execute()</code> method. Agents can optionally define schedules, watch files for
+        changes, and expose webhook endpoints.
+      </p>
+
+      <h2>Key Concepts</h2>
+      <ul>
+        <li><strong>BaseAgent</strong>: Abstract class all agents must extend</li>
+        <li><strong>execute()</strong>: Main method called when agent runs</li>
+        <li><strong>Static Properties</strong>: Configure schedules, file watching, and webhooks</li>
+        <li><strong>Lifecycle Methods</strong>: Handle file changes and webhooks</li>
+        <li><strong>API Access</strong>: Access plugins, AI, memory, database via <code>this.api</code></li>
+        <li><strong>Auto-Discovery</strong>: Agents are automatically loaded from the agents directory</li>
+      </ul>
+
+      <h2>Agent Class Structure</h2>
+
+      <h3>Basic Agent Template</h3>
+      <p>Every agent must follow this structure:</p>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class MyAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    // Your agent logic here
+    console.log("Hello from MyAgent!");
+  }
+}</code></pre>
+
+      <h3>Complete Agent Example</h3>
+      <p>Here's a fully-featured agent with all optional features:</p>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class CompleteAgent extends BaseAgent {
+  // Schedule: Run every 6 hours
+  static schedule = "0 */6 * * *";
+  
+  // Watch: Monitor these file patterns
+  static watch = ["data/*.json", "logs/*.log"];
+  
+  // Webhook: Expose HTTP endpoint
+  static webhook = "/webhook/complete-agent";
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    // Main execution logic
+    console.log("Executing CompleteAgent...");
+    
+    // Access the API
+    const result = await this.api.shell?.exec("date");
+    console.log("Current time:", result?.stdout);
+    
+    // Store data in memory
+    await this.api.memory?.store("lastRun", new Date().toISOString());
+    
+    // Query database
+    const rows = await this.api.db?.query("SELECT * FROM logs LIMIT 10");
+    console.log("Recent logs:", rows);
+  }
+
+  // Handle file changes
+  async onFileChange(
+    path: string, 
+    event: "create" | "update" | "delete"
+  ): Promise&lt;void&gt; {
+    console.log(`File ${event}: ${path}`);
+    
+    if (event === "create" && path.endsWith(".json")) {
+      const content = await this.api.files?.read(path);
+      console.log("New JSON file content:", content);
+    }
+  }
+
+  // Handle webhook requests
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("Webhook received:", payload);
+    
+    // Process webhook payload
+    if (typeof payload === "object" && payload !== null) {
+      const data = payload as any;
+      if (data.action === "refresh") {
+        await this.execute();
+      }
+    }
+  }
+}</code></pre>
+
+      <h2>Extending BaseAgent</h2>
+
+      <h3>The BaseAgent Class</h3>
+      <p>The <code>BaseAgent</code> abstract class provides the foundation for all agents:</p>
+      <pre><code class="language-bash">export abstract class BaseAgent implements Agent {
+  protected api: AgentAPI;
+
+  constructor(api: AgentAPI) {
+    this.api = api;
+  }
+
+  // Must be implemented by subclasses
+  abstract execute(): Promise&lt;void&gt;;
+
+  // Optional: Handle file changes
+  async onFileChange?(
+    path: string, 
+    event: "create" | "update" | "delete"
+  ): Promise&lt;void&gt;;
+
+  // Optional: Handle webhook requests
+  async onWebhook?(payload: unknown): Promise&lt;void&gt;;
+}</code></pre>
+
+      <h3>Required Implementation</h3>
+      <p>Your agent must:</p>
+      <ol>
+        <li>Extend <code>BaseAgent</code></li>
+        <li>Call <code>super(api)</code> in the constructor</li>
+        <li>Implement the <code>execute()</code> method</li>
+      </ol>
+
+      <h2>Static Properties</h2>
+
+      <h3>Schedule (Cron Expression)</h3>
+      <p>Define when the agent should run automatically:</p>
+      <pre><code class="language-bash">export default class ScheduledAgent extends BaseAgent {
+  // Run every minute
+  static schedule = "* * * * *";
+  
+  // Run every 6 hours
+  static schedule = "0 */6 * * *";
+  
+  // Run at 9 AM on weekdays
+  static schedule = "0 9 * * 1-5";
+  
+  // Run on the first day of each month at midnight
+  static schedule = "0 0 1 * *";
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Running on schedule...");
+  }
+}</code></pre>
+
+      <p>Cron format: <code>minute hour day month weekday</code></p>
+      <ul>
+        <li><code>*</code> - Every value</li>
+        <li><code>*/N</code> - Every N (e.g., <code>*/6</code> means every 6)</li>
+        <li><code>N</code> - Specific value</li>
+        <li><code>1-5</code> - Range (weekdays)</li>
+      </ul>
+
+      <h3>Watch (File Patterns)</h3>
+      <p>Monitor files for changes using glob patterns:</p>
+      <pre><code class="language-bash">export default class FileWatcherAgent extends BaseAgent {
+  // Watch all .log files
+  static watch = ["**/*.log"];
+  
+  // Watch specific directories
+  static watch = ["data/**/*.json", "config/*.yaml"];
+  
+  // Watch a specific file
+  static watch = ["important.txt"];
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Agent started, watching files...");
+  }
+
+  async onFileChange(
+    path: string, 
+    event: "create" | "update" | "delete"
+  ): Promise&lt;void&gt; {
+    console.log(`File ${event}: ${path}`);
+    
+    switch (event) {
+      case "create":
+        await this.handleFileCreated(path);
+        break;
+      case "update":
+        await this.handleFileUpdated(path);
+        break;
+      case "delete":
+        await this.handleFileDeleted(path);
+        break;
+    }
+  }
+
+  private async handleFileCreated(path: string): Promise&lt;void&gt; {
+    // Handle new file
+  }
+
+  private async handleFileUpdated(path: string): Promise&lt;void&gt; {
+    // Handle updated file
+  }
+
+  private async handleFileDeleted(path: string): Promise&lt;void&gt; {
+    // Handle deleted file
+  }
+}</code></pre>
+
+      <h3>Webhook (HTTP Endpoint)</h3>
+      <p>Expose an HTTP endpoint for external triggers:</p>
+      <pre><code class="language-bash">export default class WebhookAgent extends BaseAgent {
+  // Webhook will be available at POST /webhook/my-webhook
+  static webhook = "/webhook/my-webhook";
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("Agent ready to receive webhooks...");
+  }
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("Received webhook:", payload);
+    
+    // Validate payload
+    if (!this.isValidPayload(payload)) {
+      console.error("Invalid webhook payload");
+      return;
+    }
+
+    const data = payload as { action: string; data?: unknown };
+    
+    // Handle different actions
+    switch (data.action) {
+      case "process":
+        await this.processData(data.data);
+        break;
+      case "refresh":
+        await this.execute();
+        break;
+      default:
+        console.log("Unknown action:", data.action);
+    }
+  }
+
+  private isValidPayload(payload: unknown): boolean {
+    return (
+      typeof payload === "object" &&
+      payload !== null &&
+      "action" in payload &&
+      typeof (payload as any).action === "string"
+    );
+  }
+
+  private async processData(data: unknown): Promise&lt;void&gt; {
+    // Process the data
+  }
+}</code></pre>
+
+      <h2>Constructor and execute() Method</h2>
+
+      <h3>Constructor</h3>
+      <p>The constructor receives the <code>AgentAPI</code> object:</p>
+      <pre><code class="language-bash">export default class MyAgent extends BaseAgent {
+  private config: { timeout: number; retries: number };
+
+  constructor(api: AgentAPI) {
+    super(api);
+    
+    // Initialize agent-specific state
+    this.config = {
+      timeout: 5000,
+      retries: 3,
+    };
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    // Use config
+    console.log(`Timeout: ${this.config.timeout}ms`);
+  }
+}</code></pre>
+
+      <h3>execute() Method</h3>
+      <p>The main entry point for agent execution:</p>
+      <pre><code class="language-typescript">async execute(): Promise&lt;void&gt; {
+  try {
+    // Pre-execution setup
+    await this.initialize();
+    
+    // Main logic
+    await this.performTask();
+    
+    // Post-execution cleanup
+    await this.cleanup();
+  } catch (error) {
+    // Handle errors
+    console.error("Agent execution failed:", error);
+    await this.handleError(error);
+  }
+}
+
+private async initialize(): Promise&lt;void&gt; {
+  // Setup code
+}
+
+private async performTask(): Promise&lt;void&gt; {
+  // Main task logic
+}
+
+private async cleanup(): Promise&lt;void&gt; {
+  // Cleanup code
+}
+
+private async handleError(error: unknown): Promise&lt;void&gt; {
+  // Error handling
+}</code></pre>
+
+      <h2>Lifecycle Methods</h2>
+
+      <h3>onFileChange</h3>
+      <p>Called when a watched file changes:</p>
+      <pre><code class="language-typescript">async onFileChange(
+  path: string, 
+  event: "create" | "update" | "delete"
+): Promise&lt;void&gt; {
+  console.log(`[${new Date().toISOString()}] ${event}: ${path}`);
+  
+  // Log to database
+  await this.api.db?.execute(
+    "INSERT INTO file_events (path, event, timestamp) VALUES (?, ?, ?)",
+    [path, event, Date.now()]
+  );
+  
+  // Trigger processing
+  if (event !== "delete") {
+    await this.processFile(path);
+  }
+}</code></pre>
+
+      <h3>onWebhook</h3>
+      <p>Called when a webhook request is received:</p>
+      <pre><code class="language-typescript">async onWebhook(payload: unknown): Promise&lt;void&gt; {
+  // Log webhook
+  await this.api.memory?.store("lastWebhook", {
+    timestamp: Date.now(),
+    payload,
+  });
+  
+  // Process webhook
+  try {
+    const result = await this.handleWebhook(payload);
+    console.log("Webhook processed successfully:", result);
+  } catch (error) {
+    console.error("Webhook processing failed:", error);
+    
+    // Emit error event
+    this.api.events?.emit("webhook:error", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      payload,
+    }, "my-agent");
+  }
+}</code></pre>
+
+      <h2>Accessing this.api</h2>
+
+      <h3>Available API Properties</h3>
+      <pre><code class="language-bash">export default class APIExampleAgent extends BaseAgent {
+  async execute(): Promise&lt;void&gt; {
+    // AI operations
+    const response = await this.api.ai?.complete("Hello!");
+    const stream = await this.api.ai?.stream("Tell me a story");
+    
+    // Memory operations
+    await this.api.memory?.store("key", { data: "value" });
+    const value = await this.api.memory?.retrieve("key");
+    const recent = await this.api.memory?.getRecent(10);
+    
+    // File operations
+    const content = await this.api.files?.read("file.txt");
+    await this.api.files?.write("output.txt", "Hello");
+    const files = await this.api.files?.list("./data");
+    
+    // Database operations
+    const rows = await this.api.db?.query("SELECT * FROM table");
+    await this.api.db?.execute("INSERT INTO table VALUES (?)", [value]);
+    
+    // HTTP operations
+    const response = await this.api.http?.get("https://api.example.com");
+    await this.api.http?.post("https://api.example.com", { data: "value" });
+    
+    // Event operations
+    this.api.events?.emit("custom:event", { data: "value" }, "my-agent");
+    this.api.events?.on("other:event", (data) =&gt; {
+      console.log("Received event:", data);
+    });
+    
+    // Plugin operations (direct access)
+    await this.api.git?.status();
+    await this.api.shell?.exec("ls", ["-la"]);
+    
+    // Generic plugin calls
+    await this.api.plugins?.call("plugin-name", "method", arg1, arg2);
+  }
+}</code></pre>
+
+      <h2>Example: Creating a Complete Custom Agent</h2>
+
+      <h3>Log Analyzer Agent</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+/**
+ * Log Analyzer Agent
+ * 
+ * Watches log files for errors and uses AI to analyze them.
+ * Runs on a schedule to generate daily reports.
+ */
+export default class LogAnalyzerAgent extends BaseAgent {
+  // Run daily at 8 AM
+  static schedule = "0 8 * * *";
+  
+  // Watch log files
+  static watch = ["logs/*.log", "**/error.log"];
+  
+  // Webhook for manual triggers
+  static webhook = "/webhook/log-analyzer";
+
+  private errorCount = 0;
+  private lastReport: Date | null = null;
+
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise&lt;void&gt; {
+    console.log("📊 Starting log analysis...");
+    
+    try {
+      // Find all log files
+      const logFiles = await this.findLogFiles();
+      console.log(`Found ${logFiles.length} log files`);
+      
+      // Analyze each file
+      const analyses = [];
+      for (const file of logFiles) {
+        const analysis = await this.analyzeLogFile(file);
+        analyses.push(analysis);
+      }
+      
+      // Generate report
+      const report = await this.generateReport(analyses);
+      
+      // Store report
+      await this.storeReport(report);
+      
+      // Send notification if critical errors found
+      if (report.criticalErrors &gt; 0) {
+        await this.sendAlert(report);
+      }
+      
+      this.lastReport = new Date();
+      console.log("✅ Log analysis complete");
+      
+    } catch (error) {
+      console.error("❌ Log analysis failed:", error);
+      await this.handleError(error);
+    }
+  }
+
+  async onFileChange(
+    path: string, 
+    event: "create" | "update" | "delete"
+  ): Promise&lt;void&gt; {
+    if (event === "create" || event === "update") {
+      console.log(`📝 Log file changed: ${path}`);
+      
+      // Quick scan for critical errors
+      const content = await this.api.files?.read(path);
+      if (content?.includes("CRITICAL") || content?.includes("FATAL")) {
+        console.log("🚨 Critical error detected!");
+        await this.sendAlert({
+          file: path,
+          message: "Critical error detected in log file",
+        });
+      }
+    }
+  }
+
+  async onWebhook(payload: unknown): Promise&lt;void&gt; {
+    console.log("🔔 Webhook received:", payload);
+    
+    if (typeof payload === "object" && payload !== null) {
+      const data = payload as any;
+      
+      switch (data.action) {
+        case "analyze":
+          await this.execute();
+          break;
+        case "status":
+          console.log({
+            errorCount: this.errorCount,
+            lastReport: this.lastReport,
+          });
+          break;
+        default:
+          console.log("Unknown webhook action:", data.action);
+      }
+    }
+  }
+
+  private async findLogFiles(): Promise&lt;string[]&gt; {
+    return await this.api.files?.list("./logs", "*.log") || [];
+  }
+
+  private async analyzeLogFile(path: string): Promise&lt;any&gt; {
+    const content = await this.api.files?.read(path);
+    
+    // Use AI to analyze
+    const analysis = await this.api.ai?.complete(
+      `Analyze this log file and summarize:\n\n${content?.substring(0, 2000)}`
+    );
+    
+    return {
+      file: path,
+      analysis,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  private async generateReport(analyses: any[]): Promise&lt;any&gt; {
+    const criticalErrors = analyses.filter(a =&gt; 
+      a.analysis?.toLowerCase().includes("critical")
+    ).length;
+    
+    return {
+      date: new Date().toISOString(),
+      filesAnalyzed: analyses.length,
+      criticalErrors,
+      analyses,
+    };
+  }
+
+  private async storeReport(report: any): Promise&lt;void&gt; {
+    const reportPath = `reports/log-analysis-${Date.now()}.json`;
+    await this.api.files?.write(reportPath, JSON.stringify(report, null, 2));
+    await this.api.memory?.store("lastLogReport", report);
+  }
+
+  private async sendAlert(report: any): Promise&lt;void&gt; {
+    // Emit event for other agents
+    this.api.events?.emit("log:critical", report, "log-analyzer");
+    
+    // Could also send email, Slack message, etc.
+    console.log("🚨 ALERT:", report);
+  }
+
+  private async handleError(error: unknown): Promise&lt;void&gt; {
+    await this.api.memory?.store("logAnalyzerError", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: Date.now(),
+    });
+  }
+}</code></pre>
+
+      <h2>File Location</h2>
+      <p>Agents are placed in the <code>agents/</code> directory:</p>
+      <pre><code class="language-typescript">~/.ronin/agents/
+  ├── log-analyzer.ts
+  ├── email-manager.ts
+  ├── telegram-bot.ts
+  └── my-custom-agent.ts</code></pre>
+
+      <h2>Running Agents</h2>
+      <p>Agents are automatically:</p>
+      <ul>
+        <li>Loaded when Ronin starts</li>
+        <li>Scheduled according to their <code>static schedule</code></li>
+        <li>Monitored for file changes if <code>static watch</code> is defined</li>
+        <li>Exposed via webhooks if <code>static webhook</code> is defined</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="06-agent-patterns.html">Agent Patterns</a> - Common patterns for agent development</li>
+        <li><a href="07-inter-agent-communication.html">Inter-Agent Communication</a> - Events and coordination</li>
+        <li><a href="../../../AGENTS.md">Agent Development Guide</a> - Complete agent documentation</li>
+        <li><a href="../plugins/14-creating-plugins.html">Creating Plugins</a> - Extend agent capabilities</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -25,6 +25,7 @@ import { cloudflareCommand } from "./commands/cloudflare.js";
 import { initCommand } from "./commands/init.js";
 import { interactiveCommand } from "./commands/interactive.js";
 import { scheduleCommand } from "./commands/schedule.js";
+import { emitCommand } from "./commands/emit.js";
 import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
@@ -103,7 +104,35 @@ process.env.RONIN_PROJECT_ROOT = roninProjectRoot;
 const command = process.argv[2];
 const args = process.argv.slice(3);
 
+/** Commands that must never start the Ronin server (status, ask, list, etc.). */
+function isReadOnlyCommand(cmd: string | undefined, a: string[]): boolean {
+  if (!cmd) return true; // help / no command
+  const sub = a[0];
+  switch (cmd) {
+    case "start":
+    case "stop":
+    case "restart":
+    case "interactive":
+    case "i":
+    case "run":
+    case "create":
+      return false;
+    case "daemon":
+      return sub !== "start" && sub !== "restart";
+    case "realm":
+      return sub === "status" || sub === "discover" || !sub;
+    default:
+      return true;
+  }
+}
+
 async function main() {
+  // Read-only commands must never start the server and should run quietly (no plugin/agent init logs)
+  if (isReadOnlyCommand(command, args)) {
+    process.env.RONIN_READ_ONLY = "1";
+    process.env.RONIN_QUIET = "1";
+  }
+
   // Check directory for commands that require it
   checkRoninDir(command);
 
@@ -261,6 +290,23 @@ async function main() {
         process.exit(1);
       }
       break;
+
+    case "emit": {
+      const eventName = args[0];
+      if (!eventName || eventName.startsWith("--")) {
+        console.error("❌ Event name required");
+        console.log("Usage: ronin emit <event> [data] [--data <json>] [--port <port>]");
+        process.exit(1);
+      }
+      const dataArg = getArg("--data", args);
+      const dataPositional = args[1] && !args[1].startsWith("--") ? args[1] : undefined;
+      await emitCommand({
+        event: eventName,
+        data: dataArg ?? dataPositional,
+        port: getArg("--port", args) ? parseInt(getArg("--port", args)!, 10) : undefined,
+      });
+      break;
+    }
 
     case "plugins":
       if (args[0] === "list") {
@@ -510,6 +556,7 @@ Core:
   run <agent>          Run a specific agent manually
   list                 List all available agents
   status               Show runtime status and active schedules
+  emit <event> [data]  Send event to running Ronin (Shortcuts, scripts)
   doctor               Run health checks on the installation
 
 AI & Tools:
@@ -550,11 +597,11 @@ Global Options:
 
 Examples:
   ronin start                          Start all agents
+  ronin emit transcribe.text '{"audioPath":"/tmp/a.wav"}'  Send STT event
   ronin ask grok "explain quantum"     Ask Grok a question
   ronin config set ai.provider gemini  Switch to Gemini
-  ronin config set ai.temperature 0.3  Lower temperature
   ronin doctor                         Validate setup
-  ronin help ask                       Detailed help for ask command
+  ronin help emit                      Detailed help for emit command
 `);
 }
 

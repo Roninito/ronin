@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grok Plugin - Skills and Duties</title>
+  <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="content">
+      <h1>Grok Plugin</h1>
+      
+      <p class="lead">
+        The Grok plugin provides integration with xAI's Grok API, enabling agents to make 
+        remote AI calls for chat completions with both streaming and non-streaming modes.
+      </p>
+
+      <h2>Overview</h2>
+      <p>
+        Grok is xAI's conversational AI model. This plugin allows Ronin agents to leverage 
+        Grok's capabilities for natural language processing tasks, providing an alternative 
+        to local Ollama models for agents that need more powerful or different reasoning capabilities.
+      </p>
+
+      <h2>Key Features</h2>
+      <ul>
+        <li><strong>Chat Completions</strong>: Send messages and receive AI-generated responses</li>
+        <li><strong>Streaming Support</strong>: Real-time token-by-token response streaming</li>
+        <li><strong>Multi-turn Conversations</strong>: Support for system, user, and assistant messages</li>
+        <li><strong>Configurable Parameters</strong>: Temperature and token limit controls</li>
+        <li><strong>Flexible Configuration</strong>: API key via config, env vars, or CLI</li>
+        <li><strong>Error Handling</strong>: Clear error messages for API issues</li>
+      </ul>
+
+      <h2>Plugin Methods</h2>
+
+      <h3>Chat Methods</h3>
+      
+      <h4><code>chat(messages, options?)</code></h4>
+      <p>Send a chat request to Grok and receive a complete response (non-streaming).</p>
+      <pre><code class="language-typescript">const response = await this.api.grok?.chat([
+  { role: "system", content: "You are a helpful assistant." },
+  { role: "user", content: "Explain quantum computing in simple terms." }
+], {
+  model: "grok-beta",
+  temperature: 0.7,
+  max_tokens: 500
+});
+
+console.log(response);</code></pre>
+
+      <h4><code>streamChat(messages, options?)</code></h4>
+      <p>Stream chat responses token by token for real-time display.</p>
+      <pre><code class="language-typescript">const stream = this.api.grok?.streamChat([
+  { role: "user", content: "Write a poem about AI." }
+], {
+  model: "grok-beta",
+  temperature: 0.8
+});
+
+// Process stream
+for await (const chunk of stream) {
+  process.stdout.write(chunk);  // Write tokens as they arrive
+}
+console.log("\n[Complete]");</code></pre>
+
+      <h2>API Key Configuration</h2>
+
+      <p>The Grok API key can be configured in multiple ways (checked in order):</p>
+
+      <h3>1. ConfigService (Recommended)</h3>
+      <pre><code class="language-typescript">const configService = getConfigService();
+configService.setGrok({
+  apiKey: "your-api-key-here"
+});</code></pre>
+
+      <h3>2. Environment Variable</h3>
+      <pre><code class="language-bash"># .env file or shell
+export GROK_API_KEY="your-api-key-here"</code></pre>
+
+      <h3>3. CLI Configuration</h3>
+      <pre><code class="language-typescript"># Set via Ronin CLI
+ronin config --grok-api-key "your-api-key-here"</code></pre>
+
+      <h3>4. Legacy Config File</h3>
+      <pre><code class="language-typescript">// ~/.ronin/config.json
+{
+  "grokApiKey": "your-api-key-here"
+}</code></pre>
+
+      <h2>Message Format</h2>
+
+      <p>Grok uses a standard message format with roles:</p>
+
+      <pre><code class="language-typescript">interface GrokMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+// Example conversation
+const messages = [
+  {
+    role: "system",
+    content: "You are a helpful coding assistant. Provide concise answers."
+  },
+  {
+    role: "user",
+    content: "How do I reverse a string in JavaScript?"
+  },
+  {
+    role: "assistant",
+    content: "You can use the split().reverse().join() method..."
+  },
+  {
+    role: "user",
+    content: "Is there a more modern way?"
+  }
+];</code></pre>
+
+      <h2>Options</h2>
+
+      <table>
+        <tr>
+          <th>Option</th>
+          <th>Type</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+        <tr>
+          <td><code>model</code></td>
+          <td>string</td>
+          <td>"grok-beta"</td>
+          <td>Grok model to use</td>
+        </tr>
+        <tr>
+          <td><code>temperature</code></td>
+          <td>number</td>
+          <td>0.7</td>
+          <td>Sampling temperature (0-2)</td>
+        </tr>
+        <tr>
+          <td><code>max_tokens</code></td>
+          <td>number</td>
+          <td>undefined</td>
+          <td>Maximum tokens to generate</td>
+        </tr>
+      </table>
+
+      <h2>Example Usage</h2>
+
+      <h3>Simple Chat</h3>
+      <pre><code class="language-bash">import { BaseAgent } from "@ronin/agent/index.js";
+import type { AgentAPI } from "@ronin/types/index.js";
+
+export default class GrokChatAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    const response = await this.api.grok?.chat([
+      { 
+        role: "system", 
+        content: "You are a concise technical writer." 
+      },
+      { 
+        role: "user", 
+        content: "Summarize the benefits of TypeScript." 
+      }
+    ], {
+      temperature: 0.5,
+      max_tokens: 200
+    });
+
+    console.log("Response:", response);
+  }
+}</code></pre>
+
+      <h3>Streaming Response</h3>
+      <pre><code class="language-bash">export default class GrokStreamAgent extends BaseAgent {
+  constructor(api: AgentAPI) {
+    super(api);
+  }
+
+  async execute(): Promise<void> {
+    console.log("Generating response...\n");
+
+    const stream = this.api.grok?.streamChat([
+      { role: "user", content: "Tell me a short story about robots." }
+    ], {
+      temperature: 0.9
+    });
+
+    if (!stream) {
+      console.error("Failed to start stream");
+      return;
+    }
+
+    for await (const chunk of stream) {
+      process.stdout.write(chunk);
+    }
+
+    console.log("\n\n[Story complete]");
+  }
+}</code></pre>
+
+      <h3>Multi-turn Conversation</h3>
+      <pre><code class="language-bash">export default class GrokConversationAgent extends BaseAgent {
+  private conversation: Array<{role: string; content: string}> = [];
+
+  constructor(api: AgentAPI) {
+    super(api);
+    this.conversation = [
+      { 
+        role: "system", 
+        content: "You are a helpful coding tutor." 
+      }
+    ];
+  }
+
+  async chat(userMessage: string): Promise<string> {
+    this.conversation.push({
+      role: "user",
+      content: userMessage
+    });
+
+    const response = await this.api.grok?.chat(this.conversation);
+    
+    this.conversation.push({
+      role: "assistant",
+      content: response
+    });
+
+    return response;
+  }
+
+  async execute(): Promise<void> {
+    const response1 = await this.chat("What is a closure in JavaScript?");
+    console.log("Q1:", response1);
+
+    const response2 = await this.chat("Can you show me an example?");
+    console.log("Q2:", response2);
+  }
+}</code></pre>
+
+      <h2>API Endpoints</h2>
+
+      <p>The plugin connects to xAI's API:</p>
+      <ul>
+        <li><strong>Base URL:</strong> <code>https://api.x.ai/v1</code></li>
+        <li><strong>Chat Endpoint:</strong> <code>/chat/completions</code></li>
+        <li><strong>Authentication:</strong> Bearer token in Authorization header</li>
+      </ul>
+
+      <h2>Models</h2>
+
+      <p>Available Grok models (check xAI documentation for latest):</p>
+      <ul>
+        <li><code>grok-beta</code> - Default model (recommended)</li>
+      </ul>
+
+      <h2>Error Handling</h2>
+
+      <p>Common errors and their meanings:</p>
+      <ul>
+        <li><strong>401 Unauthorized</strong>: Invalid API key</li>
+        <li><strong>429 Too Many Requests</strong>: Rate limit exceeded</li>
+        <li><strong>500/502/503</strong>: xAI server errors - retry</li>
+      </ul>
+
+      <h2>Security Considerations</h2>
+      <ul>
+        <li>Never commit API keys to version control</li>
+        <li>Use environment variables or ConfigService for production</li>
+        <li>Rotate API keys regularly</li>
+        <li>Monitor API usage to detect unusual activity</li>
+      </ul>
+
+      <h2>See Also</h2>
+      <ul>
+        <li><a href="../../PLUGINS.md">Plugin Development Guide</a> - General plugin documentation</li>
+        <li><a href="12-gemini-plugin.html">Gemini Plugin</a> - Google AI alternative</li>
+        <li><a href="https://x.ai/api">xAI API Documentation</a> - Official Grok API docs</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

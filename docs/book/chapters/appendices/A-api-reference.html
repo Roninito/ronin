@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appendix A: API Reference - Ronin & Realm Documentation</title>
   <link rel="stylesheet" href="../../styles/book.css">
+  <!-- Prism.js Syntax Highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
 </head>
 <body>
   <div class="chapter-header">
@@ -24,7 +31,7 @@
     </div>
 
     <h2>api.ai - AI Operations</h2>
-    <pre><code>complete(prompt: string, options?: CompletionOptions): Promise&lt;string&gt;
+    <pre><code class="language-typescript">complete(prompt: string, options?: CompletionOptions): Promise&lt;string&gt;
 stream(prompt: string, options?: CompletionOptions): AsyncIterable&lt;string&gt;
 chat(messages: Message[], options?: ChatOptions): Promise&lt;Message&gt;
 streamChat(messages: Message[], options?: ChatOptions): AsyncIterable&lt;string&gt;
@@ -32,7 +39,7 @@ callTools(prompt: string, tools: Tool[], options?: CompletionOptions): Promise&l
 checkModel(model?: string): Promise&lt;boolean&gt;</code></pre>
 
     <h3>CompletionOptions</h3>
-    <pre><code>{
+    <pre><code class="language-json">{
   model?: string;           // Model to use (e.g., "qwen3:1.7b")
   temperature?: number;     // 0.0 - 1.0, default 0.7
   maxTokens?: number;       // Maximum tokens to generate
@@ -43,7 +50,7 @@ checkModel(model?: string): Promise&lt;boolean&gt;</code></pre>
 }</code></pre>
 
     <h2>api.memory - Memory & Context</h2>
-    <pre><code>store(key: string, value: unknown): Promise&lt;void&gt;
+    <pre><code class="language-typescript">store(key: string, value: unknown): Promise&lt;void&gt;
 retrieve(key: string): Promise&lt;unknown&gt;
 search(query: string, limit?: number): Promise&lt;Memory[]&gt;
 addContext(text: string, metadata?: Record&lt;string, unknown&gt;): Promise&lt;string&gt;  // Returns document ID
@@ -51,18 +58,18 @@ getRecent(limit?: number): Promise&lt;Memory[]&gt;
 getByMetadata(metadata: Record&lt;string, unknown&gt;): Promise&lt;Memory[]&gt;</code></pre>
 
     <h2>api.files - File Operations</h2>
-    <pre><code>read(path: string): Promise&lt;string&gt;
+    <pre><code class="language-typescript">read(path: string): Promise&lt;string&gt;
 write(path: string, content: string): Promise&lt;void&gt;
 list(dir: string, pattern?: string): Promise&lt;string[]&gt;
 watch(pattern: string, callback: (path: string, event: "create" | "update" | "delete") => void): void</code></pre>
 
     <h2>api.db - Database Operations</h2>
-    <pre><code>query&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T[]&gt;
+    <pre><code class="language-typescript">query&lt;T&gt;(sql: string, params?: unknown[]): Promise&lt;T[]&gt;
 execute(sql: string, params?: unknown[]): Promise&lt;void&gt;
 transaction&lt;T&gt;(fn: (tx: Transaction) => Promise&lt;T&gt;): Promise&lt;T&gt;</code></pre>
 
     <h2>api.http - HTTP Server & Client</h2>
-    <pre><code>// Client methods
+    <pre><code class="language-typescript">// Client methods
 get(url: string, options?: RequestOptions): Promise&lt;Response&gt;
 post(url: string, data: unknown, options?: RequestOptions): Promise&lt;Response&gt;
 
@@ -79,7 +86,7 @@ getRouteMetadata(path: string): { title?: string; description?: string; icon?: s
 getAllRoutesWithMetadata(): Array&lt;{ path: string; metadata?: {...} }&gt;</code></pre>
 
     <h2>api.events - Event System</h2>
-    <pre><code>emit(event: string, data: unknown, source?: string): void
+    <pre><code class="language-typescript">emit(event: string, data: unknown, source?: string): void
 on(event: string, handler: (data: unknown) => void): void
 off(event: string, handler: (data: unknown) => void): void
 
@@ -92,12 +99,12 @@ reply(requestId: string, data: unknown, error?: string | null): void
 getRegisteredEvents(): Array&lt;{ event: string; handlerCount: number }&gt;</code></pre>
 
     <h2>api.plugins - Plugin System</h2>
-    <pre><code>call(pluginName: string, method: string, ...args: unknown[]): Promise&lt;unknown&gt;
+    <pre><code class="language-typescript">call(pluginName: string, method: string, ...args: unknown[]): Promise&lt;unknown&gt;
 has(pluginName: string): boolean
 list(): string[]</code></pre>
 
     <h2>api.config - Configuration Access</h2>
-    <pre><code>get&lt;T&gt;(path: string): T                    // Get config value by path (e.g., "ai.ollamaUrl")
+    <pre><code class="language-typescript">get&lt;T&gt;(path: string): T                    // Get config value by path (e.g., "ai.ollamaUrl")
 getAll(): FullConfig                        // Get entire configuration
 getTelegram(): TelegramConfig
 getDiscord(): DiscordConfig
@@ -118,7 +125,7 @@ isFromEnv(path: string): boolean            // Check if value came from env var
 reload(): Promise&lt;void&gt;                     // Reload configuration from disk</code></pre>
 
     <h2>api.tools - Tool System (Hybrid Intelligence)</h2>
-    <pre><code>// Tool management
+    <pre><code class="language-typescript">// Tool management
 register(tool: ToolDefinition): void
 unregister(toolName: string): void
 execute(name: string, args: Record&lt;string, any&gt;, context?: Partial&lt;ToolContext&gt;): Promise&lt;ToolResult&gt;
@@ -140,7 +147,7 @@ getCostStats(): { daily: number; monthly: number }</code></pre>
     <h2>Plugin APIs (Optional)</h2>
 
     <h3>api.git - Git Operations</h3>
-    <pre><code>init(): Promise&lt;{ success: boolean; message: string }&gt;
+    <pre><code class="language-typescript">init(): Promise&lt;{ success: boolean; message: string }&gt;
 clone(url: string, dir?: string): Promise&lt;{ success: boolean; output: string }&gt;
 status(): Promise&lt;{ clean: boolean; files: Array&lt;{ status: string; file: string }&gt; }&gt;
 add(files: string | string[]): Promise&lt;{ success: boolean }&gt;
@@ -151,7 +158,7 @@ branch(name?: string): Promise&lt;{ success?: boolean; output?: string; branches
 checkout(branch: string): Promise&lt;{ success: boolean; output: string }&gt;</code></pre>
 
     <h3>api.shell - Shell Operations</h3>
-    <pre><code>exec(command: string, args?: string[], options?: { cwd?: string; env?: Record&lt;string, string&gt; }): 
+    <pre><code class="language-typescript">exec(command: string, args?: string[], options?: { cwd?: string; env?: Record&lt;string, string&gt; }): 
   Promise&lt;{ exitCode: number; stdout: string; stderr: string; success: boolean }&gt;
 execAsync(command: string, args?: string[], options?: { cwd?: string; env?: Record&lt;string, string&gt; }):
   Promise&lt;{ process: Subprocess; readOutput(): Promise&lt;{ exitCode: number; stdout: string; stderr: string; success: boolean }&gt; }&gt;
@@ -160,7 +167,7 @@ env(): Promise&lt;Record&lt;string, string&gt;&gt;
 cwd(): Promise&lt;string&gt;</code></pre>
 
     <h3>api.scrape - Web Scraping</h3>
-    <pre><code>scrape_to_markdown(url: string, options?: {
+    <pre><code class="language-typescript">scrape_to_markdown(url: string, options?: {
   instructions?: string;
   selector?: string;
   includeImages?: boolean;
@@ -176,7 +183,7 @@ cwd(): Promise&lt;string&gt;</code></pre>
 }&gt;</code></pre>
 
     <h3>api.telegram - Telegram Bot</h3>
-    <pre><code>initBot(token: string, options?: { webhookUrl?: string }): Promise&lt;string&gt;
+    <pre><code class="language-typescript">initBot(token: string, options?: { webhookUrl?: string }): Promise&lt;string&gt;
 sendMessage(botId: string, chatId: string | number, text: string, options?: { parseMode?: "HTML" | "Markdown" | "MarkdownV2" }): Promise&lt;void&gt;
 sendPhoto(botId: string, chatId: string | number, photo: string | Buffer, caption?: string): Promise&lt;void&gt;
 getUpdates(botId: string, options?: { limit?: number; offset?: number }): Promise&lt;TelegramUpdate[]&gt;
@@ -186,7 +193,7 @@ onMessage(botId: string, callback: (update: TelegramUpdate) => void): void
 getBotInfo(botId: string): Promise&lt;{ id: number; username: string; first_name: string; can_join_groups: boolean; can_read_all_group_messages: boolean }&gt;</code></pre>
 
     <h3>api.discord - Discord Bot</h3>
-    <pre><code>initBot(token: string, options?: { intents?: number[] }): Promise&lt;string&gt;
+    <pre><code class="language-typescript">initBot(token: string, options?: { intents?: number[] }): Promise&lt;string&gt;
 sendMessage(clientId: string, channelId: string, content: string, options?: { embed?: {...} }): Promise&lt;void&gt;
 getMessages(clientId: string, channelId: string, options?: { limit?: number; before?: string }): Promise&lt;DiscordMessage[]&gt;
 onMessage(clientId: string, callback: (message: DiscordMessage) => void): void
@@ -195,7 +202,7 @@ joinGuild(clientId: string, inviteCode: string): Promise&lt;{ code: string; guil
 getChannel(clientId: string, channelId: string): Promise&lt;{ id: string; name: string; type: string; guildId: string | null }&gt;</code></pre>
 
     <h3>api.rag - RAG (Retrieval-Augmented Generation)</h3>
-    <pre><code>init(namespace: string, options?: { embeddingModel?: string; chunkSize?: number; chunkOverlap?: number }): 
+    <pre><code class="language-typescript">init(namespace: string, options?: { embeddingModel?: string; chunkSize?: number; chunkOverlap?: number }): 
   Promise&lt;{ success: boolean; namespace: string; dbPath: string }&gt;
 
 addDocuments(namespace: string, documents: Array&lt;{ content: string; metadata?: Record&lt;string, unknown&gt; }&gt;, options?: {...}):
@@ -213,7 +220,7 @@ getStats(namespace: string): Promise&lt;{ documentCount: number; chunkCount: num
 clearNamespace(namespace: string): Promise&lt;{ cleared: boolean }&gt;</code></pre>
 
     <h3>api.email - Email Management</h3>
-    <pre><code>addAccount(config: { name: string; email: string; imap: {...}; smtp: {...} }): Promise&lt;{ id: string; email: string; name: string }&gt;
+    <pre><code class="language-typescript">addAccount(config: { name: string; email: string; imap: {...}; smtp: {...} }): Promise&lt;{ id: string; email: string; name: string }&gt;
 removeAccount(accountId: string): Promise&lt;{ success: boolean }&gt;
 listAccounts(): Promise&lt;Array&lt;{ id: string; name: string; email: string; isMonitoring: boolean; createdAt: number }&gt;&gt;
 getInbox(accountId: string, options?: { limit?: number; offset?: number }): Promise&lt;Email[]&gt;
@@ -232,7 +239,7 @@ offNewEmail(accountId: string, callback: (email: unknown) => void): void
 listFolders(accountId: string): Promise&lt;Array&lt;{ name: string; path: string; specialUse?: string }&gt;&gt;</code></pre>
 
     <h3>api.realm - Peer-to-Peer Communication</h3>
-    <pre><code>init(discoveryUrl: string, callSign: string, options?: { token?: string; localWsPort?: number; heartbeatInterval?: number; stunServers?: RTCIceServer[]; turnServers?: RTCIceServer[] }): Promise&lt;void&gt;
+    <pre><code class="language-typescript">init(discoveryUrl: string, callSign: string, options?: { token?: string; localWsPort?: number; heartbeatInterval?: number; stunServers?: RTCIceServer[]; turnServers?: RTCIceServer[] }): Promise&lt;void&gt;
 disconnect(): void
 sendMessage(to: string, content: string): Promise&lt;void&gt;
 beam(target: string | string[], eventType: string, payload: unknown): Promise&lt;void&gt;
@@ -241,7 +248,7 @@ getPeerStatus(callSign: string): Promise&lt;{ online: boolean; wsAddress?: strin
 sendMedia(to: string, stream: MediaStream): Promise&lt;void&gt;</code></pre>
 
     <h3>api.langchain - LangChain Integration</h3>
-    <pre><code>runChain(prompt: string, input: any, api?: AgentAPI): Promise&lt;string&gt;
+    <pre><code class="language-typescript">runChain(prompt: string, input: any, api?: AgentAPI): Promise&lt;string&gt;
 runAgent(query: string, tools?: any[], api?: AgentAPI): Promise&lt;any&gt;
 buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise&lt;any&gt;
 runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise&lt;string&gt;
@@ -250,7 +257,7 @@ buildResearchGraph(api?: AgentAPI): Promise&lt;any&gt;</code></pre>
     <h2>Type Definitions</h2>
 
     <h3>Core Types</h3>
-    <pre><code>interface AgentAPI {
+    <pre><code class="language-typescript">interface AgentAPI {
   ai: AIAPI;
   memory: MemoryAPI;
   files: FilesAPI;

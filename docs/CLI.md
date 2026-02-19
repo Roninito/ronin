@@ -256,6 +256,34 @@ ronin create plugin <name> [options]
 ronin create plugin my-plugin
 ```
 
+### `create skill`
+
+Create a new skill using AI assistance. Uses the SkillMaker agent to generate skill.md and scripts from a description.
+
+**Usage:**
+```bash
+ronin create skill "<description>" [options]
+```
+
+**Options:**
+- `--agent-dir <dir>` - Agent directory
+- `--plugin-dir <dir>` - Plugin directory
+- `--ollama-url <url>` - Ollama API URL
+- `--ollama-model <name>` - Ollama model name
+- `--db-path <path>` - Database file path
+
+**Examples:**
+```bash
+ronin create skill "monitor log files and alert on error spikes"
+ronin create skill "fetch weather data and format as JSON"
+```
+
+**Process:**
+1. Uses AI to generate skill.md with frontmatter, instructions, and abilities
+2. Generates script files for each ability
+3. Saves to `~/.ronin/skills/<skill-name>/`
+4. Emits `new-skill` event when complete
+
 ### `plugins list`
 
 List all loaded plugins.
@@ -288,6 +316,109 @@ ronin plugins info <plugin-name> [options]
 ronin plugins info git
 ronin plugins info grok
 ```
+
+### `skills`
+
+Manage AgentSkills - modular, reusable AI workflows. Skills are task-focused bundles (skill.md + scripts) that the AI can discover, explore, and run.
+
+**Usage:**
+```bash
+ronin skills <subcommand> [options]
+```
+
+**Subcommands:**
+
+#### `skills list`
+
+List all available skills from user and project directories.
+
+**Examples:**
+```bash
+ronin skills list
+```
+
+#### `skills discover <query>`
+
+Discover skills matching a query (searches name and description).
+
+**Examples:**
+```bash
+ronin skills discover "log monitor"
+ronin skills discover "weather"
+```
+
+**Output:** JSON array of matching skills with `name` and `description`.
+
+#### `skills explore <name> [--scripts]`
+
+Show detailed information about a skill, including frontmatter, instructions, abilities, and optionally script contents.
+
+**Options:**
+- `--scripts` - Include script file contents in output
+
+**Examples:**
+```bash
+ronin skills explore log-monitor
+ronin skills explore weather --scripts
+```
+
+**Output:** JSON with skill details including abilities, instructions, and optional script contents.
+
+#### `skills use <name> [options]`
+
+Execute a skill with specified ability or pipeline.
+
+**Options:**
+- `--ability <name>` - Run a specific ability
+- `--pipeline <a,b,c>` - Run abilities in sequence (comma-separated)
+- `--params '<json>'` - JSON parameters for the skill
+
+**Examples:**
+```bash
+# Run a specific ability
+ronin skills use log-monitor --ability=countErrors --params='{"logPath":"/var/log/app.log"}'
+
+# Run a pipeline
+ronin skills use data-processor --pipeline=extract,transform,load --params='{"source":"data.csv"}'
+```
+
+#### `skills install <git-repo> [--name <skill-name>]`
+
+Install a skill from a git repository.
+
+**Options:**
+- `--name <name>` - Custom skill name (defaults to repository name)
+
+**Examples:**
+```bash
+ronin skills install https://github.com/user/skill-repo.git
+ronin skills install https://github.com/user/skill-repo.git --name my-skill
+```
+
+**Note:** Requires git plugin to be loaded.
+
+#### `skills update <name>`
+
+Update an installed skill by pulling latest changes from git.
+
+**Examples:**
+```bash
+ronin skills update log-monitor
+```
+
+**Note:** Skill must be a git repository. Requires git plugin to be loaded.
+
+#### `skills init`
+
+Initialize git repository in the skills directory for version control.
+
+**Examples:**
+```bash
+ronin skills init
+```
+
+**See Also:**
+- [docs/SKILLS.md](./SKILLS.md) - Complete skills documentation
 
 ### `mcp`
 
@@ -404,56 +535,57 @@ Shows count of configured and enabled servers, plus a list of all configured ser
 
 ### `ask`
 
-Ask questions about Ronin or get help. Supports multiple AI providers.
+Ask questions about Ronin or get help. **Requires Ronin to be running** (`ronin start`). Connects to the running instance via HTTP for a unified chat experience with conversation history.
 
 **Usage:**
 ```bash
 ronin ask [model] [question] [options]
 ```
 
-**Models:**
-- `local` (default) - Uses Ollama with local models
-- `grok` - Uses Grok AI (requires `GROK_API_KEY`)
-- `gemini` - Uses Google Gemini (requires `GEMINI_API_KEY`)
+**Important:** Start Ronin first:
+```bash
+ronin start  # In one terminal
+ronin ask "how do plugins work?"  # In another terminal
+```
+
+**Model Tiers:**
+- `local` (default) - Uses default local Ollama model
+- `smart` - Uses configured smart tier model (cloud or local)
+- `cloud` - Uses cloud tier model (remote AI)
 
 **Options:**
-- `--model <name>` - Specify model explicitly
-- `--agent-dir <dir>` - Agent directory
-- `--plugin-dir <dir>` - Plugin directory
-- `--ollama-url <url>` - Ollama API URL
-- `--ollama-model <name>` - Ollama model name
-- `--db-path <path>` - Database file path
-- `--sources` - Show sources for answers
+- `--model <name>` - Specify model tier (`smart`, `cloud`) or specific model name
+- `--ask-model <name>` - Specify specific Ollama model (e.g., `ministral-3:3b`)
+- `--sources` - Show sources for answers (if supported)
 
 **Examples:**
 ```bash
-# Single question with default (local) model
+# Single question with default model
 ronin ask "how do plugins work?"
 
-# Use Grok (model name as first argument)
-ronin ask grok "explain agent scheduling"
+# Use smart tier (configured in Ronin instance)
+ronin ask smart "explain agent scheduling"
 
-# Use Gemini (model name as first argument)
-ronin ask gemini "how to create a new agent?"
+# Use cloud tier
+ronin ask cloud "how to create a new agent?"
 
-# Use local/Ollama (explicit)
-ronin ask local "how do agents work?"
-
-# Use --model flag instead
-ronin ask "explain scheduling" --model grok
+# Use specific Ollama model
+ronin ask "explain scheduling" --ask-model ministral-3:3b
 
 # Interactive mode
 ronin ask
 
-# Interactive mode with specific model
-ronin ask grok
+# Interactive mode with smart tier
+ronin ask smart
 ```
 
 **Features:**
-- Context-aware: Gathers information from agents, plugins, and documentation
-- Tool calling: Can execute tools to gather information
-- Streaming responses: Real-time output
-- Pattern matching: Automatically detects common queries
+- **Unified chat experience**: Conversation history and context preserved
+- **Context-aware**: Gathers information from agents, plugins, and documentation
+- **Tool calling**: Can execute tools to gather information
+- **Streaming responses**: Real-time output
+- **Pattern matching**: Automatically detects common queries
+- **Webhook-based**: Connects to running Ronin instance for full feature access
 
 ### `config`
 

@@ -63,18 +63,26 @@ bun run ronin create agent "backup database" --local  # Create in local director
 # Cancel agent creation if needed
 bun run ronin cancel agent-creation
 
-# Ask questions about Ronin
+# Ask questions about Ronin (requires Ronin to be running)
+bun run ronin start  # Start Ronin first
 bun run ronin ask "how do plugins work?"
 bun run ronin ask grok "explain agent scheduling"  # Use Grok
 bun run ronin ask gemini "how to create plugins"  # Use Gemini
 bun run ronin ask  # Interactive mode
-bun run ronin ask "question" --ask-model qwen3:1.7b  # Use specific Ollama model
+bun run ronin ask "question" --ask-model ministral-3:3b  # Use specific Ollama model
 
 # Manage MCP servers for extended capabilities
 bun run ronin mcp discover                      # Show available MCP servers
 bun run ronin mcp add filesystem --path ~/Documents  # Add filesystem access
 bun run ronin mcp add brave-search               # Add web search (requires API key)
 bun run ronin mcp list                          # List configured servers
+
+# Manage skills (AgentSkills standard)
+bun run ronin skills list                       # List all skills
+bun run ronin skills discover "log monitor"    # Discover skills by query
+bun run ronin skills explore log-monitor        # Explore skill details
+bun run ronin skills use log-monitor --ability=countErrors --params='{"logPath":"/var/log/app.log"}'
+bun run ronin create skill "monitor logs and alert on errors"  # Create new skill
 
 # Start all agents (schedules them and keeps running)
 bun run ronin start
@@ -380,18 +388,20 @@ This allows you to store agents outside the project folder. Agents from both the
 
 ### Ask Command Options
 
-The `ask` command supports using different AI models:
+**Important:** The `ask` command now requires Ronin to be running (`ronin start`). It connects to the running instance via HTTP to provide a unified chat experience with conversation history and context.
 
-**Remote models:**
-- `bun run ronin ask grok "question"` - Use Grok (xAI)
-- `bun run ronin ask gemini "question"` - Use Gemini (Google)
+The `ask` command supports using different AI models/tiers:
 
-**Local Ollama models:**
-- `bun run ronin ask "question"` - Use default Ollama model
-- `bun run ronin ask "question" --ask-model qwen3:1.7b` - Use specific Ollama model
-- `bun run ronin ask "question" --ask-model llama3.2:3b` - Use another model
+**Model tiers:**
+- `bun run ronin ask "question"` - Use default model (local Ollama)
+- `bun run ronin ask smart "question"` - Use smart tier (configured cloud/local model)
+- `bun run ronin ask cloud "question"` - Use cloud tier (remote AI)
 
-**Note:** The `--ask-model` flag overrides the default Ollama model only for the ask command, making it easy to use a lightweight model for quick questions while keeping a more capable model for other operations.
+**Specific models:**
+- `bun run ronin ask "question" --ask-model ministral-3:3b` - Use specific Ollama model
+- `bun run ronin ask "question" --ask-model qwen3:1.7b` - Use another Ollama model
+
+**Note:** The `--ask-model` flag specifies a particular model to use. Model tiers (`smart`, `cloud`) use configured models from your Ronin instance settings.
 
 ## Project Structure
 

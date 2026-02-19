@@ -209,10 +209,13 @@ export default class RuleManagerAgent extends BaseAgent {
         message: "Rules updated successfully"
       });
     } catch (error) {
-      // Analytics: task failed
+      // Analytics: task failed (failureNotes/request for SkillMaker)
       this.api.events.emit("agent.task.failed", {
         agent: "rule-manager", taskId, duration: Date.now() - taskStart,
         error: (error as Error).message, timestamp: Date.now(),
+        failureNotes: (error as Error).message,
+        request: "save-rules",
+        description: "Update rules content",
       }, "rule-manager");
       console.error("[rule-manager] Error updating rules:", error);
       return Response.json({

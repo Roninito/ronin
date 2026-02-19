@@ -1,4 +1,4 @@
-import { watch } from "fs";
+import { watch, mkdirSync, existsSync } from "fs";
 
 export class FilesAPI {
   private watchers: Map<string, ReturnType<typeof watch>> = new Map();
@@ -19,6 +19,15 @@ export class FilesAPI {
    */
   async write(path: string, content: string): Promise<void> {
     await Bun.write(path, content);
+  }
+
+  /**
+   * Ensure a directory exists (create recursively if needed)
+   */
+  async ensureDir(path: string): Promise<void> {
+    if (!existsSync(path)) {
+      mkdirSync(path, { recursive: true });
+    }
   }
 
   /**

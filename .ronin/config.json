@@ -79,5 +79,13 @@
     "localPort": 4000
   },
   "pluginDir": "/Users/ronin/Desktop/Bun Apps/ronin/plugins",
+  "speech": {
+    "stt": {
+      "backend": "deepgram",
+      "whisperModelPath": "",
+      "whisperBinary": "whisper-cli",
+      "deepgramApiKey": ""
+    }
+  },
   "geminiModel": "gemini-3-pro-preview"
 }

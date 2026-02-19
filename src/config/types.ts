@@ -63,6 +63,8 @@ export interface SystemConfig {
   httpIdleTimeout: number;
   externalAgentDir: string;
   userPluginDir: string;
+  /** User skills directory (AgentSkills). Defaults to ~/.ronin/skills */
+  skillsDir?: string;
 }
 
 export interface CLIOptions {
@@ -164,6 +166,22 @@ export interface MCPConfig {
   servers: Record<string, MCPServerConfig>;
 }
 
+export interface STTConfig {
+  backend: "apple" | "whisper" | "deepgram";
+  whisperModelPath: string;
+  whisperBinary: string;
+  deepgramApiKey: string;
+}
+
+export interface SpeechConfig {
+  stt: STTConfig;
+}
+
+export interface NotificationsConfig {
+  preferredChat: 'telegram' | 'discord' | 'auto';
+  timeoutSeconds: number;
+}
+
 export interface FullConfig {
   configVersion: string;
   defaultCLI: string;
@@ -184,6 +202,8 @@ export interface FullConfig {
   realm: RealmConfig;
   desktop: DesktopConfig;
   mcp: MCPConfig;
+  speech: SpeechConfig;
+  notifications: NotificationsConfig;
   pluginDir: string;
   geminiModel: string;
 }
@@ -282,5 +302,8 @@ export type ConfigPath =
   | 'desktop.menubar'
   | 'desktop.menubarRoutes'
   | 'desktop.menubarRoutes.allowedPaths'
+  | 'notifications'
+  | 'notifications.preferredChat'
+  | 'notifications.timeoutSeconds'
   | 'pluginDir'
   | 'geminiModel';

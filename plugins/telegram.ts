@@ -5,11 +5,21 @@ interface TelegramUpdate {
   update_id: number;
   message?: {
     message_id: number;
+    from?: {
+      id: number;
+      username?: string;
+      first_name?: string;
+      last_name?: string;
+    };
     chat: {
       id: number;
       type: string;
       title?: string;
       username?: string;
+    };
+    reply_to_message?: {
+      message_id: number;
+      text?: string;
     };
     text?: string;
     caption?: string;
@@ -378,6 +388,14 @@ const telegramPlugin: Plugin = {
           message: ctx.message
             ? {
                 message_id: ctx.message.message_id,
+                from: ctx.message.from
+                  ? {
+                      id: ctx.message.from.id,
+                      username: ctx.message.from.username,
+                      first_name: ctx.message.from.first_name,
+                      last_name: ctx.message.from.last_name,
+                    }
+                  : undefined,
                 chat: {
                   id: ctx.message.chat.id,
                   type: ctx.message.chat.type,
@@ -385,6 +403,12 @@ const telegramPlugin: Plugin = {
                   username:
                     "username" in ctx.message.chat ? ctx.message.chat.username : undefined,
                 },
+                reply_to_message: ctx.message.reply_to_message
+                  ? {
+                      message_id: ctx.message.reply_to_message.message_id,
+                      text: ctx.message.reply_to_message.text,
+                    }
+                  : undefined,
                 text: ctx.message.text,
                 caption: ctx.message.caption,
                 photo: ctx.message.photo?.map((p) => ({ file_id: p.file_id })),

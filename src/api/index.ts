@@ -67,6 +67,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const discordAPI = bindPluginAPI<"discord">("discord");
   const langchainAPI = bindPluginAPI<"langchain">("langchain");
   const ragAPI = bindPluginAPI<"rag">("rag");
+  const skillsAPI = bindPluginAPI<"skills">("skills");
 
   // Realm needs special handling for setEventsAPI
   const realmPlugin = plugins.find(p => p.name === "realm");
@@ -308,6 +309,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
       getRssToTelegram: () => configService.getRssToTelegram(),
       getRealm: () => configService.getRealm(),
       getMCP: () => configService.getMCP(),
+      getNotifications: () => configService.getNotifications(),
       isFromEnv: (path: string) => configService.isFromEnv(path as any),
       reload: () => configService.reload(),
     },
@@ -320,6 +322,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(realmAPI && { realm: realmAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
     ...(ragAPI && { rag: ragAPI }),
+    ...(skillsAPI && { skills: skillsAPI }),
     tools: {} as AgentAPI["tools"],
   };
 
@@ -329,6 +332,12 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   // Add tools API to the api object
   const toolsAPI = getToolsAPI(api);
   (api as any).tools = toolsAPI;
+
+  // Skills plugin needs API reference for files, shell, config, events
+  const skillsPlugin = plugins.find(p => p.name === "skills");
+  if (skillsPlugin?.plugin?.methods?.setAPI) {
+    (skillsPlugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
+  }
 
   return api;
 }

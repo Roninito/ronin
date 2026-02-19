@@ -35,10 +35,26 @@ export class ConfigService {
     
     // Layer 1: Override with environment variables (highest priority)
     this.loadFromEnv();
-    
+
+    // So the STT plugin (which reads process.env) sees config: set env from config only when env is not already set
+    this.applySpeechConfigToEnv();
+
     if (!process.env.RONIN_QUIET) {
       logger.info("Configuration loaded");
     }
+  }
+
+  /**
+   * Push config.speech.stt into process.env so the STT plugin can use it.
+   * Only sets vars that are not already in process.env (env keeps precedence).
+   */
+  private applySpeechConfigToEnv(): void {
+    const stt = this.config.speech?.stt;
+    if (!stt) return;
+    if (stt.backend && process.env.STT_BACKEND === undefined) process.env.STT_BACKEND = stt.backend;
+    if (stt.deepgramApiKey && process.env.DEEPGRAM_API_KEY === undefined) process.env.DEEPGRAM_API_KEY = stt.deepgramApiKey;
+    if (stt.whisperModelPath && process.env.WHISPER_MODEL_PATH === undefined) process.env.WHISPER_MODEL_PATH = stt.whisperModelPath;
+    if (stt.whisperBinary && process.env.WHISPER_BINARY === undefined) process.env.WHISPER_BINARY = stt.whisperBinary;
   }
 
   /**
@@ -255,6 +271,13 @@ export class ConfigService {
    */
   getMCP() {
     return this.config.mcp;
+  }
+
+  /**
+   * Get notifications configuration (preferred chat, timeout)
+   */
+  getNotifications() {
+    return this.config.notifications;
   }
 
   /**

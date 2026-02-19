@@ -275,11 +275,26 @@ Create new Ronin components.
 Types:
   plugin <name>       Create a new plugin template
   agent [description] AI-powered agent creation (interactive)
+  skill "description" Generate an AgentSkill from a description (SkillMaker)
 
 Options (agent):
   --local              Create in ~/.ronin/agents instead of ./agents
   --no-preview         Skip preview before saving
   --edit               Open in editor after creation
+`,
+  skills: `
+Usage: ronin skills <subcommand> [args] [options]
+
+Manage AgentSkills (discover, explore, use, install from git).
+
+Subcommands:
+  list                 List all skills (default)
+  discover "<query>"   Discover skills matching query
+  explore <name>       Show full skill details (--scripts to include script contents)
+  use <name>          Run a skill (--ability=..., --pipeline=a,b,c, --params='{}')
+  install <repo>       Clone a skill from git (--name <skill-name>)
+  update <name>        Pull latest for an installed skill
+  init                 Git init ~/.ronin/skills for versioning
 `,
   plugins: `
 Usage: ronin plugins <subcommand>

@@ -1136,10 +1136,13 @@ export default class ChattyAgent extends BaseAgent {
         },
       });
     } catch (error) {
-      // Analytics: task failed
+      // Analytics: task failed (failureNotes/request for SkillMaker)
       this.api.events.emit("agent.task.failed", {
         agent: "chatty", taskId, duration: Date.now() - taskStartTime,
         error: (error as Error).message, timestamp: Date.now(),
+        failureNotes: (error as Error).message,
+        request: "chat",
+        description: "Chat completion",
       }, "chatty");
       console.error("Chat API error:", error);
       return Response.json(

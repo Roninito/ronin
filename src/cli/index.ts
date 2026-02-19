@@ -26,6 +26,7 @@ import { initCommand } from "./commands/init.js";
 import { interactiveCommand } from "./commands/interactive.js";
 import { scheduleCommand } from "./commands/schedule.js";
 import { emitCommand } from "./commands/emit.js";
+import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
@@ -270,9 +271,24 @@ async function main() {
           noPreview: args.includes("--no-preview"),
           edit: args.includes("--edit"),
         });
+      } else if (args[0] === "skill") {
+        const description = args.slice(1).join(" ");
+        if (!description.trim()) {
+          console.error("❌ Description required");
+          console.log('Usage: ronin create skill "monitor logs for errors"');
+          process.exit(1);
+        }
+        await createSkillCommand(description, {
+          agentDir: getArg("--agent-dir", args),
+          pluginDir: getArg("--plugin-dir", args),
+          userPluginDir: getArg("--user-plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+        });
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
-        console.log("Available: ronin create plugin <name>, ronin create agent [description]");
+        console.log("Available: ronin create plugin <name>, ronin create agent [description], ronin create skill \"<description>\"");
         process.exit(1);
       }
       break;
@@ -330,6 +346,23 @@ async function main() {
         process.exit(1);
       }
       break;
+
+    case "skills": {
+      const sub = args[0] ?? "list";
+      const subArgs = sub === "list" || sub === "discover" || sub === "explore" || sub === "use" || sub === "install" || sub === "update" || sub === "init"
+        ? args.slice(1)
+        : args;
+      const subcmd = sub;
+      await skillsCommand(subcmd, subArgs, {
+        agentDir: getArg("--agent-dir", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        dbPath: getArg("--db-path", args),
+      });
+      break;
+    }
 
     case "ask":
       // Check if first arg is a model name (grok, gemini, etc.)

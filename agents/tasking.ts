@@ -157,6 +157,36 @@ export default class TodoAgent extends BaseAgent {
       this.handleTaskAppendDescription(payload);
     });
 
+    // CommandReceived → Create #command card and queue for immediate execution
+    this.api.events.on("CommandReceived", (data: unknown) => {
+      const payload = data as {
+        instruction: string;
+        priority?: 'low' | 'medium' | 'high';
+        source?: string;
+        sourceChannel?: string;
+        sourceUser?: string;
+      };
+      this.handleCommandReceived(payload);
+    });
+
+    // PendingResponse → Create task card for timed-out notify.ask (Todo configures the task)
+    this.api.events.on("PendingResponse", (data: unknown) => {
+      const payload = data as {
+        taskId: string;
+        title: string;
+        message: string;
+        buttons: string[];
+        source?: string;
+      };
+      this.handlePendingResponse(payload);
+    });
+
+    // UserResponse → Resolve a pending-response card by taskId
+    this.api.events.on("UserResponse", (data: unknown) => {
+      const payload = data as { taskId: string; answer: string };
+      this.handleUserResponse(payload);
+    });
+
     console.log("[todo] Event handlers registered");
   }
 
@@ -420,6 +450,16 @@ export default class TodoAgent extends BaseAgent {
         cardId: card.id,
         error: payload.error,
       }, "todo");
+      // Standardized failure event for SkillMaker
+      this.api.events.emit("agent.task.failed", {
+        agent: "tasking",
+        taskId: payload.id,
+        error: payload.error ?? "Plan failed",
+        timestamp: Date.now(),
+        failureNotes: payload.error,
+        request: "Plan execution",
+        description: card.title,
+      }, "tasking");
     } catch (error) {
       console.error("[todo] Failed to handle PlanFailed:", error);
     }
@@ -447,6 +487,312 @@ export default class TodoAgent extends BaseAgent {
       console.log(`[todo] TaskAppendDescription: Updated card ${card.id}`);
     } catch (error) {
       console.error("[todo] Failed to handle TaskAppendDescription:", error);
+    }
+  }
+
+  /**
+   * Handle CommandReceived: Create a #command card and queue it for immediate execution.
+   * Commands skip the PlanProposed→PlanApproved flow and go straight to "Doing".
+   */
+  private async handleCommandReceived(payload: {
+    instruction: string;
+    priority?: 'low' | 'medium' | 'high';
+    source?: string;
+    sourceChannel?: string;
+    sourceUser?: string;
+  }): Promise<void> {
+    try {
+      const board = await this.ensureDefaultBoard();
+      const doingColumn = await this.getColumnByName(board.id, "Doing");
+      if (!doingColumn) {
+        console.error("[todo] Doing column not found for command");
+        return;
+      }
+
+      const planId = crypto.randomUUID();
+      const card = await this.createCard(
+        doingColumn.id,
+        board.id,
+        payload.instruction.length > 80 ? payload.instruction.substring(0, 77) + "..." : payload.instruction,
+        payload.instruction,
+        payload.priority || "high",
+        ["#command", payload.source || "user"],
+        undefined,
+        planId,
+        payload.source,
+        payload.sourceChannel,
+        payload.sourceUser
+      );
+
+      console.log(`[todo] CommandReceived: Created command card ${card.id} in Doing`);
+
+      this.api.events.emit("TaskCreated", {
+        planId,
+        cardId: card.id,
+        title: card.title,
+        column: "Doing",
+        type: "command",
+      }, "todo");
+    } catch (error) {
+      console.error("[todo] Failed to handle CommandReceived:", error);
+    }
+  }
+
+  /**
+   * Handle PendingResponse: create a task card for a timed-out notify.ask.
+   * Todo agent configures board, column, labels, and description including taskId for later resolution.
+   */
+  private async handlePendingResponse(payload: {
+    taskId: string;
+    title: string;
+    message: string;
+    buttons: string[];
+    source?: string;
+  }): Promise<void> {
+    try {
+      const board = await this.ensureDefaultBoard();
+      const todoColumn = await this.getColumnByName(board.id, "To Do");
+      if (!todoColumn) {
+        console.error("[todo] To Do column not found for PendingResponse");
+        return;
+      }
+
+      const buttonLine = payload.buttons.length > 0
+        ? `Options: ${payload.buttons.map((b, i) => `${i + 1}) ${b}`).join("  ")}`
+        : "";
+      const description = `[pending-response:${payload.taskId}]\n\n${payload.message}${buttonLine ? `\n\n${buttonLine}` : ""}\n\n(Respond via chat or command to complete this task.)`;
+
+      const card = await this.createCard(
+        todoColumn.id,
+        board.id,
+        payload.title,
+        description,
+        "high",
+        ["#pending-response", payload.source || "notify.ask"]
+      );
+
+      console.log(`[todo] PendingResponse: Created card ${card.id} for taskId ${payload.taskId}`);
+
+      this.api.events.emit("TaskCreated", {
+        cardId: card.id,
+        title: payload.title,
+        column: "To Do",
+        type: "pending-response",
+        taskId: payload.taskId,
+      }, "todo");
+    } catch (error) {
+      console.error("[todo] Failed to handle PendingResponse:", error);
+    }
+  }
+
+  /**
+   * Handle UserResponse: resolve a pending-response card by taskId (update with answer, move to Done).
+   */
+  private async handleUserResponse(payload: { taskId: string; answer: string }): Promise<void> {
+    try {
+      const cards = await this.api.db.query<Card>(
+        `SELECT * FROM kanban_cards WHERE description LIKE ?`,
+        [`%[pending-response:${payload.taskId}]%`]
+      );
+      if (cards.length === 0) {
+        console.error(`[todo] UserResponse: No card found for taskId ${payload.taskId}`);
+        return;
+      }
+
+      const card = cards[0];
+      const doneColumn = await this.getColumnByName(card.board_id, "Done");
+      if (!doneColumn) {
+        console.error("[todo] Done column not found");
+        return;
+      }
+
+      const newDescription = `${card.description || ""}\n\n---\n✅ User responded: ${payload.answer}`;
+      await this.updateCard(card.id, { description: newDescription });
+      await this.moveCardToColumn(card.id, doneColumn.id);
+
+      this.api.events.emit("ResponseReceived", {
+        taskId: payload.taskId,
+        cardId: card.id,
+        answer: payload.answer,
+      }, "todo");
+
+      console.log(`[todo] UserResponse: Resolved card ${card.id} for taskId ${payload.taskId}`);
+    } catch (error) {
+      console.error("[todo] Failed to handle UserResponse:", error);
+    }
+  }
+
+  /**
+   * Handle #command tag on a card - enqueue for immediate execution
+   */
+  private async handleCommandTag(cardId: string, title: string, description: string): Promise<void> {
+    try {
+      const id = crypto.randomUUID();
+      const now = Date.now();
+
+      await this.api.db.execute(
+        `INSERT INTO kanban_command_queue (id, card_id, instruction, status, created_at)
+         VALUES (?, ?, ?, 'pending', ?)`,
+        [id, cardId, description || title, now]
+      );
+
+      // Move card to Doing immediately
+      const card = await this.getCard(cardId);
+      if (card) {
+        const doingColumn = await this.getColumnByName(card.board_id, "Doing");
+        if (doingColumn && card.column_id !== doingColumn.id) {
+          await this.moveCardToColumn(cardId, doingColumn.id);
+        }
+      }
+
+      console.log(`[todo] #command queued: ${id} for card ${cardId}`);
+    } catch (error) {
+      console.error("[todo] Failed to handle #command tag:", error);
+    }
+  }
+
+  /**
+   * Process pending commands from the command queue.
+   * Runs one command at a time to completion before picking up the next.
+   */
+  private async processCommandQueue(): Promise<void> {
+    // Check for a running command first - only one at a time
+    const running = await this.api.db.query<{ id: string }>(
+      `SELECT id FROM kanban_command_queue WHERE status = 'running' LIMIT 1`
+    );
+    if (running.length > 0) return;
+
+    // Get next pending command (FIFO, highest priority first)
+    const pending = await this.api.db.query<{
+      id: string;
+      card_id: string;
+      instruction: string;
+      attempts: number;
+      max_attempts: number;
+    }>(
+      `SELECT cq.id, cq.card_id, cq.instruction, cq.attempts, cq.max_attempts
+       FROM kanban_command_queue cq
+       JOIN kanban_cards kc ON kc.id = cq.card_id
+       WHERE cq.status = 'pending'
+       ORDER BY
+         CASE kc.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+         cq.created_at ASC
+       LIMIT 1`
+    );
+
+    if (pending.length === 0) return;
+
+    const cmd = pending[0];
+    const now = Date.now();
+
+    // Mark as running
+    await this.api.db.execute(
+      `UPDATE kanban_command_queue SET status = 'running', started_at = ?, attempts = attempts + 1 WHERE id = ?`,
+      [now, cmd.id]
+    );
+
+    try {
+      // Get available tools
+      const availableTools = this.api.tools.list().map(t => ({
+        type: "function" as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters as { type: "object"; properties: Record<string, { type: string; description?: string }>; required?: string[] },
+        },
+      }));
+
+      const rules = this.getTaskingRules();
+
+      const systemPrompt = `You are Ronin's command executor. The user has issued a direct command that must be completed immediately.
+
+Command: ${cmd.instruction}
+
+Rules:
+${rules}
+
+Execute this command to completion using the available tools. If you cannot complete it, explain what is needed.
+If the task requires skills you don't have, use local.notify.ask to ask the user whether to create them.
+Be thorough but efficient. Report your result when done.`;
+
+      const result = await this.api.ai.callTools(systemPrompt, availableTools, {
+        temperature: 0.3,
+        maxTokens: 4000,
+      });
+
+      const toolsUsed = result.toolCalls.map(tc => tc.name);
+
+      // Mark completed
+      await this.api.db.execute(
+        `UPDATE kanban_command_queue SET status = 'completed', result = ?, tools_used = ?, completed_at = ? WHERE id = ?`,
+        [result.message.content, JSON.stringify(toolsUsed), Date.now(), cmd.id]
+      );
+
+      // Move card to Done
+      const card = await this.getCard(cmd.card_id);
+      if (card) {
+        const doneColumn = await this.getColumnByName(card.board_id, "Done");
+        if (doneColumn) {
+          await this.moveCardToColumn(cmd.card_id, doneColumn.id);
+          const desc = `${card.description || ""}\n\n---\n✅ Command completed:\n${result.message.content}`;
+          await this.updateCard(cmd.card_id, { description: desc });
+        }
+      }
+
+      this.api.events.emit("CommandCompleted", {
+        commandId: cmd.id,
+        cardId: cmd.card_id,
+        result: result.message.content,
+        toolsUsed,
+      }, "todo");
+
+      console.log(`[todo] Command ${cmd.id} completed successfully`);
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      if (cmd.attempts + 1 >= cmd.max_attempts) {
+        // Max retries exhausted
+        await this.api.db.execute(
+          `UPDATE kanban_command_queue SET status = 'failed', error = ?, completed_at = ? WHERE id = ?`,
+          [errMsg, Date.now(), cmd.id]
+        );
+
+        // Move card to Failed
+        const card = await this.getCard(cmd.card_id);
+        if (card) {
+          const failedColumn = await this.getOrCreateColumn(card.board_id, "Failed", 3);
+          if (failedColumn) {
+            await this.moveCardToColumn(cmd.card_id, failedColumn.id);
+            const desc = `${card.description || ""}\n\n---\n❌ Command failed after ${cmd.max_attempts} attempts:\n${errMsg}`;
+            await this.updateCard(cmd.card_id, { description: desc });
+          }
+        }
+
+        this.api.events.emit("CommandFailed", {
+          commandId: cmd.id,
+          cardId: cmd.card_id,
+          error: errMsg,
+          attempts: cmd.attempts + 1,
+        }, "todo");
+
+        this.api.events.emit("agent.task.failed", {
+          agent: "tasking",
+          taskId: cmd.id,
+          error: errMsg,
+          timestamp: Date.now(),
+          failureNotes: `Command failed after ${cmd.max_attempts} attempts`,
+          request: cmd.instruction,
+          description: cmd.instruction,
+        }, "tasking");
+      } else {
+        // Retry: reset to pending
+        await this.api.db.execute(
+          `UPDATE kanban_command_queue SET status = 'pending', error = ? WHERE id = ?`,
+          [errMsg, cmd.id]
+        );
+      }
+
+      console.error(`[todo] Command ${cmd.id} failed (attempt ${cmd.attempts + 1}):`, errMsg);
     }
   }
 
@@ -661,6 +1007,25 @@ export default class TodoAgent extends BaseAgent {
         )
       `);
 
+      // Command queue table for #command tasks (immediate user-prompted instructions)
+      await this.api.db.execute(`
+        CREATE TABLE IF NOT EXISTS kanban_command_queue (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL,
+          instruction TEXT NOT NULL,
+          status TEXT CHECK(status IN ('pending', 'running', 'completed', 'failed')) DEFAULT 'pending',
+          result TEXT,
+          error TEXT,
+          tools_used TEXT,
+          attempts INTEGER DEFAULT 0,
+          max_attempts INTEGER DEFAULT 3,
+          created_at INTEGER NOT NULL,
+          started_at INTEGER,
+          completed_at INTEGER,
+          FOREIGN KEY(card_id) REFERENCES kanban_cards(id)
+        )
+      `);
+
       // Create indexes
       await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_kanban_columns_board ON kanban_columns(board_id)`);
       await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_kanban_cards_column ON kanban_cards(column_id)`);
@@ -673,6 +1038,8 @@ export default class TodoAgent extends BaseAgent {
       await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_ai_instances_card ON kanban_ai_task_instances(card_id)`);
       await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_ai_instances_status ON kanban_ai_task_instances(status)`);
       await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_ai_history_instance ON kanban_ai_task_history(instance_id)`);
+      await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_command_queue_status ON kanban_command_queue(status)`);
+      await this.api.db.execute(`CREATE INDEX IF NOT EXISTS idx_command_queue_card ON kanban_command_queue(card_id)`);
 
       console.log("[Todo] Database initialized");
     } catch (error) {
@@ -705,6 +1072,9 @@ export default class TodoAgent extends BaseAgent {
 
   async execute(): Promise<void> {
     try {
+      // Process any pending commands first (immediate user instructions)
+      await this.processCommandQueue();
+
       // Load rules
       const rules = this.getTaskingRules();
 
@@ -904,6 +1274,10 @@ Respond with JSON:
     // API Routes - Tasking Rules
     this.api.http.registerRoute("/api/todo/rules", this.handleRulesAPI.bind(this));
 
+    // API Routes - Command Queue
+    this.api.http.registerRoute("/api/todo/commands", this.handleCommandsAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/", this.handleCommandByIdAPI.bind(this));
+
     // API Routes - Events
     this.api.http.registerRoute("/api/todo/events", this.handleEventsAPI.bind(this));
   }
@@ -1076,6 +1450,12 @@ Respond with JSON:
     const hasAiTag = labels.some(l => l === '#ai' || l === 'ai' || l.toLowerCase() === '#ai' || l.toLowerCase() === 'ai');
     if (hasAiTag) {
       await this.handleAiTagCard(id, title, finalDescription || '', labels);
+    }
+
+    // Check for #command tag and queue for immediate execution
+    const hasCommandTag = labels.some(l => l === '#command' || l === 'command' || l.toLowerCase() === '#command');
+    if (hasCommandTag) {
+      await this.handleCommandTag(id, title, finalDescription || '');
     }
 
     return {
@@ -1625,7 +2005,32 @@ Execute the task using the available tools and emit events as needed. Provide a 
       console.log(`[Todo] Executed task instance ${instanceId}`);
     } catch (error) {
       console.error(`[Todo] Failed to execute instance ${instanceId}:`, error);
-      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // Emit for SkillMaker (failureNotes, request, description)
+      let templateTitle = "intelligent task";
+      try {
+        const instance = await this.api.db.query<{ template_id: string }>(
+          `SELECT template_id FROM kanban_ai_task_instances WHERE id = ?`,
+          [instanceId]
+        );
+        if (instance.length > 0) {
+          const t = await this.getTaskTemplate(instance[0].template_id);
+          if (t) templateTitle = t.title;
+        }
+      } catch {}
+      this.api.events.emit(
+        "agent.task.failed",
+        {
+          agent: "tasking",
+          taskId: instanceId,
+          error: errorMessage,
+          timestamp: Date.now(),
+          failureNotes: errorMessage,
+          request: "Execute intelligent task",
+          description: templateTitle,
+        },
+        "tasking"
+      );
       // Store failure in history
       try {
         const interactionId = crypto.randomUUID();
@@ -1637,7 +2042,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
             interactionId,
             instanceId,
             'Task execution failed',
-            error instanceof Error ? error.message : String(error),
+            errorMessage,
             JSON.stringify([]),
             JSON.stringify([]),
             Date.now(),
@@ -3102,6 +3507,64 @@ Execute the task using the available tools and emit events as needed. Provide a 
       return new Response('Method not allowed', { status: 405 });
     } catch (error) {
       console.error('[Todo] Rules API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  private async handleCommandsAPI(req: Request): Promise<Response> {
+    try {
+      if (req.method === 'GET') {
+        const status = new URL(req.url).searchParams.get('status');
+        const query = status
+          ? `SELECT * FROM kanban_command_queue WHERE status = ? ORDER BY created_at DESC`
+          : `SELECT * FROM kanban_command_queue ORDER BY created_at DESC`;
+        const params = status ? [status] : [];
+        const commands = await this.api.db.query(query, params);
+        return Response.json(commands);
+      }
+
+      if (req.method === 'POST') {
+        const body = await req.json() as { instruction: string; priority?: 'low' | 'medium' | 'high'; source?: string };
+        if (!body.instruction) {
+          return Response.json({ error: 'instruction is required' }, { status: 400 });
+        }
+        this.api.events.emit("CommandReceived", {
+          instruction: body.instruction,
+          priority: body.priority || 'high',
+          source: body.source || 'api',
+        }, "todo-api");
+        return Response.json({ queued: true, instruction: body.instruction }, { status: 202 });
+      }
+
+      return new Response('Method not allowed', { status: 405 });
+    } catch (error) {
+      console.error('[Todo] Commands API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  private async handleCommandByIdAPI(req: Request): Promise<Response> {
+    try {
+      const url = new URL(req.url);
+      const parts = url.pathname.split('/');
+      const commandId = parts[parts.length - 1] || parts[parts.length - 2];
+
+      if (req.method === 'GET') {
+        const commands = await this.api.db.query(
+          `SELECT * FROM kanban_command_queue WHERE id = ?`, [commandId]
+        );
+        if (commands.length === 0) return new Response('Not found', { status: 404 });
+        return Response.json(commands[0]);
+      }
+
+      if (req.method === 'DELETE') {
+        await this.api.db.execute(`DELETE FROM kanban_command_queue WHERE id = ?`, [commandId]);
+        return Response.json({ deleted: true });
+      }
+
+      return new Response('Method not allowed', { status: 405 });
+    } catch (error) {
+      console.error('[Todo] Command by ID API error:', error);
       return Response.json({ error: String(error) }, { status: 500 });
     }
   }

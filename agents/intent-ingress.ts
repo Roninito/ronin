@@ -404,6 +404,7 @@ export default class IntentIngressAgent extends BaseAgent {
       message_id: number;
       chat?: { id: number; type?: string };
       from?: { username?: string; first_name?: string; id: number };
+      reply_to_message?: { text?: string };
       text?: string;
     };
   }): Promise<void> {
@@ -442,45 +443,40 @@ export default class IntentIngressAgent extends BaseAgent {
     
     const chatType = msg.chat.type || "private";
     const isPrivateChat = chatType === "private";
+    const sourceUser = msg.from?.username || msg.from?.first_name || "unknown";
     
     // DEBUG: Log full message structure
     console.log(`[intent-ingress] DEBUG - Full msg.from:`, JSON.stringify(msg.from));
     console.log(`[intent-ingress] DEBUG - Full msg.chat:`, JSON.stringify(msg.chat));
     
-    // Extract user ID with fallbacks
-    let userId: string | null = null;
-    let userIdSource = '';
-    
-    // Primary: msg.from.id (numeric user ID)
+    // Build candidate identities so auth works with either numeric IDs or usernames.
+    const authCandidates: string[] = [];
     if (msg.from?.id) {
-      userId = `${msg.from.id}`;
-      userIdSource = 'from.id';
+      authCandidates.push(`${msg.from.id}`);
     }
-    // Fallback 1: msg.from.username (if ID missing)
-    else if (msg.from?.username) {
-      userId = msg.from.username;
-      userIdSource = 'from.username';
+    if (msg.from?.username) {
+      authCandidates.push(msg.from.username);
+      authCandidates.push(`@${msg.from.username}`);
     }
-    // Fallback 2: msg.chat.id (for group context, less secure)
-    else if (msg.chat?.id) {
-      userId = `chat:${msg.chat.id}`;
-      userIdSource = 'chat.id';
+    // Last resort for unusual updates where from is missing.
+    if (authCandidates.length === 0 && msg.chat?.id) {
+      authCandidates.push(`chat:${msg.chat.id}`);
     }
-    
-    console.log(`[intent-ingress] Extracted userId: ${userId || 'FAILED'} (source: ${userIdSource || 'none'})`);
-    console.log(`[intent-ingress] Message from ${msg.from?.username || msg.from?.first_name || 'unknown'} in ${chatType} chat: "${text.substring(0, 50)}"`);
+
+    console.log(`[intent-ingress] Extracted auth candidates: ${authCandidates.join(", ") || "FAILED"}`);
+    console.log(`[intent-ingress] Message from ${sourceUser} in ${chatType} chat: "${text.substring(0, 50)}"`);
     
     // AUTHENTICATION CHECK
-    if (!userId) {
+    if (authCandidates.length === 0) {
       console.error(`[intent-ingress] CRITICAL: Could not extract user ID from message`);
       console.error(`[intent-ingress] Message structure:`, JSON.stringify(msg, null, 2));
       return;
     }
     
     // Check authorization using auth service
-    const isAuthorized = await this.checkAuthorization("telegram", userId);
+    const isAuthorized = await this.checkAuthorization("telegram", authCandidates);
     if (!isAuthorized) {
-      console.warn(`[intent-ingress] UNAUTHORIZED: User ${userId} on Telegram`);
+      console.warn(`[intent-ingress] UNAUTHORIZED: User candidates [${authCandidates.join(", ")}] on Telegram`);
       // Optionally send a response
       if (this.botId && isPrivateChat) {
         await this.api.telegram.sendMessage(
@@ -510,7 +506,6 @@ export default class IntentIngressAgent extends BaseAgent {
     console.log(`[intent-ingress] Parsed command: ${parsed.command || 'null'}, isChat: ${parsed.isChat}, args: "${parsed.args.substring(0, 30)}..."`);
     
     const sourceChannel = `telegram:${msg.chat.id}`;
-    const sourceId = msg.from?.id ? `${msg.from.id}` : 'unknown';
     
     // Check for approval responses (yes/no)
     if (text.match(/^\s*(y|yes|yeah|sure|go|approve|start|do it)\s*$/i)) {
@@ -557,8 +552,6 @@ export default class IntentIngressAgent extends BaseAgent {
     // Handle as command
     console.log(`[intent-ingress] Telegram ${parsed.command}:`, parsed.args.substring(0, 50));
     console.log(`[intent-ingress] Message key: ${messageKey} - processing command`);
-
-    const sourceUser = msg.from?.username || msg.from?.first_name || 'unknown';
 
     this.createPlan({
       command: parsed.command,
@@ -1355,12 +1348,20 @@ Guidelines:
   /**
    * Check if user is authorized for a platform
    */
-  private async checkAuthorization(platform: string, userId: string): Promise<boolean> {
+  private async checkAuthorization(platform: string, userIdOrCandidates: string | string[]): Promise<boolean> {
     try {
+      const candidates = Array.isArray(userIdOrCandidates) ? userIdOrCandidates : [userIdOrCandidates];
+      const compactCandidates = candidates.filter(Boolean);
+      if (compactCandidates.length === 0) {
+        return false;
+      }
+
       // Try to get auth service via plugin
-      const authService = this.api.plugins.call("auth", "isAuthorized", platform, userId);
-      if (authService !== undefined) {
-        return authService;
+      for (const candidate of compactCandidates) {
+        const authService = await this.api.plugins.call("auth", "isAuthorized", platform, candidate);
+        if (typeof authService === "boolean" && authService) {
+          return true;
+        }
       }
       
       // Fallback: Check auth file directly
@@ -1376,8 +1377,8 @@ Guidelines:
           console.log(`[intent-ingress] Setup mode: No users configured for ${platform}`);
           return true;
         }
-        
-        return users.includes(userId);
+
+        return compactCandidates.some((candidate) => users.includes(candidate));
       } catch {
         // No auth file - allow setup mode
         return true;

@@ -500,6 +500,67 @@ async function wrapRoninPluginsAsTools(api: AgentAPI): Promise<any[]> {
     );
   }
 
+  // Skills tools (AgentSkills: discover, explore, use)
+  if (api.skills) {
+    tools.push(
+      tool(
+        async ({ query }: { query: string }) => {
+          const result = await api.skills!.discover_skills(query);
+          return JSON.stringify(result);
+        },
+        {
+          name: "ronin_skills_discover",
+          description: "Discover skills by query. Returns lite listing (name, description) of matching skills.",
+          schema: z.object({ query: z.string().describe("What the skill should do (e.g. log monitoring)") }),
+        }
+      ),
+      tool(
+        async ({ skill_name, include_scripts }: { skill_name: string; include_scripts?: boolean }) => {
+          const result = await api.skills!.explore_skill(skill_name, include_scripts);
+          return JSON.stringify(result);
+        },
+        {
+          name: "ronin_skills_explore",
+          description: "Get full skill details: instructions, abilities, optional script contents.",
+          schema: z.object({
+            skill_name: z.string(),
+            include_scripts: z.boolean().optional().describe("Include script file contents"),
+          }),
+        }
+      ),
+      tool(
+        async ({
+          skill_name,
+          ability,
+          params,
+          pipeline,
+        }: {
+          skill_name: string;
+          ability?: string;
+          params?: Record<string, unknown>;
+          pipeline?: string[];
+        }) => {
+          const result = await api.skills!.use_skill(skill_name, {
+            ability,
+            params: params ?? {},
+            pipeline,
+          });
+          return JSON.stringify(result);
+        },
+        {
+          name: "ronin_skills_use",
+          description: "Run a skill: single ability or pipeline of abilities with params.",
+          schema: z.object({
+            skill_name: z.string(),
+            ability: z.string().optional(),
+            params: z.record(z.unknown()).optional(),
+            pipeline: z.array(z.string()).optional().describe("Ordered ability names to run"),
+          }),
+        }
+      )
+    );
+  }
+
   return tools;
 }
 

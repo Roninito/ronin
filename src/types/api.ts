@@ -140,6 +140,7 @@ export interface AgentAPI {
   files: {
     read(path: string): Promise<string>;
     write(path: string, content: string): Promise<void>;
+    ensureDir(path: string): Promise<void>;
     watch(pattern: string, callback: (path: string, event: string) => void): void;
     list(dir: string, pattern?: string): Promise<string[]>;
   };
@@ -324,7 +325,9 @@ export interface AgentAPI {
       update_id: number;
       message?: {
         message_id: number;
+        from?: { id: number; username?: string; first_name?: string; last_name?: string };
         chat: { id: number; type: string; title?: string; username?: string };
+        reply_to_message?: { message_id: number; text?: string };
         text?: string;
         caption?: string;
         photo?: Array<{ file_id: string }>;
@@ -337,7 +340,9 @@ export interface AgentAPI {
       update_id: number;
       message?: {
         message_id: number;
+        from?: { id: number; username?: string; first_name?: string; last_name?: string };
         chat: { id: number; type: string; title?: string; username?: string };
+        reply_to_message?: { message_id: number; text?: string };
         text?: string;
         caption?: string;
         photo?: Array<{ file_id: string }>;
@@ -414,6 +419,19 @@ export interface AgentAPI {
     query(target: string, queryType: string, payload: unknown, timeout?: number): Promise<unknown>;
     getPeerStatus(callSign: string): Promise<{ online: boolean; wsAddress?: string }>;
     sendMedia(to: string, stream: MediaStream): Promise<void>;
+  };
+
+  /**
+   * Skills operations (if skills plugin is loaded)
+   * AgentSkills: discover, explore, use skill.md + scripts
+   */
+  skills?: {
+    discover_skills(query: string): Promise<import("./skills.js").SkillMeta[]>;
+    explore_skill(skill_name: string, include_scripts?: boolean): Promise<import("./skills.js").SkillDetail>;
+    use_skill(
+      skill_name: string,
+      options?: { ability?: string; params?: Record<string, unknown>; pipeline?: string[] }
+    ): Promise<import("./skills.js").UseSkillResult>;
   };
 
   /**
@@ -644,6 +662,27 @@ export interface AgentAPI {
   };
 
   /**
+   * Speech operations (if piper and/or stt plugins are loaded)
+   * Provides text-to-speech and speech-to-text capabilities
+   */
+  speech?: {
+    say(text: string): Promise<void>;
+    listen(duration?: number, options?: { language?: string }): Promise<{ text: string; audioPath?: string }>;
+  };
+
+  /**
+   * Notification operations for user interaction
+   * Shows desktop notifications and interactive dialogs
+   */
+  notify?: {
+    show(title: string, message: string, options?: { subtitle?: string; sound?: boolean }): Promise<void>;
+    ask(title: string, message: string, buttons: string[], options?: {
+      defaultButton?: string;
+      icon?: 'note' | 'caution' | 'stop';
+    }): Promise<{ answer: string | null; cancelled?: boolean }>;
+  };
+
+  /**
    * Configuration access
    * Provides centralized access to all configuration settings
    */
@@ -664,6 +703,7 @@ export interface AgentAPI {
     getRssToTelegram(): import("../config/types.js").RssToTelegramConfig;
     getRealm(): import("../config/types.js").RealmConfig;
     getMCP(): import("../config/types.js").MCPConfig;
+    getNotifications(): import("../config/types.js").NotificationsConfig;
     isFromEnv(path: string): boolean;
     reload(): Promise<void>;
   };

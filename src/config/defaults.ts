@@ -88,6 +88,7 @@ export const DEFAULT_CONFIG: FullConfig = {
     httpIdleTimeout: 60,
     externalAgentDir: join(homedir(), ".ronin", "agents"),
     userPluginDir: join(homedir(), ".ronin", "plugins"),
+    skillsDir: join(homedir(), ".ronin", "skills"),
   },
   
   eventMonitor: {
@@ -142,6 +143,20 @@ export const DEFAULT_CONFIG: FullConfig = {
     servers: {},
   },
 
+  speech: {
+    stt: {
+      backend: "apple",
+      whisperModelPath: "",
+      whisperBinary: "whisper-cli",
+      deepgramApiKey: "",
+    },
+  },
+
+  notifications: {
+    preferredChat: "auto",
+    timeoutSeconds: 30,
+  },
+
   pluginDir: join(process.cwd(), "plugins"),
   geminiModel: "gemini-3-pro-preview",
 };
@@ -181,4 +196,8 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "realm.callsign": "REALM_CALLSIGN",
   "realm.token": "REALM_TOKEN",
   "realm.localPort": "REALM_LOCAL_PORT",
+  "speech.stt.backend": "STT_BACKEND",
+  "speech.stt.deepgramApiKey": "DEEPGRAM_API_KEY",
+  "speech.stt.whisperModelPath": "WHISPER_MODEL_PATH",
+  "speech.stt.whisperBinary": "WHISPER_BINARY",
 };

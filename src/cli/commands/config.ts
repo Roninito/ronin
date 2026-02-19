@@ -105,6 +105,24 @@ export function ensureDefaultUserPluginDir(): string {
 }
 
 /**
+ * Get the default user skills directory
+ */
+export function getDefaultSkillsDir(): string {
+  return join(homedir(), ".ronin", "skills");
+}
+
+/**
+ * Ensure the default user skills directory exists
+ */
+export function ensureDefaultSkillsDir(): string {
+  const skillsDir = getDefaultSkillsDir();
+  if (!existsSync(skillsDir)) {
+    mkdirSync(skillsDir, { recursive: true });
+  }
+  return skillsDir;
+}
+
+/**
  * Load configuration from file
  * Creates an empty config file if it doesn't exist
  */
@@ -414,11 +432,13 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     // Initialize user directories
     const agentDir = ensureDefaultExternalAgentDir();
     const pluginDir = ensureDefaultUserPluginDir();
+    const skillsDir = ensureDefaultSkillsDir();
     const configPath = getConfigPath();
     
     console.log("\n🔧 Initializing Ronin user directories...\n");
     console.log(`✅ Agents directory: ${agentDir}`);
     console.log(`✅ Plugins directory: ${pluginDir}`);
+    console.log(`✅ Skills directory: ${skillsDir}`);
     console.log(`✅ Config file: ${configPath}`);
     console.log("\n📋 Your user directories are ready!");
     console.log("\n💡 To create your first agent:");

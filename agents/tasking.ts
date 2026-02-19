@@ -2156,6 +2156,132 @@ Execute the task using the available tools and emit events as needed. Provide a 
       background: ${roninTheme.colors.accentHover};
     }
 
+    .workspace-toolbar {
+      display: grid;
+      gap: 0.75rem;
+      padding: 1rem 2rem 0;
+    }
+
+    .toolbar-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .toolbar-row input,
+    .toolbar-row select {
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textPrimary};
+      border-radius: ${roninTheme.borderRadius.md};
+      font-size: 0.8rem;
+      padding: 0.45rem 0.55rem;
+      min-width: 130px;
+    }
+
+    .toolbar-chip {
+      border: 1px solid ${roninTheme.colors.border};
+      background: ${roninTheme.colors.backgroundSecondary};
+      color: ${roninTheme.colors.textSecondary};
+      border-radius: ${roninTheme.borderRadius.md};
+      font-size: 0.75rem;
+      padding: 0.35rem 0.55rem;
+      cursor: pointer;
+    }
+
+    .toolbar-chip:hover {
+      color: ${roninTheme.colors.textPrimary};
+      border-color: ${roninTheme.colors.borderHover};
+    }
+
+    .metrics-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .metric-pill {
+      font-size: 0.72rem;
+      color: ${roninTheme.colors.textSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      padding: 0.2rem 0.5rem;
+    }
+
+    .ops-panel {
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      padding: 0.75rem;
+    }
+
+    .ops-panel.hidden {
+      display: none;
+    }
+
+    .ops-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .ops-tab {
+      font-size: 0.75rem;
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      padding: 0.25rem 0.5rem;
+      background: transparent;
+      color: ${roninTheme.colors.textSecondary};
+      cursor: pointer;
+    }
+
+    .ops-tab.active {
+      color: ${roninTheme.colors.textPrimary};
+      border-color: ${roninTheme.colors.borderHover};
+      background: ${roninTheme.colors.background};
+    }
+
+    .ops-tab-content {
+      display: none;
+      max-height: 200px;
+      overflow: auto;
+      font-size: 0.75rem;
+      border-top: 1px solid ${roninTheme.colors.border};
+      padding-top: 0.5rem;
+    }
+
+    .ops-tab-content.active {
+      display: block;
+    }
+
+    .ops-list {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .ops-list-item {
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.sm};
+      background: ${roninTheme.colors.background};
+      padding: 0.35rem 0.45rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .rules-editor {
+      width: 100%;
+      min-height: 90px;
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      background: ${roninTheme.colors.background};
+      color: ${roninTheme.colors.textPrimary};
+      padding: 0.45rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+    }
+
     .board {
       display: flex;
       gap: 1rem;
@@ -2224,6 +2350,11 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .card.dragging {
       opacity: 0.5;
       cursor: grabbing;
+    }
+
+    .card.focused {
+      border-color: ${roninTheme.colors.borderHover};
+      box-shadow: 0 0 0 1px ${roninTheme.colors.borderHover};
     }
 
     .card-title {
@@ -2607,6 +2738,63 @@ Execute the task using the available tools and emit events as needed. Provide a 
     </div>
   </div>
 
+  <div class="workspace-toolbar">
+    <div class="toolbar-row">
+      <input type="search" id="filterSearch" placeholder="Search cards...">
+      <select id="filterPriority">
+        <option value="">Priority: all</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="filterDue">
+        <option value="">Due: all</option>
+        <option value="overdue">Overdue</option>
+        <option value="today">Today</option>
+        <option value="future">Future</option>
+        <option value="none">No due date</option>
+      </select>
+      <select id="filterTag">
+        <option value="">Tag: all</option>
+      </select>
+      <input type="text" id="savedViewName" placeholder="Saved view name">
+      <button class="toolbar-chip" id="saveViewBtn">Save view</button>
+      <select id="savedViewsSelect">
+        <option value="">Saved views</option>
+      </select>
+      <button class="toolbar-chip" id="clearFiltersBtn">Clear filters</button>
+    </div>
+    <div class="metrics-row">
+      <span class="metric-pill" id="metricTotal">Total: 0</span>
+      <span class="metric-pill" id="metricOverdue">Overdue: 0</span>
+      <span class="metric-pill" id="metricBlocked">Blocked: 0</span>
+      <span class="metric-pill" id="metricFailed">Failed: 0</span>
+      <span class="metric-pill" id="metricCycle">Avg age: 0d</span>
+    </div>
+    <div class="ops-panel" id="opsPanel">
+      <div class="toolbar-row" style="justify-content: space-between;">
+        <div class="ops-tabs">
+          <button class="ops-tab active" data-tab="commands">Commands</button>
+          <button class="ops-tab" data-tab="events">Events</button>
+          <button class="ops-tab" data-tab="ai">AI/Rules</button>
+        </div>
+        <button class="toolbar-chip" id="refreshOpsBtn">Refresh ops</button>
+      </div>
+      <div class="ops-tab-content active" data-tab-content="commands"><div class="ops-list" id="commandsList"></div></div>
+      <div class="ops-tab-content" data-tab-content="events"><div class="ops-list" id="eventsList"></div></div>
+      <div class="ops-tab-content" data-tab-content="ai">
+        <div class="ops-list" id="aiTemplatesList"></div>
+        <div style="margin-top: 0.5rem;">
+          <label for="rulesEditor" style="display:block;margin-bottom:0.2rem;">Tasking rules</label>
+          <textarea id="rulesEditor" class="rules-editor" placeholder="Tasking rules..."></textarea>
+          <div style="margin-top:0.4rem;">
+            <button class="toolbar-chip" id="saveRulesBtn">Save rules</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="board">
     ${columnsWithCards.map(column => `
       <div class="column" data-column-id="${column.id}">
@@ -2669,6 +2857,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
         
         <div class="form-group">
           <label>Dependencies</label>
+          <input type="search" id="dependencySearch" placeholder="Filter dependencies..." style="margin-bottom:0.5rem;">
           <div class="checkbox-group">
             ${allCards.map(c => `
               <label class="checkbox-item">
@@ -2690,50 +2879,227 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
   <script>
     const boardId = '${boardId}';
+    const q = (selector) => document.querySelector(selector);
+    const qa = (selector) => Array.from(document.querySelectorAll(selector));
+    const savedViewsKey = 'todo.savedViews.v1';
     let draggedCard = null;
     let draggedCardId = null;
+    let focusedCardId = null;
 
-    // Drag and Drop
-    document.querySelectorAll('.column-content').forEach(column => {
-      column.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        column.classList.add('drag-over');
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function parseLabels(cardLike) {
+      const raw = cardLike.labels;
+      if (Array.isArray(raw)) return raw;
+      if (!raw) return [];
+      if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return raw.split('|').filter(Boolean); }
+      }
+      return [];
+    }
+
+    function getDueMeta(dueDate) {
+      if (!dueDate) return { dueDateClass: '', dueDateText: '', dueState: 'none' };
+      const today = new Date().setHours(0, 0, 0, 0);
+      const dueDay = new Date(dueDate).setHours(0, 0, 0, 0);
+      if (dueDay < today) return { dueDateClass: 'due-overdue', dueDateText: 'Overdue', dueState: 'overdue' };
+      if (dueDay === today) return { dueDateClass: 'due-today', dueDateText: 'Today', dueState: 'today' };
+      return { dueDateClass: 'due-future', dueDateText: new Date(dueDate).toLocaleDateString(), dueState: 'future' };
+    }
+
+    function cardHtml(card) {
+      const labels = parseLabels(card);
+      const hasDeps = Array.isArray(card.dependencies) && card.dependencies.length > 0;
+      const hasBuild = labels.includes('build');
+      const hasAuto = labels.includes('auto');
+      const cliTag = labels.find((l) => ['qwen', 'cursor', 'opencode', 'gemini'].includes(l));
+      const appTag = labels.find((l) => l.startsWith('app-'));
+      const dueMeta = getDueMeta(card.due_date);
+      const lowerLabels = labels.map((l) => String(l).toLowerCase());
+      return '<div class="card" draggable="true" data-card-id="' + card.id + '"' +
+        ' data-title="' + escapeHtml(String(card.title || '').toLowerCase()) + '"' +
+        ' data-priority="' + escapeHtml(card.priority || 'medium') + '"' +
+        ' data-labels="' + escapeHtml(lowerLabels.join('|')) + '"' +
+        ' data-due-date="' + (card.due_date || '') + '"' +
+        ' data-due-state="' + dueMeta.dueState + '"' +
+        ' data-has-deps="' + (hasDeps ? '1' : '0') + '"' +
+        ' data-created-at="' + (card.created_at || Date.now()) + '"' +
+        ' data-updated-at="' + (card.updated_at || Date.now()) + '">' +
+        '<div class="card-badges">' +
+        (hasBuild ? '<span class="badge badge-build" title="Auto-execute on approval">BUILD</span>' : '') +
+        (hasAuto ? '<span class="badge badge-auto" title="Execute immediately">AUTO</span>' : '') +
+        (cliTag ? '<span class="badge badge-cli badge-' + cliTag + '">' + escapeHtml(cliTag) + '</span>' : '') +
+        (appTag ? '<span class="badge badge-app">' + escapeHtml(appTag.replace('app-', '')) + '</span>' : '') +
+        '</div>' +
+        '<div class="card-title">' + escapeHtml(card.title) + '</div>' +
+        '<div class="card-meta">' +
+          '<span class="priority priority-' + escapeHtml(card.priority || 'medium') + '" title="' + escapeHtml(card.priority || 'medium') + ' priority"></span>' +
+          (labels.length > 0
+            ? '<div class="labels">' + labels.map((l) => '<span class="label">' + escapeHtml(l) + '</span>').join('') + '</div>'
+            : '') +
+          (card.due_date
+            ? '<span class="due-date ' + dueMeta.dueDateClass + '">📅 ' + dueMeta.dueDateText + '</span>'
+            : '') +
+          (hasDeps ? '<span class="dependency-indicator" title="Has dependencies">⚠️</span>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    async function fetchCard(cardId) {
+      const res = await fetch('/api/todo/cards/' + cardId);
+      if (!res.ok) throw new Error('Failed to fetch card');
+      return await res.json();
+    }
+
+    function updateColumnCounts() {
+      qa('.column').forEach((col) => {
+        const count = col.querySelectorAll('.card').length;
+        const badge = col.querySelector('.column-count');
+        if (badge) badge.textContent = String(count);
       });
+    }
 
-      column.addEventListener('dragleave', () => {
-        column.classList.remove('drag-over');
+    function updateMetrics() {
+      const cards = qa('.card');
+      const total = cards.length;
+      let overdue = 0;
+      let blocked = 0;
+      let failed = 0;
+      let ageSum = 0;
+      cards.forEach((card) => {
+        const labels = (card.dataset.labels || '').split('|').filter(Boolean);
+        const dueState = card.dataset.dueState || 'none';
+        const columnTitle = card.closest('.column')?.querySelector('.column-title')?.textContent?.trim().toLowerCase() || '';
+        if (dueState === 'overdue' && columnTitle !== 'done') overdue += 1;
+        if (labels.includes('blocked')) blocked += 1;
+        if (columnTitle === 'failed' || labels.includes('failed')) failed += 1;
+        const createdAt = Number(card.dataset.createdAt || Date.now());
+        ageSum += Math.max(0, Date.now() - createdAt);
       });
+      const avgAgeDays = total > 0 ? (ageSum / total) / (1000 * 60 * 60 * 24) : 0;
+      q('#metricTotal').textContent = 'Total: ' + total;
+      q('#metricOverdue').textContent = 'Overdue: ' + overdue;
+      q('#metricBlocked').textContent = 'Blocked: ' + blocked;
+      q('#metricFailed').textContent = 'Failed: ' + failed;
+      q('#metricCycle').textContent = 'Avg age: ' + avgAgeDays.toFixed(1) + 'd';
+    }
 
-      column.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        column.classList.remove('drag-over');
-        
-        if (!draggedCardId) return;
-        
-        const newColumnId = column.dataset.columnId;
-        const cards = Array.from(column.querySelectorAll('.card'));
-        const newPosition = cards.length;
+    function applyFilters() {
+      const search = (q('#filterSearch').value || '').trim().toLowerCase();
+      const priority = q('#filterPriority').value;
+      const due = q('#filterDue').value;
+      const tag = (q('#filterTag').value || '').toLowerCase();
 
-        try {
-          const res = await fetch(\`/api/todo/cards/\${draggedCardId}/move\`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ column_id: newColumnId, position: newPosition })
-          });
+      qa('.card').forEach((card) => {
+        const title = card.dataset.title || '';
+        const labels = card.dataset.labels || '';
+        const cardPriority = card.dataset.priority || '';
+        const dueState = card.dataset.dueState || 'none';
 
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const err = await res.text();
-            alert(err);
-          }
-        } catch (err) {
-          alert('Error moving card: ' + err.message);
-        }
+        const bySearch = !search || title.includes(search) || labels.includes(search);
+        const byPriority = !priority || cardPriority === priority;
+        const byDue = !due || dueState === due;
+        const byTag = !tag || labels.split('|').includes(tag);
+
+        card.style.display = bySearch && byPriority && byDue && byTag ? '' : 'none';
       });
-    });
+    }
 
-    document.querySelectorAll('.card').forEach(card => {
+    function collectUniqueTags() {
+      const set = new Set();
+      qa('.card').forEach((card) => {
+        (card.dataset.labels || '').split('|').filter(Boolean).forEach((label) => set.add(label));
+      });
+      return Array.from(set).sort();
+    }
+
+    function populateTagFilter() {
+      const select = q('#filterTag');
+      const current = select.value;
+      const tags = collectUniqueTags();
+      select.innerHTML = '<option value="">Tag: all</option>' + tags.map((tag) => '<option value="' + escapeHtml(tag) + '">' + escapeHtml(tag) + '</option>').join('');
+      if (tags.includes(current)) select.value = current;
+    }
+
+    function getSavedViews() {
+      try {
+        const raw = localStorage.getItem(savedViewsKey);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function renderSavedViews() {
+      const views = getSavedViews();
+      const select = q('#savedViewsSelect');
+      const names = Object.keys(views).sort();
+      select.innerHTML = '<option value="">Saved views</option>' + names.map((name) => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+    }
+
+    function saveCurrentView() {
+      const name = (q('#savedViewName').value || '').trim();
+      if (!name) {
+        alert('Please enter a saved view name');
+        return;
+      }
+      const views = getSavedViews();
+      views[name] = {
+        search: q('#filterSearch').value || '',
+        priority: q('#filterPriority').value || '',
+        due: q('#filterDue').value || '',
+        tag: q('#filterTag').value || ''
+      };
+      localStorage.setItem(savedViewsKey, JSON.stringify(views));
+      renderSavedViews();
+      q('#savedViewsSelect').value = name;
+    }
+
+    function loadSavedView(name) {
+      const views = getSavedViews();
+      const view = views[name];
+      if (!view) return;
+      q('#filterSearch').value = view.search || '';
+      q('#filterPriority').value = view.priority || '';
+      q('#filterDue').value = view.due || '';
+      q('#filterTag').value = view.tag || '';
+      applyFilters();
+    }
+
+    function clearFilters() {
+      q('#filterSearch').value = '';
+      q('#filterPriority').value = '';
+      q('#filterDue').value = '';
+      q('#filterTag').value = '';
+      applyFilters();
+    }
+
+    function focusCardById(cardId) {
+      qa('.card').forEach((card) => card.classList.remove('focused'));
+      const target = q('.card[data-card-id="' + cardId + '"]');
+      if (!target) return;
+      target.classList.add('focused');
+      focusedCardId = cardId;
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function cycleFocus(direction) {
+      const visible = qa('.card').filter((card) => card.style.display !== 'none');
+      if (visible.length === 0) return;
+      const ids = visible.map((card) => card.dataset.cardId);
+      const idx = Math.max(0, ids.indexOf(focusedCardId));
+      const next = direction > 0 ? (idx + 1) % ids.length : (idx - 1 + ids.length) % ids.length;
+      focusCardById(ids[next]);
+    }
+
+    async function bindCardEvents(card) {
       card.addEventListener('dragstart', (e) => {
         draggedCard = card;
         draggedCardId = card.dataset.cardId;
@@ -2747,26 +3113,108 @@ Execute the task using the available tools and emit events as needed. Provide a 
         draggedCardId = null;
       });
 
-      card.addEventListener('click', () => openEditModal(card.dataset.cardId));
+      card.addEventListener('click', () => {
+        focusCardById(card.dataset.cardId);
+        openEditModal(card.dataset.cardId);
+      });
+
+      const titleEl = card.querySelector('.card-title');
+      if (titleEl) {
+        titleEl.addEventListener('dblclick', async (event) => {
+          event.stopPropagation();
+          const original = titleEl.textContent || '';
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = original;
+          input.style.width = '100%';
+          titleEl.replaceWith(input);
+          input.focus();
+          input.select();
+          const commit = async () => {
+            const nextTitle = input.value.trim();
+            if (!nextTitle || nextTitle === original) {
+              input.replaceWith(titleEl);
+              return;
+            }
+            try {
+              const res = await fetch('/api/todo/cards/' + card.dataset.cardId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: nextTitle })
+              });
+              if (!res.ok) throw new Error('Failed to update title');
+              titleEl.textContent = nextTitle;
+              card.dataset.title = nextTitle.toLowerCase();
+            } catch (err) {
+              alert('Quick edit failed: ' + err.message);
+            } finally {
+              input.replaceWith(titleEl);
+              applyFilters();
+            }
+          };
+          input.addEventListener('blur', commit, { once: true });
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') input.replaceWith(titleEl);
+          });
+        });
+      }
+    }
+
+    qa('.column-content').forEach((column) => {
+      column.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        column.classList.add('drag-over');
+      });
+
+      column.addEventListener('dragleave', () => {
+        column.classList.remove('drag-over');
+      });
+
+      column.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        column.classList.remove('drag-over');
+        if (!draggedCardId || !draggedCard) return;
+        const destination = column;
+        const newColumnId = destination.dataset.columnId;
+        const previousParent = draggedCard.parentElement;
+        destination.appendChild(draggedCard);
+        updateColumnCounts();
+        updateMetrics();
+        applyFilters();
+        const newPosition = destination.querySelectorAll('.card').length;
+        try {
+          const res = await fetch('/api/todo/cards/' + draggedCardId + '/move', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ column_id: newColumnId, position: newPosition })
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } catch (err) {
+          if (previousParent) previousParent.appendChild(draggedCard);
+          updateColumnCounts();
+          updateMetrics();
+          applyFilters();
+          alert('Error moving card: ' + err.message);
+        }
+      });
     });
 
-    // Modal functions
+    qa('.card').forEach((card) => bindCardEvents(card));
+
     function openCreateModal(columnId = null) {
       document.getElementById('modalTitle').textContent = 'Add Card';
       document.getElementById('cardForm').reset();
       document.getElementById('cardId').value = '';
-      document.getElementById('columnId').value = columnId || '';
+      document.getElementById('columnId').value = columnId || qa('.column-content')[0]?.dataset.columnId || '';
       document.getElementById('deleteBtn').style.display = 'none';
       document.getElementById('cardModal').classList.add('active');
+      renderMarkdown();
     }
 
     async function openEditModal(cardId) {
       try {
-        const res = await fetch(\`/api/todo/cards/\${cardId}\`);
-        if (!res.ok) throw new Error('Failed to load card');
-        
-        const card = await res.json();
-        
+        const card = await fetchCard(cardId);
         document.getElementById('modalTitle').textContent = 'Edit Card';
         document.getElementById('cardId').value = card.id;
         document.getElementById('columnId').value = card.column_id;
@@ -2774,21 +3222,13 @@ Execute the task using the available tools and emit events as needed. Provide a 
         document.getElementById('cardDescription').value = card.description || '';
         document.getElementById('cardPriority').value = card.priority;
         document.getElementById('cardLabels').value = card.labels ? JSON.parse(card.labels).join(', ') : '';
-        
-        if (card.due_date) {
-          const date = new Date(card.due_date);
-          document.getElementById('cardDueDate').value = date.toISOString().slice(0, 16);
-        } else {
-          document.getElementById('cardDueDate').value = '';
-        }
-
-        // Set dependencies
-        document.querySelectorAll('input[name="dependencies"]').forEach(cb => {
+        document.getElementById('cardDueDate').value = card.due_date ? new Date(card.due_date).toISOString().slice(0, 16) : '';
+        document.querySelectorAll('input[name="dependencies"]').forEach((cb) => {
           cb.checked = card.dependencies && card.dependencies.includes(cb.value);
         });
-
         document.getElementById('deleteBtn').style.display = 'inline-block';
         document.getElementById('cardModal').classList.add('active');
+        renderMarkdown();
       } catch (err) {
         alert('Error loading card: ' + err.message);
       }
@@ -2801,36 +3241,32 @@ Execute the task using the available tools and emit events as needed. Provide a 
     async function deleteCard() {
       const cardId = document.getElementById('cardId').value;
       if (!cardId) return;
-      
       if (!confirm('Are you sure you want to delete this card?')) return;
-
       try {
-        const res = await fetch(\`/api/todo/cards/\${cardId}\`, { method: 'DELETE' });
-        if (res.ok) {
-          window.location.reload();
-        } else {
-          alert('Failed to delete card');
-        }
+        const res = await fetch('/api/todo/cards/' + cardId, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete card');
+        const cardEl = q('.card[data-card-id="' + cardId + '"]');
+        if (cardEl) cardEl.remove();
+        closeModal();
+        populateTagFilter();
+        updateColumnCounts();
+        updateMetrics();
+        applyFilters();
       } catch (err) {
         alert('Error: ' + err.message);
       }
     }
 
-    // Form submission
     document.getElementById('cardForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      
       const cardId = document.getElementById('cardId').value;
       const columnId = document.getElementById('columnId').value;
       const title = document.getElementById('cardTitle').value;
       const description = document.getElementById('cardDescription').value;
       const priority = document.getElementById('cardPriority').value;
       const dueDate = document.getElementById('cardDueDate').value;
-      const labels = document.getElementById('cardLabels').value.split(',').map(l => l.trim()).filter(Boolean);
-      
-      const dependencies = Array.from(document.querySelectorAll('input[name="dependencies"]:checked'))
-        .map(cb => cb.value);
-
+      const labels = document.getElementById('cardLabels').value.split(',').map((l) => l.trim()).filter(Boolean);
+      const dependencies = Array.from(document.querySelectorAll('input[name="dependencies"]:checked')).map((cb) => cb.value);
       const data = {
         title,
         description,
@@ -2841,64 +3277,201 @@ Execute the task using the available tools and emit events as needed. Provide a 
       };
 
       try {
-        let res;
+        let response;
+        let freshCard;
         if (cardId) {
-          res = await fetch(\`/api/todo/cards/\${cardId}\`, {
+          response = await fetch('/api/todo/cards/' + cardId, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
+          if (!response.ok) throw new Error('Failed to update card');
+          freshCard = await fetchCard(cardId);
+          const existing = q('.card[data-card-id="' + cardId + '"]');
+          if (existing) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = cardHtml(freshCard);
+            const next = wrapper.firstElementChild;
+            existing.replaceWith(next);
+            bindCardEvents(next);
+          }
         } else {
-          res = await fetch(\`/api/todo/columns/\${columnId}/cards\`, {
+          response = await fetch('/api/todo/columns/' + columnId + '/cards', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
+          if (!response.ok) throw new Error('Failed to create card');
+          const created = await response.json();
+          freshCard = await fetchCard(created.id);
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = cardHtml(freshCard);
+          const cardEl = wrapper.firstElementChild;
+          const targetColumn = q('.column-content[data-column-id="' + columnId + '"]');
+          if (targetColumn) {
+            targetColumn.appendChild(cardEl);
+            bindCardEvents(cardEl);
+          }
         }
-
-        if (res.ok) {
-          window.location.reload();
-        } else {
-          alert('Failed to save card');
-        }
+        closeModal();
+        populateTagFilter();
+        updateColumnCounts();
+        updateMetrics();
+        applyFilters();
       } catch (err) {
         alert('Error: ' + err.message);
       }
     });
 
-    // Close modal on backdrop click
     document.getElementById('cardModal').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeModal();
     });
 
-    // Markdown rendering
     const descriptionTextarea = document.getElementById('cardDescription');
     const descriptionPreview = document.getElementById('descriptionPreview');
-
     function renderMarkdown() {
       if (descriptionTextarea && descriptionPreview && window.marked) {
-        const markdown = descriptionTextarea.value || '';
-        descriptionPreview.innerHTML = window.marked.parse(markdown);
+        descriptionPreview.innerHTML = window.marked.parse(descriptionTextarea.value || '');
+      }
+    }
+    if (descriptionTextarea) descriptionTextarea.addEventListener('input', renderMarkdown);
+
+    const dependencySearch = q('#dependencySearch');
+    if (dependencySearch) {
+      dependencySearch.addEventListener('input', () => {
+        const value = (dependencySearch.value || '').trim().toLowerCase();
+        qa('.checkbox-item').forEach((item) => {
+          const text = item.textContent.toLowerCase();
+          item.style.display = !value || text.includes(value) ? '' : 'none';
+        });
+      });
+    }
+
+    async function refreshCommands() {
+      const list = q('#commandsList');
+      try {
+        const res = await fetch('/api/todo/commands');
+        if (!res.ok) throw new Error('Failed commands');
+        const commands = await res.json();
+        list.innerHTML = commands.slice(0, 20).map((cmd) =>
+          '<div class="ops-list-item"><strong>' + escapeHtml(cmd.status || 'unknown') + '</strong> · ' +
+          escapeHtml((cmd.instruction || '').slice(0, 180)) + '</div>'
+        ).join('') || '<div class="ops-list-item">No commands</div>';
+      } catch {
+        list.innerHTML = '<div class="ops-list-item">Unable to load commands</div>';
       }
     }
 
-    if (descriptionTextarea) {
-      descriptionTextarea.addEventListener('input', renderMarkdown);
+    async function refreshEvents() {
+      const list = q('#eventsList');
+      try {
+        const res = await fetch('/api/todo/events');
+        if (!res.ok) throw new Error('Failed events');
+        const events = await res.json();
+        list.innerHTML = events.slice(0, 50).map((evt) => '<div class="ops-list-item">' + escapeHtml(String(evt)) + '</div>').join('') || '<div class="ops-list-item">No events</div>';
+      } catch {
+        list.innerHTML = '<div class="ops-list-item">Unable to load events</div>';
+      }
     }
 
-    // Override openCreateModal to initialize preview
-    const originalOpenCreateModal = openCreateModal;
-    window.openCreateModal = function(columnId) {
-      originalOpenCreateModal(columnId);
-      renderMarkdown();
-    };
+    async function refreshAIAndRules() {
+      const list = q('#aiTemplatesList');
+      try {
+        const [templatesRes, instancesRes, rulesRes] = await Promise.all([
+          fetch('/api/todo/ai-templates'),
+          fetch('/api/todo/ai-instances'),
+          fetch('/api/todo/rules')
+        ]);
+        const templates = templatesRes.ok ? await templatesRes.json() : [];
+        const instances = instancesRes.ok ? await instancesRes.json() : [];
+        const rules = rulesRes.ok ? await rulesRes.json() : { rules: '' };
+        list.innerHTML =
+          '<div class="ops-list-item">Templates: ' + templates.length + '</div>' +
+          templates.slice(0, 10).map((tpl) => '<div class="ops-list-item"><strong>' + escapeHtml(tpl.title || 'Untitled') + '</strong> · ' + escapeHtml(tpl.status || 'active') + '</div>').join('') +
+          '<div class="ops-list-item">Instances: ' + instances.length + '</div>';
+        q('#rulesEditor').value = rules.rules || '';
+      } catch {
+        list.innerHTML = '<div class="ops-list-item">Unable to load AI/rules</div>';
+      }
+    }
 
-    // Override openEditModal to initialize preview
-    const originalOpenEditModal = openEditModal;
-    window.openEditModal = async function(cardId) {
-      await originalOpenEditModal(cardId);
-      renderMarkdown();
-    };
+    async function refreshOps() {
+      await Promise.all([refreshCommands(), refreshEvents(), refreshAIAndRules()]);
+    }
+
+    q('#saveRulesBtn').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/todo/rules', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rules: q('#rulesEditor').value || '' })
+        });
+        if (!res.ok) throw new Error('Save failed');
+      } catch (err) {
+        alert('Unable to save rules: ' + err.message);
+      }
+    });
+
+    qa('.ops-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        qa('.ops-tab').forEach((t) => t.classList.remove('active'));
+        qa('.ops-tab-content').forEach((panel) => panel.classList.remove('active'));
+        tab.classList.add('active');
+        const key = tab.dataset.tab;
+        const panel = q('[data-tab-content="' + key + '"]');
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    q('#refreshOpsBtn').addEventListener('click', refreshOps);
+
+    q('#saveViewBtn').addEventListener('click', saveCurrentView);
+    q('#savedViewsSelect').addEventListener('change', (e) => loadSavedView(e.target.value));
+    q('#clearFiltersBtn').addEventListener('click', clearFilters);
+    ['#filterSearch', '#filterPriority', '#filterDue', '#filterTag'].forEach((id) => {
+      q(id).addEventListener('input', applyFilters);
+      q(id).addEventListener('change', applyFilters);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      const isFormField = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      if (e.key === 'Escape' && q('#cardModal').classList.contains('active')) {
+        closeModal();
+        return;
+      }
+      if (isFormField) return;
+      if (e.key === 'c') {
+        e.preventDefault();
+        openCreateModal();
+      } else if (e.key === 'f') {
+        e.preventDefault();
+        q('#filterSearch').focus();
+      } else if (e.key === '.') {
+        e.preventDefault();
+        q('#opsPanel').classList.toggle('hidden');
+      } else if (e.key === 'j') {
+        e.preventDefault();
+        cycleFocus(1);
+      } else if (e.key === 'k') {
+        e.preventDefault();
+        cycleFocus(-1);
+      } else if (e.key === 'e' && focusedCardId) {
+        e.preventDefault();
+        openEditModal(focusedCardId);
+      }
+    });
+
+    window.openCreateModal = openCreateModal;
+    window.openEditModal = openEditModal;
+    window.closeModal = closeModal;
+    window.deleteCard = deleteCard;
+
+    populateTagFilter();
+    renderSavedViews();
+    updateColumnCounts();
+    updateMetrics();
+    applyFilters();
+    refreshOps();
   </script>
 
   <!-- Load marked.js for markdown rendering -->
@@ -2945,7 +3518,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     const appTag = labels.find((l: string) => l.startsWith('app-'));
 
     return `
-      <div class="card" draggable="true" data-card-id="${card.id}">
+      <div class="card" draggable="true" data-card-id="${card.id}" data-title="${this.escapeHtml(card.title.toLowerCase())}" data-priority="${card.priority}" data-labels="${this.escapeHtml(labels.map((l: string) => l.toLowerCase()).join('|'))}" data-due-date="${card.due_date || ''}" data-due-state="${card.due_date ? (dueDateClass === 'due-overdue' ? 'overdue' : dueDateClass === 'due-today' ? 'today' : 'future') : 'none'}" data-has-deps="${hasDeps ? '1' : '0'}" data-created-at="${card.created_at}" data-updated-at="${card.updated_at}">
         <div class="card-badges">
           ${hasBuild ? '<span class="badge badge-build" title="Auto-execute on approval">BUILD</span>' : ''}
           ${hasAuto ? '<span class="badge badge-auto" title="Execute immediately">AUTO</span>' : ''}

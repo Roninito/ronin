@@ -20,7 +20,7 @@ const getDefaults = () => {
     return {
       ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
       embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text",
-      model: process.env.OLLAMA_MODEL || "qwen3:4b",
+      model: process.env.OLLAMA_MODEL || "ministral-3:3b",
     };
   }
 };

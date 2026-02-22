@@ -5,6 +5,7 @@
 import { createAPI } from "../../api/index.js";
 import { getDefaultSkillsDir } from "./config.js";
 import { existsSync } from "fs";
+import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 
 export interface SkillsCLIOptions {
@@ -21,28 +22,141 @@ function getSkillsDirFromApi(api: { config: { getSystem(): { skillsDir?: string 
   return system.skillsDir ?? getDefaultSkillsDir();
 }
 
+function getSkillRoots(): string[] {
+  const userDir = getDefaultSkillsDir();
+  const projectDir = join(process.cwd(), "skills");
+  const roots: string[] = [];
+  if (existsSync(userDir)) roots.push(userDir);
+  if (existsSync(projectDir) && projectDir !== userDir) roots.push(projectDir);
+  return roots;
+}
+
+function parseFrontmatter(content: string): { name: string; description: string } {
+  const parts = content.split(/\n---\s*\n/);
+  const frontmatter = parts.length > 1 ? parts[0] : "";
+  const name = frontmatter.match(/name:\s*(.+)/)?.[1]?.trim().replace(/^["']|["']$/g, "") || "";
+  const description = frontmatter.match(/description:\s*(.+)/)?.[1]?.trim().replace(/^["']|["']$/g, "") || "";
+  return { name, description };
+}
+
+async function readSkillFile(skillDir: string): Promise<{ path: string; content: string } | null> {
+  const lower = join(skillDir, "skill.md");
+  const upper = join(skillDir, "SKILL.md");
+  const target = existsSync(lower) ? lower : (existsSync(upper) ? upper : null);
+  if (!target) return null;
+  try {
+    return { path: target, content: await readFile(target, "utf-8") };
+  } catch {
+    return null;
+  }
+}
+
+async function discoverLocalSkills(query: string): Promise<Array<{ name: string; description: string }>> {
+  const roots = getSkillRoots();
+  const q = query.trim().toLowerCase();
+  const out: Array<{ name: string; description: string }> = [];
+
+  for (const root of roots) {
+    let entries: string[] = [];
+    try {
+      entries = await readdir(root);
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const skillDir = join(root, entry);
+      const skillFile = await readSkillFile(skillDir);
+      if (!skillFile) continue;
+      const meta = parseFrontmatter(skillFile.content);
+      const name = meta.name || entry;
+      const description = meta.description || "";
+      if (!q || name.toLowerCase().includes(q) || description.toLowerCase().includes(q)) {
+        out.push({ name, description });
+      }
+    }
+  }
+
+  return out;
+}
+
+async function exploreLocalSkill(
+  skillName: string,
+  includeScripts: boolean
+): Promise<{
+  frontmatter: { name: string; description: string };
+  instructions: string;
+  abilities: Array<{ name: string; description?: string }>;
+  scripts?: Array<{ file: string; content: string }>;
+  assets: string[];
+}> {
+  const normalized = skillName.replace(/\s+/g, "-").toLowerCase();
+  const roots = getSkillRoots();
+
+  for (const root of roots) {
+    const skillDir = join(root, normalized);
+    const skillFile = await readSkillFile(skillDir);
+    if (!skillFile) continue;
+
+    const parts = skillFile.content.split(/\n---\s*\n/);
+    const instructions = parts.length > 1 ? parts.slice(1).join("\n---\n").trim() : skillFile.content;
+    const frontmatter = parseFrontmatter(skillFile.content);
+
+    const abilities = Array.from(instructions.matchAll(/\n###\s+(.+)\n/g)).map((m) => ({
+      name: m[1].trim(),
+    }));
+
+    const scripts: Array<{ file: string; content: string }> = [];
+    const scriptsDir = join(skillDir, "scripts");
+    if (existsSync(scriptsDir)) {
+      let files: string[] = [];
+      try {
+        files = await readdir(scriptsDir);
+      } catch {
+        files = [];
+      }
+      if (includeScripts) {
+        for (const file of files) {
+          try {
+            const content = await readFile(join(scriptsDir, file), "utf-8");
+            scripts.push({ file, content });
+          } catch {
+            scripts.push({ file, content: "" });
+          }
+        }
+      }
+    }
+
+    const assetsDir = join(skillDir, "assets");
+    let assets: string[] = [];
+    if (existsSync(assetsDir)) {
+      try {
+        assets = await readdir(assetsDir);
+      } catch {
+        assets = [];
+      }
+    }
+
+    return {
+      frontmatter,
+      instructions,
+      abilities,
+      scripts: includeScripts ? scripts : undefined,
+      assets,
+    };
+  }
+
+  throw new Error(`Skill not found: ${skillName}`);
+}
+
 export async function skillsCommand(
   subcommand: string,
   subArgs: string[],
   options: SkillsCLIOptions = {}
 ): Promise<void> {
-  const api = await createAPI({
-    pluginDir: options.pluginDir,
-    userPluginDir: options.userPluginDir,
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-  });
-
-  const skillsDir = getSkillsDirFromApi(api);
-
   switch (subcommand) {
     case "list": {
-      if (!api.skills) {
-        console.error("❌ Skills plugin not loaded.");
-        process.exit(1);
-      }
-      const all = await api.skills.discover_skills("");
+      const all = await discoverLocalSkills("");
       if (all.length === 0) {
         console.log("No skills found. Add skills to ~/.ronin/skills/ or ./skills/");
         return;
@@ -56,12 +170,9 @@ export async function skillsCommand(
     }
 
     case "discover": {
-      if (!api.skills) {
-        console.error("❌ Skills plugin not loaded.");
-        process.exit(1);
-      }
       const query = subArgs.join(" ").trim() || "*";
-      const list = await api.skills.discover_skills(query);
+      const normalizedQuery = query === "*" ? "" : query;
+      const list = await discoverLocalSkills(normalizedQuery);
       console.log(JSON.stringify(list, null, 2));
       return;
     }
@@ -72,17 +183,20 @@ export async function skillsCommand(
         console.error("❌ Usage: ronin skills explore <skill-name>");
         process.exit(1);
       }
-      if (!api.skills) {
-        console.error("❌ Skills plugin not loaded.");
-        process.exit(1);
-      }
       const includeScripts = subArgs.includes("--scripts");
-      const detail = await api.skills.explore_skill(name, includeScripts);
+      const detail = await exploreLocalSkill(name, includeScripts);
       console.log(JSON.stringify(detail, null, 2));
       return;
     }
 
     case "use": {
+      const api = await createAPI({
+        pluginDir: options.pluginDir,
+        userPluginDir: options.userPluginDir,
+        ollamaUrl: options.ollamaUrl,
+        ollamaModel: options.ollamaModel,
+        dbPath: options.dbPath,
+      });
       const skillName = subArgs[0];
       if (!skillName) {
         console.error("❌ Usage: ronin skills use <skill-name> [--ability=...] [--pipeline=a,b,c] [--params='{}']");
@@ -116,6 +230,14 @@ export async function skillsCommand(
     }
 
     case "install": {
+      const api = await createAPI({
+        pluginDir: options.pluginDir,
+        userPluginDir: options.userPluginDir,
+        ollamaUrl: options.ollamaUrl,
+        ollamaModel: options.ollamaModel,
+        dbPath: options.dbPath,
+      });
+      const skillsDir = getSkillsDirFromApi(api);
       const repo = subArgs[0];
       if (!repo || repo.startsWith("--")) {
         console.error("❌ Usage: ronin skills install <git-repo> [--name <skill-name>]");
@@ -143,6 +265,14 @@ export async function skillsCommand(
     }
 
     case "update": {
+      const api = await createAPI({
+        pluginDir: options.pluginDir,
+        userPluginDir: options.userPluginDir,
+        ollamaUrl: options.ollamaUrl,
+        ollamaModel: options.ollamaModel,
+        dbPath: options.dbPath,
+      });
+      const skillsDir = getSkillsDirFromApi(api);
       const name = subArgs[0];
       if (!name) {
         console.error("❌ Usage: ronin skills update <skill-name>");
@@ -173,6 +303,14 @@ export async function skillsCommand(
     }
 
     case "init": {
+      const api = await createAPI({
+        pluginDir: options.pluginDir,
+        userPluginDir: options.userPluginDir,
+        ollamaUrl: options.ollamaUrl,
+        ollamaModel: options.ollamaModel,
+        dbPath: options.dbPath,
+      });
+      const skillsDir = getSkillsDirFromApi(api);
       if (!existsSync(join(skillsDir, ".git"))) {
         if (!api.git) {
           console.error("❌ Git plugin not loaded.");

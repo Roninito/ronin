@@ -5,7 +5,8 @@ import { join } from "path";
 import { tmpdir } from "os";
 
 interface PiperConfig {
-  modelPath: string;
+  modelPath?: string;
+  piperModelPath?: string;
   piperBinary?: string;
   speakerId?: number;
   lengthScale?: number;
@@ -49,8 +50,8 @@ const piperPlugin: Plugin = {
       const options = (args[1] || {}) as PiperConfig & { outputPath?: string };
       
       // Get config from options or environment
-      const modelPath = options?.modelPath || process.env.PIPER_MODEL_PATH;
-      const piperBinary = process.env.PIPER_BINARY || "piper";
+      const modelPath = options?.modelPath ?? options?.piperModelPath ?? process.env.PIPER_MODEL_PATH;
+      const piperBinary = options?.piperBinary ?? process.env.PIPER_BINARY ?? "piper";
       
       if (!modelPath) {
         throw new Error("Piper model path not configured. Set piper.modelPath in config.");
@@ -106,7 +107,8 @@ const piperPlugin: Plugin = {
             if (code === 0) {
               resolve();
             } else {
-              reject(new Error(`Piper failed with code ${code}: ${stderr}`));
+              const msg = stderr.trim() || `exit code ${code}`;
+              reject(new Error(`Piper failed: ${msg}. Check PIPER_MODEL_PATH and that the .onnx.json file exists next to the .onnx model.`));
             }
           });
 
@@ -192,7 +194,7 @@ const piperPlugin: Plugin = {
       modelName: string;
       language: string;
     }> => {
-      const modelPath = process.env.PIPER_MODEL_PATH;
+      const modelPath = process.env.PIPER_MODEL_PATH ?? "";
       
       if (!modelPath) {
         throw new Error("No model configured. Set PIPER_MODEL_PATH environment variable.");

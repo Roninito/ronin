@@ -1455,7 +1455,7 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
 
     // Generate article using AI
     const configAI = this.api.config.getAI();
-    const model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:4b";
+    const model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "ministral-3:3b";
     console.log(`[Blog] 🤖 Starting AI generation with model: ${model}`);
     console.log(`[Blog]   Timeout: ${this.AI_TIMEOUT_MS / 1000}s, Max tokens: ${this.AI_MAX_TOKENS}`);
     

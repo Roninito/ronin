@@ -1,9 +1,7 @@
-import { createAPI } from "../../api/index.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
-import { AgentRegistry } from "../../agent/AgentRegistry.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 import { formatCronTable } from "../../utils/cron.js";
+import { loadAgentFileMetadata } from "../utils/agent-metadata.js";
 
 export interface ListOptions {
   agentDir?: string;
@@ -22,17 +20,7 @@ export async function listCommand(options: ListOptions = {}): Promise<void> {
   const externalAgentDir =
     process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
-  // Create API
-  const api = await createAPI({
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
-  });
-
-  // Load agents
-  const loader = new AgentLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
+  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
 
   if (agents.length === 0) {
     logger.info("No agents found.");

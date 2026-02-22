@@ -1,6 +1,7 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import { toolChat } from "../src/tools/ToolChat.js";
+import { getRoninContext, buildSystemPrompt } from "../src/utils/prompt.js";
 
 /**
  * Tool Orchestrator Agent
@@ -63,6 +64,14 @@ export default class ToolOrchestratorAgent extends BaseAgent {
     const toolStrategy = this.determineToolStrategy(query);
     console.log(`[tool-orchestrator] Strategy: ${toolStrategy.strategy}, Tools: ${toolStrategy.tools.join(", ")}`);
 
+    const context = await getRoninContext(this.api);
+    const strategySection = this.buildStrategySection(toolStrategy);
+    const systemPrompt = buildSystemPrompt(context, {
+      includeRouteList: false,
+      ontologyHint: context.hasOntology,
+      sections: [strategySection],
+    });
+
     // Execute tool-enabled chat
     const result = await toolChat(
       this.api,
@@ -72,7 +81,7 @@ export default class ToolOrchestratorAgent extends BaseAgent {
         temperature: 0.7,
         maxTokens: 2000,
         maxToolIterations: toolStrategy.maxIterations,
-        systemPrompt: this.buildSystemPrompt(toolStrategy),
+        systemPrompt,
         enableTools: true,
         toolFilter: toolStrategy.tools,
       }
@@ -167,12 +176,10 @@ export default class ToolOrchestratorAgent extends BaseAgent {
   }
 
   /**
-   * Build system prompt based on strategy
+   * Build strategy-specific section for system prompt (appended to shared Ronin context).
    */
-  private buildSystemPrompt(strategy: { strategy: string; tools: string[] }): string {
-    const basePrompt = `You are Ronin, an AI assistant with access to tools.
-
-Available tools:
+  private buildStrategySection(strategy: { strategy: string; tools: string[] }): string {
+    const base = `Available tools for this request:
 ${strategy.tools.map(t => `- ${t}`).join("\n")}
 
 Guidelines:
@@ -184,7 +191,7 @@ Guidelines:
 
     switch (strategy.strategy) {
       case "research":
-        return basePrompt + `
+        return base + `
 
 Research Guidelines:
 - Search for up-to-date information
@@ -193,7 +200,7 @@ Research Guidelines:
 - Summarize key points clearly`;
 
       case "code-analysis":
-        return basePrompt + `
+        return base + `
 
 Code Analysis Guidelines:
 - Read relevant files before analyzing
@@ -202,7 +209,7 @@ Code Analysis Guidelines:
 - Consider performance implications`;
 
       case "creation":
-        return basePrompt + `
+        return base + `
 
 Content Creation Guidelines:
 - Research the topic thoroughly first
@@ -211,7 +218,7 @@ Content Creation Guidelines:
 - Include visuals when helpful`;
 
       default:
-        return basePrompt;
+        return base;
     }
   }
 

@@ -20,6 +20,11 @@ export interface CompletionOptions {
    * Set to 0 to disable retries. Defaults to 3.
    */
   retries?: number;
+  /**
+   * When true, use the default (local) AI provider only, not the smart/cloud tier.
+   * Useful for synthesis rounds where the smart model may not be available on the remote endpoint.
+   */
+  useLocalProvider?: boolean;
 }
 
 /**
@@ -172,7 +177,7 @@ export interface AgentAPI {
    * Event system for inter-agent communication
    */
   events: {
-    emit(event: string, data: unknown): void;
+    emit(event: string, data: unknown, source: string): void;
     on(event: string, handler: (data: unknown) => void): void;
     off(event: string, handler: (data: unknown) => void): void;
     beam(targets: string | string[], eventType: string, payload: unknown): void;
@@ -349,6 +354,7 @@ export interface AgentAPI {
         date: number;
       };
     }) => void): void;
+    clearMessageHandlers(botId: string): void;
     getBotInfo(botId: string): Promise<{
       id: number;
       username: string;
@@ -400,6 +406,12 @@ export interface AgentAPI {
       type: string;
       guildId: string | null;
     }>;
+    listGuilds(clientId: string): Promise<Array<{ id: string; name: string }>>;
+    listChannels(clientId: string, guildId: string): Promise<Array<{ id: string; name: string; type: string }>>;
+    listDMChannels(clientId: string): Promise<Array<{
+      id: string;
+      recipient?: { id: string; username: string };
+    }>>;
   };
 
   /**
@@ -514,6 +526,77 @@ export interface AgentAPI {
     }>;
 
     clearNamespace(namespace: string): Promise<{ cleared: boolean }>;
+  };
+
+  /**
+   * Ontology / knowledge graph operations (if ontology plugin is loaded)
+   */
+  ontology?: {
+    setNode(node: {
+      id: string;
+      type: string;
+      name?: string;
+      summary?: string;
+      metadata?: string;
+      domain?: string;
+      confidence?: number;
+      sensitivity?: string;
+    }): Promise<void>;
+    setEdge(edge: {
+      id: string;
+      from_id: string;
+      to_id: string;
+      relation: string;
+      metadata?: string;
+      confidence?: number;
+    }): Promise<void>;
+    removeNode(id: string): Promise<void>;
+    removeEdge(id: string): Promise<void>;
+    lookup(id: string): Promise<{
+      id: string;
+      type: string;
+      name: string | null;
+      summary: string | null;
+      metadata: string | null;
+      domain: string;
+      confidence: number;
+      sensitivity: string;
+      created_at: number;
+      updated_at: number;
+    } | null>;
+    search(params: { type?: string; nameLike?: string; domain?: string; limit?: number }): Promise<Array<{
+      id: string;
+      type: string;
+      name: string | null;
+      summary: string | null;
+      metadata: string | null;
+      domain: string;
+      confidence: number;
+      sensitivity: string;
+      created_at: number;
+      updated_at: number;
+    }>>;
+    related(params: {
+      nodeId: string;
+      relation?: string;
+      direction?: "out" | "in" | "both";
+      depth?: number;
+      limit?: number;
+    }): Promise<Array<{ node: Record<string, unknown>; edges: Array<Record<string, unknown>> }>>;
+    context(params: { taskId: string; depth?: number; limit?: number }): Promise<{
+      task: Record<string, unknown> | null;
+      skills: Array<Record<string, unknown>>;
+      failures: Array<Record<string, unknown>>;
+      pipelines: Array<Record<string, unknown>>;
+      conversations: Array<Record<string, unknown>>;
+    }>;
+    history(params: {
+      type?: string;
+      nameLike?: string;
+      successfulOnly?: boolean;
+      limit?: number;
+    }): Promise<Array<Record<string, unknown>>>;
+    stats(): Promise<{ nodes: Record<string, number>; edges: Record<string, number> }>;
   };
 
   /**

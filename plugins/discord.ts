@@ -6,6 +6,7 @@ import {
   TextChannel,
   EmbedBuilder,
   ChannelType,
+  Partials,
 } from "discord.js";
 
 interface DiscordMessage {
@@ -52,18 +53,21 @@ const discordPlugin: Plugin = {
 
       const clientId = `discord_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-      // Default intents for basic bot functionality
-      // Note: MessageContent is a privileged intent that must be enabled in Discord Developer Portal
-      // If you get "Used disallowed intents" error, enable MessageContent intent at:
+      // Default intents for basic bot functionality and DMs
+      // Note: MessageContent and DirectMessages are privileged intents - enable in Discord Developer Portal
       // https://discord.com/developers/applications -> Your Bot -> Bot -> Privileged Gateway Intents
       const defaultIntents = [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages,
       ];
 
       const intents = options?.intents || defaultIntents;
-      const client = new Client({ intents });
+      const client = new Client({
+        intents,
+        partials: [Partials.Channel],
+      });
 
       const instance: ClientInstance = {
         client,
@@ -125,8 +129,9 @@ const discordPlugin: Plugin = {
             `3. Go to "Bot" section\n` +
             `4. Under "Privileged Gateway Intents", enable:\n` +
             `   - MESSAGE CONTENT INTENT (required for reading message content)\n` +
+            `   - DIRECT MESSAGES (required for receiving and sending DMs)\n` +
             `5. Save changes and restart the bot\n` +
-            `\nIf you don't need to read message content, you can remove MessageContent intent from the code.`
+            `\nIf you don't need DMs or message content, you can remove those intents from the code.`
           );
         }
         
@@ -353,6 +358,94 @@ const discordPlugin: Plugin = {
       } catch (error) {
         throw new Error(
           `Failed to get channel: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+
+    /**
+     * List guilds (servers) the bot is in
+     * @param clientId ID from initBot
+     * @returns Array of { id, name }
+     */
+    listGuilds: async (
+      clientId: string
+    ): Promise<Array<{ id: string; name: string }>> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      try {
+        const guilds = instance.client.guilds.cache;
+        return Array.from(guilds.values()).map((g) => ({
+          id: g.id,
+          name: g.name,
+        }));
+      } catch (error) {
+        throw new Error(
+          `Failed to list guilds: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+
+    /**
+     * List channels in a guild
+     * @param clientId ID from initBot
+     * @param guildId Guild (server) ID
+     * @returns Array of { id, name, type }
+     */
+    listChannels: async (
+      clientId: string,
+      guildId: string
+    ): Promise<Array<{ id: string; name: string; type: string }>> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      try {
+        const guild = await instance.client.guilds.fetch(guildId);
+        if (!guild) {
+          throw new Error(`Guild not found: ${guildId}`);
+        }
+        const channels = guild.channels.cache;
+        return Array.from(channels.values()).map((ch) => ({
+          id: ch.id,
+          name: "name" in ch && ch.name ? ch.name : String(ch.id),
+          type: ChannelType[ch.type] || "Unknown",
+        }));
+      } catch (error) {
+        throw new Error(
+          `Failed to list channels: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+
+    /**
+     * List DM channels the bot has (from cache; may be empty until DMs are opened)
+     * @param clientId ID from initBot
+     * @returns Array of { id, recipient?: { id, username } }
+     */
+    listDMChannels: async (
+      clientId: string
+    ): Promise<Array<{ id: string; recipient?: { id: string; username: string } }>> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      try {
+        const channels = instance.client.channels.cache;
+        const dms: Array<{ id: string; recipient?: { id: string; username: string } }> = [];
+        for (const ch of channels.values()) {
+          if (ch.type === ChannelType.DM) {
+            const recipient = "recipient" in ch && ch.recipient
+              ? { id: ch.recipient.id, username: ch.recipient.username }
+              : undefined;
+            dms.push({ id: ch.id, recipient });
+          }
+        }
+        return dms;
+      } catch (error) {
+        throw new Error(
+          `Failed to list DM channels: ${error instanceof Error ? error.message : String(error)}`
         );
       }
     },

@@ -5,7 +5,7 @@
   "apps": {},
   "cliOptions": {
     "qwen": {
-      "model": "qwen3:1.7b",
+      "model": "ministral-3:3b",
       "timeout": 300000
     },
     "cursor": {
@@ -43,7 +43,7 @@
   },
   "ai": {
     "ollamaUrl": "http://localhost:11434",
-    "ollamaModel": "qwen3:4b",
+    "ollamaModel": "ministral-3:3b",
     "ollamaTimeoutMs": 300000,
     "ollamaEmbeddingModel": "nomic-embed-text"
   },
@@ -87,5 +87,14 @@
       "deepgramApiKey": ""
     }
   },
-  "geminiModel": "gemini-3-pro-preview"
+  "geminiModel": "gemini-3-pro-preview",
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/ronin/Desktop/Bun Apps/ronin"],
+        "enabled": true
+      }
+    }
+  }
 }

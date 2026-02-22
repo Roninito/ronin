@@ -122,6 +122,10 @@ async execute(): Promise<void> {
 
 See [docs/PLUGINS.md](docs/PLUGINS.md) for complete plugin documentation and [docs/RAG.md](docs/RAG.md) for RAG-specific documentation.
 
+### Data formats
+
+For token-efficient agent memory snapshots, context dumps, and ontology-friendly aggregation, see [docs/RONIN_SCRIPT.md](docs/RONIN_SCRIPT.md). Ronin Script integrates with `api.memory` and the ontology (reference docs and tools are synced via `ronin doctor ingest-docs`).
+
 ## Cron Schedule Format
 
 > 📖 **For a comprehensive guide with detailed examples, tables, and troubleshooting, see [CRON_SCHEDULING.md](docs/CRON_SCHEDULING.md)**

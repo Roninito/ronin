@@ -1,10 +1,16 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { readdir, readFile } from "fs/promises";
-import { join } from "path";
-import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
 import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import {
+  getRoninContext,
+  buildSystemPrompt,
+  buildToolPrompt,
+  windowMessages,
+  invalidateChatSummary,
+  filterToolSchemas,
+  injectMermaidLinkIntoResponse,
+} from "../src/utils/prompt.js";
 
 interface Chat {
   id: string;
@@ -28,21 +34,35 @@ interface ChatMessage {
  * that understands Ronin's architecture, agents, plugins, and routes
  */
 export default class ChattyAgent extends BaseAgent {
-  private model: string;
-  private roninContext: {
-    agents: Array<{ name: string; description?: string }>;
-    plugins: string[];
-    routes: Array<{ path: string; type: string }>;
-    architecture: string;
-  } | null = null;
-
+  private localModel: string;
+  private toolModel: string;
   private chatCount = 0;
+  private readonly maxToolIterations = 4;
+  private readonly maxToolsPerIteration = 6;
+
+  private normalizeRequestedModel(model?: string): string | undefined {
+    if (!model) return undefined;
+    const m = model.trim().toLowerCase();
+    if (!m || m === "local" || m === "ollama") return undefined;
+    if (m === "cloud" || m === "ninja") return "smart";
+    return model.trim();
+  }
+
+  /**
+   * Detect @ninja tag in message text. Returns the cleaned message and whether ninja mode was requested.
+   */
+  private static extractNinjaTag(message: string): { cleaned: string; ninja: boolean } {
+    const ninjaPattern = /\s*@ninja\b\s*/gi;
+    if (ninjaPattern.test(message)) {
+      return { cleaned: message.replace(/\s*@ninja\b\s*/gi, " ").trim(), ninja: true };
+    }
+    return { cleaned: message, ninja: false };
+  }
 
   constructor(api: AgentAPI) {
     super(api);
-    // Use centralized config with env fallback
-    const configAI = this.api.config.getAI();
-    this.model = configAI.ollamaModel || process.env.OLLAMA_MODEL || "qwen3:1.7b";
+    this.localModel = this.resolveLocalModel();
+    this.toolModel = this.resolveToolModel();
     this.initializeDatabase();
     this.registerRoutes();
 
@@ -51,7 +71,22 @@ export default class ChattyAgent extends BaseAgent {
       agent: "chatty", status: "started", timestamp: Date.now(),
     }, "chatty");
 
-    console.log("💬 Chatty agent ready. Chat interface available at /chat");
+    console.log(`💬 Chatty agent ready. Local model: ${this.localModel}, Tool model: ${this.toolModel}`);
+  }
+
+  /** Local model for general chat — fast, low-latency. */
+  private resolveLocalModel(): string {
+    const ai = this.api.config.getAI();
+    return ai.models?.default ?? ai.ollamaModel ?? "ministral-3:3b";
+  }
+
+  /** Smart model for tool-calling rounds where accuracy matters. */
+  private resolveToolModel(): string {
+    const ai = this.api.config.getAI();
+    if (ai.provider === "ollama" && (ai.ollamaSmartUrl ?? "").trim() && ai.models?.smart) {
+      return "smart";
+    }
+    return ai.models?.default ?? ai.ollamaModel ?? "ministral-3:3b";
   }
 
   /**
@@ -187,9 +222,9 @@ export default class ChattyAgent extends BaseAgent {
     // Chatty is route-driven, so execute() can be empty
     // Ensure Ollama and model are ready
     try {
-      const modelExists = await this.api.ai.complete("test", { model: this.model, maxTokens: 1 }).catch(() => null);
+      const modelExists = await this.api.ai.complete("test", { model: this.localModel, maxTokens: 1 }).catch(() => null);
       if (!modelExists) {
-        console.log(`⚠️  Model ${this.model} may not be available. Ensure Ollama is running and model is pulled.`);
+        console.log(`⚠️  Model ${this.localModel} may not be available. Ensure Ollama is running and model is pulled.`);
       }
     } catch (error) {
       console.warn("Could not verify model availability:", error);
@@ -647,7 +682,7 @@ export default class ChattyAgent extends BaseAgent {
       <div id="chat-history"></div>
       <div id="drop-zone">Drop files here to analyze</div>
       <div class="input-area">
-        <input type="text" id="message-input" placeholder="Type a message..." />
+        <input type="text" id="message-input" placeholder="Type a message... (add @ninja for smart model)" />
         <button id="send-button">Send</button>
       </div>
     </div>
@@ -1016,8 +1051,8 @@ export default class ChattyAgent extends BaseAgent {
     const taskStartTime = Date.now();
 
     try {
-      const body = await req.json() as { message?: string; chatId?: string };
-      const { message, chatId } = body;
+      const body = await req.json() as { message?: string; chatId?: string; model?: string };
+      let { message, chatId } = body;
 
       if (!message) {
         return Response.json({ error: "Message required" }, { status: 400 });
@@ -1027,32 +1062,60 @@ export default class ChattyAgent extends BaseAgent {
         return Response.json({ error: "Chat ID required" }, { status: 400 });
       }
 
+      // Detect @ninja tag — if present, use the smart/cloud model for this turn
+      const { cleaned, ninja } = ChattyAgent.extractNinjaTag(message);
+      if (ninja) {
+        message = cleaned;
+        console.log(`[Chatty] @ninja detected — using smart model for this turn`);
+      }
+
       // Load chat history from database
       const messages = await this.getChatMessages(chatId);
       const history = messages.map(m => ({ role: m.role, content: m.content }));
 
-      // Build Ronin context (refresh on each request to get latest state)
-      const context = await this.buildRoninContext();
+      // Window messages to fit budget (cached summary for older messages)
+      const BUDGET = 4000;
+      const windowed = await windowMessages(history, BUDGET, {
+        chatId,
+        api: this.api,
+        recentCount: 8,
+      });
 
-      // Build system prompt with context
-      const systemPrompt = this.buildSystemPrompt(context);
+      // Build Ronin context (memoized with decay)
+      const context = await getRoninContext(this.api);
+
+      // Include architecture only on first message
+      const isFirstMessage = history.length === 0;
+      const systemPrompt = buildSystemPrompt(context, {
+        includeArchitecture: isFirstMessage,
+        includeRouteList: true,
+        ontologyHint: context.hasOntology,
+      });
 
       // Log context for debugging
       console.log(`[Chatty] Context: ${context.agents.length} agents, ${context.plugins.length} plugins, ${context.routes.length} routes`);
 
-      // Prepare messages - system message MUST be first
-      const isFirstMessage = history.length === 0;
-      const userMessage = isFirstMessage 
+      const userMessage = isFirstMessage
         ? `${systemPrompt}\n\nUser question: ${message}`
         : message;
 
-      const aiMessages = [
-        { role: "system" as const, content: systemPrompt },
-        ...history.map((h: any) => ({
+      const recentWithUser = [
+        ...windowed.recentMessages.map((h) => ({
           role: h.role as "user" | "assistant",
           content: h.content,
         })),
         { role: "user" as const, content: userMessage },
+      ];
+      if (windowed.summary) {
+        recentWithUser.unshift({
+          role: "system" as const,
+          content: `Summary of earlier conversation:\n${windowed.summary}`,
+        });
+      }
+
+      const aiMessages = [
+        { role: "system" as const, content: systemPrompt },
+        ...recentWithUser,
       ];
 
       // Check for special commands
@@ -1060,7 +1123,8 @@ export default class ChattyAgent extends BaseAgent {
         return await this.handleRoninCommand(message, aiMessages);
       }
 
-      // Save user message to database
+      // Save user message to database (invalidate summary so it can be refreshed)
+      invalidateChatSummary(chatId);
       await this.addMessage(chatId, "user", message);
       
       // Generate title from first user message
@@ -1075,9 +1139,23 @@ export default class ChattyAgent extends BaseAgent {
         agent: "chatty", taskId, taskName: "chat-completion", timestamp: taskStartTime,
       }, "chatty");
 
-      // Stream response - include system message!
+      // Model resolution: @ninja or explicit "smart"/"cloud" → smart; default → local
       const api = this.api;
-      const model = this.model;
+      const requestedModel = ninja ? "smart" : this.normalizeRequestedModel(body.model);
+      if (requestedModel === "smart") {
+        const aiConfig = this.api.config.getAI();
+        const smartUrl = (aiConfig.ollamaSmartUrl || "").trim();
+        if (aiConfig.provider !== "ollama" || !smartUrl) {
+          return Response.json(
+            {
+              error:
+                "Smart/cloud model requested but ai.ollamaSmartUrl is not configured on the running instance.",
+            },
+            { status: 400 }
+          );
+        }
+      }
+      const model = requestedModel || this.localModel;
       const chattyAgent = this; // Capture this for use in transform stream
       let assistantResponse = "";
       
@@ -1104,21 +1182,27 @@ export default class ChattyAgent extends BaseAgent {
           api.events.emit("agent.metric", {
             agent: "chatty", metric: "messages_processed", value: chattyAgent.chatCount, timestamp: Date.now(),
           }, "chatty");
+          // Ontology: record conversation turn for knowledge graph
+          api.events.emit("chat.conversation", {
+            source: "chatty",
+            sourceChannel: chatId,
+            userMessage: message.slice(0, 200),
+            assistantReply: assistantResponse.slice(0, 200),
+            timestamp: Date.now(),
+          }, "chatty");
         },
       });
       
       const sourceStream = new ReadableStream({
         async start(controller) {
           try {
-            // Include system message - don't slice it off!
-            // Set timeout to 5 minutes for chat responses
-            for await (const chunk of api.ai.streamChat(aiMessages, {
-              model: model,
-              timeoutMs: 300000, // 5 minutes timeout
-              thinking: false, // Disable thinking mode for direct responses
-            })) {
-              controller.enqueue(new TextEncoder().encode(chunk));
-            }
+            const responseText = await chattyAgent.generateToolEnabledReply({
+              systemPrompt,
+              aiMessages,
+              userMessage: message,
+              model,
+            });
+            controller.enqueue(new TextEncoder().encode(responseText));
             controller.close();
           } catch (error) {
             controller.error(error);
@@ -1152,157 +1236,114 @@ export default class ChattyAgent extends BaseAgent {
     }
   }
 
-  /**
-   * Build Ronin context
-   */
-  private async buildRoninContext(): Promise<{
-    agents: Array<{ name: string; description?: string }>;
-    plugins: string[];
-    routes: Array<{ path: string; type: string }>;
-    architecture: string;
-  }> {
-    const agents: Array<{ name: string; description?: string }> = [];
-    const plugins: string[] = [];
-    const routes: Array<{ path: string; type: string }> = [];
+  private async generateToolEnabledReply(params: {
+    systemPrompt: string;
+    aiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    userMessage: string;
+    model: string;
+  }): Promise<string> {
+    // When the requested model is the local/default model, use the smart model
+    // for tool-calling rounds (needs accuracy) but the local model for plain chat.
+    const chatModel = params.model;
+    const toolCallingModel = params.model === this.localModel ? this.toolModel : params.model;
 
-    try {
-      // Discover agents from both directories
-      const externalAgentDir = ensureDefaultExternalAgentDir();
-      const localAgentDir = ensureDefaultAgentDir();
-      
-      // Try external directory first (~/.ronin/agents)
-      try {
-        const externalFiles = await readdir(externalAgentDir);
-        for (const file of externalFiles) {
-          if (file.endsWith(".ts") || file.endsWith(".js")) {
-            const name = file.replace(/\.(ts|js)$/, "");
-            let description: string | undefined;
-            try {
-              const content = await readFile(join(externalAgentDir, file), "utf-8");
-              // Try to extract description from JSDoc or comments
-              const descMatch = content.match(/\/\*\*[\s\S]*?\*\//) || 
-                               content.match(/\/\/.*description.*/i) ||
-                               content.match(/export default class \w+ extends BaseAgent[\s\S]{0,500}/);
-              if (descMatch) {
-                description = descMatch[0].substring(0, 200).replace(/\n/g, " ");
-              }
-            } catch {
-              // Ignore read errors
-            }
-            agents.push({ name, description });
-          }
-        }
-      } catch {
-        // External directory might not exist
-      }
+    const allSchemas = this.api.tools.getSchemas();
+    const toolSchemas = filterToolSchemas(allSchemas, {
+      message: params.userMessage,
+      hasOntology: this.api.plugins.has("ontology"),
+      hasSkills: !!this.api.skills,
+      maxSchemas: 12,
+    });
+    const toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }> = [];
+    let finalResponse = "";
 
-      // Also check local agents directory
-      try {
-        const localFiles = await readdir(localAgentDir);
-        for (const file of localFiles) {
-          if (file.endsWith(".ts") || file.endsWith(".js")) {
-            const name = file.replace(/\.(ts|js)$/, "");
-            // Avoid duplicates
-            if (!agents.find(a => a.name === name)) {
-              agents.push({ name });
-            }
-          }
-        }
-      } catch {
-        // Local directory might not exist
-      }
-    } catch (error) {
-      console.warn("[Chatty] Error discovering agents:", error);
+    if (toolSchemas.length === 0) {
+      const fallback = await this.api.ai.chat(params.aiMessages, {
+        model: chatModel,
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+      return fallback.content || "I couldn't generate a response.";
     }
 
-    // Get plugins
-    plugins.push(...this.api.plugins.list());
+    for (let iteration = 0; iteration < this.maxToolIterations; iteration++) {
+      const prompt = buildToolPrompt({
+        systemPrompt: params.systemPrompt,
+        aiMessages: params.aiMessages,
+        toolResults,
+      });
 
-    // Get routes
-    const allRoutes = this.api.http.getAllRoutes();
-    for (const path of allRoutes.keys()) {
-      routes.push({ path, type: "http" });
+      // Tool-calling round: use smart model for reliable function calling
+      const result = await this.api.ai.callTools(prompt, toolSchemas, {
+        model: toolCallingModel,
+        maxTokens: 2000,
+        temperature: 0.7,
+      });
+
+      if (result.message.content?.trim()) {
+        finalResponse = result.message.content.trim();
+      }
+
+      if (!result.toolCalls.length) {
+        break;
+      }
+
+      const sayToolNames = new Set<string>(["say", "speech.say", "local.speech.say"]);
+      let ranSayTool = false;
+      let ranNonSayTool = false;
+      for (const call of result.toolCalls.slice(0, this.maxToolsPerIteration)) {
+        try {
+          const execution = await this.api.tools.execute(call.name, call.arguments || {}, {
+            conversationId: `chatty-${Date.now()}`,
+            originalQuery: params.userMessage,
+            metadata: { agentName: "chatty" },
+          });
+          if (sayToolNames.has(call.name)) ranSayTool = true;
+          else ranNonSayTool = true;
+          toolResults.push({
+            name: call.name,
+            success: execution.success,
+            result: execution.data,
+            error: execution.error,
+          });
+        } catch (error) {
+          if (sayToolNames.has(call.name)) ranSayTool = true;
+          else ranNonSayTool = true;
+          toolResults.push({
+            name: call.name,
+            success: false,
+            result: null,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      // If we ran a non-say tool, do another round so the model can reply using results.
+      // Clear any placeholder reply so we don't return "Let me check..." instead of the real answer.
+      if (ranNonSayTool) {
+        finalResponse = "";
+        continue;
+      }
+      if (finalResponse || ranSayTool) break;
     }
 
-    this.roninContext = {
-      agents,
-      plugins,
-      routes,
-      architecture: this.getArchitectureDescription(),
-    };
+    if (finalResponse) {
+      return injectMermaidLinkIntoResponse(finalResponse, toolResults);
+    }
 
-    return this.roninContext;
-  }
+    // If tools ran but failed and the model didn't return a reply, give a clear failure resolution
+    const failed = toolResults.find((tr) => !tr.success || tr.error);
+    if (failed) {
+      const reason = failed.error || (typeof failed.result === "string" ? failed.result : "Unknown error");
+      return `That didn't work. **${failed.name}** failed: ${reason}`;
+    }
 
-  /**
-   * Get Ronin architecture description
-   */
-  private getArchitectureDescription(): string {
-    return `Ronin is a Bun-based AI agent framework for TypeScript/JavaScript.
-
-Key Components:
-- Agents: Extend BaseAgent, implement execute(), auto-loaded from ~/.ronin/agents/
-- Plugins: Tools in ~/.ronin/plugins/, accessed via api.plugins.call()
-- Routes: Agents register HTTP routes via api.http.registerRoute()
-- Events: Inter-agent communication via api.events.emit/on()
-- Memory: Persistent storage via api.memory
-- AI: Ollama integration via api.ai (complete, chat, callTools)
-- LangChain: Advanced chains/graphs via api.langchain (if plugin loaded)
-
-Agent Structure:
-- Static schedule (cron) for scheduled execution
-- Static watch (file patterns) for file watching
-- Static webhook (path) for HTTP webhooks
-- execute() method contains main logic
-- Optional onFileChange() and onWebhook() handlers`;
-  }
-
-  /**
-   * Build system prompt with Ronin context
-   */
-  private buildSystemPrompt(context: {
-    agents: Array<{ name: string; description?: string }>;
-    plugins: string[];
-    routes: Array<{ path: string; type: string }>;
-    architecture: string;
-  }): string {
-    const agentList = context.agents.length > 0 
-      ? context.agents.map((a) => `  - ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`).join("\n")
-      : "  (No agents found)";
-    
-    const pluginList = context.plugins.length > 0 
-      ? context.plugins.map(p => `  - ${p}`).join("\n")
-      : "  (No plugins found)";
-    
-    const routeList = context.routes.length > 0
-      ? context.routes.map(r => `  - ${r.path}`).join("\n")
-      : "  (No routes found)";
-
-    return `You are Ronin AI, a helpful assistant for the Ronin AI agent framework.
-
-CRITICAL: "Ronin" refers to the Ronin AI agent framework - a Bun-based TypeScript/JavaScript framework for building AI agents. This is NOT the Ronin blockchain, Ronin DeFi platform, or any cryptocurrency. When users mention "Ronin", they mean the AI agent framework.
-
-${context.architecture}
-
-CURRENT RONIN SETUP:
-
-Available Agents:
-${agentList}
-
-Available Plugins:
-${pluginList}
-
-Registered Routes:
-${routeList}
-
-Your role:
-- Answer questions about the Ronin AI agent framework architecture
-- Explain how agents, plugins, and routes work
-- Help users understand their current Ronin setup
-- Discuss agent creation, plugin usage, and route registration
-- Analyze agent outputs (e.g., RSS feeds) when requested
-
-IMPORTANT: Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript.`;
+    const fallback = await this.api.ai.chat(params.aiMessages, {
+      model: chatModel,
+      maxTokens: 2000,
+      temperature: 0.7,
+    });
+    return fallback.content || "I couldn't generate a response.";
   }
 
   /**
@@ -1316,7 +1357,7 @@ IMPORTANT: Never confuse Ronin AI agent framework with blockchain platforms. Alw
     const cmd = parts[1];
 
     if (cmd === "list" && parts[2] === "agents") {
-      const context = await this.buildRoninContext();
+      const context = await getRoninContext(this.api);
       const agentList = context.agents.map((a) => `- ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`).join("\n");
       return new Response(
         `Available agents:\n${agentList}`,

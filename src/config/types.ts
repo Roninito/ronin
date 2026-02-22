@@ -35,11 +35,15 @@ export interface AIConfig {
   ollamaModel: string;
   /** When set, the "smart" model tier uses this URL (e.g. Ollama Cloud) instead of ollamaUrl. */
   ollamaSmartUrl?: string;
+  /** API key for smart/cloud endpoint (e.g. OLLAMA_API_KEY for ollama.com). Optional for self-hosted. */
+  ollamaSmartApiKey?: string;
   ollamaTimeoutMs: number;
   ollamaEmbeddingModel: string;
   models: AIModelSlots;
   fallback: AIFallbackConfig;
   openai: OpenAICompatConfig;
+  /** When true, always use the smart/cloud model for tool-calling operations. Useful when local models don't support function calling well. */
+  useSmartForTools?: boolean;
 }
 
 export interface GeminiConfig {
@@ -173,8 +177,14 @@ export interface STTConfig {
   deepgramApiKey: string;
 }
 
+export interface TTSConfig {
+  piperModelPath: string;
+  piperBinary: string;
+}
+
 export interface SpeechConfig {
   stt: STTConfig;
+  tts: TTSConfig;
 }
 
 export interface NotificationsConfig {
@@ -238,6 +248,7 @@ export type ConfigPath =
   | 'ai.ollamaUrl'
   | 'ai.ollamaModel'
   | 'ai.ollamaSmartUrl'
+  | 'ai.ollamaSmartApiKey'
   | 'ai.ollamaTimeoutMs'
   | 'ai.ollamaEmbeddingModel'
   | 'ai.models'

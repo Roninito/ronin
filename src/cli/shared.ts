@@ -110,21 +110,25 @@ Show runtime status: running instance info, active schedules, provider config.
   ask: `
 Usage: ronin ask [model] [question] [options]
 
-Interactive AI assistant. Optionally prefix with a model name.
+Interactive AI assistant via the running Ronin instance.
 
-Models: local (default), grok, gemini
+Models: local (default), smart/cloud/ninja, grok, gemini
 
-Note: When Ronin is running in the background (ronin start --ninja or --daemon),
-  ronin ask runs as a separate process and does not restart or stop the server.
+Note:
+  ronin ask requires Ronin to be running first (ronin start).
+  It does not boot plugins/agents/routes in the CLI process.
 
 Examples:
   ronin ask "What is Ronin?"
+  ronin ask ninja "Use the smart model for this"
   ronin ask grok "Explain quantum computing"
   ronin ask gemini "Summarize this project"
 
+Tip: Add @ninja anywhere in a chat message to use the smart model for that turn.
+
 Options:
-  --model <name>           AI provider (grok, gemini, local)
-  --ask-model <name>       Specific Ollama model for local
+  --model <name>           Model/tier (smart|cloud|ninja|local or exact model name)
+  --ask-model <name>       Exact model name override (e.g. ministral-3:3b)
   --sources                Show source context used
 `,
   config: `
@@ -258,7 +262,7 @@ Subcommands:
   clipboard disable   Disable clipboard watching
 `,
   doctor: `
-Usage: ronin doctor
+Usage: ronin doctor [ingest-docs]
 
 Run health checks on the Ronin installation:
   - Verify Ollama connectivity
@@ -266,6 +270,9 @@ Run health checks on the Ronin installation:
   - Validate API keys for cloud providers
   - Validate config file syntax
   - Report config source (env vs file vs default)
+
+Use "ronin doctor ingest-docs" to sync reference docs, tools, and skills
+into the ontology so agents can find them via ontology_search (types ReferenceDoc, Tool, Skill).
 `,
   create: `
 Usage: ronin create <type> [options]
@@ -321,6 +328,32 @@ Options:
 Examples:
   ronin emit transcribe.text '{"audioPath":"/tmp/recording.wav","source":"shortcuts"}'
   ronin emit my.event --data '{"key":"value"}' --port 3141
+`,
+  kdb: `
+Usage: ronin kdb <subcommand> [args] [options]
+
+Ontology and memory stats and queries (knowledge DB).
+
+Subcommands:
+  stats                     Show ontology + memory table counts
+  memory search <query>      Search memories by text (--limit N)
+  memory recent             Recent memories (--limit N)
+  memory get <key>           Retrieve value by key
+  ontology search            Search nodes (--type T --name pattern --domain D --limit N)
+  ontology lookup <id>       Get node by id
+  ontology related <id>      Related nodes (--relation R --depth N --limit N)
+
+Options:
+  --db-path <path>          Database path (default: ronin.db)
+  --plugin-dir <dir>        Plugin directory
+  --user-plugin-dir <dir>    User plugins directory
+
+Examples:
+  ronin kdb stats
+  ronin kdb memory search "telegram" --limit 5
+  ronin kdb memory get refdoc:PLUGINS
+  ronin kdb ontology search --type ReferenceDoc --limit 20
+  ronin kdb ontology lookup Task-abc123
 `,
 };
 

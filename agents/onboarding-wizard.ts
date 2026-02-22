@@ -127,7 +127,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
         configValues = {
           telegram: { botToken: '', enabled: false },
           discord: { botToken: '', enabled: false },
-          ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' },
+          ai: { ollamaModel: 'ministral-3:3b', openaiKey: '', provider: 'ollama' },
           cliTools: { opencode: false, cursor: false, qwen: false, anyInstalled: false }
         };
       }
@@ -393,7 +393,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
           enabled: config.discord?.enabled || false
         },
         ai: {
-          ollamaModel: config.ai?.ollamaModel || 'qwen3:4b',
+          ollamaModel: config.ai?.ollamaModel || 'ministral-3:3b',
           openaiKey: config.ai?.openaiApiKey || '',
           provider: config.ai?.provider || 'ollama'
         },
@@ -407,7 +407,7 @@ export default class OnboardingWizardAgent extends BaseAgent {
       return {
         telegram: { botToken: '', enabled: false },
         discord: { botToken: '', enabled: false },
-        ai: { ollamaModel: 'qwen3:4b', openaiKey: '', provider: 'ollama' },
+        ai: { ollamaModel: 'ministral-3:3b', openaiKey: '', provider: 'ollama' },
         braveSearch: { apiKey: '' },
         cliTools: { opencode: false, cursor: false, qwen: false, anyInstalled: false }
       };

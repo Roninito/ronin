@@ -1,7 +1,7 @@
 /**
  * Retry utility with exponential backoff.
  *
- * Only retries on transient errors (network failures, 503, timeouts).
+ * Only retries on transient errors (network failures, 503, timeouts, aborted).
  * Hard failures like 404 (model not found) are never retried.
  */
 
@@ -29,7 +29,8 @@ const NON_RETRYABLE_PATTERNS = [
 
 function isRetryable(error: unknown): boolean {
   const msg = ((error as Error).message || String(error)).toLowerCase();
-  return !NON_RETRYABLE_PATTERNS.some(pattern => msg.includes(pattern));
+  if (NON_RETRYABLE_PATTERNS.some((p) => msg.includes(p))) return false;
+  return true;
 }
 
 export async function withRetry<T>(

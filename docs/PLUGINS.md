@@ -22,7 +22,7 @@ await this.api.git?.status();
 - `api.scrape.*` - Web scraping (scrape_to_markdown)
 - `api.torrent.*` - Torrent operations (search, add, list, status, pause, resume, remove)
 - `api.telegram.*` - Telegram Bot API (initBot, sendMessage, sendPhoto, getUpdates, joinChannel, setWebhook, onMessage, getBotInfo)
-- `api.discord.*` - Discord Bot API (initBot, sendMessage, getMessages, onMessage, onReady, joinGuild, getChannel)
+- `api.discord.*` - Discord Bot API (initBot, sendMessage, getMessages, onMessage, onReady, joinGuild, getChannel, listGuilds, listChannels, listDMChannels)
 - `api.langchain.*` - LangChain integration (runChain, runAgent, buildAgentCreationGraph, runAnalysisChain, buildResearchGraph)
 - `api.rag.*` - RAG (Retrieval-Augmented Generation) for document storage, embedding, and semantic search
 - `api.email.*` - Email management (addAccount, sendEmail, getInbox, replyToEmail, forwardEmail, deleteEmail, startMonitoring, etc.)
@@ -406,6 +406,11 @@ console.log(`Bot: @${info?.username}`);
 - `onReady(clientId, callback)` - Register ready event handler
 - `joinGuild(clientId, inviteCode)` - Get invite information
 - `getChannel(clientId, channelId)` - Get channel information
+- `listGuilds(clientId)` - List guilds (servers) the bot is in
+- `listChannels(clientId, guildId)` - List channels in a guild
+- `listDMChannels(clientId)` - List DM channels the bot has
+
+**Privileged intents**: For reading message content and receiving/sending DMs, enable in the [Discord Developer Portal](https://discord.com/developers/applications) under your app → Bot → Privileged Gateway Intents: **MESSAGE CONTENT INTENT** and **DIRECT MESSAGES**. Save changes and restart the bot.
 
 **Example (Direct API - Recommended)**:
 ```typescript
@@ -561,6 +566,8 @@ The `RagAgent` base class automatically registers HTTP routes at `/api/rag/{name
 - Set `OLLAMA_EMBEDDING_MODEL` environment variable to use a different model
 
 See [docs/RAG.md](./RAG.md) for complete RAG documentation.
+
+**See also:** [RONIN_SCRIPT.md](RONIN_SCRIPT.md) for a token-efficient context language that works with memory and the ontology plugin (agents can store/aggregate data as Ronin Script; use `ontology_search` with types `ReferenceDoc` or `Tool` for synced docs and tools).
 
 ### Email Plugin
 

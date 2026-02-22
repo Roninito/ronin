@@ -45,3 +45,10 @@ export interface SkillWatchdogRules {
   blocklist?: RegExp[];
   allowlist?: RegExp[];
 }
+
+/** Skill with parsed abilities, e.g. from list_skills_with_abilities */
+export interface SkillWithAbilities {
+  name: string;
+  description: string;
+  abilities: { name: string; description?: string; input: string[] }[];
+}

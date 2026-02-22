@@ -11,15 +11,102 @@ import { pluginsToTools } from "../plugins/toolGenerator.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { initializeTools, getToolsAPI } from "./tools.js";
 import type { AgentAPI, Message, CompletionOptions, ChatOptions, Tool } from "../types/api.js";
+import type { ToolDefinition } from "../tools/types.js";
 
 export interface APIOptions {
   ollamaUrl?: string;
   ollamaModel?: string;
-  /** When true, use the configured "fast" model (e.g. qwen3:1.7b) as default for speed. Used by the agent server. */
+  /** When true, use the configured "fast" model (e.g. ministral-3:3b) as default for speed. Used by the agent server. */
   useFastModelForAgents?: boolean;
   dbPath?: string;
   pluginDir?: string;
   userPluginDir?: string;
+}
+
+/** Internal methods that should not be exposed as tools */
+const PLUGIN_TOOL_SKIP_METHODS = new Set(["setAPI", "setEventsAPI"]);
+
+function isPluginMethodSkipped(methodName: string): boolean {
+  if (PLUGIN_TOOL_SKIP_METHODS.has(methodName)) return true;
+  if (methodName.startsWith("set") || methodName.startsWith("init") || methodName.startsWith("remove")) return true;
+  return false;
+}
+
+/**
+ * Register plugin-generated tools (e.g. skills_discover_skills) with the ToolRouter
+ * so that api.tools.execute() can dispatch to the correct plugin method.
+ */
+function registerPluginToolsWithRouter(
+  api: AgentAPI,
+  pluginTools: Tool[],
+  toolsAPI: { register(tool: ToolDefinition): void },
+): void {
+  for (const t of pluginTools) {
+    const name = t.function?.name;
+    if (!name || !t.function) continue;
+    // Skills plugin has explicit skills.discover / skills.use in LocalTools; skip generic skills_* tools
+    if (name.startsWith("skills_")) continue;
+    const underscore = name.indexOf("_");
+    if (underscore <= 0) continue;
+    const pluginName = name.slice(0, underscore);
+    const methodName = name.slice(underscore + 1);
+    if (isPluginMethodSkipped(methodName)) continue;
+
+    const def: ToolDefinition = {
+      name,
+      description: t.function.description || `Call ${methodName} from ${pluginName} plugin`,
+      parameters: (t.function.parameters || { type: "object", properties: {} }) as ToolDefinition["parameters"],
+      provider: `plugin:${pluginName}`,
+      riskLevel: "low",
+      cacheable: false,
+      handler: async (args: Record<string, unknown>, _context): Promise<import("../tools/types.js").ToolResult> => {
+        const start = Date.now();
+        try {
+          // Ontology plugin methods expect a single params object; pass it as-is (or unwrap args[0] if model sent { args: [params] }).
+          const isSingleObjectMethod = name.startsWith("ontology_");
+          let result: unknown;
+          if (isSingleObjectMethod) {
+            const params =
+              Array.isArray(args?.args) && args.args.length === 1 && typeof args.args[0] === "object" && args.args[0] !== null
+                ? args.args[0]
+                : args;
+            result = await api.plugins.call(pluginName, methodName, params);
+          } else {
+            const argsArr = Array.isArray(args?.args) ? (args.args as unknown[]) : (args && typeof args === "object" ? Object.values(args) : []);
+            result = await api.plugins.call(pluginName, methodName, ...argsArr);
+          }
+          return {
+            success: true,
+            data: result,
+            metadata: {
+              toolName: name,
+              provider: `plugin:${pluginName}`,
+              duration: Date.now() - start,
+              cached: false,
+              timestamp: Date.now(),
+              callId: `plugin-${Date.now()}`,
+            },
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return {
+            success: false,
+            data: null,
+            error: message,
+            metadata: {
+              toolName: name,
+              provider: `plugin:${pluginName}`,
+              duration: Date.now() - start,
+              cached: false,
+              timestamp: Date.now(),
+              callId: `plugin-${Date.now()}`,
+            },
+          };
+        }
+      },
+    };
+    toolsAPI.register(def);
+  }
 }
 
 /**
@@ -67,14 +154,19 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const discordAPI = bindPluginAPI<"discord">("discord");
   const langchainAPI = bindPluginAPI<"langchain">("langchain");
   const ragAPI = bindPluginAPI<"rag">("rag");
+  const ontologyAPI = bindPluginAPI<"ontology">("ontology");
   const skillsAPI = bindPluginAPI<"skills">("skills");
+
+  // console.log("[createAPI] All plugins loaded:", plugins.map(p => p.name));
 
   // Realm needs special handling for setEventsAPI
   const realmPlugin = plugins.find(p => p.name === "realm");
   const realmAPI = bindPluginAPI<"realm">("realm");
 
   // Generate tool definitions from plugins for function calling
-  const pluginTools = pluginsToTools(plugins.map(p => p.plugin));
+  // Filter out skills_* tools — skills have a dedicated skills.run tool in LocalTools
+  const pluginTools = pluginsToTools(plugins.map(p => p.plugin))
+    .filter(t => !t.function?.name?.startsWith("skills_"));
 
   // Resolve AI config with proper priority: CLI flag > env var > config file > hardcoded default
   const aiConfig = configService.getAI();
@@ -322,6 +414,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(realmAPI && { realm: realmAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
     ...(ragAPI && { rag: ragAPI }),
+    ...(ontologyAPI && { ontology: ontologyAPI }),
     ...(skillsAPI && { skills: skillsAPI }),
     tools: {} as AgentAPI["tools"],
   };
@@ -333,10 +426,20 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const toolsAPI = getToolsAPI(api);
   (api as any).tools = toolsAPI;
 
+  // Register plugin tools with the router so execute() can dispatch to plugins
+  // (pluginTools are already passed to the AI in callTools; without this, execute would fail)
+  registerPluginToolsWithRouter(api, pluginTools, toolsAPI);
+
   // Skills plugin needs API reference for files, shell, config, events
   const skillsPlugin = plugins.find(p => p.name === "skills");
+  console.log("[createAPI] skillsPlugin found:", !!skillsPlugin);
+  console.log("[createAPI] skillsPlugin.methods:", skillsPlugin?.plugin?.methods ? Object.keys(skillsPlugin.plugin.methods) : "none");
   if (skillsPlugin?.plugin?.methods?.setAPI) {
+    console.log("[createAPI] Calling setAPI for skills plugin...");
     (skillsPlugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
+    console.log("[createAPI] setAPI called successfully");
+  } else {
+    console.log("[createAPI] setAPI NOT called - skillsPlugin?.plugin?.methods?.setAPI is", skillsPlugin?.plugin?.methods?.setAPI);
   }
 
   return api;

@@ -15,8 +15,8 @@ export const DEFAULT_CONFIG: FullConfig = {
   
   cliOptions: {
     qwen: {
-      model: "qwen3:1.7b",
-      timeout: 300000,
+      model: "granite3.2-16k",
+      timeout: 60000,
     },
     cursor: {
       timeout: 60000,
@@ -46,14 +46,15 @@ export const DEFAULT_CONFIG: FullConfig = {
     provider: "ollama",
     temperature: 0.7,
     ollamaUrl: "http://localhost:11434",
-    ollamaModel: "qwen3:4b",
+    ollamaModel: "granite3.2-16k",
     ollamaSmartUrl: "",
-    ollamaTimeoutMs: 300000,
+    ollamaSmartApiKey: "",
+    ollamaTimeoutMs: 60000,
     ollamaEmbeddingModel: "nomic-embed-text",
     models: {
-      default: "qwen3:4b",
-      fast: "qwen3:1.7b",
-      smart: "qwen3:8b",
+      default: "granite3.2-16k",
+      fast: "granite3.2-16k",
+      smart: "kimi-k2.5",
       embedding: "nomic-embed-text",
     },
     fallback: {
@@ -65,6 +66,7 @@ export const DEFAULT_CONFIG: FullConfig = {
       baseUrl: "https://api.openai.com/v1",
       model: "gpt-4o-mini",
     },
+    useSmartForTools: true,
   },
   
   gemini: {
@@ -150,6 +152,10 @@ export const DEFAULT_CONFIG: FullConfig = {
       whisperBinary: "whisper-cli",
       deepgramApiKey: "",
     },
+    tts: {
+      piperModelPath: "",
+      piperBinary: "piper",
+    },
   },
 
   notifications: {
@@ -175,6 +181,7 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "ai.ollamaUrl": "OLLAMA_URL",
   "ai.ollamaModel": "OLLAMA_MODEL",
   "ai.ollamaSmartUrl": "OLLAMA_SMART_URL",
+  "ai.ollamaSmartApiKey": "OLLAMA_API_KEY",
   "ai.ollamaTimeoutMs": "OLLAMA_TIMEOUT_MS",
   "ai.ollamaEmbeddingModel": "OLLAMA_EMBEDDING_MODEL",
   "ai.openai.apiKey": "OPENAI_API_KEY",
@@ -200,4 +207,6 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "speech.stt.deepgramApiKey": "DEEPGRAM_API_KEY",
   "speech.stt.whisperModelPath": "WHISPER_MODEL_PATH",
   "speech.stt.whisperBinary": "WHISPER_BINARY",
+  "speech.tts.piperModelPath": "PIPER_MODEL_PATH",
+  "speech.tts.piperBinary": "PIPER_BINARY",
 };

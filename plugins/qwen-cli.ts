@@ -118,7 +118,7 @@ For more information: https://github.com/QwenLM/qwen-code
     getModels: async (): Promise<string[]> => {
       return [
         "qwen3:1.7b",
-        "qwen3:4b",
+        "phi3",
         "qwen3:8b",
         "qwen3:14b",
         "qwen3:32b",

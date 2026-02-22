@@ -13,6 +13,7 @@ import type {
   SkillDetail,
   AbilitySpec,
   UseSkillResult,
+  SkillWithAbilities,
 } from "../src/types/skills.js";
 
 const MAX_DISCOVER = 10;
@@ -30,8 +31,7 @@ let apiRef: AgentAPI | null = null;
 function getSkillsDirs(): string[] {
   if (!apiRef) return [];
   const system = apiRef.config.getSystem();
-  const userDir =
-    system.skillsDir ?? join(homedir(), ".ronin", "skills");
+  const userDir = system.skillsDir ?? join(homedir(), ".ronin", "skills");
   const projectDir = join(process.cwd(), "skills");
   const dirs: string[] = [];
   if (existsSync(userDir)) dirs.push(userDir);
@@ -62,8 +62,8 @@ function parseAbilities(body: string): AbilitySpec[] {
   const abilities: AbilitySpec[] = [];
   const abSection = body.match(/##\s+Abilities\s*\n([\s\S]*?)(?=\n##\s|$)/i);
   if (!abSection) return abilities;
-  const section = abSection[1];
-  const headingBlocks = section.split(/\n###\s+/);
+  const section = abSection[1].trim();
+  const headingBlocks = section.split(/\n?###\s+/);
   for (let i = 1; i < headingBlocks.length; i++) {
     const block = headingBlocks[i];
     const firstLine = block.indexOf("\n") >= 0 ? block.slice(0, block.indexOf("\n")) : block;
@@ -142,6 +142,50 @@ async function discover_skills(query: string): Promise<SkillMeta[]> {
     }
   }
   return results.slice(0, MAX_DISCOVER);
+}
+
+async function list_skills_with_abilities(options?: { limit?: number }): Promise<SkillWithAbilities[]> {
+  if (!apiRef) throw new Error("Skills plugin: API not set. setAPI(api) must be called first.");
+  const limit = options?.limit ?? 50;
+  const results: SkillWithAbilities[] = [];
+  const dirs = getSkillsDirs();
+  for (const dir of dirs) {
+    let entries: string[];
+    try {
+      entries = await apiRef.files.list(dir);
+    } catch {
+      continue;
+    }
+    const subdirs = entries.filter((p) => {
+      const full = join(dir, p.split("/").pop() ?? p);
+      return existsSync(full);
+    });
+    for (const sub of subdirs) {
+      const skillDir = join(dir, sub.split("/").pop() ?? sub);
+      const skillMdPath = join(skillDir, "skill.md");
+      const skillMdPathAlt = join(skillDir, "SKILL.md");
+      const path = existsSync(skillMdPath) ? skillMdPath : existsSync(skillMdPathAlt) ? skillMdPathAlt : null;
+      if (!path) continue;
+      try {
+        const content = await apiRef.files.read(path);
+        const { frontmatter, body } = parseSkillMd(content);
+        if (!frontmatter.name) continue;
+        const abilities = parseAbilities(body);
+        results.push({
+          name: frontmatter.name,
+          description: frontmatter.description || "",
+          abilities: abilities.map((a) => ({
+            name: a.name,
+            description: a.description,
+            input: a.input ?? [],
+          })),
+        });
+      } catch {
+        // skip unreadable
+      }
+    }
+  }
+  return results.slice(0, limit);
 }
 
 async function explore_skill(
@@ -381,6 +425,7 @@ const skillsPlugin: Plugin = {
   methods: {
     setAPI,
     discover_skills,
+    list_skills_with_abilities,
     explore_skill,
     use_skill,
   },

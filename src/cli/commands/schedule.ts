@@ -1,5 +1,3 @@
-import { createAPI } from "../../api/index.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 import {
@@ -10,8 +8,9 @@ import {
   parseCron,
   buildCronExpression,
 } from "../../utils/cron.js";
-import type { AgentMetadata } from "../../types/agent.js";
 import * as readline from "readline";
+import { readFile, writeFile } from "fs/promises";
+import { loadAgentFileMetadata, type AgentFileMetadata } from "../utils/agent-metadata.js";
 
 export interface ScheduleOptions {
   agentDir?: string;
@@ -96,15 +95,7 @@ async function listScheduleCommand(options: ScheduleOptions): Promise<void> {
   const externalAgentDir =
     process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
-  const api = await createAPI({
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
-  });
-
-  const loader = new AgentLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
+  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
 
   const agentsWithSchedules = agents.filter((agent) => agent.schedule);
 
@@ -133,15 +124,7 @@ async function buildScheduleCommand(options: ScheduleOptions): Promise<void> {
   const externalAgentDir =
     process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
 
-  const api = await createAPI({
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
-  });
-
-  const loader = new AgentLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
+  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -257,7 +240,7 @@ async function buildScheduleCommand(options: ScheduleOptions): Promise<void> {
 
       if (agentIndex >= 0 && agentIndex < agents.length) {
         const selectedAgent = agents[agentIndex];
-        await applyScheduleToFile(selectedAgent, expression, api);
+        await applyScheduleToFile(selectedAgent, expression);
         console.log(`\n✅ Schedule applied to ${selectedAgent.name}`);
       } else {
         console.error("❌ Invalid agent selection");
@@ -343,15 +326,7 @@ async function applyScheduleCommand(
     process.exit(1);
   }
 
-  const api = await createAPI({
-    ollamaUrl: options.ollamaUrl,
-    ollamaModel: options.ollamaModel,
-    dbPath: options.dbPath,
-    pluginDir: options.pluginDir,
-  });
-
-  const loader = new AgentLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
+  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
 
   const agent = agents.find((a) => a.name === agentName);
   if (!agent) {
@@ -359,7 +334,7 @@ async function applyScheduleCommand(
     process.exit(1);
   }
 
-  await applyScheduleToFile(agent, schedule, api);
+  await applyScheduleToFile(agent, schedule);
   console.log(`✅ Schedule applied to ${agentName}`);
   console.log(`   Expression: ${schedule}`);
   const human = cronToHumanReadable(schedule);
@@ -371,13 +346,12 @@ async function applyScheduleCommand(
  * Apply schedule to agent file
  */
 async function applyScheduleToFile(
-  agent: AgentMetadata,
-  schedule: string,
-  api: Awaited<ReturnType<typeof createAPI>>
+  agent: AgentFileMetadata,
+  schedule: string
 ): Promise<void> {
   try {
     const filePath = agent.filePath;
-    const content = await api.files.read(filePath);
+    const content = await readFile(filePath, "utf-8");
 
     // Pattern to match: static schedule = "...";
     const scheduleRegex = /(static\s+schedule\s*=\s*)(["'])([^"']+)\2\s*;?/;
@@ -409,7 +383,7 @@ async function applyScheduleToFile(
     }
 
     // Write file back
-    await api.files.write(filePath, newContent);
+    await writeFile(filePath, newContent, "utf-8");
   } catch (error) {
     throw new Error(
       `Failed to update agent file: ${error instanceof Error ? error.message : String(error)}`

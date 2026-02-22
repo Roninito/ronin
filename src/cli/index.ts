@@ -27,6 +27,7 @@ import { interactiveCommand } from "./commands/interactive.js";
 import { scheduleCommand } from "./commands/schedule.js";
 import { emitCommand } from "./commands/emit.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
+import { kdbCommand } from "./commands/kdb.js";
 import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
@@ -371,23 +372,53 @@ async function main() {
       
       // Check if first arg is a known model name
       const firstArg = args[0];
-      const knownModels = ["grok", "gemini", "local", "ollama"];
+      const knownModels = ["grok", "gemini", "local", "ollama", "smart", "cloud"];
       if (firstArg && !firstArg.startsWith("--") && knownModels.includes(firstArg)) {
         model = firstArg;
         question = args.slice(1).join(" ");
       }
+
+      // Remove ask-specific flags from the freeform question text
+      const flagsWithValues = new Set([
+        "--model",
+        "--ask-model",
+        "--agent-dir",
+        "--plugin-dir",
+        "--ollama-url",
+        "--ollama-model",
+        "--db-path",
+      ]);
+      const flagsNoValues = new Set(["--sources"]);
+      const questionTokens: string[] = [];
+      for (let i = 0; i < args.length; i++) {
+        const token = args[i];
+        if (flagsWithValues.has(token)) {
+          i++; // skip value token too
+          continue;
+        }
+        if (flagsNoValues.has(token)) continue;
+        if (i === 0 && !token.startsWith("--") && knownModels.includes(token)) continue;
+        questionTokens.push(token);
+      }
+      question = questionTokens.join(" ").trim();
       
-      await askCommand({
-        question: question || undefined,
-        model: model || getArg("--model", args),
-        askModel: getArg("--ask-model", args),
-        agentDir: getArg("--agent-dir", args),
-        pluginDir: getArg("--plugin-dir", args),
-        ollamaUrl: getArg("--ollama-url", args),
-        ollamaModel: getArg("--ollama-model", args),
-        dbPath: getArg("--db-path", args),
-        showSources: args.includes("--sources"),
-      });
+      try {
+        await askCommand({
+          question: question || undefined,
+          model: model || getArg("--model", args),
+          askModel: getArg("--ask-model", args),
+          agentDir: getArg("--agent-dir", args),
+          pluginDir: getArg("--plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          dbPath: getArg("--db-path", args),
+          showSources: args.includes("--sources"),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`❌ Ask failed: ${message}`);
+        process.exit(1);
+      }
       break;
 
     case "config":
@@ -399,7 +430,7 @@ async function main() {
           console.error("❌ Usage: ronin config set <path> <value>");
           console.log("Example: ronin config set ai.provider gemini");
           console.log("Example: ronin config set ai.temperature 0.3");
-          console.log("Example: ronin config set ai.models.fast qwen3:1.7b");
+          console.log("Example: ronin config set ai.models.fast ministral-3:3b");
           console.log("Example: ronin config set ai.fallback.enabled true");
           process.exit(1);
         }
@@ -520,8 +551,13 @@ async function main() {
       break;
 
     case "doctor": {
-      const { doctorCommand } = await import("./commands/doctor.js");
-      await doctorCommand();
+      if (args[0] === "ingest-docs") {
+        const { doctorIngestDocsCommand } = await import("./commands/doctor.js");
+        await doctorIngestDocsCommand();
+      } else {
+        const { doctorCommand } = await import("./commands/doctor.js");
+        await doctorCommand();
+      }
       break;
     }
 
@@ -534,6 +570,21 @@ async function main() {
         pluginDir: getArg("--plugin-dir", args),
       });
       break;
+
+    case "kdb": {
+      const kdbFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir"]);
+      const kdbArgs = args.filter((a, i) => {
+        if (kdbFlags.has(a)) return false;
+        if (i > 0 && kdbFlags.has(args[i - 1])) return false;
+        return true;
+      });
+      await kdbCommand(kdbArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+      });
+      break;
+    }
 
     case "help":
     case "--help":
@@ -591,9 +642,10 @@ Core:
   status               Show runtime status and active schedules
   emit <event> [data]  Send event to running Ronin (Shortcuts, scripts)
   doctor               Run health checks on the installation
+  kdb                  Ontology/memory stats and queries (knowledge DB)
 
 AI & Tools:
-  ask [model] [question]  Interactive AI assistant (models: local, grok, gemini)
+  ask [model] [question]  Ask running Ronin instance (start first)
   ai <subcommand>         Manage AI model definitions (alias: models)
   config                  Manage configuration
   config set <path> <val> Set a config value by dot-path
@@ -625,7 +677,7 @@ Global Options:
   --plugin-dir <dir>      Plugin directory (default: ./plugins)
   --user-plugin-dir <dir> User plugins directory (default: ~/.ronin/plugins)
   --ollama-url <url>      Ollama API URL (default: http://localhost:11434)
-  --ollama-model <name>   Default Ollama model (default: qwen3:4b)
+  --ollama-model <name>   Default Ollama model (default: ministral-3:3b)
   --db-path <path>        Database file path (default: ronin.db)
 
 Examples:

@@ -11,6 +11,15 @@ import type {
 } from "./types.js";
 import type { AgentAPI } from "../types/index.js";
 
+/** Short names some models use → full registered tool name */
+const TOOL_ALIASES: Record<string, string> = {
+  say: "local.speech.say",
+  listen: "local.speech.listen",
+  "speech.say": "local.speech.say",
+  "speech.listen": "local.speech.listen",
+  skills_run: "skills.run",
+};
+
 /**
  * ToolRouter
  * 
@@ -25,6 +34,18 @@ export class ToolRouter {
   private dailyCost: number = 0;
   private monthlyCost: number = 0;
   private lastCostReset: Date = new Date();
+
+  /** Resolve model-reported name (e.g. "say") to registered tool name (e.g. "local.speech.say"). */
+  private resolveToolName(name: string): string | undefined {
+    if (this.tools.has(name)) return name;
+    const aliased = TOOL_ALIASES[name];
+    if (aliased && this.tools.has(aliased)) return aliased;
+    const suffix = `.${name}`;
+    for (const registered of this.tools.keys()) {
+      if (registered.endsWith(suffix)) return registered;
+    }
+    return undefined;
+  }
 
   constructor(api: AgentAPI) {
     this.api = api;
@@ -92,34 +113,39 @@ export class ToolRouter {
    * Execute a tool call
    */
   async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
-    const tool = this.tools.get(call.name);
-    
+    const resolvedName = this.resolveToolName(call.name);
+    const tool = resolvedName ? this.tools.get(resolvedName) : undefined;
+
     if (!tool) {
       const error = `Tool '${call.name}' not found`;
       console.error(`[ToolRouter] ${error}`);
       return this.createErrorResult(call, error);
     }
 
+    const effectiveCall: ToolCall = resolvedName !== call.name
+      ? { ...call, name: resolvedName }
+      : call;
+
     // Check policy
-    const validation = await this.validateToolCall(call, tool);
+    const validation = await this.validateToolCall(effectiveCall, tool);
     if (!validation.allowed) {
       const event: ToolPolicyViolationEvent = {
-        toolName: call.name,
+        toolName: effectiveCall.name,
         reason: validation.reason || 'Policy violation',
         estimatedCost: validation.estimatedCost,
-        conversationId: call.conversationId,
+        conversationId: effectiveCall.conversationId,
         timestamp: Date.now(),
       };
       this.api.events.emit('tool.policyViolation', event, 'tool-router');
       
-      return this.createErrorResult(call, validation.reason || 'Not allowed');
+      return this.createErrorResult(effectiveCall, validation.reason || 'Not allowed');
     }
 
     // Check if confirmation required
     if (validation.requiresConfirmation) {
       // For now, auto-confirm in non-interactive mode
       // TODO: Implement confirmation UI
-      console.log(`[ToolRouter] Auto-confirming high-cost tool: ${call.name}`);
+      console.log(`[ToolRouter] Auto-confirming high-cost tool: ${effectiveCall.name}`);
     }
 
     // Execute with timing
@@ -130,9 +156,9 @@ export class ToolRouter {
     try {
       // Check cache first
       if (tool.cacheable) {
-        const cachedResult = await this.getCachedResult(call);
+        const cachedResult = await this.getCachedResult(effectiveCall);
         if (cachedResult) {
-          console.log(`[ToolRouter] Cache hit for ${call.name}`);
+          console.log(`[ToolRouter] Cache hit for ${effectiveCall.name}`);
           result = cachedResult;
           cached = true;
         }
@@ -140,25 +166,25 @@ export class ToolRouter {
 
       // Execute if not cached
       if (!cached) {
-        console.log(`[ToolRouter] Executing ${call.name}`);
-        const handlerResult = await tool.handler(call.arguments, context);
+        console.log(`[ToolRouter] Executing ${effectiveCall.name}`);
+        const handlerResult = await tool.handler(effectiveCall.arguments, context);
         
         result = {
           ...handlerResult,
           metadata: {
             ...handlerResult.metadata,
-            toolName: call.name,
+            toolName: effectiveCall.name,
             provider: tool.provider,
             duration: Date.now() - startTime,
             cached: false,
             timestamp: Date.now(),
-            callId: call.id,
+            callId: effectiveCall.id,
           },
         };
 
         // Cache result if applicable
         if (tool.cacheable && result.success) {
-          await this.cacheResult(call, result, tool.ttl);
+          await this.cacheResult(effectiveCall, result, tool.ttl);
         }
       }
 
@@ -168,42 +194,42 @@ export class ToolRouter {
       }
 
       // Track call history
-      this.trackCall(call.name);
+      this.trackCall(effectiveCall.name);
 
       // Store in memory
       await this.storeToolResult(result, context);
 
       // Emit completion event
       const event: ToolCompletedEvent = {
-        toolName: call.name,
+        toolName: effectiveCall.name,
         success: result.success,
         cost: result.metadata.cost,
         duration: result.metadata.duration,
         cached: result.metadata.cached,
         data: result.data,
         error: result.error,
-        conversationId: call.conversationId,
+        conversationId: effectiveCall.conversationId,
         timestamp: Date.now(),
       };
       this.api.events.emit('tool.completed', event, 'tool-router');
 
-      console.log(`[ToolRouter] ${call.name} completed in ${result.metadata.duration}ms`);
+      console.log(`[ToolRouter] ${effectiveCall.name} completed in ${result.metadata.duration}ms`);
       
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[ToolRouter] Error executing ${call.name}:`, errorMessage);
+      console.error(`[ToolRouter] Error executing ${effectiveCall.name}:`, errorMessage);
       
-      result = this.createErrorResult(call, errorMessage);
+      result = this.createErrorResult(effectiveCall, errorMessage);
       
       // Emit failure event
       const event: ToolCompletedEvent = {
-        toolName: call.name,
+        toolName: effectiveCall.name,
         success: false,
         duration: Date.now() - startTime,
         cached: false,
         error: errorMessage,
-        conversationId: call.conversationId,
+        conversationId: effectiveCall.conversationId,
         timestamp: Date.now(),
       };
       this.api.events.emit('tool.completed', event, 'tool-router');

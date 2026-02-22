@@ -21,7 +21,7 @@ const getDefaults = () => {
     // Fallback to env vars if config service not initialized
     return {
       ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
-      model: process.env.OLLAMA_MODEL || "qwen3:4b",
+      model: process.env.OLLAMA_MODEL || "ministral-3:3b",
     };
   }
 };

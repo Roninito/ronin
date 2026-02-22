@@ -192,14 +192,14 @@ async function interactiveSetup(options: InitOptions): Promise<void> {
       // Check for models
       try {
         const models = execSync("ollama list", { encoding: "utf-8" });
-        if (!models.includes("qwen")) {
+        if (!models.includes("ministral")) {
           console.log("");
-          console.log("Downloading recommended model (qwen3:1.7b)...");
-          console.log("This is a lightweight but capable model for local use.");
-          execSync("ollama pull qwen3:1.7b", { stdio: "inherit" });
+          console.log("Downloading recommended model (ministral-3:3b)...");
+          console.log("This is a tool-capable model for local use.");
+          execSync("ollama pull ministral-3:3b", { stdio: "inherit" });
           console.log(`${c.green}✓ Model ready${c.reset}`);
         } else {
-          console.log(`${c.green}✓ Qwen model found${c.reset}`);
+          console.log(`${c.green}✓ Ministral model found${c.reset}`);
         }
       } catch {
         console.log(`${c.yellow}⚠️  Could not check models - Ollama may not be running${c.reset}`);

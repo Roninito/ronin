@@ -1,6 +1,13 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 
+export interface SendTelegramMessagePayload {
+  text: string;
+  chatId?: string | number;
+  parseMode?: "HTML" | "Markdown" | "MarkdownV2";
+  source?: string;
+}
+
 interface TelegramUpdate {
   update_id: number;
   message?: {
@@ -29,7 +36,26 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
   constructor(api: AgentAPI) {
     super(api);
     this.setupMessageHandler();
+    this.api.events.on("SendTelegramMessage", (data: unknown) => {
+      this.handleSendTelegramMessage(data).catch((err) =>
+        console.error("[telegram-subscription] SendTelegramMessage error:", err)
+      );
+    });
+    console.log("[telegram-subscription] Listening for SendTelegramMessage");
+    
+    // Try to set up real-time message handler (will succeed once bot is initialized)
+    this.setupRealTimeHandler();
   }
+
+  private setupRealTimeHandler(): void {
+    const token = this.api.config.getTelegram().botToken || process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) return;
+    
+    // Note: Can't use async retrieve() here (constructor context)
+    // The real-time handler will be registered in execute() after bot initialization
+  }
+
+  private realTimeHandlerRegistered = false;
 
   async execute(): Promise<void> {
     console.log("[telegram-subscription] Polling for updates...");
@@ -63,6 +89,20 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
         return;
       }
     }
+
+    // Register real-time message handler once (after bot is initialized)
+    if (!this.realTimeHandlerRegistered) {
+      this.api.telegram.onMessage(botId, (update: any) => {
+        this.processMessage(update).catch((err) => {
+          console.error("[telegram-subscription] Error in real-time message handler:", err);
+        });
+      });
+      console.log(`[telegram-subscription] Real-time message handler registered for bot ${botId}`);
+      this.realTimeHandlerRegistered = true;
+    }
+
+    // Also call setupRealTimeHandler for any other agents that might need it
+    this.setupRealTimeHandler();
 
     // Get last processed update ID
     const lastUpdateId = ((await this.api.memory.retrieve("telegram_last_update_id")) as number) || 0;
@@ -144,6 +184,77 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
   }
 
   /**
+   * Handle outbound SendTelegramMessage event: resolve botId/chatId and send.
+   */
+  private async handleSendTelegramMessage(data: unknown): Promise<void> {
+    if (!this.api.telegram) {
+      console.warn("[telegram-subscription] Telegram plugin not available, skipping SendTelegramMessage");
+      return;
+    }
+    const payload = data as SendTelegramMessagePayload;
+    if (!payload?.text || typeof payload.text !== "string") {
+      console.warn("[telegram-subscription] SendTelegramMessage missing text");
+      return;
+    }
+    const configTelegram = this.api.config.getTelegram();
+    const token =
+      configTelegram.botToken ||
+      process.env.TELEGRAM_BOT_TOKEN ||
+      ((await this.api.memory.retrieve("telegram_bot_token")) as string | undefined);
+    if (!token) {
+      console.warn("[telegram-subscription] No Telegram token, skipping send");
+      return;
+    }
+    let botId = (await this.api.memory.retrieve("telegram_bot_id")) as string | undefined;
+    if (!botId) {
+      try {
+        botId = await this.api.telegram.initBot(token);
+        await this.api.memory.store("telegram_bot_id", botId);
+      } catch (err) {
+        console.error("[telegram-subscription] Failed to init bot for send:", err);
+        return;
+      }
+    }
+    let chatId: string | number | undefined = payload.chatId;
+    if (chatId == null) {
+      chatId = (await this.api.memory.retrieve("telegram_chat_id")) as string | number | undefined;
+      if (chatId == null) chatId = configTelegram.chatId;
+    }
+    if (chatId == null) {
+      console.warn("[telegram-subscription] No chatId in payload or default, skipping send");
+      return;
+    }
+    const doSend = async (): Promise<void> => {
+      await this.api.telegram!.sendMessage(botId!, chatId!, payload.text, {
+        parseMode: payload.parseMode,
+      });
+    };
+    try {
+      await doSend();
+      if (payload.source) {
+        console.log(`[telegram-subscription] Sent message (source: ${payload.source})`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Bot not initialized")) {
+        console.log("[telegram-subscription] Bot not in plugin map (e.g. after restart), re-initializing…");
+        try {
+          botId = await this.api.telegram!.initBot(token);
+          await this.api.memory.store("telegram_bot_id", botId);
+          await doSend();
+          if (payload.source) {
+            console.log(`[telegram-subscription] Sent message (source: ${payload.source})`);
+          }
+        } catch (retryErr) {
+          console.error("[telegram-subscription] Failed to send message after re-init:", retryErr);
+        }
+      } else {
+        console.error("[telegram-subscription] Failed to send message:", err);
+      }
+    }
+  }
+
+  /**
    * Process a Telegram message
    */
   private async processMessage(update: TelegramUpdate): Promise<void> {
@@ -183,7 +294,7 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
       );
 
       await this.api.db.execute(
-        `INSERT OR IGNORE INTO telegram_messages 
+        `INSERT OR IGNORE INTO telegram_messages
          (update_id, message_id, chat_id, chat_type, chat_name, text, timestamp, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -197,19 +308,39 @@ export default class TelegramSubscriptionAgent extends BaseAgent {
           Date.now(),
         ]
       );
-
-      // Emit event for other agents to consume
-      this.api.events.beam(["rss-feed", "gvec"], "telegram-message", {
-        update_id: update.update_id,
-        chat_id: chatId,
-        chat_name: chatName,
-        text,
-        timestamp: message.date * 1000,
-      });
-
-      console.log(`[telegram-subscription] Stored message from ${chatName}: ${text.substring(0, 50)}...`);
-    } catch (error) {
-      console.error(`[telegram-subscription] Failed to store message:`, error);
+    } catch (err) {
+      console.error("[telegram-subscription] Failed to store message:", err);
     }
+
+    // Emit event for other agents (e.g., intent-ingress) to handle
+    this.api.events.emit(
+      "telegram.message",
+      {
+        botId: this.botId,
+        message: {
+          message_id: message.message_id,
+          chat: { id: chatId, type: chatType, title: chatName },
+          from: message.from,
+          text: text,
+          caption: message.caption,
+          date: message.date,
+        },
+        update_id: update.update_id,
+      },
+      "telegram-subscription"
+    );
+
+    // Legacy compatibility: also emit telegram-message for rss-feed/gvec
+    this.api.events.beam(["rss-feed", "gvec"], "telegram-message", {
+      update_id: update.update_id,
+      chat_id: chatId,
+      chat_name: chatName,
+      text,
+      timestamp: message.date * 1000,
+    });
+
+    console.log(`[telegram-subscription] Stored message from ${chatName}: ${text.substring(0, 50)}...`);
+  } catch (error) {
+    console.error(`[telegram-subscription] Failed to store message:`, error);
   }
 }

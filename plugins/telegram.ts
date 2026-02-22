@@ -32,6 +32,8 @@ interface BotInstance {
   bot: Bot;
   isPolling: boolean;
   messageHandlers: Set<(update: TelegramUpdate) => void>;
+  /** True after bot.on("message", ...) has been attached once; prevents duplicate listeners. */
+  messageListenerAttached: boolean;
   token: string;
 }
 
@@ -43,6 +45,25 @@ const lastMessageTime: Map<string, number> = new Map();
 const RATE_LIMIT_MS = 1000; // 1 second between messages to same chat
 // Lock to prevent race conditions during bot initialization
 const initLocks: Map<string, Promise<string>> = new Map();
+
+/** Allowed tag names in Telegram HTML parse_mode */
+const TELEGRAM_HTML_TAGS = new Set(["b", "i", "u", "s", "code", "pre", "a"]);
+
+/**
+ * Escape content so that angle brackets that are not valid Telegram HTML tags
+ * (e.g. <noreply@example.com>) become literal and don't break parse_mode: "HTML".
+ */
+function escapeTelegramHtml(text: string): string {
+  text = text.replace(/&/g, "&amp;");
+  text = text.replace(/<([^>]*)>/g, (_, inner: string) => {
+    if (/@/.test(inner)) return "&lt;" + inner + "&gt;";
+    const tagMatch = inner.trim().match(/^(\/?)(\w+)/);
+    const tagName = tagMatch?.[2]?.toLowerCase();
+    if (tagName && TELEGRAM_HTML_TAGS.has(tagName)) return "<" + inner + ">";
+    return "&lt;" + inner + "&gt;";
+  });
+  return text;
+}
 
 /**
  * Telegram plugin for interacting with Telegram Bot API
@@ -120,6 +141,7 @@ const telegramPlugin: Plugin = {
         bot,
         isPolling: false,
         messageHandlers: new Set(),
+        messageListenerAttached: false,
         token,
       };
 
@@ -193,6 +215,11 @@ const telegramPlugin: Plugin = {
         throw new Error("Message text is required");
       }
 
+      // When using HTML parse_mode, escape angle brackets that aren't valid tags
+      // (e.g. <noreply@example.com>) so Telegram doesn't try to parse them as entities
+      const outText =
+        options?.parseMode === "HTML" ? escapeTelegramHtml(text) : text;
+
       // Rate limiting: ensure we don't send messages too quickly to the same chat
       const chatKey = `${botId}:${chatId}`;
       const now = Date.now();
@@ -205,7 +232,7 @@ const telegramPlugin: Plugin = {
       }
 
       try {
-        await instance.bot.api.sendMessage(chatId, text, {
+        await instance.bot.api.sendMessage(chatId, outText, {
           parse_mode: options?.parseMode,
         });
         lastMessageTime.set(chatKey, Date.now());
@@ -220,7 +247,7 @@ const telegramPlugin: Plugin = {
           
           // Retry the request
           try {
-            await instance.bot.api.sendMessage(chatId, text, {
+            await instance.bot.api.sendMessage(chatId, outText, {
               parse_mode: options?.parseMode,
             });
             lastMessageTime.set(chatKey, Date.now());
@@ -379,57 +406,76 @@ const telegramPlugin: Plugin = {
       instance.messageHandlers.add(callback);
       console.log(`[telegram] Added message handler to bot ${botId}. Total handlers: ${instance.messageHandlers.size}`);
 
-      // Set up Grammy handler if not already set up
-      instance.bot.on("message", (ctx: Context) => {
-        console.log(`[telegram] Received message from ${ctx.message?.from?.username || 'unknown'}: "${ctx.message?.text?.substring(0, 50) || 'no text'}"`);
-        
-        const update: TelegramUpdate = {
-          update_id: ctx.update.update_id,
-          message: ctx.message
-            ? {
-                message_id: ctx.message.message_id,
-                from: ctx.message.from
-                  ? {
-                      id: ctx.message.from.id,
-                      username: ctx.message.from.username,
-                      first_name: ctx.message.from.first_name,
-                      last_name: ctx.message.from.last_name,
-                    }
-                  : undefined,
-                chat: {
-                  id: ctx.message.chat.id,
-                  type: ctx.message.chat.type,
-                  title: "title" in ctx.message.chat ? ctx.message.chat.title : undefined,
-                  username:
-                    "username" in ctx.message.chat ? ctx.message.chat.username : undefined,
-                },
-                reply_to_message: ctx.message.reply_to_message
-                  ? {
-                      message_id: ctx.message.reply_to_message.message_id,
-                      text: ctx.message.reply_to_message.text,
-                    }
-                  : undefined,
-                text: ctx.message.text,
-                caption: ctx.message.caption,
-                photo: ctx.message.photo?.map((p) => ({ file_id: p.file_id })),
-                date: ctx.message.date,
-              }
-            : undefined,
-        };
+      // Attach Grammy "message" listener only once per bot so each update is delivered once to all handlers
+      if (!instance.messageListenerAttached) {
+        instance.messageListenerAttached = true;
+        instance.bot.on("message", (ctx: Context) => {
+          console.log(`[telegram] Received message from ${ctx.message?.from?.username || 'unknown'}: "${ctx.message?.text?.substring(0, 50) || 'no text'}"`);
 
-        console.log(`[telegram] Calling ${instance.messageHandlers.size} message handler(s)`);
-        let handlerIndex = 0;
-        instance.messageHandlers.forEach((handler) => {
-          try {
-            handlerIndex++;
-            console.log(`[telegram] Executing handler #${handlerIndex}...`);
-            handler(update);
-            console.log(`[telegram] Handler #${handlerIndex} completed`);
-          } catch (error) {
-            console.error(`[telegram] Error in message handler #${handlerIndex}:`, error);
-          }
+          const update: TelegramUpdate = {
+            update_id: ctx.update.update_id,
+            message: ctx.message
+              ? {
+                  message_id: ctx.message.message_id,
+                  from: ctx.message.from
+                    ? {
+                        id: ctx.message.from.id,
+                        username: ctx.message.from.username,
+                        first_name: ctx.message.from.first_name,
+                        last_name: ctx.message.from.last_name,
+                      }
+                    : undefined,
+                  chat: {
+                    id: ctx.message.chat.id,
+                    type: ctx.message.chat.type,
+                    title: "title" in ctx.message.chat ? ctx.message.chat.title : undefined,
+                    username:
+                      "username" in ctx.message.chat ? ctx.message.chat.username : undefined,
+                  },
+                  reply_to_message: ctx.message.reply_to_message
+                    ? {
+                        message_id: ctx.message.reply_to_message.message_id,
+                        text: ctx.message.reply_to_message.text,
+                      }
+                    : undefined,
+                  text: ctx.message.text,
+                  caption: ctx.message.caption,
+                  photo: ctx.message.photo?.map((p) => ({ file_id: p.file_id })),
+                  date: ctx.message.date,
+                }
+              : undefined,
+          };
+
+          console.log(`[telegram] Calling ${instance.messageHandlers.size} message handler(s)`);
+          let handlerIndex = 0;
+          instance.messageHandlers.forEach((handler) => {
+            try {
+              handlerIndex++;
+              console.log(`[telegram] Executing handler #${handlerIndex}...`);
+              handler(update);
+              console.log(`[telegram] Handler #${handlerIndex} completed`);
+            } catch (error) {
+              console.error(`[telegram] Error in message handler #${handlerIndex}:`, error);
+            }
+          });
         });
-      });
+        console.log(`[telegram] Message listener attached for bot ${botId} (once per bot)`);
+      }
+    },
+
+    /**
+     * Clear all message handlers for a bot (useful when reinitializing)
+     * @param botId ID from initBot
+     */
+    clearMessageHandlers: (botId: string): void => {
+      const instance = bots.get(botId);
+      if (!instance) {
+        console.log(`[telegram] No bot found to clear handlers for: ${botId}`);
+        return;
+      }
+      const count = instance.messageHandlers.size;
+      instance.messageHandlers.clear();
+      console.log(`[telegram] Cleared ${count} message handler(s) for bot ${botId}`);
     },
 
     /**

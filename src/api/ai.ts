@@ -21,7 +21,7 @@ import { createProvider, OllamaProvider } from "./providers.js";
 import { withRetry } from "../utils/retry.js";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3:4b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL; // No hardcoded fallback - must be configured
 const DEFAULT_OLLAMA_TIMEOUT_MS = (() => {
   const raw =
     process.env.OLLAMA_TIMEOUT_MS ||
@@ -68,11 +68,22 @@ export class AIAPI {
     }
 
     // Optional "smart" tier → remote Ollama (e.g. Ollama Cloud) for tool calling
+    // If ollamaSmartUrl is set, use it for cloud; otherwise use models.smart with local URL
     const smartUrl = (aiConfig?.ollamaSmartUrl ?? "").trim();
-    if (aiConfig?.provider === "ollama" && smartUrl && aiConfig.models?.smart) {
-      const smartModel = aiConfig.models.smart;
+    const smartModel = aiConfig?.models?.smart;
+    if (aiConfig?.provider === "ollama" && smartModel) {
+      const effectiveSmartUrl = smartUrl || baseUrl; // Use cloud URL if set, otherwise local
       const temp = aiConfig.temperature ?? DEFAULT_TEMPERATURE;
-      this.smartProvider = new OllamaProvider(smartUrl, smartModel, defaultTimeoutMs, temp);
+      const smartApiKey =
+        (aiConfig.ollamaSmartApiKey ?? "").trim() ||
+        (process.env.OLLAMA_API_KEY ?? "").trim();
+      this.smartProvider = new OllamaProvider(
+        effectiveSmartUrl,
+        smartModel,
+        defaultTimeoutMs,
+        temp,
+        smartApiKey || undefined,
+      );
     }
 
     // Build fallback chain
@@ -96,13 +107,17 @@ export class AIAPI {
     }
   }
 
-  /** Provider to use for this request: smart tier can use remote Ollama (e.g. Ollama Cloud). */
-  private getProviderForModel(resolvedModel: string | undefined): AIProvider {
-    if (
-      resolvedModel &&
-      this.aiConfig?.models?.smart === resolvedModel &&
-      this.smartProvider
-    ) {
+  /**
+   * Provider to use for this request.
+   * Smart tier → ollamaSmartUrl (cloud); default/fast/other → ollamaUrl (local).
+   * We use the requested tier (modelOrTier), not the resolved model name, so that
+   * when default and smart point to the same model name we still use local for default.
+   */
+  private getProviderForModel(
+    modelOrTier: string | undefined,
+    _resolvedModel?: string | undefined,
+  ): AIProvider {
+    if (modelOrTier === "smart" && this.smartProvider) {
       return this.smartProvider;
     }
     return this.provider;
@@ -141,6 +156,9 @@ export class AIAPI {
       return await tryProvider(primary);
     } catch (primaryError) {
       if (this.fallbackProviders.length === 0) throw primaryError;
+      if (primary === this.smartProvider) {
+        throw primaryError;
+      }
 
       console.warn(`[AI] Primary provider (${primary.name}) failed: ${(primaryError as Error).message}`);
 
@@ -161,13 +179,13 @@ export class AIAPI {
 
   async checkModel(model?: string): Promise<boolean> {
     const resolved = this.resolveModel(model);
-    const provider = this.getProviderForModel(resolved);
+    const provider = this.getProviderForModel(model, resolved);
     return provider.checkModel(resolved ?? model);
   }
 
   async complete(prompt: string, options: CompletionOptions = {}): Promise<string> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
-    const primary = this.getProviderForModel(resolved.model);
+    const primary = this.getProviderForModel(options.model, resolved.model);
     return this.withFallback(p => p.complete(prompt, resolved), {
       retries: options.retries,
       primaryProvider: primary,
@@ -176,13 +194,16 @@ export class AIAPI {
 
   async *stream(prompt: string, options: CompletionOptions = {}): AsyncIterable<string> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
-    const provider = this.getProviderForModel(resolved.model);
+    const provider = this.getProviderForModel(options.model, resolved.model);
     yield* provider.stream(prompt, resolved);
   }
 
   async chat(messages: Message[], options: Omit<ChatOptions, "messages"> = {}): Promise<Message> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
-    const primary = this.getProviderForModel(resolved.model);
+    const primary =
+      (options as any).useLocalProvider === true
+        ? this.provider
+        : this.getProviderForModel(options.model, resolved.model);
     return this.withFallback(p => p.chat(messages, resolved), {
       retries: options.retries,
       primaryProvider: primary,
@@ -194,7 +215,7 @@ export class AIAPI {
     options: Omit<ChatOptions, "messages"> = {},
   ): AsyncIterable<string> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
-    const provider = this.getProviderForModel(resolved.model);
+    const provider = this.getProviderForModel(options.model, resolved.model);
     yield* provider.streamChat(messages, resolved);
   }
 
@@ -204,7 +225,10 @@ export class AIAPI {
     options: CompletionOptions = {},
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
-    const primary = this.getProviderForModel(resolved.model);
+    const primary =
+      options.useLocalProvider === true
+        ? this.provider
+        : this.getProviderForModel(options.model, resolved.model);
     return this.withFallback(p => p.callTools(prompt, tools, resolved), {
       retries: options.retries,
       primaryProvider: primary,

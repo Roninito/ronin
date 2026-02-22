@@ -1,4 +1,4 @@
-import { watch, mkdirSync, existsSync } from "fs";
+import { watch, mkdirSync, existsSync, readdirSync } from "fs";
 
 export class FilesAPI {
   private watchers: Map<string, ReturnType<typeof watch>> = new Map();
@@ -66,11 +66,10 @@ export class FilesAPI {
    * List files in a directory
    */
   async list(dir: string, pattern?: string): Promise<string[]> {
-    const entries = await Array.fromAsync(Bun.readdir(dir));
-    let files = entries.map(entry => `${dir}/${entry.name}`);
+    const entries = readdirSync(dir, { withFileTypes: true });
+    let files = entries.map((entry) => `${dir}/${entry.name}`);
 
     if (pattern) {
-      // Simple pattern matching (supports * wildcard)
       const regex = new RegExp(
         "^" + pattern.replace(/\*/g, ".*").replace(/\//g, "\\/") + "$"
       );

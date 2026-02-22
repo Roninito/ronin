@@ -48,27 +48,54 @@ async function fetchWithTimeout(
 
 // ─── Ollama Provider ───────────────────────────────────────────────────
 
+function normalizeOllamaBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "") || url;
+}
+
+function isRemoteOllamaUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || (u.protocol === "http:" && !/^localhost$|^127\./.test(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
 export class OllamaProvider implements AIProvider {
   readonly name = "ollama";
   private baseUrl: string;
   private defaultModel: string;
   private defaultTimeoutMs: number;
   private defaultTemperature: number;
+  private apiKey: string;
 
-  constructor(baseUrl: string, defaultModel: string, timeoutMs: number, temperature: number) {
-    this.baseUrl = baseUrl;
+  constructor(
+    baseUrl: string,
+    defaultModel: string,
+    timeoutMs: number,
+    temperature: number,
+    apiKey?: string,
+  ) {
+    this.baseUrl = normalizeOllamaBaseUrl(baseUrl);
     this.defaultModel = defaultModel;
     this.defaultTimeoutMs = timeoutMs;
     this.defaultTemperature = temperature;
+    this.apiKey = apiKey?.trim() ?? "";
   }
 
   private t(o?: CompletionOptions) { return o?.timeoutMs ?? this.defaultTimeoutMs; }
   private temp(o?: CompletionOptions) { return o?.temperature ?? this.defaultTemperature; }
 
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.apiKey) h["Authorization"] = `Bearer ${this.apiKey}`;
+    return h;
+  }
+
   async checkModel(model?: string): Promise<boolean> {
     const m = model || this.defaultModel;
     try {
-      const res = await fetch(`${this.baseUrl}/api/tags`);
+      const res = await fetch(`${this.baseUrl}/api/tags`, { headers: this.headers() });
       if (!res.ok) return false;
       const data = await res.json();
       return (data.models || []).some(
@@ -83,7 +110,7 @@ export class OllamaProvider implements AIProvider {
       `${this.baseUrl}/api/generate`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.headers(),
         body: JSON.stringify({
           model, prompt, stream: false,
           options: { temperature: this.temp(options), num_predict: options.maxTokens },
@@ -98,16 +125,24 @@ export class OllamaProvider implements AIProvider {
 
   async chat(messages: Message[], options: Omit<ChatOptions, "messages"> = {}): Promise<Message> {
     const model = options.model || this.defaultModel;
+    const ollamaOptions: Record<string, unknown> = {
+      temperature: this.temp(options),
+      num_predict: options.maxTokens ?? 2048,
+      num_ctx: 16384, // Larger context for chat
+      top_p: 0.9,
+      top_k: 40,
+    };
+    
     const res = await fetchWithTimeout(
       `${this.baseUrl}/api/chat`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.headers(),
         body: JSON.stringify({
           model,
           messages: messages.map(m => ({ role: m.role, content: m.content })),
           stream: false,
-          options: { temperature: this.temp(options), num_predict: options.maxTokens },
+          options: ollamaOptions,
         }),
       },
       this.t(options),
@@ -123,7 +158,7 @@ export class OllamaProvider implements AIProvider {
       `${this.baseUrl}/api/generate`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.headers(),
         body: JSON.stringify({
           model, prompt, stream: true,
           options: { temperature: this.temp(options), num_predict: options.maxTokens },
@@ -141,7 +176,7 @@ export class OllamaProvider implements AIProvider {
       `${this.baseUrl}/api/chat`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.headers(),
         body: JSON.stringify({
           model,
           messages: messages.map(m => ({ role: m.role, content: m.content })),
@@ -167,19 +202,27 @@ export class OllamaProvider implements AIProvider {
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
     const model = options.model || this.defaultModel;
 
-    // Try native function calling
+    // Try native function calling with optimized parameters
     try {
+      const ollamaOptions: Record<string, unknown> = {
+        temperature: this.temp(options),
+        num_predict: options.maxTokens ?? 512, // Reduced default for faster tool selection
+        num_ctx: 8192, // Use reasonable context window
+        top_p: 0.9,
+        top_k: 40,
+      };
+      
       const res = await fetchWithTimeout(
         `${this.baseUrl}/api/chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: this.headers(),
           body: JSON.stringify({
             model,
             messages: [{ role: "user", content: prompt }],
             tools,
             stream: false,
-            options: { temperature: this.temp(options), num_predict: options.maxTokens },
+            options: ollamaOptions,
           }),
         },
         this.t(options),
@@ -218,8 +261,19 @@ export class OllamaProvider implements AIProvider {
   private assertOk(res: Response, model: string): void {
     if (res.ok) return;
     if (res.status === 404) {
+      if (isRemoteOllamaUrl(this.baseUrl)) {
+        throw new Error(
+          `Smart/cloud model "${model}" not found at ${this.baseUrl}. ` +
+          "Check ai.ollamaSmartUrl, ai.models.smart, and set OLLAMA_API_KEY (or ai.ollamaSmartApiKey) for Ollama Cloud.",
+        );
+      }
       throw new Error(
         `Model "${model}" not found. Please pull it first:\n   ollama pull ${model}\n\nOr use a different model with --ollama-model <model-name>`,
+      );
+    }
+    if (res.status === 401 && isRemoteOllamaUrl(this.baseUrl)) {
+      throw new Error(
+        "Smart/cloud endpoint returned 401 Unauthorized. Set OLLAMA_API_KEY or ai.ollamaSmartApiKey for Ollama Cloud.",
       );
     }
     throw new Error(`Ollama API error: ${res.status} ${res.statusText}`);
@@ -275,22 +329,31 @@ export class OllamaProvider implements AIProvider {
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
     const model = options.model || this.defaultModel;
     const toolDescriptions = tools
-      .map(t => `- ${t.function.name}: ${t.function.description} (parameters: ${JSON.stringify(t.function.parameters)})`)
+      .map(t => `- ${t.function.name}: ${t.function.description}`)
       .join("\n");
 
-    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolDescriptions}\n\nRespond with a JSON object in this format:\n{\n  "message": "your response text",\n  "toolCalls": [\n    {\n      "name": "tool_name",\n      "arguments": { "args": [...] }\n    }\n  ]\n}`;
+    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolDescriptions}\n\nRespond ONLY with a JSON object in this exact format (no markdown, no explanations):\n{"toolCalls":[{"name":"tool_name","arguments":{"param":"value"}}],"message":"brief response"}\nIf no tools are needed, return: {"toolCalls":[],"message":"your response"}`;
+
+    const ollamaOptions: Record<string, unknown> = {
+      temperature: Math.min(this.temp(options), 0.5), // Lower temp for JSON mode
+      num_predict: options.maxTokens ?? 1024,
+      num_ctx: 8192,
+      top_p: 0.85,
+      top_k: 20,
+      repeat_penalty: 1.1,
+    };
 
     const res = await fetchWithTimeout(
       `${this.baseUrl}/api/generate`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.headers(),
         body: JSON.stringify({
           model,
           prompt: enhancedPrompt,
           stream: false,
           format: "json",
-          options: { temperature: this.temp(options), num_predict: options.maxTokens },
+          options: ollamaOptions,
         }),
       },
       this.t(options),

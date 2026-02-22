@@ -75,6 +75,7 @@ export default class TermManagerAgent extends BaseAgent {
     "cat", "head", "tail", "less", "more",
     "grep", "find", "locate",
     "echo", "printf",
+    "osascript",
     "mkdir", "touch",
     "ps", "top", "htop",
     "df", "du", "free", "vmstat",

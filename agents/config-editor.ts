@@ -74,7 +74,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       description: 'CLI-specific options',
       fields: {
         qwen: {
-          model: { type: 'string', default: 'qwen3:1.7b' },
+          model: { type: 'string', default: 'ministral-3:3b' },
           timeout: { type: 'number', default: 300000, min: 1000, max: 3600000 }
         },
         cursor: {
@@ -187,7 +187,7 @@ export default class ConfigEditorAgent extends BaseAgent {
         },
         ollamaModel: {
           type: 'string',
-          default: 'qwen3:4b',
+          default: 'ministral-3:3b',
           description: 'Default Ollama Model',
           helpText: 'Model name for AI completions'
         },
@@ -215,9 +215,9 @@ export default class ConfigEditorAgent extends BaseAgent {
           type: 'nested',
           description: 'Model slots',
           fields: {
-            default: { type: 'string', default: 'qwen3:4b', description: 'Default slot' },
-            fast: { type: 'string', default: 'qwen3:1.7b', description: 'Fast slot' },
-            smart: { type: 'string', default: 'qwen3:8b', description: 'Smart slot' },
+            default: { type: 'string', default: 'ministral-3:3b', description: 'Default slot' },
+            fast: { type: 'string', default: 'ministral-3:3b', description: 'Fast slot' },
+            smart: { type: 'string', default: 'kimi-k2.5', description: 'Smart/cloud slot (e.g. kimi-k2.5)' },
             embedding: { type: 'string', default: 'nomic-embed-text', description: 'Embedding model' }
           }
         },
@@ -653,7 +653,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       defaultAppsDirectory: join(homedir(), '.ronin', 'apps'),
       apps: {},
       cliOptions: {
-        qwen: { model: 'qwen3:1.7b', timeout: 300000 },
+        qwen: { model: 'ministral-3:3b', timeout: 300000 },
         cursor: { timeout: 60000 },
         opencode: { timeout: 120000 },
         gemini: { model: 'gemini-pro', timeout: 60000 }
@@ -684,14 +684,14 @@ export default class ConfigEditorAgent extends BaseAgent {
         provider: 'ollama',
         temperature: 0.7,
         ollamaUrl: 'http://localhost:11434',
-        ollamaModel: 'qwen3:4b',
+        ollamaModel: 'ministral-3:3b',
         ollamaSmartUrl: '',
         ollamaTimeoutMs: 300000,
         ollamaEmbeddingModel: 'nomic-embed-text',
         models: {
-          default: 'qwen3:4b',
-          fast: 'qwen3:1.7b',
-          smart: 'qwen3:8b',
+          default: 'ministral-3:3b',
+          fast: 'ministral-3:3b',
+          smart: 'kimi-k2.5',
           embedding: 'nomic-embed-text'
         },
         fallback: { enabled: false, chain: [] },

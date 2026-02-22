@@ -11,7 +11,7 @@
 
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
 
 export default class AgentDependencyDashboard extends BaseAgent {
   static webhook = "/dashboard/dependencies";
@@ -182,25 +182,19 @@ export default class AgentDependencyDashboard extends BaseAgent {
   <title>Agent & Plugin Dependencies</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      line-height: 1.6;
-    }
-
+    ${getThemeCSS()}
+    ${getAdobeCleanFontFaceCSS()}
     ${getHeaderBarCSS()}
 
+    body {
+      background: ${roninTheme.colors.background};
+      color: ${roninTheme.colors.textSecondary};
+    }
+
     .header {
-      background: #242424;
-      border-bottom: 1px solid #3a3a3a;
-      padding: 1rem 2rem;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.xl};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -213,26 +207,27 @@ export default class AgentDependencyDashboard extends BaseAgent {
       font-size: 1.5rem;
       font-weight: 600;
       margin: 0;
+      color: ${roninTheme.colors.link};
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 2rem;
+      padding: ${roninTheme.spacing.xl};
     }
 
     .tabs {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid #3a3a3a;
+      gap: ${roninTheme.spacing.sm};
+      margin-bottom: ${roninTheme.spacing.lg};
+      border-bottom: 1px solid ${roninTheme.colors.border};
     }
 
     .tab {
-      padding: 0.75rem 1.5rem;
+      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
       background: transparent;
       border: none;
-      color: #a0a0a0;
+      color: ${roninTheme.colors.textSecondary};
       cursor: pointer;
       border-bottom: 2px solid transparent;
       font-size: 0.95rem;
@@ -240,12 +235,12 @@ export default class AgentDependencyDashboard extends BaseAgent {
     }
 
     .tab.active {
-      color: #4a9eff;
-      border-bottom-color: #4a9eff;
+      color: ${roninTheme.colors.link};
+      border-bottom-color: ${roninTheme.colors.link};
     }
 
     .tab:hover {
-      color: #e0e0e0;
+      color: ${roninTheme.colors.textPrimary};
     }
 
     .section {
@@ -259,153 +254,171 @@ export default class AgentDependencyDashboard extends BaseAgent {
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #242424;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
       overflow: hidden;
     }
 
     th {
-      background: #2d2d2d;
-      padding: 0.75rem;
+      background: ${roninTheme.colors.backgroundTertiary};
+      padding: ${roninTheme.spacing.md};
       text-align: left;
       font-weight: 600;
-      border-bottom: 1px solid #3a3a3a;
-      color: #a0a0a0;
+      border-bottom: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
       font-size: 0.9rem;
     }
 
     td {
-      padding: 0.75rem;
+      padding: ${roninTheme.spacing.md};
+      border-bottom: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textPrimary};
+    }
+
+    tr:hover {
+      background: ${roninTheme.colors.backgroundTertiary};
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+      gap: ${roninTheme.spacing.lg};
+      margin-bottom: ${roninTheme.spacing.xl};
     }
 
     .stat-card {
-      background: #242424;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      padding: 1.5rem;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
+      padding: ${roninTheme.spacing.lg};
       text-align: center;
+      transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: ${roninTheme.colors.borderHover};
+      background: ${roninTheme.colors.backgroundTertiary};
     }
 
     .stat-value {
       font-size: 2rem;
       font-weight: 700;
-      color: #4a9eff;
-      margin: 0.5rem 0;
+      color: ${roninTheme.colors.link};
+      margin: ${roninTheme.spacing.sm} 0;
     }
 
     .stat-label {
       font-size: 0.9rem;
-      color: #a0a0a0;
+      color: ${roninTheme.colors.textSecondary};
     }
 
     .status-enabled {
-      color: #28a745;
+      color: ${roninTheme.colors.success};
     }
 
     .status-disabled {
-      color: #dc3545;
+      color: ${roninTheme.colors.error};
     }
 
     .refresh-btn {
-      background: #4a9eff;
-      color: white;
+      background: ${roninTheme.colors.link};
+      color: ${roninTheme.colors.background};
       border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.9rem;
-      margin-bottom: 1rem;
+      margin-bottom: ${roninTheme.spacing.md};
+      font-weight: 500;
+      transition: all 0.2s;
     }
 
     .refresh-btn:hover {
-      background: #3a8eef;
+      background: ${roninTheme.colors.linkHover};
+      transform: translateY(-1px);
     }
 
     #graph-container {
       width: 100%;
       height: 600px;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      background: #1a1a1a;
-      margin: 1rem 0;
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
+      background: ${roninTheme.colors.background};
+      margin: ${roninTheme.spacing.lg} 0;
     }
 
     .graph-node {
-      stroke: #2a2a2a;
+      stroke: ${roninTheme.colors.accent};
       stroke-width: 2px;
       cursor: move;
     }
 
     .graph-node:hover {
-      stroke: #4a9eff;
+      stroke: ${roninTheme.colors.link};
       stroke-width: 3px;
     }
 
     .graph-link {
-      stroke: #4a4a4a;
+      stroke: ${roninTheme.colors.accent};
       stroke-width: 2px;
       stroke-opacity: 0.6;
     }
 
     .graph-label {
       font-size: 11px;
-      fill: #e0e0e0;
+      fill: ${roninTheme.colors.textSecondary};
       pointer-events: none;
       text-anchor: start;
     }
 
     .graph-tooltip {
       position: absolute;
-      padding: 0.5rem 0.75rem;
-      background: #242424;
-      border: 1px solid #4a9eff;
-      border-radius: 4px;
+      padding: ${roninTheme.spacing.sm};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.link};
+      border-radius: ${roninTheme.borderRadius.md};
       font-size: 0.85rem;
-      color: #e0e0e0;
+      color: ${roninTheme.colors.textPrimary};
       pointer-events: none;
       z-index: 1000;
       max-width: 250px;
     }
 
     .debug-section {
-      margin-top: 2rem;
-      padding-top: 1rem;
-      border-top: 1px solid #3a3a3a;
+      margin-top: ${roninTheme.spacing.xl};
+      padding-top: ${roninTheme.spacing.md};
+      border-top: 1px solid ${roninTheme.colors.border};
     }
 
     .debug-toggle {
-      background: #4a4a4a;
-      color: #e0e0e0;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
+      background: ${roninTheme.colors.accent};
+      color: ${roninTheme.colors.textPrimary};
+      border: 1px solid ${roninTheme.colors.border};
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.85rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: ${roninTheme.spacing.sm};
+      transition: all 0.2s;
     }
 
     .debug-toggle:hover {
-      background: #5a5a5a;
+      background: ${roninTheme.colors.accentHover};
+      border-color: ${roninTheme.colors.borderHover};
     }
 
     .debug-content {
       display: none;
-      background: #242424;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      padding: 1rem;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
+      padding: ${roninTheme.spacing.md};
       overflow: auto;
       max-height: 400px;
       font-size: 0.85rem;
-      color: #4a9eff;
+      color: ${roninTheme.colors.link};
+      font-family: ${roninTheme.fonts.mono};
     }
 
     .debug-content.show {

@@ -3,6 +3,7 @@ import type { AgentAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
 
 /**
  * Onboarding Wizard Agent
@@ -436,79 +437,70 @@ export default class OnboardingWizardAgent extends BaseAgent {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Setup</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+    ${getThemeCSS()}
+    ${getAdobeCleanFontFaceCSS()}
+
     body {
-      font-family: 'Adobe Clean', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0a0a0a;
-      color: #ffffff;
-      line-height: 1.6;
+      padding: ${roninTheme.spacing.xl};
       min-height: 100vh;
-      padding: 2rem;
     }
-    
+
     .container {
       max-width: 700px;
       margin: 0 auto;
     }
-    
+
     header {
-      margin-bottom: 2rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: ${roninTheme.spacing.xl};
+      padding-bottom: ${roninTheme.spacing.lg};
+      border-bottom: 1px solid ${roninTheme.colors.border};
     }
-    
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 300;
-      margin-bottom: 0.5rem;
-    }
-    
+
     .subtitle {
-      color: rgba(255, 255, 255, 0.6);
+      color: ${roninTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
-    
+
     .progress-bar {
-      background: rgba(255, 255, 255, 0.04);
+      background: ${roninTheme.colors.accent};
       height: 2px;
-      margin: 1.5rem 0;
+      margin: ${roninTheme.spacing.lg} 0;
     }
-    
+
     .progress-fill {
       background: #e94560;
       height: 100%;
       transition: width 0.3s ease;
     }
-    
+
     .steps {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: ${roninTheme.spacing.sm};
     }
-    
+
     .step {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
       transition: all 0.2s;
     }
-    
+
     .step:hover {
-      border-color: rgba(255, 255, 255, 0.12);
+      border-color: ${roninTheme.colors.borderHover};
     }
-    
+
     .step.complete {
       border-color: rgba(39, 174, 96, 0.4);
     }
-    
+
     .step-header {
-      padding: 1rem 1.25rem;
+      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.md};
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: ${roninTheme.spacing.md};
       cursor: pointer;
     }
-    
+
     .step-number {
       width: 24px;
       height: 24px;
@@ -518,159 +510,150 @@ export default class OnboardingWizardAgent extends BaseAgent {
       justify-content: center;
       font-size: 0.75rem;
       font-weight: 500;
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.6);
+      background: ${roninTheme.colors.accent};
+      color: ${roninTheme.colors.textSecondary};
     }
-    
+
     .step.complete .step-number {
       background: rgba(39, 174, 96, 0.2);
       color: #27ae60;
     }
-    
+
     .step-title {
       flex: 1;
     }
-    
+
     .step-title h3 {
       font-size: 0.9375rem;
       font-weight: 400;
       margin-bottom: 0.125rem;
     }
-    
+
     .step-title p {
-      color: rgba(255, 255, 255, 0.5);
+      color: ${roninTheme.colors.textTertiary};
       font-size: 0.8125rem;
     }
-    
+
     .step-status {
       font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.4);
+      color: ${roninTheme.colors.textTertiary};
     }
-    
+
     .step.complete .step-status {
       color: #27ae60;
     }
-    
+
     .step-content {
-      padding: 0 1.25rem 1.25rem;
+      padding: 0 ${roninTheme.spacing.md} ${roninTheme.spacing.md};
       display: none;
     }
-    
+
     .step-content.active {
       display: block;
     }
-    
+
     .form-group {
-      margin-bottom: 1rem;
+      margin-bottom: ${roninTheme.spacing.md};
     }
-    
+
     .form-group label {
       display: block;
-      margin-bottom: 0.375rem;
-      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: ${roninTheme.spacing.sm};
+      color: ${roninTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
-    
+
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 0.625rem 0.875rem;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: #ffffff;
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textPrimary};
       font-size: 0.875rem;
       font-family: inherit;
+      border-radius: ${roninTheme.borderRadius.md};
     }
-    
+
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: ${roninTheme.colors.borderHover};
+      background: ${roninTheme.colors.backgroundTertiary};
     }
-    
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #e94560;
-    }
-    
+
     .btn {
-      padding: 12px 30px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-    }
-    
-    .btn {
-      padding: 0.625rem 1.25rem;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: rgba(255, 255, 255, 0.8);
+      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
       font-size: 0.875rem;
       cursor: pointer;
       transition: all 0.2s;
+      border-radius: ${roninTheme.borderRadius.md};
     }
-    
+
     .btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${roninTheme.colors.borderHover};
+      color: ${roninTheme.colors.textPrimary};
     }
-    
+
     .btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
     }
-    
+
     .btn-primary {
       background: rgba(233, 69, 96, 0.15);
       border-color: rgba(233, 69, 96, 0.4);
       color: #e94560;
     }
-    
+
     .btn-primary:hover:not(:disabled) {
       background: rgba(233, 69, 96, 0.25);
     }
-    
+
     .password-section {
-      padding: 1rem;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 1rem;
+      padding: ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      margin-bottom: ${roninTheme.spacing.md};
+      border-radius: ${roninTheme.borderRadius.md};
     }
-    
+
     .password-section h4 {
       font-size: 0.875rem;
       font-weight: 400;
-      margin-bottom: 0.75rem;
-      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: ${roninTheme.spacing.md};
+      color: ${roninTheme.colors.textPrimary};
     }
-    
+
     .info-box {
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.02);
-      border-left: 2px solid rgba(255, 255, 255, 0.2);
-      margin-bottom: 1rem;
+      padding: ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundSecondary};
+      border-left: 2px solid ${roninTheme.colors.borderHover};
+      margin-bottom: ${roninTheme.spacing.md};
       font-size: 0.8125rem;
-      color: rgba(255, 255, 255, 0.6);
+      color: ${roninTheme.colors.textSecondary};
+      border-radius: ${roninTheme.borderRadius.md};
     }
-    
+
     small {
       font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.5);
+      color: ${roninTheme.colors.textTertiary};
       display: block;
       margin-top: 0.25rem;
     }
-    
+
     code {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: ${roninTheme.fonts.mono};
       font-size: 0.75rem;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 0.125rem 0.375rem;
+      background: ${roninTheme.colors.accent};
+      padding: ${roninTheme.spacing.xs} ${roninTheme.spacing.sm};
+      border-radius: ${roninTheme.borderRadius.sm};
     }
-    
+
     .checkbox-group input[type="checkbox"] {
       width: auto;
     }

@@ -8,7 +8,46 @@ export interface TelegramConfig {
   chatId: string;
 }
 
-export type AIProviderType = "ollama" | "openai" | "gemini" | "grok";
+export type AIProviderType = "ollama" | "openai" | "gemini" | "grok" | "anthropic" | "lmstudio";
+
+// Phase 1: Unified Provider Configuration
+export interface ProviderEndpoint {
+  url: string;
+  apiKey?: string;
+  timeout?: number;
+}
+
+export interface ProviderConfig {
+  type: AIProviderType;
+  endpoints?: {
+    local?: ProviderEndpoint;
+    cloud?: ProviderEndpoint;
+  };
+  apiKey?: string;
+  baseUrl?: string;
+  timeout?: number;
+  enabled: boolean;
+}
+
+export interface ModelDefinition {
+  id: string;
+  name: string;
+  provider: AIProviderType;
+  capabilities: string[];
+  costPer1kTokens?: {
+    input: number;
+    output: number;
+  };
+  tags?: string[];
+  maxTokens?: number;
+}
+
+export interface ModelConfig {
+  default: ModelDefinition;
+  fast: ModelDefinition;
+  smart: ModelDefinition;
+  embedding: ModelDefinition;
+}
 
 export interface AIModelSlots {
   default: string;

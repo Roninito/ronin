@@ -437,8 +437,19 @@ export class AgentRegistry {
           return safeRouteHandler(longestMatch.handler, longestMatch.path);
         }
 
-        // Agent webhook routes
-        const agentName = this.webhookRoutes.get(path);
+        // Agent webhook routes - try exact match first, then prefix match
+        let agentName = this.webhookRoutes.get(path);
+        
+        // If no exact match, try prefix matching (for sub-routes like /webhook/api/data)
+        if (!agentName) {
+          for (const [webhookPath, name] of this.webhookRoutes.entries()) {
+            if (path.startsWith(webhookPath + "/") || path === webhookPath) {
+              agentName = name;
+              break;
+            }
+          }
+        }
+        
         if (!agentName) {
           return new Response("Not Found", { status: 404 });
         }
@@ -461,7 +472,14 @@ export class AgentRegistry {
 
           let result: any = { success: true };
           if (agent.instance.onWebhook) {
-            result = await agent.instance.onWebhook(payload);
+            // Pass request object with full context to the webhook handler
+            const requestInfo = {
+              url: req.url,
+              method: req.method,
+              headers: Object.fromEntries(req.headers.entries()),
+              payload,
+            };
+            result = await agent.instance.onWebhook(requestInfo);
           }
 
           // If handler returns a custom response object with contentType and body, use it

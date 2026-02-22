@@ -27,8 +27,22 @@ export default class AgentDependencyDashboard extends BaseAgent {
 
   async onWebhook(request: any): Promise<any> {
     try {
-      // Handle request object from AgentRegistry
-      const urlString = (request && request.url) || "/dashboard/dependencies";
+      // Handle request object - could be payload (old) or requestInfo object (new)
+      // New format: { url, method, headers, payload }
+      // Old format: just the payload
+      let urlString = "/dashboard/dependencies";
+      
+      if (request && typeof request === "object") {
+        if (request.url) {
+          // New format with full request info
+          urlString = request.url;
+        } else if (request.method || request.headers) {
+          // Partial request info
+          urlString = request.url || "/dashboard/dependencies";
+        }
+        // Otherwise it's the old payload-only format, ignore it
+      }
+      
       const url = new URL(urlString.toString(), "http://localhost");
       const pathname = url.pathname;
 

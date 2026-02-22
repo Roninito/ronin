@@ -45,6 +45,7 @@ export const DEFAULT_CONFIG: FullConfig = {
   ai: {
     provider: "ollama",
     temperature: 0.7,
+    // Phase 1: Legacy Ollama support (deprecated but supported for backward compatibility)
     ollamaUrl: "http://localhost:11434",
     ollamaModel: "granite3.2-16k",
     ollamaSmartUrl: "",
@@ -60,6 +61,29 @@ export const DEFAULT_CONFIG: FullConfig = {
     fallback: {
       enabled: false,
       chain: [],
+    },
+    // Phase 1: New unified provider configuration
+    providers: {
+      ollama: {
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        model: "granite3.2-16k",
+        temperature: 0.7,
+        timeout: 60000,
+      },
+      anthropic: {
+        enabled: false,
+        apiKey: "", // Set via ANTHROPIC_API_KEY env var
+        model: "claude-3-5-sonnet-20241022",
+        timeout: 30000,
+      },
+      lmstudio: {
+        enabled: false,
+        baseUrl: "http://localhost:1234",
+        cloudUrl: "", // For cloud deployments
+        model: "local-model",
+        timeout: 30000,
+      },
     },
     openai: {
       apiKey: "",

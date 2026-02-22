@@ -459,11 +459,24 @@ export class AgentRegistry {
             }
           }
 
+          let result: any = { success: true };
           if (agent.instance.onWebhook) {
-            await agent.instance.onWebhook(payload);
+            result = await agent.instance.onWebhook(payload);
           }
 
-          return new Response(JSON.stringify({ success: true }), {
+          // If handler returns a custom response object with contentType and body, use it
+          if (result && typeof result === "object" && result.contentType && result.body) {
+            const contentType = result.contentType;
+            const body = typeof result.body === "string" ? result.body : JSON.stringify(result.body);
+            const status = result.status || 200;
+            return new Response(body, {
+              status,
+              headers: { "Content-Type": contentType },
+            });
+          }
+
+          // Otherwise return standard JSON response
+          return new Response(JSON.stringify(result), {
             headers: { "Content-Type": "application/json" },
           });
         } catch (error) {

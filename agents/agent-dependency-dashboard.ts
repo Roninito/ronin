@@ -28,8 +28,8 @@ export default class AgentDependencyDashboard extends BaseAgent {
   async onWebhook(request: any): Promise<any> {
     try {
       // Handle request object from AgentRegistry
-      const urlString = request.url || request || "/dashboard/dependencies";
-      const url = new URL(urlString.toString() || "/dashboard/dependencies", "http://localhost");
+      const urlString = (request && request.url) || "/dashboard/dependencies";
+      const url = new URL(urlString.toString(), "http://localhost");
       const pathname = url.pathname;
 
       // HTML Dashboard (handle both /dashboard/dependencies and /dashboard/dependencies/)

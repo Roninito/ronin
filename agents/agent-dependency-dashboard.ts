@@ -542,6 +542,12 @@ ${JSON.stringify(graph, null, 2)}
       try {
         // Fetch graph data
         const response = await fetch('/dashboard/dependencies/api/graph');
+        if (!response.ok) {
+          console.error('[dashboard] Failed to fetch graph:', response.status);
+          document.getElementById('graph-container').innerHTML = 
+            '<div style="padding: 2rem; text-align: center; color: #a0a0a0;">Failed to load graph data (HTTP ' + response.status + ')</div>';
+          return;
+        }
         const apiGraph = await response.json();
 
         // Transform API data to D3 format

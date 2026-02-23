@@ -621,9 +621,9 @@ export function installRoninTray(): boolean {
         console.log("⚠️  Could not update from remote, using local version");
       }
     } else if (existsSync(localDevPath)) {
-      // Use local development copy if available
+      // Use local development copy if available (exclude node_modules)
       console.log("📦 Using local RoninTray development copy...");
-      execSync(`cp -r "${localDevPath}" "${roninTrayDir}"`);
+      execSync(`cp -r "${localDevPath}" "${roninTrayDir}" --exclude=node_modules --exclude=dist --exclude=.next --exclude=src-tauri/target 2>/dev/null || rsync -av --exclude=node_modules --exclude=dist --exclude=src-tauri/target "${localDevPath}/" "${roninTrayDir}/"`);
     } else {
       // Try to clone from GitHub
       console.log("📦 Cloning RoninTray from GitHub...");

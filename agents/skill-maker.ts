@@ -5,16 +5,8 @@ const { join } = path;
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import type { ToolDefinition, ToolResult, ToolContext } from "../src/tools/types.js";
-import {
-  createOntologyResolveMiddleware,
-  createOntologyInjectMiddleware,
-  createSmartTrimMiddleware,
-  createTokenGuardMiddleware,
-  createAiToolMiddleware,
-  createChainLoggingMiddleware,
-} from "../src/middleware/index.js";
+import { standardSAR } from "../src/chains/templates.js";
 import { Chain } from "../src/chain/Chain.js";
-import { MiddlewareStack } from "../src/middleware/MiddlewareStack.js";
 import type { ChainContext } from "../src/chain/types.js";
 
 const SOURCE = "skill-maker";
@@ -410,13 +402,7 @@ Either call the tools (and finish with success or abort) OR output the block abo
 
     console.log(`[skill-maker] Creating skill: "${request.slice(0, 80)}${request.length > 80 ? "…" : ""}"`);
 
-    const stack = new MiddlewareStack<ChainContext>();
-    stack.use(createChainLoggingMiddleware("skill-maker"));
-    stack.use(createOntologyResolveMiddleware({ api: this.api }));
-    stack.use(createOntologyInjectMiddleware());
-    stack.use(createSmartTrimMiddleware({ recentCount: 12 }));
-    stack.use(createTokenGuardMiddleware());
-    stack.use(createAiToolMiddleware(this.api, { logLabel: "skill-maker" }));
+    const stack = standardSAR({ maxTokens: 8192 });
 
     const ctx: ChainContext = {
       messages: [
@@ -437,8 +423,8 @@ Either call the tools (and finish with success or abort) OR output the block abo
     };
 
     const runChainOnce = async (): Promise<void> => {
-      this.createChain();
-      const chain = new Chain(this.executor!, stack, "skill-maker");
+      const chain = this.createChain("skill-maker");
+      chain.useMiddlewareStack(stack);
       chain.withContext(ctx);
       await chain.run();
     };

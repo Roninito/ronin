@@ -14,88 +14,113 @@ import type { AgentAPI } from "../src/types/index.js";
 import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
 
 export default class AgentDependencyDashboard extends BaseAgent {
-  static webhook = "/dashboard/dependencies";
-
   constructor(api: AgentAPI) {
     super(api);
+    this.registerRoutes();
   }
 
-  async execute(): Promise<void> {
-    // Agent runs on-demand via webhook
+  /**
+   * Register HTTP routes for the dashboard
+   */
+  private registerRoutes(): void {
+    this.api.http.registerRoute("/dashboard/dependencies", this.handleDashboardRequest.bind(this));
+    this.api.http.registerRoute("/dashboard/dependencies/", this.handleDashboardRequest.bind(this));
+    this.api.http.registerRoute("/dashboard/dependencies/api/graph", this.handleGraphAPI.bind(this));
+    this.api.http.registerRoute("/dashboard/dependencies/api/agents", this.handleAgentsAPI.bind(this));
+    this.api.http.registerRoute("/dashboard/dependencies/api/plugins", this.handlePluginsAPI.bind(this));
     console.log("[agent-dependency-dashboard] Ready at /dashboard/dependencies");
   }
 
-  async onWebhook(request: any): Promise<any> {
+  async execute(): Promise<void> {
+    // Agent runs on-demand via HTTP routes
+    // Routes are registered in constructor
+  }
+
+  /**
+   * Handle dashboard HTML request
+   */
+  private async handleDashboardRequest(req: Request): Promise<Response> {
     try {
-      // Handle request object - could be payload (old) or requestInfo object (new)
-      // New format: { url, method, headers, payload }
-      // Old format: just the payload
-      let urlString = "/dashboard/dependencies";
-      
-      if (request && typeof request === "object") {
-        if (request.url) {
-          // New format with full request info
-          urlString = request.url;
-        } else if (request.method || request.headers) {
-          // Partial request info
-          urlString = request.url || "/dashboard/dependencies";
-        }
-        // Otherwise it's the old payload-only format, ignore it
-      }
-      
-      const url = new URL(urlString.toString(), "http://localhost");
-      const pathname = url.pathname;
-
-      // HTML Dashboard (handle both /dashboard/dependencies and /dashboard/dependencies/)
-      const isDashboardRoot = pathname === "/dashboard/dependencies" || pathname === "/dashboard/dependencies/" || pathname === "/dashboard/dependencies";
-      if (isDashboardRoot && !pathname.includes("/api/")) {
-        const html = await this.renderDashboard();
-        return {
-          contentType: "text/html",
-          body: html,
-        };
-      }
-
-      // API: Get agents
-      if (pathname === "/dashboard/dependencies/api/agents") {
-        const agents = await this.getAgentDependencies();
-        return {
-          contentType: "application/json",
-          body: JSON.stringify(agents),
-        };
-      }
-
-      // API: Get plugins
-      if (pathname === "/dashboard/dependencies/api/plugins") {
-        const plugins = await this.getPluginRegistry();
-        return {
-          contentType: "application/json",
-          body: JSON.stringify(plugins),
-        };
-      }
-
-      // API: Get graph
-      if (pathname === "/dashboard/dependencies/api/graph") {
-        const graph = await this.getDependencyGraph();
-        return {
-          contentType: "application/json",
-          body: JSON.stringify(graph),
-        };
-      }
-
-      // Default: render dashboard
       const html = await this.renderDashboard();
-      return {
-        contentType: "text/html",
-        body: html,
-      };
+      return new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      });
     } catch (err) {
-      console.error("[agent-dependency-dashboard] Webhook error:", err);
-      return {
-        contentType: "application/json",
-        body: JSON.stringify({ error: String(err) }),
-        status: 500,
-      };
+      console.error("[agent-dependency-dashboard] Dashboard render error:", err);
+      return new Response(
+        JSON.stringify({ error: String(err) }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle graph API request
+   */
+  private async handleGraphAPI(req: Request): Promise<Response> {
+    try {
+      const graph = await this.getDependencyGraph();
+      return new Response(JSON.stringify(graph), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("[agent-dependency-dashboard] Graph API error:", err);
+      return new Response(
+        JSON.stringify({ error: String(err) }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle agents API request
+   */
+  private async handleAgentsAPI(req: Request): Promise<Response> {
+    try {
+      const agents = await this.getAgentDependencies();
+      return new Response(JSON.stringify(agents), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("[agent-dependency-dashboard] Agents API error:", err);
+      return new Response(
+        JSON.stringify({ error: String(err) }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle plugins API request
+   */
+  private async handlePluginsAPI(req: Request): Promise<Response> {
+    try {
+      const plugins = await this.getPluginRegistry();
+      return new Response(JSON.stringify(plugins), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("[agent-dependency-dashboard] Plugins API error:", err);
+      return new Response(
+        JSON.stringify({ error: String(err) }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
 

@@ -28,6 +28,8 @@ import { scheduleCommand } from "./commands/schedule.js";
 import { emitCommand } from "./commands/emit.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
+import { handleVersionCommand } from "./commands/version.js";
+import { handleUpdateCommand } from "./commands/update.js";
 import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
@@ -540,6 +542,18 @@ async function main() {
       const { handleOSCommand, parseOSArgs } = await import("./commands/os.js");
       const { action, subAction, options } = parseOSArgs(args);
       await handleOSCommand(action, subAction, options);
+      break;
+
+    case "version":
+      await handleVersionCommand();
+      break;
+
+    case "update":
+      await handleUpdateCommand({
+        check: args.includes("--check"),
+        rollback: args.includes("--rollback"),
+        quiet: args.includes("--quiet"),
+      });
       break;
 
     case "init":

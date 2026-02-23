@@ -647,16 +647,23 @@ export function installRoninTray(): boolean {
       console.warn("⚠️  npm install had issues, but continuing...");
     }
     
-    // Build for macOS (with timeout and graceful failure)
-    console.log("🔨 Building RoninTray for macOS (this may take a few minutes)...");
+    // Build for macOS (with 20-minute timeout for first build)
+    console.log("🔨 Building RoninTray for macOS (this may take 10-15 minutes on first build)...");
+    console.log("   (This is normal - Tauri compiles Rust code and bundles the app)");
     let buildSucceeded = false;
     try {
-      execSync(`cd "${roninTrayDir}" && timeout 300 npm run build-mac 2>&1 | tail -10`, { stdio: "pipe" });
+      // Show build progress as it happens
+      execSync(`cd "${roninTrayDir}" && timeout 1200 npm run build-mac`, { stdio: "inherit" });
       buildSucceeded = true;
     } catch (error) {
-      console.warn("⚠️  RoninTray build is taking longer than expected...");
-      console.log("💡 Tip: You can build manually later with:");
-      console.log(`    cd "${roninTrayDir}" && npm run build-mac`);
+      if (error.killed) {
+        console.warn("⚠️  RoninTray build timed out after 20 minutes.");
+      } else {
+        console.warn("⚠️  RoninTray build encountered an issue.");
+      }
+      console.log("💡 You can build manually with:");
+      console.log(`    cd "${roninTrayDir}"`);
+      console.log(`    npm run build-mac`);
     }
     
     // Find and move the app bundle to Applications

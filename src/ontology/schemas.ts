@@ -385,3 +385,154 @@ export async function linkFileExport(
     relation: "exports",
   });
 }
+
+/**
+ * Obsidian Note Node (Phase 6)
+ * Stores metadata about notes in Obsidian vaults
+ * Updated daily by obsidian-vault-indexer agent
+ */
+export interface ObsidianNoteMetadata {
+  collected_at: string; // ISO timestamp
+  expires_at: string;   // ISO timestamp (for freshness)
+  source_agent: string; // "obsidian-vault-indexer"
+  
+  vault_id: string;     // Vault identifier from config
+  file_path: string;    // Absolute file path
+  relative_path: string; // Path relative to vault root
+  
+  title: string;        // Note title (from frontmatter or first h1)
+  
+  // Frontmatter data
+  has_frontmatter: boolean;
+  frontmatter?: Record<string, any>; // Parsed YAML frontmatter
+  
+  // Metadata
+  tags: string[];       // From frontmatter.tags and #hashtags
+  wikilinks: string[];  // [[link]] references
+  backlinks: string[];  // Notes that link to this one
+  
+  // Timestamps
+  created_at: number;   // File creation timestamp (ms)
+  modified_at: number;  // File modification timestamp (ms)
+  last_indexed_at: string; // ISO timestamp when indexed
+}
+
+/**
+ * Create Obsidian note node in ontology
+ */
+export async function createObsidianNoteNode(
+  api: AgentAPI,
+  metadata: ObsidianNoteMetadata
+): Promise<void> {
+  if (!api.ontology) return;
+  
+  const nodeId = `obsidian.${metadata.vault_id}.${metadata.relative_path.replace(/\//g, ".")}`;
+  
+  await api.ontology.setNode({
+    id: nodeId,
+    type: "obsidian:vault",
+    name: metadata.title,
+    properties: {
+      vault_id: metadata.vault_id,
+      file_path: metadata.file_path,
+      relative_path: metadata.relative_path,
+      title: metadata.title,
+      tags: metadata.tags,
+      wikilinks: metadata.wikilinks,
+      has_frontmatter: metadata.has_frontmatter,
+      created_at: metadata.created_at,
+      modified_at: metadata.modified_at,
+      last_indexed_at: metadata.last_indexed_at,
+    },
+    metadata: JSON.stringify(metadata),
+  });
+}
+
+/**
+ * Get all notes from a specific Obsidian vault
+ */
+export async function getObsidianVaultNotes(
+  api: AgentAPI,
+  vaultId: string,
+  folderPath?: string
+): Promise<ObsidianNoteMetadata[]> {
+  if (!api.ontology) return [];
+  
+  const results = await api.ontology.search({
+    type: "obsidian:vault",
+    domain: vaultId,
+  });
+  
+  const notes = results
+    .map(node => {
+      try {
+        return JSON.parse(node.metadata || "{}") as ObsidianNoteMetadata;
+      } catch {
+        return null;
+      }
+    })
+    .filter((n): n is ObsidianNoteMetadata => n !== null);
+  
+  // Filter by folder if provided
+  if (folderPath) {
+    const normalized = folderPath.replace(/\/$/, "");
+    return notes.filter(n => n.relative_path.startsWith(normalized + "/"));
+  }
+  
+  return notes;
+}
+
+/**
+ * Search Obsidian notes by tag, title, or content
+ */
+export async function searchObsidianNotes(
+  api: AgentAPI,
+  query: string,
+  vaultId?: string
+): Promise<ObsidianNoteMetadata[]> {
+  if (!api.ontology) return [];
+  
+  const results = await api.ontology.search({
+    type: "obsidian:vault",
+    domain: vaultId,
+    nameLike: query,
+  });
+  
+  return results
+    .map(node => {
+      try {
+        return JSON.parse(node.metadata || "{}") as ObsidianNoteMetadata;
+      } catch {
+        return null;
+      }
+    })
+    .filter((n): n is ObsidianNoteMetadata => n !== null);
+}
+
+/**
+ * Get notes by tag (search for tag in tags array)
+ */
+export async function getObsidianNotesByTag(
+  api: AgentAPI,
+  tag: string,
+  vaultId?: string
+): Promise<ObsidianNoteMetadata[]> {
+  const notes = await getObsidianVaultNotes(api, vaultId || "");
+  return notes.filter(n => n.tags.some(t => t.toLowerCase() === tag.toLowerCase()));
+}
+
+/**
+ * Get notes linking to a specific note (wikilink references)
+ */
+export async function getObsidianBacklinks(
+  api: AgentAPI,
+  targetTitle: string,
+  vaultId?: string
+): Promise<ObsidianNoteMetadata[]> {
+  const notes = await getObsidianVaultNotes(api, vaultId || "");
+  const normalized = targetTitle.toLowerCase().replace(/\.md$/i, "");
+  
+  return notes.filter(n =>
+    n.wikilinks.some(link => link.toLowerCase().replace(/\.md$/i, "") === normalized)
+  );
+}

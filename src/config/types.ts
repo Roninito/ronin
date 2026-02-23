@@ -255,6 +255,17 @@ export interface MeshNetworkConfig {
   };
 }
 
+export interface ObsidianVaultConfig {
+  id: string;
+  path: string;
+  enabled: boolean;
+  allowedFolders: string[];
+}
+
+export interface ObsidianConfig {
+  vaults: ObsidianVaultConfig[];
+}
+
 export interface FullConfig {
   configVersion: string;
   defaultCLI: string;
@@ -278,6 +289,7 @@ export interface FullConfig {
   speech: SpeechConfig;
   notifications: NotificationsConfig;
   mesh: MeshNetworkConfig;
+  obsidian?: ObsidianConfig;
   pluginDir: string;
   geminiModel: string;
 }
@@ -398,5 +410,7 @@ export type ConfigPath =
   | 'mesh.instance'
   | 'mesh.instance.name'
   | 'mesh.instance.description'
+  | 'obsidian'
+  | 'obsidian.vaults'
   | 'pluginDir'
   | 'geminiModel';

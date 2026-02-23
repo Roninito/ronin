@@ -44,6 +44,9 @@ Ontology + Markdown:
 - Entities (agents, skills, people, projects)
 - Relationships (dependencies, ownership, tags)
 - Metadata (descriptions, types, permissions)
+- System information (hardware, runtime)
+- Codebase structure (files, exports, imports)
+- Obsidian vault notes (metadata, frontmatter, links)
 
 **Structure:**
 ```typescript
@@ -122,7 +125,41 @@ def process_data(items):
 
 ---
 
-### Layer 3: Agent Memory (Learned Knowledge)
+### Layer 3: Obsidian Vaults (User Knowledge Base) — *Phase 6*
+
+**What it stores:**
+- Personal notes and research
+- Project documentation
+- Reference materials
+- Tagged knowledge
+- Linked notes and relationships
+
+**Structure:**
+```markdown
+---
+title: Understanding Transformers
+tags:
+  - ai-research
+  - deep-learning
+  - nlp
+---
+
+# Understanding Transformers
+
+Content about transformers. Links to [[LLM-Papers]] and [[Prompt-Engineering]].
+```
+
+**Query methods:**
+- By title: `searchObsidianNotes(api, "Transformers")`
+- By tag: `getObsidianNotesByTag(api, "ai-research")`
+- By vault: `getObsidianVaultNotes(api, "main-vault")`
+- Backlinks: `getObsidianBacklinks(api, "AI")`
+
+**See:** [Obsidian Integration Guide](OBSIDIAN_INTEGRATION.md) for setup and examples.
+
+---
+
+### Layer 4: Agent Memory (Learned Knowledge)
 
 **What it stores:**
 - Conversation history

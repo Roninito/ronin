@@ -231,6 +231,30 @@ export interface NotificationsConfig {
   timeoutSeconds: number;
 }
 
+export interface MeshNetworkConfig {
+  enabled: boolean;
+  mode: "local-only" | "wide-area" | "hybrid";
+  localMesh: {
+    enabled: boolean;
+    groupId: string;
+    discoveryPort: number;
+    dataPort: number;
+  };
+  privateNetwork: {
+    enabled: boolean;
+    sharedKey?: string;
+    networkName?: string;
+  };
+  wideArea: {
+    enabled: boolean;
+    discoveryScope: "link" | "admin" | "site" | "organisation" | "global";
+  };
+  instance: {
+    name: string;
+    description?: string;
+  };
+}
+
 export interface FullConfig {
   configVersion: string;
   defaultCLI: string;
@@ -253,11 +277,12 @@ export interface FullConfig {
   mcp: MCPConfig;
   speech: SpeechConfig;
   notifications: NotificationsConfig;
+  mesh: MeshNetworkConfig;
   pluginDir: string;
   geminiModel: string;
 }
 
-export type ConfigPath = 
+export type ConfigPath =
   | 'configVersion'
   | 'defaultCLI'
   | 'defaultAppsDirectory'
@@ -355,5 +380,23 @@ export type ConfigPath =
   | 'notifications'
   | 'notifications.preferredChat'
   | 'notifications.timeoutSeconds'
+  | 'mesh'
+  | 'mesh.enabled'
+  | 'mesh.mode'
+  | 'mesh.localMesh'
+  | 'mesh.localMesh.enabled'
+  | 'mesh.localMesh.groupId'
+  | 'mesh.localMesh.discoveryPort'
+  | 'mesh.localMesh.dataPort'
+  | 'mesh.privateNetwork'
+  | 'mesh.privateNetwork.enabled'
+  | 'mesh.privateNetwork.sharedKey'
+  | 'mesh.privateNetwork.networkName'
+  | 'mesh.wideArea'
+  | 'mesh.wideArea.enabled'
+  | 'mesh.wideArea.discoveryScope'
+  | 'mesh.instance'
+  | 'mesh.instance.name'
+  | 'mesh.instance.description'
   | 'pluginDir'
   | 'geminiModel';

@@ -187,6 +187,30 @@ export const DEFAULT_CONFIG: FullConfig = {
     timeoutSeconds: 30,
   },
 
+  mesh: {
+    enabled: false,
+    mode: "local-only",
+    localMesh: {
+      enabled: true,
+      groupId: "ronin-mesh",
+      discoveryPort: 29716,
+      dataPort: 42671,
+    },
+    privateNetwork: {
+      enabled: false,
+      sharedKey: "",
+      networkName: "",
+    },
+    wideArea: {
+      enabled: false,
+      discoveryScope: "link",
+    },
+    instance: {
+      name: "ronin-instance",
+      description: "",
+    },
+  },
+
   pluginDir: join(process.cwd(), "plugins"),
   geminiModel: "gemini-3-pro-preview",
 };

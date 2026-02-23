@@ -2098,9 +2098,6 @@ Execute the task using the available tools and emit events as needed. Provide a 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${this.escapeHtml(board.name)} - Kanban</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
@@ -2113,7 +2110,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: ${roninTheme.fonts.primary};
       background: ${roninTheme.colors.background};
       color: ${roninTheme.colors.textPrimary};
       min-height: 100vh;

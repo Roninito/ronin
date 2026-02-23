@@ -10,7 +10,9 @@
  * - ronin os clipboard disable Disable clipboard watching
  */
 
-import { install, uninstall, getStatus, verify } from "../../os/installers/mac.js";
+import { install as installMac, uninstall as uninstallMac, getStatus as getMacStatus, verify as verifyMac } from "../../os/installers/mac.js";
+import { install as installWindows, uninstall as uninstallWindows, getStatus as getWindowsStatus, verify as verifyWindows } from "../../os/installers/win.js";
+import { install as installLinux, uninstall as uninstallLinux, getStatus as getLinuxStatus, verify as verifyLinux } from "../../os/installers/linux.js";
 
 interface OSCommandOptions {
   bridgePort?: number;
@@ -30,23 +32,35 @@ export async function handleOSCommand(
     case "install":
       if (subAction === "mac" || subAction === "macos") {
         await installMacOS(options);
+      } else if (subAction === "win" || subAction === "windows") {
+        await installWindowsOS(options);
+      } else if (subAction === "linux") {
+        await installLinuxOS(options);
       } else {
-        console.log("Usage: ronin os install mac");
-        console.log("\nInstalls macOS Desktop Mode integrations:");
-        console.log("  • Quick Action: Right-click → Services → Send to Ronin");
-        console.log("  • LaunchAgent: Auto-starts Ronin with macOS");
+        console.log("Usage: ronin os install <mac|win|linux>");
+        console.log("\nInstalls Desktop Mode integrations:");
+        console.log("  • mac: macOS Quick Action + LaunchAgent");
+        console.log("  • win: Windows autostart registry entry");
+        console.log("  • linux: Linux XDG autostart + menu entry");
         console.log("\nOptions:");
         console.log("  --bridge-port PORT    Set bridge port (default: 17341)");
-        console.log("  --folders PATHS       Watch folders (comma-separated)");
+        console.log("  --folders PATHS       Watch folders (comma-separated, macOS only)");
       }
       break;
-      
+
     case "uninstall":
       if (subAction === "mac" || subAction === "macos") {
         await uninstallMacOS();
+      } else if (subAction === "win" || subAction === "windows") {
+        await uninstallWindowsOS();
+      } else if (subAction === "linux") {
+        await uninstallLinuxOS();
       } else {
-        console.log("Usage: ronin os uninstall mac");
-        console.log("\nRemoves all macOS Desktop Mode integrations.");
+        console.log("Usage: ronin os uninstall <mac|win|linux>");
+        console.log("\nRemoves Desktop Mode integrations:");
+        console.log("  • mac: Remove macOS Quick Action + LaunchAgent");
+        console.log("  • win: Remove Windows autostart registry entry");
+        console.log("  • linux: Remove Linux XDG autostart + menu entry");
       }
       break;
       
@@ -91,7 +105,7 @@ async function installMacOS(options: OSCommandOptions): Promise<void> {
     folders,
   };
   
-  const success = install(installOptions);
+  const success = installMac(installOptions);
   
   if (success) {
     console.log("\n💡 Tip: You can customize Desktop Mode settings in your config:");
@@ -104,10 +118,54 @@ async function installMacOS(options: OSCommandOptions): Promise<void> {
 }
 
 /**
+ * Install Windows Desktop Mode
+ */
+async function installWindowsOS(options: OSCommandOptions): Promise<void> {
+  console.log("\n🖥️  Ronin Desktop Mode for Windows\n");
+  
+  const installOptions = {
+    bridgePort: options.bridgePort,
+  };
+  
+  const success = installWindows(installOptions);
+  process.exit(success ? 0 : 1);
+}
+
+/**
  * Uninstall macOS Desktop Mode
  */
 async function uninstallMacOS(): Promise<void> {
-  const success = uninstall();
+  const success = uninstallMac();
+  process.exit(success ? 0 : 1);
+}
+
+/**
+ * Install Linux Desktop Mode
+ */
+async function installLinuxOS(options: OSCommandOptions): Promise<void> {
+  console.log("\n🐧 Ronin Desktop Mode for Linux\n");
+
+  const installOptions = {
+    bridgePort: options.bridgePort,
+  };
+
+  const success = installLinux(installOptions);
+  process.exit(success ? 0 : 1);
+}
+
+/**
+ * Uninstall Linux Desktop Mode
+ */
+async function uninstallLinuxOS(): Promise<void> {
+  const success = uninstallLinux();
+  process.exit(success ? 0 : 1);
+}
+
+/**
+ * Uninstall Windows Desktop Mode
+ */
+async function uninstallWindowsOS(): Promise<void> {
+  const success = uninstallWindows();
   process.exit(success ? 0 : 1);
 }
 
@@ -116,37 +174,90 @@ async function uninstallMacOS(): Promise<void> {
  */
 async function showStatus(): Promise<void> {
   console.log("\n📊 Ronin Desktop Mode Status\n");
-  
-  const status = getStatus();
-  
-  console.log("macOS Integration:");
-  console.log(`  Quick Action:     ${status.quickActionInstalled ? "✅ Installed" : "❌ Not installed"}`);
-  console.log(`  LaunchAgent:      ${status.launchAgentInstalled ? "✅ Installed" : "❌ Not installed"}`);
-  console.log(`  Bridge Port:      ${status.bridgePort}`);
-  
-  if (status.quickActionInstalled && status.launchAgentInstalled) {
-    console.log("\n✅ Desktop Mode is fully installed!");
-    console.log("\nTo enable:");
-    console.log("  ronin config set desktop.enabled true");
-    console.log("  ronin start");
-  } else if (status.quickActionInstalled || status.launchAgentInstalled) {
-    console.log("\n⚠️  Desktop Mode partially installed.");
-    console.log("Run: ronin os verify");
+
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    // macOS
+    const status = getMacStatus();
+
+    console.log("macOS Integration:");
+    console.log(`  Quick Action:     ${status.quickActionInstalled ? "✅ Installed" : "❌ Not installed"}`);
+    console.log(`  LaunchAgent:      ${status.launchAgentInstalled ? "✅ Installed" : "❌ Not installed"}`);
+    console.log(`  Bridge Port:      ${status.bridgePort}`);
+
+    if (status.quickActionInstalled && status.launchAgentInstalled) {
+      console.log("\n✅ Desktop Mode is fully installed!");
+      console.log("\nTo enable:");
+      console.log("  ronin config set desktop.enabled true");
+      console.log("  ronin start");
+    } else if (status.quickActionInstalled || status.launchAgentInstalled) {
+      console.log("\n⚠️  Desktop Mode partially installed.");
+      console.log("Run: ronin os verify");
+    } else {
+      console.log("\n❌ Desktop Mode not installed.");
+      console.log("Run: ronin os install mac");
+    }
+
+    console.log("\n💡 Quick test:");
+    console.log("  Right-click any file → Services → Send to Ronin");
+  } else if (platform === 'win32') {
+    // Windows
+    const status = getWindowsStatus();
+
+    console.log("Windows Integration:");
+    console.log(`  Autostart:        ${status.autostartEnabled ? "✅ Enabled" : "❌ Disabled"}`);
+    console.log(`  Bridge Port:        ${status.bridgePort}`);
+
+    if (status.autostartEnabled) {
+      console.log("\n✅ Desktop Mode is installed!");
+      console.log("\nTo enable:");
+      console.log("  ronin config set desktop.enabled true");
+      console.log("  ronin start");
+    } else {
+      console.log("\n❌ Desktop Mode not installed.");
+      console.log("Run: ronin os install win");
+    }
+  } else if (platform === 'linux') {
+    // Linux
+    const status = getLinuxStatus();
+
+    console.log("Linux Integration:");
+    console.log(`  Autostart:        ${status.autostartEnabled ? "✅ Enabled" : "❌ Disabled"}`);
+    console.log(`  Menu Entry:       ${status.menuEntryInstalled ? "✅ Installed" : "❌ Not installed"}`);
+    console.log(`  Bridge Port:      ${status.bridgePort}`);
+
+    if (status.autostartEnabled && status.menuEntryInstalled) {
+      console.log("\n✅ Desktop Mode is fully installed!");
+      console.log("\nTo enable:");
+      console.log("  ronin config set desktop.enabled true");
+      console.log("  ronin start");
+    } else if (status.autostartEnabled || status.menuEntryInstalled) {
+      console.log("\n⚠️  Desktop Mode partially installed.");
+      console.log("Run: ronin os verify");
+    } else {
+      console.log("\n❌ Desktop Mode not installed.");
+      console.log("Run: ronin os install linux");
+    }
   } else {
-    console.log("\n❌ Desktop Mode not installed.");
-    console.log("Run: ronin os install mac");
+    console.log(`❌ Desktop Mode not supported on ${platform}`);
   }
-  
-  console.log("\n💡 Quick test:");
-  console.log("  Right-click any file → Services → Send to Ronin");
 }
 
 /**
  * Verify installation
  */
 async function verifyInstallation(): Promise<void> {
-  const success = verify();
-  process.exit(success ? 0 : 1);
+  if (process.platform === 'darwin') {
+    const success = verifyMac();
+    process.exit(success ? 0 : 1);
+  } else if (process.platform === 'win32') {
+    const success = verifyWindows();
+    process.exit(success ? 0 : 1);
+  } else {
+    console.error(`Verification not supported on ${process.platform}`);
+    process.exit(1);
+  }
 }
 
 /**
@@ -186,13 +297,25 @@ Commands:
     Options:
       --bridge-port PORT   Set bridge port (default: 17341)
       --folders PATHS      Comma-separated list of folders to watch
-      
+
+  install win              Install Windows Desktop Mode
+    Options:
+      --bridge-port PORT   Set bridge port (default: 17341)
+
+  install linux            Install Linux Desktop Mode (GNOME/Ubuntu)
+    Options:
+      --bridge-port PORT   Set bridge port (default: 17341)
+
   uninstall mac            Remove macOS Desktop Mode
-  
+
+  uninstall win            Remove Windows Desktop Mode
+
+  uninstall linux          Remove Linux Desktop Mode
+
   status                   Show installation status
-  
+
   verify                   Verify installation is working
-  
+
   clipboard enable         Enable clipboard watching (explicit opt-in)
   clipboard disable        Disable clipboard watching
 
@@ -200,6 +323,11 @@ Examples:
   ronin os install mac
   ronin os install mac --bridge-port 8080
   ronin os install mac --folders "~/Desktop,~/Downloads,~/Documents"
+  ronin os install win
+  ronin os install linux
+  ronin os uninstall mac
+  ronin os uninstall win
+  ronin os uninstall linux
   ronin os status
   ronin os verify
   ronin os clipboard enable

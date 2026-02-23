@@ -434,6 +434,38 @@ export interface AgentAPI {
   };
 
   /**
+   * Mesh Network operations (if mesh networking is enabled)
+   * Enables discovery and execution of services across Ronin instances
+   */
+  mesh?: {
+    discoverServices(
+      query?: string,
+      options?: {
+        serviceType?: "skill" | "agent" | "tool";
+        maxDistance?: number;
+        minReliability?: number;
+      }
+    ): Array<{
+      instance: any;
+      service: any;
+      distance: number;
+      reliability: number;
+    }>;
+    executeRemoteService(
+      instanceId: string,
+      serviceName: string,
+      params: Record<string, any>
+    ): Promise<any>;
+    advertise(services: any[]): Promise<void>;
+    getStats(): {
+      instanceCount: number;
+      serviceCount: number;
+      cacheSize: number;
+    };
+    getCache(): any[];
+  };
+
+  /**
    * Skills operations (if skills plugin is loaded)
    * AgentSkills: discover, explore, use skill.md + scripts
    */

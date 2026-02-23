@@ -156,6 +156,8 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const ragAPI = bindPluginAPI<"rag">("rag");
   const ontologyAPI = bindPluginAPI<"ontology">("ontology");
   const skillsAPI = bindPluginAPI<"skills">("skills");
+  const pythonAPI = bindPluginAPI<"python">("python");
+  const reticulumAPI = bindPluginAPI<"reticulum">("reticulum");
 
   // console.log("[createAPI] All plugins loaded:", plugins.map(p => p.name));
 
@@ -190,6 +192,51 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const sttPlugin = plugins.find(p => p.name === "stt");
   if (sttPlugin && sttPlugin.plugin.methods.setEventsAPI) {
     (sttPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
+  }
+
+  // Initialize mesh discovery if Reticulum is available
+  let meshAPI: any = null;
+  const meshConfig = configService.getMesh();
+  if (reticulumAPI && meshConfig.enabled) {
+    try {
+      const { createMeshDiscovery } = await import("../mesh/index.js");
+      const meshDiscovery = createMeshDiscovery({
+        ai: wrappedAi as any,
+        memory: {} as any,
+        files: {} as any,
+        db: {} as any,
+        http: {} as any,
+        events: eventsAPI,
+        plugins: pluginsAPI,
+        config: configService as any,
+        tools: {} as any,
+        git: gitAPI,
+        shell: shellAPI,
+        scrape: scrapeAPI,
+        torrent: torrentAPI,
+        telegram: telegramAPI,
+        discord: discordAPI,
+        realm: realmAPI,
+        reticulum: reticulumAPI,
+        langchain: langchainAPI,
+        rag: ragAPI,
+        ontology: ontologyAPI,
+        skills: skillsAPI,
+      } as any);
+      
+      meshAPI = {
+        discoverServices: (query?: any, options?: any) => meshDiscovery.discoverServices(query, options),
+        executeRemoteService: (instanceId: string, serviceName: string, params: any) =>
+          meshDiscovery.executeRemoteService(instanceId, serviceName, params),
+        advertise: (services: any[]) => meshDiscovery.advertise(services),
+        getStats: () => meshDiscovery.getStats(),
+        getCache: () => meshDiscovery.getCache(),
+      };
+      
+      console.log("[mesh] Mesh discovery initialized");
+    } catch (error) {
+      console.warn("[mesh] Failed to initialize mesh discovery:", error);
+    }
   }
 
   // Wrap api.ai to emit analytics events for every completion, stream, and callTools
@@ -412,6 +459,9 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(telegramAPI && { telegram: telegramAPI }),
     ...(discordAPI && { discord: discordAPI }),
     ...(realmAPI && { realm: realmAPI }),
+    ...(pythonAPI && { python: pythonAPI }),
+    ...(reticulumAPI && { reticulum: reticulumAPI }),
+    ...(meshAPI && { mesh: meshAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
     ...(ragAPI && { rag: ragAPI }),
     ...(ontologyAPI && { ontology: ontologyAPI }),

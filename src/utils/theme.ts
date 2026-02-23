@@ -271,6 +271,77 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   position: sticky;
   top: 0;
   z-index: 100;
+  overflow: hidden;
+}
+
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 5% 30%, ${theme.colors.link}15 0%, transparent 2px),
+    radial-gradient(circle at 15% 70%, ${theme.colors.link}10 0%, transparent 3px),
+    radial-gradient(circle at 25% 20%, ${theme.colors.link}20 0%, transparent 2px),
+    radial-gradient(circle at 40% 60%, ${theme.colors.link}08 0%, transparent 4px),
+    radial-gradient(circle at 55% 40%, ${theme.colors.link}12 0%, transparent 2px),
+    radial-gradient(circle at 70% 80%, ${theme.colors.link}15 0%, transparent 3px),
+    radial-gradient(circle at 85% 25%, ${theme.colors.link}10 0%, transparent 2px),
+    radial-gradient(circle at 95% 55%, ${theme.colors.link}18 0%, transparent 3px);
+  animation: pixelGlitch 6s steps(8) infinite;
+  opacity: 0;
+}
+
+.header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    ${theme.colors.link}08 2%,
+    transparent 4%,
+    transparent 20%,
+    ${theme.colors.link}05 22%,
+    transparent 24%,
+    transparent 45%,
+    ${theme.colors.link}10 47%,
+    transparent 49%,
+    transparent 70%,
+    ${theme.colors.link}08 72%,
+    transparent 74%,
+    transparent 90%,
+    ${theme.colors.link}12 92%,
+    transparent 94%
+  );
+  animation: scanGlitch 4s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes pixelGlitch {
+  0%, 100% { opacity: 0; transform: translateX(0); }
+  5% { opacity: 0.8; transform: translateX(-1px); }
+  10% { opacity: 0.3; transform: translateX(2px); }
+  15% { opacity: 0.9; transform: translateX(-2px); }
+  20% { opacity: 0.2; transform: translateX(1px); }
+  25% { opacity: 0; transform: translateX(0); }
+  50% { opacity: 0; transform: translateX(0); }
+  55% { opacity: 0.7; transform: translateX(3px); }
+  60% { opacity: 0.4; transform: translateX(-1px); }
+  65% { opacity: 0.85; transform: translateX(1px); }
+  70% { opacity: 0.1; transform: translateX(-2px); }
+  75% { opacity: 0; transform: translateX(0); }
+}
+
+@keyframes scanGlitch {
+  0% { background-position: 0 0; }
+  100% { background-position: 100px 0; }
 }
 
 .header-home {
@@ -282,6 +353,8 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   color: ${HEADER_HOME_ICON_COLOR};
   text-decoration: none;
   line-height: 0;
+  position: relative;
+  z-index: 1;
 }
 .header-home:hover {
   opacity: 0.85;
@@ -294,6 +367,8 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   margin-right: auto;
   color: ${theme.colors.link};
   letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
 }
 
 .header-meta {
@@ -301,6 +376,8 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   color: ${theme.colors.textTertiary};
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  position: relative;
+  z-index: 1;
 }
 
 .header-meta span {
@@ -311,6 +388,8 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   display: flex;
   gap: ${theme.spacing.sm};
   align-items: center;
+  position: relative;
+  z-index: 1;
 }
 `;
 }

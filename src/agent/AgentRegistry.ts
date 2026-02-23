@@ -6,7 +6,7 @@ import { CronScheduler } from "./CronScheduler.js";
 import { logger } from "../utils/logger.js";
 import { join } from "path";
 import { networkInterfaces } from "os";
-import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../utils/theme.js";
+import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG } from "../utils/theme.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
 
@@ -994,64 +994,34 @@ export class AgentRegistry {
   <title>Ronin Status</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+    
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
-      color: #e5e5e5;
-      min-height: 100vh;
-      padding: 0;
-      line-height: 1.6;
-    }
-    
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 4rem 2rem;
+      padding: 2rem;
     }
-    
-    .header {
-      margin-bottom: 4rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding-bottom: 3rem;
-      text-align: center;
-    }
-    
-    .header h1 {
-      font-size: clamp(2.5rem, 5vw, 4rem);
-      font-weight: 300;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      color: #ffffff;
-    }
-    
-    .header p {
-      font-size: 1.1rem;
-      color: rgba(255, 255, 255, 0.6);
-      font-weight: 300;
-      margin-bottom: 1rem;
-    }
-    
+
     .status-badge {
       display: inline-block;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 0.5rem 1.25rem;
+      padding: 0.25rem 0.75rem;
       border-radius: 20px;
-      font-size: 0.875rem;
+      font-size: 0.75rem;
       font-weight: 500;
       color: rgba(255, 255, 255, 0.7);
     }
-    
+
     .status-badge.running {
       background: rgba(76, 175, 80, 0.15);
       border-color: rgba(76, 175, 80, 0.3);
@@ -1291,6 +1261,7 @@ export class AgentRegistry {
     const { useState, useEffect } = React;
     
     const statusData = ${JSON.stringify(statusData)};
+    const homeIconSvg = ${JSON.stringify(getHeaderHomeIconSVG())};
     
     function App() {
       const [data, setData] = useState(statusData);
@@ -1327,15 +1298,17 @@ export class AgentRegistry {
         return \`\${secs}s\`;
       };
       
-      return React.createElement('div', { className: 'container' },
+      return React.createElement('div', null,
         React.createElement('div', { className: 'header' },
-          React.createElement('h1', null, '⚡ Ronin Status'),
-          React.createElement('p', null, 'Agent System Dashboard'),
-          React.createElement('div', { 
-            className: \`status-badge \${data.running ? 'running' : ''}\`
-          }, data.running ? '🟢 Running' : '🔴 Stopped')
+          React.createElement('a', { href: '/', className: 'header-home', 'aria-label': 'Home', dangerouslySetInnerHTML: { __html: homeIconSvg } }),
+          React.createElement('h1', null, 'Ronin Status'),
+          React.createElement('div', { className: 'header-meta' },
+            React.createElement('div', { 
+              className: \`status-badge \${data.running ? 'running' : ''}\`
+            }, data.running ? '🟢 Running' : '🔴 Stopped')
+          )
         ),
-        React.createElement('div', { className: 'content' },
+        React.createElement('div', { className: 'container' },
           React.createElement('div', { className: 'info-grid' },
             React.createElement('div', { className: 'info-item' },
               React.createElement('div', { className: 'info-label' }, 'Port'),

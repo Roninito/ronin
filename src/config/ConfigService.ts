@@ -287,6 +287,13 @@ export class ConfigService {
   }
 
   /**
+   * Get mesh network configuration
+   */
+  getMesh() {
+    return this.config.mesh;
+  }
+
+  /**
    * Check if a value came from environment variable
    */
   isFromEnv(path: ConfigPath): boolean {

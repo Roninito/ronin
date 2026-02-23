@@ -7,6 +7,14 @@ import { ensureDefaultExternalAgentDir } from "../src/cli/commands/config.js";
 /**
  * Event-driven orchestrator for agent creation using LangGraph
  * Listens for 'create_agent' events and 'cancel_creation' events
+ * 
+ * ⚠️ NOTE: This agent uses LangChain's LangGraph intentionally.
+ * Reason: Agent creation requires multi-step state machine workflow:
+ * 1. Parse requirements → 2. Research patterns → 3. Generate code → 4. Validate → 5. Test
+ * 
+ * LangGraph provides explicit state transitions and visual workflow representation.
+ * Could be converted to SAR with context state, but LangGraph is cleaner for this use case.
+ * Part of pragmatic 80/20 split: ~95% of codebase uses SAR, 5% uses LangGraph for multi-state workflows.
  */
 export default class AgentCreatorOrchestrator extends BaseAgent {
   private activeCreations: Map<

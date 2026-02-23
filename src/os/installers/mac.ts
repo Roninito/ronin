@@ -379,6 +379,14 @@ export function install(options: InstallerOptions = {}): boolean {
     console.log("   2. Start Ronin: ronin start");
     console.log("   3. Right-click a file → Services → Send to Ronin");
     
+    // 4. Install RoninTray for system tray
+    console.log("\n📦 Installing RoninTray system tray application...");
+    const trayInstalled = installRoninTray();
+    
+    if (!trayInstalled) {
+      console.log("⚠️  RoninTray installation failed, but Desktop Mode is still functional");
+    }
+    
     return true;
   } catch (error) {
     console.error("\n❌ Installation failed:", error);
@@ -580,6 +588,99 @@ export function uninstallDaemon(): boolean {
     return true;
   } catch (error) {
     console.error("❌ Failed to uninstall daemon:", error);
+    return false;
+  }
+}
+
+/**
+ * Install RoninTray system tray application
+ */
+export function installRoninTray(): boolean {
+  try {
+    const roninTrayDir = join(homedir(), ".ronin", "apps", "RoninTray");
+    const appsDir = join(homedir(), ".ronin", "apps");
+    
+    // Ensure apps directory exists
+    if (!existsSync(appsDir)) {
+      mkdirSync(appsDir, { recursive: true });
+    }
+    
+    // Clone RoninTray repository
+    console.log("📦 Cloning RoninTray from GitHub...");
+    try {
+      execSync(`git clone --depth 1 https://github.com/roninito/RoninTray.git "${roninTrayDir}"`, {
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.log("ℹ️  RoninTray already installed, updating...");
+      execSync(`cd "${roninTrayDir}" && git pull origin main`, { stdio: "inherit" });
+    }
+    
+    // Install dependencies
+    console.log("📦 Installing dependencies...");
+    execSync(`cd "${roninTrayDir}" && npm install`, { stdio: "pipe" });
+    
+    // Build for macOS
+    console.log("🔨 Building RoninTray for macOS...");
+    execSync(`cd "${roninTrayDir}" && npm run build-mac`, { stdio: "pipe" });
+    
+    // Find and move the app bundle to Applications
+    const appPath = `${roninTrayDir}/src-tauri/target/universal-apple-darwin/release/bundle/macos/RoninTray.app`;
+    const appDestination = join("/Applications", "RoninTray.app");
+    
+    if (existsSync(appPath)) {
+      console.log("📦 Installing RoninTray.app to /Applications...");
+      if (existsSync(appDestination)) {
+        execSync(`rm -rf "${appDestination}"`);
+      }
+      execSync(`cp -r "${appPath}" "${appDestination}"`);
+    } else {
+      throw new Error("RoninTray.app not found after build");
+    }
+    
+    // Create LaunchAgent for RoninTray auto-start
+    const trayLaunchAgentDir = join(homedir(), "Library", "LaunchAgents");
+    if (!existsSync(trayLaunchAgentDir)) {
+      mkdirSync(trayLaunchAgentDir, { recursive: true });
+    }
+    
+    const trayLaunchAgentPath = join(trayLaunchAgentDir, "com.roninito.ronintray.plist");
+    const trayLaunchAgent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.roninito.ronintray</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/RoninTray.app/Contents/macOS/RoninTray</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${homedir()}/.ronin/logs/ronintray.log</string>
+    <key>StandardErrorPath</key>
+    <string>${homedir()}/.ronin/logs/ronintray.error.log</string>
+</dict>
+</plist>`;
+    
+    writeFileSync(trayLaunchAgentPath, trayLaunchAgent);
+    
+    // Load the LaunchAgent
+    try {
+      execSync(`launchctl load "${trayLaunchAgentPath}"`, { stdio: "pipe" });
+    } catch {
+      execSync(`launchctl unload "${trayLaunchAgentPath}" 2>/dev/null; launchctl load "${trayLaunchAgentPath}"`, { stdio: "pipe" });
+    }
+    
+    console.log("✅ RoninTray installed successfully");
+    console.log(`   App: /Applications/RoninTray.app`);
+    console.log(`   LaunchAgent: ${trayLaunchAgentPath}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to install RoninTray:", error);
     return false;
   }
 }

@@ -1,5 +1,6 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
+import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
 import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import {
@@ -1367,15 +1368,45 @@ export default class ChattyAgent extends BaseAgent {
 
     if (cmd === "analyze" && parts[2]) {
       const topic = parts.slice(2).join(" ");
-      if (this.api.langchain) {
-        try {
-          const analysis = await this.api.langchain.runAnalysisChain(topic, undefined, this.api);
-          return new Response(analysis, { headers: { "Content-Type": "text/plain" } });
-        } catch (error) {
-          return Response.json({ error: (error as Error).message }, { status: 500 });
-        }
-      } else {
-        return new Response("LangChain plugin not available", { status: 503 });
+      try {
+        const analysisPrompt = `Analyze the following topic and provide structured insights:
+
+Topic: ${topic}
+
+Please provide:
+1. Key concepts
+2. Important relationships
+3. Practical applications
+4. Recommended next steps
+
+Format as clear, actionable summary.`;
+
+        const stack = standardSAR({ maxTokens: 4096 });
+        const chain = this.createChain("chatty-analysis");
+        chain.useMiddlewareStack(stack);
+        
+        const ctx: any = {
+          messages: [
+            { role: "system", content: "You are an expert analyst providing clear, structured insights." },
+            { role: "user", content: analysisPrompt },
+          ],
+          ontology: { domain: "analysis", relevantSkills: [] },
+          budget: { max: 4096, current: 0, reservedForResponse: 512 },
+          conversationId: `analyze-${topic}-${Date.now()}`,
+          metadata: { maxToolIterations: 2 },
+        };
+
+        chain.withContext(ctx);
+        await chain.run();
+
+        const result = ctx.messages
+          .filter((m: any) => m.role === "assistant")
+          .map((m: any) => m.content)
+          .join("\n\n");
+
+        return new Response(result || "Analysis completed.", { headers: { "Content-Type": "text/plain" } });
+      } catch (error) {
+        return Response.json({ error: (error as Error).message }, { status: 500 });
       }
     }
 

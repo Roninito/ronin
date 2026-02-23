@@ -605,15 +605,38 @@ export function installRoninTray(): boolean {
       mkdirSync(appsDir, { recursive: true });
     }
     
-    // Clone RoninTray repository
-    console.log("📦 Cloning RoninTray from GitHub...");
-    try {
-      execSync(`git clone --depth 1 https://github.com/roninito/RoninTray.git "${roninTrayDir}"`, {
-        stdio: "inherit"
-      });
-    } catch (error) {
+    // Try to clone RoninTray repository from GitHub
+    console.log("📦 Setting up RoninTray...");
+    
+    const gitHubUrl = "https://github.com/roninito/RoninTray.git";
+    const localDevPath = join(process.cwd(), "..", "RoninTray");
+    
+    if (existsSync(roninTrayDir)) {
+      // Update existing installation
       console.log("ℹ️  RoninTray already installed, updating...");
-      execSync(`cd "${roninTrayDir}" && git pull origin main`, { stdio: "inherit" });
+      try {
+        execSync(`cd "${roninTrayDir}" && git pull origin main 2>/dev/null`, { stdio: "pipe" });
+      } catch {
+        // If pull fails, just continue with what we have
+        console.log("⚠️  Could not update from remote, using local version");
+      }
+    } else if (existsSync(localDevPath)) {
+      // Use local development copy if available
+      console.log("📦 Using local RoninTray development copy...");
+      execSync(`cp -r "${localDevPath}" "${roninTrayDir}"`);
+    } else {
+      // Try to clone from GitHub
+      console.log("📦 Cloning RoninTray from GitHub...");
+      try {
+        execSync(`git clone --depth 1 ${gitHubUrl} "${roninTrayDir}"`, { stdio: "inherit" });
+      } catch (error) {
+        console.error("\n⚠️  Could not clone RoninTray from GitHub.");
+        console.error(`   The repository may not be publicly available yet.`);
+        console.error(`   Please ensure ${gitHubUrl} is accessible.`);
+        console.log("\n💡 Tip: You can manually clone and build RoninTray later.");
+        console.log(`   Or push the local development version to GitHub.`);
+        throw error;
+      }
     }
     
     // Install dependencies
@@ -622,7 +645,7 @@ export function installRoninTray(): boolean {
     
     // Build for macOS
     console.log("🔨 Building RoninTray for macOS...");
-    execSync(`cd "${roninTrayDir}" && npm run build-mac`, { stdio: "pipe" });
+    execSync(`cd "${roninTrayDir}" && npm run build-mac 2>&1 | tail -5`, { stdio: "pipe" });
     
     // Find and move the app bundle to Applications
     const appPath = `${roninTrayDir}/src-tauri/target/universal-apple-darwin/release/bundle/macos/RoninTray.app`;

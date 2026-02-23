@@ -1,14 +1,7 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import type { ChainContext } from "../src/chain/types.js";
-import {
-  createChainLoggingMiddleware,
-  createOntologyResolveMiddleware,
-  createOntologyInjectMiddleware,
-  createSmartTrimMiddleware,
-  createTokenGuardMiddleware,
-  createAiToolMiddleware,
-} from "../src/middleware/index.js";
+import { standardSAR } from "../src/chains/templates.js";
 
 const SOURCE = "tool-calling";
 
@@ -56,7 +49,7 @@ export default class ToolCallingAgent extends BaseAgent {
   }
 
   /**
-   * Execute a request using SAR chain
+   * Execute a request using SAR chain (via standardSAR template)
    */
   private async runSARChain(
     userRequest: string,
@@ -83,18 +76,6 @@ export default class ToolCallingAgent extends BaseAgent {
 
 Keep responses concise and focused on the actual results.`;
 
-    // Build middleware stack (same pattern as messenger agent)
-    this.use(createChainLoggingMiddleware(SOURCE));
-    this.use(createOntologyResolveMiddleware({ api: this.api }));
-    this.use(createOntologyInjectMiddleware());
-    this.use(createSmartTrimMiddleware({ recentCount: 16 }));
-    this.use(createTokenGuardMiddleware());
-    this.use(
-      createAiToolMiddleware(this.api, {
-        logLabel: SOURCE,
-      })
-    );
-
     const ctx: ChainContext = {
       messages: [
         { role: "system", content: systemPrompt },
@@ -114,7 +95,9 @@ Keep responses concise and focused on the actual results.`;
     };
 
     try {
+      const stack = standardSAR({ maxTokens: 8192 });
       const chain = this.createChain(SOURCE);
+      chain.useMiddlewareStack(stack);
       chain.withContext(ctx);
       await chain.run();
 

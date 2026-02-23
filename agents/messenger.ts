@@ -8,14 +8,7 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import type { ChainContext } from "../src/chain/types.js";
-import {
-  createChainLoggingMiddleware,
-  createOntologyResolveMiddleware,
-  createOntologyInjectMiddleware,
-  createSmartTrimMiddleware,
-  createTokenGuardMiddleware,
-  createAiToolMiddleware,
-} from "../src/middleware/index.js";
+import { standardSAR } from "../src/chains/templates.js";
 
 const SOURCE = "messenger";
 
@@ -234,14 +227,6 @@ export default class MessengerAgent extends BaseAgent {
     console.log(`[messenger] Processing from ${message.source}: "${message.text.substring(0, 60)}..."`);
 
     const conversationId = `${message.sourceChannel}-${Date.now()}`;
-    
-    // Build middleware stack using base class SAR support
-    this.use(createChainLoggingMiddleware(SOURCE));
-    this.use(createOntologyResolveMiddleware({ api: this.api }));
-    this.use(createOntologyInjectMiddleware());
-    this.use(createSmartTrimMiddleware({ recentCount: 16 }));
-    this.use(createTokenGuardMiddleware());
-    this.use(createAiToolMiddleware(this.api, { logLabel: SOURCE }));
 
     const ctx: import("../src/chain/types.js").ChainContext = {
       messages: [
@@ -263,7 +248,9 @@ export default class MessengerAgent extends BaseAgent {
     };
 
     try {
+      const stack = standardSAR({ maxTokens: 8192 });
       const chain = this.createChain(SOURCE);
+      chain.useMiddlewareStack(stack);
       chain.withContext(ctx);
       await chain.run();
 

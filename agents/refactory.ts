@@ -7,15 +7,8 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import type { ToolDefinition, ToolResult, ToolContext } from "../src/tools/types.js";
-import {
-  createOntologyResolveMiddleware,
-  createOntologyInjectMiddleware,
-  createSmartTrimMiddleware,
-  createTokenGuardMiddleware,
-  createAiToolMiddleware,
-} from "../src/middleware/index.js";
+import { standardSAR } from "../src/chains/templates.js";
 import { Chain } from "../src/chain/Chain.js";
-import { MiddlewareStack } from "../src/middleware/MiddlewareStack.js";
 import type { ChainContext } from "../src/chain/types.js";
 import { join } from "path";
 import { homedir } from "os";
@@ -265,12 +258,7 @@ export default class RefactoryAgent extends BaseAgent {
       const systemContent = `${guidelines}\n\nYou are the refactory agent. Refactor the target (agent or file) according to the guidelines. Use the tools to read files, write files, and optionally run the CLI for code generation. Prefer converting agents to use SAR (Chain + middleware). When done, summarize what you changed.`;
       const userContent = `Target: ${target}\nRequest: ${description}`;
 
-      const stack = new MiddlewareStack<ChainContext>();
-      stack.use(createOntologyResolveMiddleware({ api: this.api }));
-      stack.use(createOntologyInjectMiddleware());
-      stack.use(createSmartTrimMiddleware({ recentCount: 12 }));
-      stack.use(createTokenGuardMiddleware());
-      stack.use(createAiToolMiddleware(this.api));
+      const stack = standardSAR({ maxTokens: 8192 });
 
       const ctx: ChainContext = {
         messages: [
@@ -290,7 +278,8 @@ export default class RefactoryAgent extends BaseAgent {
       };
 
       this.createChain(); // ensure executor exists
-      const chain = new Chain(this.executor!, stack, "refactor");
+      const chain = this.createChain("refactor");
+      chain.useMiddlewareStack(stack);
       chain.withContext(ctx);
       await chain.run();
 

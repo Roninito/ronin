@@ -92,9 +92,17 @@
     "servers": {
       "filesystem": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/ronin/Desktop/Bun Apps/ronin"],
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-filesystem",
+          "/Users/ronin/Desktop/Bun Apps/ronin"
+        ],
         "enabled": true
       }
     }
+  },
+  "desktop": {
+    "enabled": true,
+    "menubar": true
   }
 }

@@ -597,97 +597,41 @@ export function uninstallDaemon(): boolean {
  */
 export function installRoninTray(): boolean {
   try {
-    const roninTrayDir = join(homedir(), ".ronin", "apps", "RoninTray");
-    const appsDir = join(homedir(), ".ronin", "apps");
+    const appDestination = "/Applications/RoninTray.app";
     
-    // Ensure apps directory exists
-    if (!existsSync(appsDir)) {
-      mkdirSync(appsDir, { recursive: true });
+    // Get the embedded RoninTray.app from the Ronin installation
+    const embeddedApp = join(process.cwd(), "RoninTray.app");
+    
+    console.log("📦 Installing RoninTray...");
+    
+    // Check if we have the embedded app
+    if (!existsSync(embeddedApp)) {
+      console.warn("⚠️  RoninTray.app not found in Ronin installation.");
+      console.log("💡 RoninTray will be available in future releases.");
+      console.log("   For now, you can access the dashboard at: http://localhost:17341/");
+      return true; // Don't fail the installation
     }
     
-    // Try to clone RoninTray repository from GitHub
-    console.log("📦 Setting up RoninTray...");
-    
-    const gitHubUrl = "https://github.com/roninito/RoninTray.git";
-    const localDevPath = join(process.cwd(), "..", "RoninTray");
-    
-    if (existsSync(roninTrayDir)) {
-      // Update existing installation
-      console.log("ℹ️  RoninTray already installed, updating...");
-      try {
-        execSync(`cd "${roninTrayDir}" && git pull origin main 2>/dev/null`, { stdio: "pipe" });
-      } catch {
-        // If pull fails, just continue with what we have
-        console.log("⚠️  Could not update from remote, using local version");
-      }
-    } else if (existsSync(localDevPath)) {
-      // Use local development copy if available (exclude node_modules)
-      console.log("📦 Using local RoninTray development copy...");
-      execSync(`cp -r "${localDevPath}" "${roninTrayDir}" --exclude=node_modules --exclude=dist --exclude=.next --exclude=src-tauri/target 2>/dev/null || rsync -av --exclude=node_modules --exclude=dist --exclude=src-tauri/target "${localDevPath}/" "${roninTrayDir}/"`);
-    } else {
-      // Try to clone from GitHub
-      console.log("📦 Cloning RoninTray from GitHub...");
-      try {
-        execSync(`git clone --depth 1 ${gitHubUrl} "${roninTrayDir}"`, { stdio: "inherit" });
-      } catch (error) {
-        console.error("\n⚠️  Could not clone RoninTray from GitHub.");
-        console.error(`   The repository may not be publicly available yet.`);
-        console.error(`   Please ensure ${gitHubUrl} is accessible.`);
-        console.log("\n💡 Tip: You can manually clone and build RoninTray later.");
-        console.log(`   Or push the local development version to GitHub.`);
-        throw error;
-      }
-    }
-    
-    // Install dependencies
-    console.log("📦 Installing dependencies...");
-    try {
-      execSync(`cd "${roninTrayDir}" && npm install`, { stdio: "pipe" });
-    } catch (error) {
-      console.warn("⚠️  npm install had issues, but continuing...");
-    }
-    
-    // Build for macOS (with 20-minute timeout for first build)
-    const appPath = `${roninTrayDir}/src-tauri/target/universal-apple-darwin/release/bundle/macos/RoninTray.app`;
-    
-    // Check if app already built (skip if exists)
-    if (existsSync(appPath)) {
-      console.log("✅ RoninTray.app found, skipping build...");
-    } else {
-      console.log("🔨 Building RoninTray for macOS (this may take 10-15 minutes on first build)...");
-      console.log("   (This is normal - Tauri compiles Rust code and bundles the app)");
-      let buildSucceeded = false;
-      try {
-        // Show build progress as it happens
-        execSync(`cd "${roninTrayDir}" && timeout 1200 npm run build-mac`, { stdio: "inherit" });
-        buildSucceeded = true;
-      } catch (error) {
-        if (error.killed) {
-          console.warn("⚠️  RoninTray build timed out after 20 minutes.");
-        } else {
-          console.warn("⚠️  RoninTray build encountered an issue.");
-        }
-        console.log("💡 You can build manually with:");
-        console.log(`    cd "${roninTrayDir}"`);
-        console.log(`    npm run build-mac`);
-        buildSucceeded = false;
-      }
-      
-      if (!buildSucceeded) {
-        console.warn("⚠️  RoninTray build not yet complete.");
-        console.log("💡 You can build and install later with:");
-        console.log(`    cd "${roninTrayDir}" && npm run build-mac`);
-        console.log("   Then restart Ronin to load the app.");
-        return true; // Installation succeeds even if build fails
-      }
-    }
-    
-        // Find and move the app bundle to Applications
-    console.log("📦 Installing RoninTray.app to /Applications...");
+    // Remove old version if it exists
     if (existsSync(appDestination)) {
-      execSync(`rm -rf "${appDestination}"`);
+      console.log("   Removing previous installation...");
+      try {
+        execSync(`rm -rf "${appDestination}"`);
+      } catch {
+        console.warn("⚠️  Could not remove old RoninTray installation");
+      }
     }
-    execSync(`cp -r "${appPath}" "${appDestination}"`);
+    
+    // Copy the app to Applications
+    console.log("📦 Installing RoninTray.app to /Applications...");
+    try {
+      execSync(`cp -r "${embeddedApp}" "${appDestination}"`);
+    } catch (error) {
+      console.error("❌ Failed to install RoninTray.app");
+      console.log("💡 You can install manually:");
+      console.log(`    cp -r "${embeddedApp}" "${appDestination}"`);
+      return true; // Don't fail installation
+    }
     
     // Create LaunchAgent for RoninTray auto-start
     const trayLaunchAgentDir = join(homedir(), "Library", "LaunchAgents");
@@ -704,7 +648,7 @@ export function installRoninTray(): boolean {
     <string>com.roninito.ronintray</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Applications/RoninTray.app/Contents/macOS/RoninTray</string>
+        <string>/Applications/RoninTray.app/Contents/MacOS/RoninTray</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

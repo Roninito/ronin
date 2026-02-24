@@ -10,6 +10,7 @@
  * "Dojo" = training ground where new katas are vetting before activation
  */
 
+import { randomUUID } from "crypto";
 import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
 
@@ -73,7 +74,7 @@ export default class DojoAgent extends BaseAgent {
   }
 
   private async proposeKataInstall(proposal: any): Promise<void> {
-    const proposalId = crypto.randomUUID();
+    const proposalId = randomUUID();
 
     await this.api.memory.store(`kata_proposal_${proposalId}`, {
       type: "install",
@@ -100,7 +101,7 @@ export default class DojoAgent extends BaseAgent {
   }
 
   private async proposeNewKata(intent: string): Promise<void> {
-    const proposalId = crypto.randomUUID();
+    const proposalId = randomUUID();
 
     // Use AI to generate kata proposal
     const proposal = await this.api.ai.complete(

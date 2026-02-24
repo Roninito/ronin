@@ -2,7 +2,7 @@
  * Realms Registry: Manages realms, kata discovery, and installation approvals
  */
 
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 import type { Database } from "bun:sqlite";
 import type {
   Realm,
@@ -267,7 +267,7 @@ export class RealmsRegistry {
     kataVersion: string,
     fromRealm: string
   ): KataInstallRequest {
-    const id = crypto.randomUUID();
+    const id = randomUUID();
     const request: KataInstallRequest = {
       id,
       kataName,

@@ -10,12 +10,14 @@
  * Interfaces with:
  *   - TaskEngine (state management)
  *   - SkillAdapter (skill execution)
+ *   - ChildTaskCoordinator (child spawning)
  *   - Event bus (coordination)
  */
 
 import type { AgentAPI } from "../types/index.js";
 import { TaskEngine } from "./engine.js";
 import { SkillAdapter } from "../skills/adapter.js";
+import { ChildTaskCoordinator } from "./child-coordinator.js";
 import type { Task } from "./types.js";
 
 /**
@@ -24,10 +26,12 @@ import type { Task } from "./types.js";
 export class TaskExecutor {
   private engine: TaskEngine;
   private adapter: SkillAdapter;
+  private childCoordinator: ChildTaskCoordinator;
 
   constructor(private api: AgentAPI) {
     this.engine = new TaskEngine(api);
     this.adapter = new SkillAdapter(api);
+    this.childCoordinator = new ChildTaskCoordinator(api);
   }
 
   /**
@@ -35,7 +39,7 @@ export class TaskExecutor {
    *
    * Handles:
    *   - run skill: executes via SkillAdapter
-   *   - spawn kata: creates child task
+   *   - spawn kata: creates child task via ChildTaskCoordinator
    *   - phase transitions: calls engine.nextPhase()
    *   - completion: calls engine.complete()
    *   - errors: calls engine.fail()
@@ -58,6 +62,11 @@ export class TaskExecutor {
       // Start if pending
       if (task.state === "pending") {
         await this.engine.start(taskId);
+      }
+
+      // Skip execution if waiting for child
+      if (task.state === "waiting") {
+        return;
       }
 
       // Execute phase action
@@ -127,32 +136,22 @@ export class TaskExecutor {
   }
 
   /**
-   * Execute "spawn kata" phase action (Phase 3 feature)
-   * For now, just log that child spawning will be implemented
+   * Execute "spawn kata" phase action (Phase 7B)
    */
   private async spawnChildPhase(
     taskId: string,
     kataName: string,
     kataVersion: string
   ): Promise<void> {
-    // Phase 3 feature: child task spawning, parent waiting
-    // For now: log placeholder
-    this.api.events?.emit(
-      "task.child_spawn_requested",
-      {
-        type: "task.child_spawn_requested",
-        parentTaskId: taskId,
-        childKataName: kataName,
-        childKataVersion: kataVersion,
-        timestamp: Date.now(),
-      },
-      "task-executor"
-    );
-
-    // TODO Phase 3: Create child task, set parent to waiting, etc.
-    throw new Error(
-      `Child task spawning (Phase 3) not yet implemented. Requested: '${kataName}' v${kataVersion}`
-    );
+    try {
+      // Spawn child task
+      await this.childCoordinator.spawnChild(taskId, kataName, kataVersion);
+      // Parent is now in waiting state; child executes independently
+    } catch (error) {
+      throw new Error(
+        `Failed to spawn child kata '${kataName}' v${kataVersion}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   /**
@@ -184,5 +183,12 @@ export class TaskExecutor {
    */
   getAdapter(): SkillAdapter {
     return this.adapter;
+  }
+
+  /**
+   * Get child coordinator (for testing)
+   */
+  getChildCoordinator(): ChildTaskCoordinator {
+    return this.childCoordinator;
   }
 }

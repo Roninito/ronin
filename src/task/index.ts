@@ -4,3 +4,5 @@
 
 export * from "./types.js";
 export { TaskStorage, KataStorage } from "./storage.js";
+export { TaskEngine } from "./engine.js";
+export { TaskExecutor } from "./executor.js";

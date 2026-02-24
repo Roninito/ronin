@@ -64,8 +64,8 @@ export class TaskExecutor {
         await this.engine.start(taskId);
       }
 
-      // Skip execution if waiting for child
-      if (task.state === "waiting") {
+      // Skip execution if waiting for child or event
+      if (task.state === "waiting" || task.state === "waiting_for_event") {
         return;
       }
 
@@ -78,6 +78,10 @@ export class TaskExecutor {
           phase.action.kata,
           phase.action.version
         );
+      } else if (phase.action.type === "wait") {
+        // Set up event listener and exit (don't process terminal yet)
+        await this.executeWaitPhase(taskId, phase.action.eventName, phase.action.timeout);
+        return; // Don't process phase terminal, task is waiting
       }
 
       // Handle phase terminal
@@ -133,62 +137,68 @@ export class TaskExecutor {
       ...task.variables,
       [skillName]: result,
     });
-  }
 
   /**
-   * Execute "spawn kata" phase action (Phase 7B)
+   * Execute wait phase - subscribe to event and wait
    */
-  private async spawnChildPhase(
+  private async executeWaitPhase(
     taskId: string,
-    kataName: string,
-    kataVersion: string
+    eventName: string,
+    timeout?: number
   ): Promise<void> {
-    try {
-      // Spawn child task
-      await this.childCoordinator.spawnChild(taskId, kataName, kataVersion);
-      // Parent is now in waiting state; child executes independently
-    } catch (error) {
-      throw new Error(
-        `Failed to spawn child kata '${kataName}' v${kataVersion}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
+    // Set task state to waiting_for_event
+    await this.engine.setTaskState(taskId, "waiting_for_event");
 
-  /**
-   * Poll and execute all pending tasks
-   */
-  async pollAndExecute(): Promise<void> {
-    const pending = await this.engine.getPending();
-
-    for (const task of pending) {
+    // Create handler that will be called when event arrives
+    const handler = async (event: unknown) => {
       try {
-        await this.executePhase(task.id);
-      } catch (error) {
-        console.error(
-          `Error executing task '${task.id}': ${error instanceof Error ? error.message : String(error)}`
+        // Get task to verify it's still waiting
+        const currentTask = await this.engine.getTask(taskId);
+        if (!currentTask || currentTask.state !== "waiting_for_event") {
+          return;
+        }
+
+        // Store event data in task variables
+        currentTask.variables = {
+          ...currentTask.variables,
+          event_received: event,
+          event_timestamp: Date.now(),
+          event_name: eventName,
+        };
+
+        // Move to next phase
+        const phase = currentTask.kata.phases[currentTask.currentPhase];
+        if (phase.next) {
+          await this.engine.nextPhase(taskId);
+        } else {
+          await this.engine.complete(taskId);
+        }
+      } catch (e) {
+        await this.engine.fail(
+          taskId,
+          `Error handling event: ${e instanceof Error ? e.message : String(e)}`
         );
       }
+    };
+
+    // Subscribe to event
+    this.api.events?.on(eventName, handler);
+
+    // Set timeout if specified
+    if (timeout && timeout > 0) {
+      setTimeout(async () => {
+        try {
+          const currentTask = await this.engine.getTask(taskId);
+          if (currentTask && currentTask.state === "waiting_for_event") {
+            await this.engine.fail(
+              taskId,
+              `Timeout waiting for event '${eventName}' after ${timeout} seconds`
+            );
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }, timeout * 1000);
     }
-  }
-
-  /**
-   * Get executor engine (for manual control)
-   */
-  getEngine(): TaskEngine {
-    return this.engine;
-  }
-
-  /**
-   * Get skill adapter (for testing)
-   */
-  getAdapter(): SkillAdapter {
-    return this.adapter;
-  }
-
-  /**
-   * Get child coordinator (for testing)
-   */
-  getChildCoordinator(): ChildTaskCoordinator {
-    return this.childCoordinator;
   }
 }

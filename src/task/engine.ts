@@ -211,6 +211,22 @@ export class TaskEngine {
   }
 
   /**
+   * Set task state directly (used for waiting_for_event)
+   */
+  async setTaskState(taskId: string, state: TaskState): Promise<void> {
+    await this.taskStorage.updateById(taskId, { state });
+    
+    this.emit({
+      type: `task.state_changed`,
+      taskId,
+      kataName: "",
+      kataVersion: "",
+      state,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
    * Private: Emit task event via api.events
    */
   private emit(event: TaskEvent): void {

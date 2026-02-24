@@ -14,12 +14,13 @@ import type { CompiledKata, Phase } from "./kata/types.js";
  * Task State — deterministic state machine
  */
 export type TaskState =
-  | "pending" // Created, waiting to start
-  | "running" // Currently executing a phase
-  | "waiting" // Waiting for child task to complete (Phase 3)
-  | "completed" // All phases completed successfully
-  | "failed" // Phase execution failed
-  | "canceled"; // Manually canceled
+  | "pending"             // Created, waiting to start
+  | "running"             // Currently executing a phase
+  | "waiting"             // Waiting for child task to complete
+  | "waiting_for_event"   // Waiting for external event (Phase 10)
+  | "completed"           // All phases completed successfully
+  | "failed"              // Phase execution failed
+  | "canceled";           // Manually canceled
 
 /**
  * Result of phase execution

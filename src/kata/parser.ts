@@ -26,11 +26,13 @@ function tokenize(source: string): Token[] {
     "kata",
     "requires",
     "skill",
-    "kata",
     "initial",
     "phase",
     "run",
     "spawn",
+    "wait",
+    "event",
+    "timeout",
     "next",
     "complete",
     "fail",
@@ -49,6 +51,14 @@ function tokenize(source: string): Token[] {
       if (keywords.has(part)) {
         tokens.push({
           type: "keyword",
+          value: part,
+          line: lineNum,
+          column: col,
+        });
+      } else if (part.match(/^d+$/)) {
+        // Number token for timeout values
+        tokens.push({
+          type: "number",
           value: part,
           line: lineNum,
           column: col,
@@ -180,11 +190,27 @@ export class KataParser {
       const kata = this.expectIdentifier();
       const version = this.expectVersion();
       this.expectArrow();
-      // Note: variable binding (-> VAR) parsed but not stored in Phase (Phase 3)
-      this.expectIdentifier(); // consume variable name
+      this.expectIdentifier();
       action = { type: "spawn", kata, version };
+    } else if (this.peekKeyword("wait")) {
+      this.consumeKeyword("wait");
+      this.expectKeyword("event");
+      const eventName = this.expectIdentifier();
+
+      let timeout: number | undefined;
+      if (this.peekKeyword("timeout")) {
+        this.consumeKeyword("timeout");
+        const timeoutToken = this.current();
+        if (timeoutToken.type !== "number") {
+          throw this.error("Expected number after 'timeout'");
+        }
+        timeout = parseInt(timeoutToken.value, 10);
+        this.consume();
+      }
+
+      action = { type: "wait", eventName, timeout };
     } else {
-      throw this.error("Expected 'run' or 'spawn'");
+      throw this.error("Expected 'run', 'spawn', or 'wait'");
     }
 
     this.skipNewlines();

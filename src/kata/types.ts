@@ -8,11 +8,12 @@
  */
 
 /**
- * Phase Action: Either run a skill or spawn a child kata
+ * Phase Action: run skill, spawn kata, or wait for event
  */
 export type PhaseAction =
   | { type: "run"; skill: string }
-  | { type: "spawn"; kata: string; version: string };
+  | { type: "spawn"; kata: string; version: string }
+  | { type: "wait"; eventName: string; timeout?: number };
 
 /**
  * Phase Terminal State: How a phase ends
@@ -28,7 +29,6 @@ export interface Phase {
   next?: string; // Next phase name, or undefined if terminal
   terminal?: PhaseTerminal; // Set if phase is terminal (no next)
 }
-
 /**
  * Parsed Kata AST (output of parser)
  */
@@ -97,6 +97,7 @@ export interface Token {
   type:
     | "keyword"
     | "identifier"
+    | "number"
     | "version"
     | "arrow"
     | "newline"

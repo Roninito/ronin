@@ -763,3 +763,126 @@ VERSION     ::= "v" [0-9]+
 - **Author a Kata** → See [KATA_AUTHORING.md](KATA_AUTHORING.md)
 - **Run Tasks** → See [TASK_ENGINE_ARCHITECTURE.md](TASK_ENGINE_ARCHITECTURE.md)
 - **Multi-Phase Workflows** → See Phase 3 documentation (coming)
+
+---
+
+## Wait Actions — Event-Driven Workflows (Phase 10)
+
+**Wait actions** enable workflows to pause and wait for external events before continuing.
+
+### Syntax
+
+```
+wait event <event.name>
+wait event <event.name> timeout <seconds>
+```
+
+**Example:**
+```
+phase request
+  run skill send.notification
+  wait event user.approved timeout 3600
+  next process
+```
+
+### Complete Example: Approval Workflow
+
+```
+kata expense.approval v1
+requires skill send.email
+requires skill process.expense
+requires skill notify.user
+
+initial submit
+
+phase submit
+  run skill send.email
+  wait event expense.approved timeout 604800
+  next check_decision
+
+phase check_decision
+  if variables.event_received.approved == true
+    next approve_expense
+  else
+    next deny_expense
+
+phase approve_expense
+  run skill process.expense
+  run skill notify.user
+  complete
+
+phase deny_expense
+  run skill notify.user
+  complete
+```
+
+**How it works:**
+1. Send approval notification email
+2. **Wait** for `expense.approved` event (up to 7 days)
+3. When event arrives, check the decision
+4. Route to approve or deny phase based on event data
+
+### Event Data Access
+
+When an event arrives, it's stored in `task.variables`:
+
+```
+phase submit
+  wait event payment.completed timeout 300
+  next process
+
+phase process
+  # Access event data in next phase
+  # variables.event_received contains the event payload
+  # variables.event_timestamp contains arrival time
+  # variables.event_name contains event name
+  run skill store.payment
+  complete
+```
+
+### Use Cases
+
+**Human Approval:**
+```
+phase approval
+  run skill send.notification
+  wait event user.approved timeout 3600
+  next process
+```
+
+**Webhook Callback:**
+```
+phase api_call
+  run skill call.external.api
+  wait event webhook.response timeout 300
+  next process
+```
+
+**Event-Driven Coordination:**
+```
+phase reserve
+  run skill reserve.inventory
+  wait event inventory.reserved timeout 600
+  next notify
+```
+
+---
+
+## Updated Grammar Reference
+
+```
+action
+  ::= "run" "skill" IDENTIFIER
+    | "spawn" "kata" IDENTIFIER VERSION ("-> "IDENTIFIER)?
+    | "wait" "event" IDENTIFIER ("timeout" NUMBER)?
+
+NUMBER  ::= [0-9]+
+```
+
+---
+
+## Learn More
+
+- **Complete Event Documentation** → See [EVENT_WAIT_GUIDE.md](EVENT_WAIT_GUIDE.md)
+- **Conditional Routing** → See [CONDITIONAL_BRANCHING_GUIDE.md](CONDITIONAL_BRANCHING_GUIDE.md)
+- **Example Workflows** → See `agents/example-approval-workflow.ts`

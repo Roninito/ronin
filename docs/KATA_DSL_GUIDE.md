@@ -2,6 +2,165 @@
 
 **Kata DSL** is Ronin's human-readable orchestration language for multi-phase workflows. It enables you to define deterministic, versioned automation procedures that can be shared, executed, and debugged easily.
 
+---
+
+## Architecture: Where Kata Fits
+
+### Three-Layer Architecture
+
+Ronin uses three complementary layers for workflow automation:
+
+```
+┌──────────────────────────────────────────────────┐
+│ Kata DSL (Human Authoring)                       │
+│ "Compose workflows: spawn, sequence, branch"     │
+└──────────────────────┬───────────────────────────┘
+                       │ Executes via
+┌──────────────────────▼───────────────────────────┐
+│ SAR Chain (Semantic Runtime)                     │
+│ "Execute phases with middleware & tokens"        │
+└──────────────────────┬───────────────────────────┘
+                       │ Delegates to
+┌──────────────────────▼───────────────────────────┐
+│ Skills (Atomic Capabilities)                     │
+│ "Individual tools: mail.search, notify.user"     │
+└──────────────────────────────────────────────────┘
+```
+
+**Each layer is independent and reusable.**
+
+### Skills: The Bottom Layer
+
+Skills are **atomic, stateless functions** registered in Ronin's tool registry:
+
+```typescript
+// Example: A skill is just a function
+async function mailSearch(query: string) {
+  return findEmailsMatching(query);
+}
+
+// Registered as a "skill"
+// Available to: SAR chains, Kata workflows, agents
+```
+
+**Characteristics:**
+- Single responsibility (do one thing)
+- No state (each invocation is independent)
+- Reusable from anywhere (SAR, agents, katas)
+- Live code (no versioning)
+
+**Examples:** `mail.search`, `finance.extract`, `notify.user`, `slack.send`
+
+### SAR Chain: The Middle Layer
+
+SAR is Ronin's **semantic runtime** that executes skills with:
+
+- **Middleware stacks** (chainable composition)
+- **Token budget** (track AI costs)
+- **Ontology integration** (semantic awareness)
+- **Audit trails** (full logging)
+
+SAR can execute:
+1. **Direct skill calls:** `chain.invoke("mail.search", input)`
+2. **Kata phases:** Each kata phase runs via SAR
+
+### Kata DSL: The Top Layer
+
+Kata is Ronin's **orchestration language** for composing complex workflows:
+
+```
+kata finance.audit v2           ← Named & versioned
+requires skill mail.search      ← Declare dependencies
+requires skill finance.extract
+
+initial gather                  ← Start here
+
+phase gather
+  run skill mail.search         ← Execute skill via SAR
+  next analyze
+
+phase analyze
+  run skill finance.extract
+  next alert
+
+phase alert
+  run skill notify.user
+  complete                      ← End workflow
+```
+
+**Characteristics:**
+- **Deterministic** (state machine, no hidden state)
+- **Versioned** (immutable after registration)
+- **Human-readable** (DSL, not code)
+- **Auditable** (every transition logged)
+- **Composable** (can spawn child katas)
+
+**What Kata adds that skills can't provide:**
+1. **State management** (task.variables flow through phases)
+2. **Failure recovery** (retry policies, on-failure branches)
+3. **Parallel execution** (spawn multiple children, join results)
+4. **Conditional branching** (if/else based on previous results)
+
+---
+
+## Kata vs Skills: Key Differences
+
+| Aspect | Skills | Kata |
+|--------|--------|------|
+| **Scope** | Atomic operation | Multi-phase workflow |
+| **Authoring** | TypeScript/Python code | Human-readable DSL |
+| **State** | Stateless | Stateful (task variables) |
+| **Composition** | Manual in code | Declarative in DSL |
+| **Versioning** | Live code (no versions) | Immutable (versioned) |
+| **Execution** | Individual invocation | Deterministic state machine |
+| **Failure handling** | Throws error | Configurable retry/branches |
+| **Parallelism** | N/A (atomic) | Multi-child orchestration |
+
+**Key insight:** Skills are building blocks. Kata is the composition layer.
+
+### Example: Using Skills vs Kata
+
+**Without Kata (just skills):**
+```typescript
+// Manually orchestrate
+const searchResult = await mailSearch(...);
+const analysis = await extractAnalysis(searchResult);
+const notification = await notifyUser(analysis);
+// If any step fails, you handle it manually
+// If you want parallelism, you write Promise.all()
+// If you want versioning, you deploy new code
+```
+
+**With Kata:**
+```
+kata finance.audit v2
+requires skill mail.search
+requires skill finance.extract
+requires skill notify.user
+
+initial gather
+
+phase gather
+  run skill mail.search       ← Automatic
+  next analyze
+
+phase analyze
+  run skill finance.extract   ← Automatic
+  next alert
+
+phase alert
+  run skill notify.user       ← Automatic
+  complete
+```
+
+**Benefits of Kata:**
+- ✅ Humans can understand and edit the workflow
+- ✅ Workflow is versioned & immutable
+- ✅ Automatic state management
+- ✅ Built-in error recovery
+- ✅ Fully auditable execution
+- ✅ Easy to parallelize (add spawn blocks)
+- ✅ Easy to add conditionals (if/else phases)
 ## Quick Start
 
 ### Minimal Kata

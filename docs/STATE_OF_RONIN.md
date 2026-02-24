@@ -898,3 +898,125 @@ join all_completed
 
 *Ronin: Complete workflow orchestration for the modern age.*
 
+
+---
+
+## Appendix: Kata vs Skills Architecture
+
+### The Question: Is Kata Just Skills v2?
+
+**No.** Kata is an orchestration layer ON TOP of skills, not a replacement.
+
+### Three-Layer Stack
+
+```
+┌────────────────────────────────────────────┐
+│ Kata DSL (Orchestration)                   │
+│ "Compose multi-phase workflows"            │
+└────────────────┬─────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────┐
+│ SAR Chain (Semantic Runtime)              │
+│ "Execute with middleware, tokens, logs"   │
+└────────────────┬─────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────┐
+│ Skills (Atomic Capabilities)              │
+│ "Individual tools: mail.search, etc"      │
+└─────────────────────────────────────────┘
+```
+
+### Skills: Atomic Operations
+
+Skills are **stateless functions** that do one thing:
+
+```typescript
+async function mailSearch(query: string) {
+  return findEmails(query);  // Single responsibility
+}
+```
+
+**Characteristics:**
+- Atomic (do one thing)
+- Stateless (no memory between calls)
+- Live code (no versioning)
+- Reusable (from anywhere)
+
+### Kata: Workflow Orchestration
+
+Katas **compose skills** into complex, stateful workflows:
+
+```
+kata finance.audit v2
+requires skill mail.search         ← Uses skills
+requires skill finance.extract
+
+initial gather
+
+phase gather
+  run skill mail.search             ← Skills are building blocks
+  next analyze
+
+phase analyze
+  run skill finance.extract         ← State flows between phases
+  variables.analysis = result
+  next alert
+
+phase alert
+  run skill notify.user
+  complete
+```
+
+**What Kata adds:**
+1. **State management** - task.variables persist across phases
+2. **Failure recovery** - configurable retry & error handling
+3. **Parallel execution** - spawn multiple children, join results
+4. **Conditional branching** - if/else based on results
+5. **Versioning** - immutable, distributed workflows
+6. **Human authorship** - DSL, not code
+
+### Why Kata ≠ Skills
+
+**Skills alone can't:**
+- Maintain state across multiple invocations
+- Define retry logic or failure recovery
+- Execute parallel tasks with join semantics
+- Route execution based on previous results
+- Be versioned and distributed as a unit
+
+**Kata does all of this** by being an orchestration layer.
+
+### How They Work Together
+
+```
+Kata → TaskEngine.executePhase("gather")
+     → TaskExecutor.executeSkillPhase("mail.search")
+     → SkillAdapter.executeSkill("mail.search", input)
+     → SAR Chain (middleware stack)
+     → Actual skill code runs
+     → Result stored in task.variables
+     → Next phase uses task.variables
+```
+
+**Clean separation of concerns:**
+- **Skills** = what to do
+- **SAR** = how to do it (middleware, tokens, audit)
+- **Kata** = when to do it and what's next
+
+### Comparison with AgentSkills.io
+
+| Feature | AgentSkills | Ronin |
+|---------|-----------|-------|
+| Atomic operations | ✅ Skills | ✅ Skills |
+| Orchestration | ❌ Manual | ✅ Kata DSL |
+| State management | ❌ Manual | ✅ Automatic |
+| Deterministic execution | ❌ No | ✅ Yes |
+| Versioning | ❌ No | ✅ Yes |
+| Parallelism | ❌ Manual | ✅ Declarative |
+| Audit trail | ❌ No | ✅ Event-driven |
+| Token tracking | ❌ No | ✅ Via SAR |
+| Conditional branching | ❌ No | ✅ Yes |
+
+**Verdict:** Ronin provides everything AgentSkills does, plus a complete orchestration platform.
+
+---

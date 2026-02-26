@@ -671,17 +671,33 @@ export default class ModelManagerUIAgent extends BaseAgent {
   </div>
 
   <script>
+    console.log('[Models Manager] Script loaded');
     let editingModel = null;
     let editingProvider = null;
 
     async function loadProviders() {
+      console.log('[loadProviders] Starting...');
       try {
+        console.log('[loadProviders] Fetching models...');
         const modelsResp = await fetch('/models/api/managers/list');
+        if (!modelsResp.ok) {
+          throw new Error('Failed to load models: ' + modelsResp.status);
+        }
         const models = await modelsResp.json();
+        console.log('[loadProviders] Got models:', models.length);
+        
+        console.log('[loadProviders] Fetching providers...');
         const providersResp = await fetch('/models/api/managers/providers');
+        if (!providersResp.ok) {
+          throw new Error('Failed to load providers: ' + providersResp.status);
+        }
         const providers = await providersResp.json();
+        console.log('[loadProviders] Got providers:', Object.keys(providers).length);
 
         const container = document.getElementById('providers-container');
+        if (!container) {
+          throw new Error('Container element not found');
+        }
         container.innerHTML = '';
 
         for (const [providerKey, provider] of Object.entries(providers)) {
@@ -890,16 +906,16 @@ export default class ModelManagerUIAgent extends BaseAgent {
         const result = await response.json();
         
         if (response.ok && result.success) {
-          alert('✅ Model test successful!\n\nResponse: ' + (result.response || 'OK'));
+          alert('✅ Model test successful!\\n\\nResponse: ' + (result.response || 'OK'));
           button.textContent = '✅ Working';
           setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
         } else {
-          alert('❌ Model test failed:\n\n' + (result.error || 'Unknown error'));
+          alert('❌ Model test failed:\\n\\n' + (result.error || 'Unknown error'));
           button.textContent = '❌ Failed';
           setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
         }
       } catch (e) {
-        alert('❌ Error testing model:\n\n' + e.message);
+        alert('❌ Error testing model:\\n\\n' + e.message);
         button.textContent = '❌ Error';
         setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
       }
@@ -911,44 +927,75 @@ export default class ModelManagerUIAgent extends BaseAgent {
 
     // Provider management functions
     async function loadProvidersTab() {
+      console.log('[loadProvidersTab] Starting...');
       try {
+        console.log('[loadProvidersTab] Fetching providers...');
         const providersResp = await fetch('/models/api/managers/providers');
+        if (!providersResp.ok) {
+          throw new Error('Failed to load providers: ' + providersResp.status);
+        }
         const providers = await providersResp.json();
+        console.log('[loadProvidersTab] Got providers:', Object.keys(providers).length);
         
         const container = document.getElementById('providers-list');
+        if (!container) {
+          throw new Error('Container element not found');
+        }
         container.innerHTML = '';
 
         for (const [providerKey, provider] of Object.entries(providers)) {
           const card = document.createElement('div');
           card.className = 'provider-card';
-          card.innerHTML = \`
-            <h3>\${providerKey}</h3>
-            <div class="provider-info">
-              <div class="provider-info-item">
-                <label>Type</label>
-                <span>\${provider.type || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>Base URL</label>
-                <span>\${provider.baseUrl || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>API Key Env</label>
-                <span>\${provider.apiKeyEnv || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>Description</label>
-                <span>\${provider.description || 'N/A'}</span>
-              </div>
-            </div>
-            <div class="provider-actions">
-              <button class="btn" onclick="openEditProviderModal('\${providerKey}')">⚙️ Edit</button>
-              <button class="btn btn-danger" onclick="removeProvider('\${providerKey}')">🗑️ Remove</button>
-            </div>
-          \`;
+          
+          const h3 = document.createElement('h3');
+          h3.textContent = providerKey;
+          card.appendChild(h3);
+          
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'provider-info';
+          
+          const typeItem = document.createElement('div');
+          typeItem.className = 'provider-info-item';
+          typeItem.innerHTML = '<label>Type</label><span>' + (provider.type || 'N/A') + '</span>';
+          infoDiv.appendChild(typeItem);
+          
+          const baseUrlItem = document.createElement('div');
+          baseUrlItem.className = 'provider-info-item';
+          baseUrlItem.innerHTML = '<label>Base URL</label><span>' + (provider.baseUrl || 'N/A') + '</span>';
+          infoDiv.appendChild(baseUrlItem);
+          
+          const keyEnvItem = document.createElement('div');
+          keyEnvItem.className = 'provider-info-item';
+          keyEnvItem.innerHTML = '<label>API Key Env</label><span>' + (provider.apiKeyEnv || 'N/A') + '</span>';
+          infoDiv.appendChild(keyEnvItem);
+          
+          const descItem = document.createElement('div');
+          descItem.className = 'provider-info-item';
+          descItem.innerHTML = '<label>Description</label><span>' + (provider.description || 'N/A') + '</span>';
+          infoDiv.appendChild(descItem);
+          
+          card.appendChild(infoDiv);
+          
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'provider-actions';
+          
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn';
+          editBtn.textContent = '⚙️ Edit';
+          editBtn.onclick = () => openEditProviderModal(providerKey);
+          actionsDiv.appendChild(editBtn);
+          
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'btn btn-danger';
+          removeBtn.textContent = '🗑️ Remove';
+          removeBtn.onclick = () => removeProvider(providerKey);
+          actionsDiv.appendChild(removeBtn);
+          
+          card.appendChild(actionsDiv);
           container.appendChild(card);
         }
       } catch (e) {
+        console.error('[loadProvidersTab] Error:', e.message);
         document.getElementById('providers-list').innerHTML = '<p class="loading">Error: ' + e.message + '</p>';
       }
     }
@@ -1419,7 +1466,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
         if (provider.type === "remote" && provider.apiKeyEnv) {
           const apiKey = process.env[provider.apiKeyEnv];
           if (!apiKey) {
-            throw new Error(`API key not set for environment variable: ${provider.apiKeyEnv}`);
+            throw new Error(`API key not set for environment variable: ${provider.apiKeyEnv}. Please set this environment variable and restart Ronin.`);
           }
         }
 

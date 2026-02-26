@@ -2,7 +2,7 @@
  * Kata Runner Agent — Phase 7
  *
  * Scheduled task executor
- * - Runs every 30 seconds
+ * - Runs every 30 minutes
  * - Polls all pending tasks
  * - Executes phases via TaskExecutor
  * - Handles errors gracefully
@@ -13,15 +13,15 @@ import type { AgentAPI } from "@ronin/types/index.js";
 import { TaskExecutor } from "../src/task/executor.js";
 
 export default class KataRunnerAgent extends BaseAgent {
-  // Run every 30 seconds
-  static schedule = "*/30 * * * * *";
+  // Run every 30 minutes
+  static schedule = "*/30 * * * *";
 
   private executor: TaskExecutor;
 
   constructor(api: AgentAPI) {
     super(api);
     this.executor = new TaskExecutor(api);
-    console.log("⚔️  Kata Runner ready. Polling every 30s for pending tasks");
+    console.log("⚔️  Kata Runner ready. Polling every 30m for pending tasks");
   }
 
   async execute(): Promise<void> {

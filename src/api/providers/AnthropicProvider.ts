@@ -218,9 +218,11 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
       if (block.type === "text" && block.text) {
         messageText = block.text;
       } else if (block.type === "tool_use" && block.tool_use) {
+        // Anthropic converts dots to underscores in tool names, so convert back
+        const toolName = block.tool_use.name.replace(/_/g, ".");
         toolCalls.push({
           id: block.tool_use.id,
-          name: block.tool_use.name,
+          name: toolName,
           arguments: block.tool_use.input,
         });
       }

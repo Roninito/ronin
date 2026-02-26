@@ -85,7 +85,7 @@
         "maxDailySpend": 10.0,
         "maxMonthlySpend": 100.0,
         "maxConcurrent": 5,
-        "maxTokensPerRequest": 4096,
+        "maxTokensPerRequest": 20000,
         "rateLimit": {
           "requestsPerMinute": 60,
           "tokensPerMinute": 100000

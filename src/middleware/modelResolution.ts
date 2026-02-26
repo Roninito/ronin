@@ -64,7 +64,28 @@ export const modelResolution: Middleware<ChainContext> = async (ctx, next) => {
   // Check constraints (estimated based on budget)
   // Use the full budget max, not capped at 4096
   const estimatedTokens = ctx.budget?.max || 4096;
-  const canHandle = await modelSelector.canHandleRequest(selectedNametag, estimatedTokens);
+  let canHandle = await modelSelector.canHandleRequest(selectedNametag, estimatedTokens);
+
+  // If selected model can't handle request, try fallback to larger models
+  if (!canHandle.allowed && selectedNametag) {
+    const allModels = await modelSelector.listModels();
+    
+    // Sort by maxTokensPerRequest descending to find capable fallback
+    const capable = allModels
+      .filter((m) => m.limits.maxTokensPerRequest >= estimatedTokens)
+      .sort((a, b) => b.limits.maxTokensPerRequest - a.limits.maxTokensPerRequest);
+    
+    if (capable.length > 0) {
+      const fallback = capable[0];
+      console.log(
+        `[modelResolution] Falling back from '${selectedNametag}' to '${fallback.nametag}' ` +
+        `(supports ${fallback.limits.maxTokensPerRequest} tokens)`
+      );
+      selectedNametag = fallback.nametag;
+      ctx.modelNametag = fallback.nametag;
+      canHandle = { allowed: true };
+    }
+  }
 
   if (!canHandle.allowed) {
     throw new Error(

@@ -191,6 +191,7 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
     const anthropicTools = tools.map((tool) => {
       const sanitizedName = tool.name.replace(/\./g, "_");
       nameMapping[sanitizedName] = tool.name;
+      console.log(`[AnthropicProvider] Sanitizing tool: ${tool.name} → ${sanitizedName}`);
       return {
         name: sanitizedName,
         description: tool.description,
@@ -228,6 +229,7 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
       } else if (block.type === "tool_use" && block.tool_use) {
         // Map the sanitized name back to the original name with dots
         const toolName = nameMapping[block.tool_use.name] || block.tool_use.name;
+        console.log(`[AnthropicProvider] Tool call: ${block.tool_use.name} → ${toolName} (mapped: ${toolName in nameMapping})`);
         toolCalls.push({
           id: block.tool_use.id,
           name: toolName,

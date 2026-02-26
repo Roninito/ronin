@@ -13,6 +13,7 @@ import type {
   ToolCall,
 } from "../types/api.js";
 import type { AIConfig, AIProviderType, GeminiConfig, GrokConfig } from "../config/types.js";
+import { AnthropicProvider } from "./providers/AnthropicProvider.js";
 
 // ─── Provider Interface ────────────────────────────────────────────────
 
@@ -767,6 +768,14 @@ export function createProvider(
       return new OpenAICompatibleProvider(
         aiConfig.openai.apiKey, aiConfig.openai.baseUrl, aiConfig.openai.model, timeout, temp,
       );
+    case "anthropic":
+      const anthropicApiKey = aiConfig.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY;
+      if (!anthropicApiKey) throw new Error("Anthropic API key not configured. Set anthropic.apiKey in config or ANTHROPIC_API_KEY env var.");
+      return new AnthropicProvider({
+        apiKey: anthropicApiKey,
+        model: aiConfig.anthropic?.model,
+        timeout,
+      });
     case "gemini":
       if (!geminiConfig?.apiKey) throw new Error("Gemini API key not configured. Set gemini.apiKey in config or GEMINI_API_KEY env var.");
       return new GeminiProvider(geminiConfig, timeout, temp);

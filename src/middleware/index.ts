@@ -13,3 +13,4 @@ export type { OntologyResolveOptions } from "./ontologyResolve.js";
 export { createPhaseResetMiddleware } from "./phaseReset.js";
 export { createPersistChainMiddleware } from "./persistChain.js";
 export type { PersistChainOptions } from "./persistChain.js";
+export { createExecutionTrackingMiddleware, getExecutionLog, clearExecutionLog } from "./executionTracking.js";

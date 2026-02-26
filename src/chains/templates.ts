@@ -21,6 +21,7 @@ import {
   createOntologyResolveMiddleware,
   createPersistChainMiddleware,
   createPhaseResetMiddleware,
+  createExecutionTrackingMiddleware,
 } from "../middleware/index.js";
 import { modelResolution } from "../middleware/modelResolution.js";
 import { Chain } from "../chain/Chain.js";
@@ -143,6 +144,9 @@ export function standardSAR(options: TemplateOptions = {}): MiddlewareStack {
     })
   );
 
+  // Track execution visibility (shell commands, skills, tools)
+  stack.use(createExecutionTrackingMiddleware());
+
   // Execute tools via AI
   stack.use(
     createAiToolMiddleware({
@@ -215,6 +219,9 @@ export function smartSAR(options: TemplateOptions = {}): MiddlewareStack {
       maxIterations: 10,
     })
   );
+
+  // Track execution visibility (shell commands, skills, tools)
+  stack.use(createExecutionTrackingMiddleware());
 
   // Persist chain state
   if (options.enablePersistence !== false) {

@@ -31,11 +31,12 @@ interface ModelInfo {
 export default class ModelSelectorUIAgent extends BaseAgent {
   constructor(api: AgentAPI) {
     super(api);
+    this.registerRoutes();
+    console.log("[model-selector-ui] Dashboard available at /models");
   }
 
   async execute(): Promise<void> {
-    this.registerRoutes();
-    console.log("[model-selector-ui] Dashboard available at /models");
+    // No-op - routes registered in constructor
   }
 
   private registerRoutes(): void {

@@ -745,8 +745,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
               const card = document.createElement('div');
               card.className = 'model-card';
               
-              const headerDiv = document.createElement('div');
-              headerDiv.className = 'model-header';
+              const modelHeaderDiv = document.createElement('div');
+              modelHeaderDiv.className = 'model-header';
               
               const infoDiv = document.createElement('div');
               infoDiv.className = 'model-info';
@@ -787,9 +787,9 @@ export default class ModelManagerUIAgent extends BaseAgent {
               removeBtn.onclick = () => removeModel(m.nametag);
               actionsDiv.appendChild(removeBtn);
               
-              headerDiv.appendChild(infoDiv);
-              headerDiv.appendChild(actionsDiv);
-              card.appendChild(headerDiv);
+              modelHeaderDiv.appendChild(infoDiv);
+              modelHeaderDiv.appendChild(actionsDiv);
+              card.appendChild(modelHeaderDiv);
               
               const settingsDiv = document.createElement('div');
               settingsDiv.className = 'settings';

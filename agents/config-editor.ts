@@ -1579,7 +1579,10 @@ export default class ConfigEditorAgent extends BaseAgent {
     }
 
     function renderShellList() {
-      const arr = (((currentConfig || {}).system || {}).safeShellCommands || []);
+      const arr =
+        (((currentConfig || {}).system || {}).safeShellCommands) ||
+        (((defaultConfig || {}).system || {}).safeShellCommands) ||
+        [];
       const text = Array.isArray(arr) ? arr.join('\\n') : '';
       const el = document.getElementById('shellCommandsTextarea');
       if (el) el.value = text;
@@ -1613,6 +1616,12 @@ export default class ConfigEditorAgent extends BaseAgent {
         } else {
           for (const key of Object.keys(defaultConfig)) {
             if (currentConfig[key] === undefined) currentConfig[key] = JSON.parse(JSON.stringify(defaultConfig[key]));
+          }
+          if (!currentConfig.system || typeof currentConfig.system !== 'object') currentConfig.system = {};
+          if (!Array.isArray(currentConfig.system.safeShellCommands)) {
+            currentConfig.system.safeShellCommands = Array.isArray(defaultConfig?.system?.safeShellCommands)
+              ? [...defaultConfig.system.safeShellCommands]
+              : [];
           }
         }
         renderForm();

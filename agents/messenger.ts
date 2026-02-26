@@ -254,65 +254,64 @@ export default class MessengerAgent extends BaseAgent {
       chain.withContext(ctx);
       await chain.run();
 
-      // Extract AI's response from messages
       const assistantMessages = ctx.messages
         .filter((m) => m.role === "assistant" && m.content)
         .map((m) => m.content)
         .join("\n\n");
 
-      // If AI responded with text, send it
-      if (assistantMessages && message.replyCallback) {
-        await message.replyCallback(this.formatResponse(assistantMessages));
+      const toPreview = (value: unknown, max = 700): string => {
+        try {
+          const raw = typeof value === "string" ? value : JSON.stringify(value);
+          return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+        } catch {
+          const raw = String(value);
+          return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+        }
+      };
+
+      const toolMessages = ctx.messages.filter((m) => m.role === "tool");
+      const toolSummaries = toolMessages.slice(0, 8).map((m: any, idx) => {
+        try {
+          const parsed = JSON.parse(m.content);
+          const ok = parsed.success === true;
+          const status = ok ? "✅ success" : "❌ error";
+          const details = ok ? toPreview(parsed.data) : toPreview(parsed.error || "Unknown error");
+          return `${idx + 1}. ${m.name || "tool"} — ${status}\n${details}`;
+        } catch {
+          return `${idx + 1}. ${m.name || "tool"} — ${toPreview(m.content)}`;
+        }
+      });
+      const toolSummaryText = toolSummaries.join("\n\n");
+
+      // Always synthesize tool-driven runs into a final conversational reply
+      if (toolMessages.length > 0 && message.replyCallback) {
+        const synthesisPrompt =
+          `You are preparing the final user reply for a completed tool run.\n\n` +
+          `User request:\n${message.text}\n\n` +
+          `Draft assistant text (may be empty):\n${assistantMessages || "(none)"}\n\n` +
+          `Tool execution summary:\n${toolSummaryText}\n\n` +
+          `Write a concise, helpful final answer. Do not dump raw JSON. ` +
+          `If a tool failed, explain clearly and suggest the next action.`;
+        try {
+          const synthesized = await this.api.ai.complete(synthesisPrompt, {
+            model: this.model,
+            maxTokens: 700,
+          });
+          if (synthesized?.trim()) {
+            await message.replyCallback(this.formatResponse(synthesized));
+            return;
+          }
+        } catch (err) {
+          console.error("[messenger] Synthesis failed, using summary fallback:", err);
+        }
+
+        await message.replyCallback(this.formatResponse(toolSummaryText || assistantMessages || "✅ Completed."));
         return;
       }
 
-      // Fallback: AI called tools but didn't respond - format tool results
-      const toolResults = ctx.messages
-        .filter((m) => m.role === "tool")
-        .map((m: any) => {
-          try {
-            const parsed = JSON.parse(m.content);
-            
-            // Tool results have structure: {success, data, error}
-            // Skills.run wraps in another layer: {data: {skill, output: {...}}}
-            const isSuccess = parsed.success ?? (parsed.data && typeof parsed.data === 'object' && 'success' in parsed.data ? parsed.data.success : false);
-            const dataContent = parsed.data && typeof parsed.data === 'object' && 'skill' in parsed.data ? parsed.data : (parsed.data || {});
-            const output = dataContent.output || dataContent;
-            const error = parsed.error;
-            
-            // Check for Mermaid diagram
-            if (output && typeof output === 'object' && output.diagram) {
-              return `✅ Here's your diagram:\n\n\`\`\`mermaid\n${output.diagram}\n\`\`\`\n\nView/Edit: ${output.url || "N/A"}`;
-            }
-            
-            // Generic success with output
-            if (isSuccess && output && !error) {
-              if (typeof output === 'string') return output;
-              if (typeof output === 'object' && Object.keys(output).length > 0) {
-                return `✅ Result:\n${JSON.stringify(output, null, 2)}`;
-              }
-              return `✅ Completed successfully`;
-            }
-            
-            // Error case
-            if (!isSuccess || error) {
-              return `❌ Error: ${error || "Unknown error"}`;
-            }
-            
-            // Last resort
-            return `✅ Completed successfully`;
-          } catch (e) {
-            console.log("[messenger] Fallback parse error:", e);
-            return m.content;
-          }
-        })
-        .join("\n\n");
-
-      if (toolResults && message.replyCallback) {
-        console.log(`[messenger] Sending tool result fallback to ${message.sourceChannel}`);
-        console.log(`[messenger] Reply content: ${toolResults.substring(0, 200)}...`);
-        await message.replyCallback(this.formatResponse(toolResults));
-      } else if (!assistantMessages) {
+      if (assistantMessages && message.replyCallback) {
+        await message.replyCallback(this.formatResponse(assistantMessages));
+      } else {
         console.warn("[messenger] No assistant messages AND no tool results to send!");
       }
     } catch (error) {

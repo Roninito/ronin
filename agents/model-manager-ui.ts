@@ -617,6 +617,57 @@ export default class ModelManagerUIAgent extends BaseAgent {
     </div>
   </div>
 
+  <div id="add-model-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="add-model-title">Add Model to Provider</h3>
+        <button class="modal-close" onclick="closeAddModelModal()">&times;</button>
+      </div>
+      <form id="add-model-form">
+        <div class="form-group">
+          <label>Model Name (Display)</label>
+          <input type="text" id="add-model-displayName" placeholder="e.g., My Custom Model" required>
+        </div>
+        <div class="form-group">
+          <label>Model ID (Nametag)</label>
+          <input type="text" id="add-model-nametag" placeholder="e.g., my-custom-model" required>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="add-model-description" placeholder="Model description">
+        </div>
+        <div class="form-group">
+          <label>Max Tokens Per Request</label>
+          <input type="number" id="add-model-maxTokens" min="1024" max="128000" value="4096" required>
+        </div>
+        <div class="form-group">
+          <label>Temperature (0-2)</label>
+          <input type="number" id="add-model-temperature" min="0" max="2" step="0.1" value="0.7" required>
+        </div>
+        <div class="form-group">
+          <label>Cost Per Million Input Tokens</label>
+          <input type="number" id="add-model-costPerMTok" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+          <label>Cost Per Million Output Tokens</label>
+          <input type="number" id="add-model-costPerOTok" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+          <label>Max Daily Spend (\$)</label>
+          <input type="number" id="add-model-maxDailySpend" min="0" step="1" value="0">
+        </div>
+        <div class="form-group">
+          <label>Max Monthly Spend (\$)</label>
+          <input type="number" id="add-model-maxMonthlySpend" min="0" step="1" value="0">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeAddModelModal()">Cancel</button>
+          <button type="button" class="btn" style="background: ${roninTheme.colors.link}; color: ${roninTheme.colors.background}; border-color: ${roninTheme.colors.link};" onclick="saveNewModel()">Add Model</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     let editingModel = null;
     let editingProvider = null;
@@ -700,6 +751,13 @@ export default class ModelManagerUIAgent extends BaseAgent {
             }
             contentDiv.appendChild(modelsList);
           }
+          
+          // Add model button
+          const addButton = document.createElement('button');
+          addButton.className = 'add-button';
+          addButton.textContent = '+ Add Model';
+          addButton.onclick = () => openAddModelModal('${providerKey}');
+          contentDiv.appendChild(addButton);
           
           section.appendChild(headerDiv);
           section.appendChild(contentDiv);
@@ -967,6 +1025,82 @@ export default class ModelManagerUIAgent extends BaseAgent {
 
         if (response.ok) {
           loadProvidersTab();
+        } else {
+          const error = await response.json();
+          alert('Error: ' + error.error);
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    // Model addition functions
+    let addingToProvider = null;
+
+    function openAddModelModal(providerName) {
+      addingToProvider = providerName;
+      document.getElementById('add-model-title').textContent = `Add Model to ${providerName}`;
+      document.getElementById('add-model-displayName').value = '';
+      document.getElementById('add-model-nametag').value = '';
+      document.getElementById('add-model-description').value = '';
+      document.getElementById('add-model-maxTokens').value = '4096';
+      document.getElementById('add-model-temperature').value = '0.7';
+      document.getElementById('add-model-costPerMTok').value = '0';
+      document.getElementById('add-model-costPerOTok').value = '0';
+      document.getElementById('add-model-maxDailySpend').value = '0';
+      document.getElementById('add-model-maxMonthlySpend').value = '0';
+      document.getElementById('add-model-modal').classList.add('show');
+    }
+
+    function closeAddModelModal() {
+      document.getElementById('add-model-modal').classList.remove('show');
+    }
+
+    async function saveNewModel() {
+      try {
+        const nametag = document.getElementById('add-model-nametag').value.trim();
+        const displayName = document.getElementById('add-model-displayName').value.trim();
+        
+        if (!nametag || !displayName) {
+          alert('Model name and ID are required');
+          return;
+        }
+
+        const modelConfig = {
+          provider: addingToProvider,
+          modelId: nametag,
+          nametag,
+          displayName,
+          description: document.getElementById('add-model-description').value,
+          tags: [],
+          isDefault: false,
+          limits: {
+            costPerMTok: parseFloat(document.getElementById('add-model-costPerMTok').value) || 0,
+            costPerOTok: parseFloat(document.getElementById('add-model-costPerOTok').value) || 0,
+            maxDailySpend: parseFloat(document.getElementById('add-model-maxDailySpend').value) || 0,
+            maxMonthlySpend: parseFloat(document.getElementById('add-model-maxMonthlySpend').value) || 0,
+            maxConcurrent: 5,
+            maxTokensPerRequest: parseInt(document.getElementById('add-model-maxTokens').value),
+            rateLimit: {
+              requestsPerMinute: 60,
+              tokensPerMinute: 100000
+            }
+          },
+          config: {
+            temperature: parseFloat(document.getElementById('add-model-temperature').value),
+            topP: 0.9
+          }
+        };
+
+        const response = await fetch('/models/api/managers/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag, config: modelConfig })
+        });
+
+        if (response.ok) {
+          closeAddModelModal();
+          loadProviders();
         } else {
           const error = await response.json();
           alert('Error: ' + error.error);

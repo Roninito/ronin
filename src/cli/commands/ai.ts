@@ -8,8 +8,12 @@ export interface AiCommandOptions {
 }
 
 interface AiRegistry {
-  version: 1;
-  definitions: AiDefinition[];
+  version?: 1;
+  definitions?: AiDefinition[];
+  // New format from model-selector
+  providers?: Record<string, any>;
+  models?: Record<string, any>;
+  default?: string;
 }
 
 interface AiDefinition {
@@ -243,24 +247,38 @@ async function runDefinition(args: string[]): Promise<void> {
 
 async function loadRegistry(path: string): Promise<AiRegistry> {
   if (!existsSync(path)) {
-    const registry = { version: 1, definitions: [] };
+    // Initialize with new format
+    const registry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
     await saveRegistry(path, registry);
     return registry;
   }
 
   const raw = await readFile(path, "utf-8");
   if (!raw.trim()) {
-    const registry = { version: 1, definitions: [] };
+    const registry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
     await saveRegistry(path, registry);
     return registry;
   }
 
   const data = JSON.parse(raw) as AiRegistry;
-  if (!data || data.version !== 1 || !Array.isArray(data.definitions)) {
-    throw new Error("Invalid AI registry file format");
+  
+  // Support both old format (version 1 with definitions) and new format (with providers/models)
+  if (!data) {
+    throw new Error("Invalid AI registry file");
   }
-
-  return data;
+  
+  // If it's the new format with providers/models, return as-is
+  if (data.providers && data.models) {
+    return data;
+  }
+  
+  // If it's the old format with version and definitions, return as-is
+  if (data.version === 1 && Array.isArray(data.definitions)) {
+    return data;
+  }
+  
+  // If it's neither, it's invalid
+  throw new Error("Invalid AI registry file format");
 }
 
 async function saveRegistry(path: string, registry: AiRegistry): Promise<void> {

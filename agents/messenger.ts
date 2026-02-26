@@ -271,11 +271,14 @@ export default class MessengerAgent extends BaseAgent {
         .filter((m) => m.role === "tool")
         .map((m: any) => {
           try {
-            const data = JSON.parse(m.content);
+            const parsed = JSON.parse(m.content);
             
-            // skills.run wraps results: {success, data: {skill, output: {...}}}
-            const skillData = data.data || data;
-            const output = skillData.output;
+            // Tool results have structure: {success, data, error}
+            // Skills.run wraps in another layer: {data: {skill, output: {...}}}
+            const isSuccess = parsed.success ?? (parsed.data && typeof parsed.data === 'object' && 'success' in parsed.data ? parsed.data.success : false);
+            const dataContent = parsed.data && typeof parsed.data === 'object' && 'skill' in parsed.data ? parsed.data : (parsed.data || {});
+            const output = dataContent.output || dataContent;
+            const error = parsed.error;
             
             // Check for Mermaid diagram
             if (output && typeof output === 'object' && output.diagram) {
@@ -283,14 +286,17 @@ export default class MessengerAgent extends BaseAgent {
             }
             
             // Generic success with output
-            if (skillData.success && output) {
+            if (isSuccess && output && !error) {
               if (typeof output === 'string') return output;
-              return `✅ Result:\n${JSON.stringify(output, null, 2)}`;
+              if (typeof output === 'object' && Object.keys(output).length > 0) {
+                return `✅ Result:\n${JSON.stringify(output, null, 2)}`;
+              }
+              return `✅ Completed successfully`;
             }
             
             // Error case
-            if (!skillData.success) {
-              return `❌ Error: ${skillData.error || "Unknown error"}`;
+            if (!isSuccess || error) {
+              return `❌ Error: ${error || "Unknown error"}`;
             }
             
             // Last resort

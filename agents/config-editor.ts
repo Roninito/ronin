@@ -1299,8 +1299,9 @@ export default class ConfigEditorAgent extends BaseAgent {
   </div>
   <div class="container">
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('form')">📋 Form Mode</button>
-      <button class="tab" onclick="switchTab('json')">📝 JSON Mode</button>
+      <button class="tab active" onclick="switchTab('form', this)">📋 Form Mode</button>
+      <button class="tab" onclick="switchTab('shell', this)">🛡️ Shell Safe List</button>
+      <button class="tab" onclick="switchTab('json', this)">📝 JSON Mode</button>
     </div>
 
     <div id="validationStatus"></div>
@@ -1312,6 +1313,17 @@ export default class ConfigEditorAgent extends BaseAgent {
       </div>
       <div id="jsonEditor" style="display: none;">
         <textarea id="jsonTextarea"></textarea>
+      </div>
+      <div id="shellEditor" style="display: none;">
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Shell Safe Command Allowlist</span>
+          </div>
+          <div class="help-text" style="margin-bottom:0.75rem">
+            One base command per line (e.g. ls, git, grep). This controls what <code>local.shell.safe</code> can execute.
+          </div>
+          <textarea id="shellCommandsTextarea" style="min-height: 320px; font-family: monospace; width:100%;"></textarea>
+        </div>
       </div>
     </div>
   </div>
@@ -1566,6 +1578,23 @@ export default class ConfigEditorAgent extends BaseAgent {
       container.innerHTML = html;
     }
 
+    function renderShellList() {
+      const arr = (((currentConfig || {}).system || {}).safeShellCommands || []);
+      const text = Array.isArray(arr) ? arr.join('\\n') : '';
+      const el = document.getElementById('shellCommandsTextarea');
+      if (el) el.value = text;
+    }
+    function saveShellListToConfig() {
+      const el = document.getElementById('shellCommandsTextarea');
+      if (!el) return;
+      const list = el.value
+        .split('\\n')
+        .map(v => v.trim())
+        .filter(Boolean);
+      if (!currentConfig.system || typeof currentConfig.system !== 'object') currentConfig.system = {};
+      currentConfig.system.safeShellCommands = Array.from(new Set(list));
+    }
+
     async function loadConfig() {
       try {
         const [currentRes, schemaRes, defaultsRes] = await Promise.all([
@@ -1587,23 +1616,31 @@ export default class ConfigEditorAgent extends BaseAgent {
           }
         }
         renderForm();
+        renderShellList();
         document.getElementById('jsonTextarea').value = JSON.stringify(currentConfig, null, 2);
       } catch (err) {
         console.error(err);
         showError('Failed to load: ' + err.message);
       }
     }
-    function switchTab(tab) {
+    function switchTab(tab, tabEl) {
       currentTab = tab;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
+      if (tabEl) tabEl.classList.add('active');
       if (tab === 'form') {
         document.getElementById('formEditor').style.display = 'block';
         document.getElementById('jsonEditor').style.display = 'none';
-      } else {
+        document.getElementById('shellEditor').style.display = 'none';
+      } else if (tab === 'json') {
         document.getElementById('formEditor').style.display = 'none';
         document.getElementById('jsonEditor').style.display = 'block';
+        document.getElementById('shellEditor').style.display = 'none';
         document.getElementById('jsonTextarea').value = JSON.stringify(currentConfig, null, 2);
+      } else {
+        document.getElementById('formEditor').style.display = 'none';
+        document.getElementById('jsonEditor').style.display = 'none';
+        document.getElementById('shellEditor').style.display = 'block';
+        renderShellList();
       }
     }
     async function saveConfig() {
@@ -1614,6 +1651,8 @@ export default class ConfigEditorAgent extends BaseAgent {
           showError('Invalid JSON: ' + err.message);
           return;
         }
+      } else if (currentTab === 'shell') {
+        saveShellListToConfig();
       }
       try {
         const res = await fetch('/config/api/update', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentConfig) });

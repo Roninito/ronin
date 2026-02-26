@@ -1,0 +1,9 @@
+contract portfolio-sync v1
+  description Sync Alpaca portfolio data every 15 minutes during US market hours (Mon-Fri, 9am-4pm ET)
+  target kata alpaca-portfolio-sync v1
+  trigger cron "*/15 9-16 * * 1-5"
+  on_failure {
+    action retry
+    max_retries 2
+    notify false
+  }

@@ -1,0 +1,40 @@
+technique alpaca.get-positions v1
+  description Fetch all open positions from the Alpaca brokerage account
+  category finance
+  tags ["alpaca", "portfolio", "positions", "trading"]
+  type composite
+  requires plugin alpaca
+
+  input {
+    mode: string
+      description Account mode to query — "live" or "paper"
+      required false
+      default "paper"
+  }
+
+  output {
+    positions: array
+      description List of open positions with symbol, qty, entry/current price, P&L
+    count: number
+      description Number of open positions
+    totalValue: number
+      description Total market value of all positions
+  }
+
+  step fetch
+    description Fetch open positions from Alpaca API
+    run plugin alpaca.getPositions
+    output raw
+
+  step check
+    description Get account status to confirm connection
+    run plugin alpaca.getConfig
+    output status
+
+  return {
+    positions: raw,
+    count: raw.length,
+    totalValue: raw.reduce((sum, p) => sum + parseFloat(p.market_value), 0),
+    connected: status.connected,
+    mode: status.mode
+  }

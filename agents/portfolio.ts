@@ -68,75 +68,14 @@ interface PortfolioStats {
   totalTrades: number;
 }
 
-// ─── Default demo data (used when portfolio-vault/ is absent) ────────────────
+// ─── Alpaca connection check ─────────────────────────────────────────────────
 
-function defaultStats(): PortfolioStats {
-  return {
-    totalValue: 102_500,
-    dayChange: 850,
-    dayChangePct: 0.84,
-    ytdReturn: 4_250,
-    ytdReturnPct: 4.25,
-    positions: 8,
-    winRate: 74,
-    sharpeRatio: 0.92,
-    maxDrawdown: -1.2,
-    totalTrades: 127,
-  };
-}
-
-function defaultPositions(): Position[] {
-  return [
-    { symbol: "AAPL", qty: 50, entryPrice: 180.0, currentPrice: 185.42, value: 9271, unrealizedPnl: 271, agent: "SWOT", confidence: 88 },
-    { symbol: "BTC", qty: 1.5, entryPrice: 43000, currentPrice: 45200, value: 67800, unrealizedPnl: 3300, agent: "PESTLE", confidence: 85 },
-    { symbol: "MSFT", qty: 30, entryPrice: 370.0, currentPrice: 382.15, value: 11465, unrealizedPnl: 364.5, agent: "SWOT", confidence: 79 },
-    { symbol: "TSLA", qty: 20, entryPrice: 210.0, currentPrice: 198.75, value: 3975, unrealizedPnl: -225, agent: "Regression", confidence: 61 },
-    { symbol: "ETH", qty: 5, entryPrice: 2800, currentPrice: 3120, value: 15600, unrealizedPnl: 1600, agent: "PESTLE", confidence: 82 },
-    { symbol: "NVDA", qty: 15, entryPrice: 480.0, currentPrice: 520.30, value: 7804.5, unrealizedPnl: 604.5, agent: "SWOT", confidence: 91 },
-    { symbol: "AMZN", qty: 25, entryPrice: 178.5, currentPrice: 185.0, value: 4625, unrealizedPnl: 162.5, agent: "Porter", confidence: 75 },
-    { symbol: "SPY", qty: 10, entryPrice: 450.0, currentPrice: 462.80, value: 4628, unrealizedPnl: 128, agent: "PESTLE", confidence: 70 },
-  ];
-}
-
-function defaultTrades(): Trade[] {
-  const now = Date.now();
-  const day = 86_400_000;
-  return [
-    { id: "t1", date: new Date(now - 1 * day).toISOString(), symbol: "AAPL", action: "BUY", qty: 50, price: 180.0, agent: "SWOT", confidence: 88, correct: true },
-    { id: "t2", date: new Date(now - 2 * day).toISOString(), symbol: "BTC", action: "BUY", qty: 1.5, price: 43000, agent: "PESTLE", confidence: 85, correct: true },
-    { id: "t3", date: new Date(now - 3 * day).toISOString(), symbol: "TSLA", action: "BUY", qty: 20, price: 210.0, agent: "Regression", confidence: 61, pnl: -225, correct: false },
-    { id: "t4", date: new Date(now - 4 * day).toISOString(), symbol: "GOOG", action: "SELL", qty: 10, price: 138.5, agent: "SWOT", confidence: 77, pnl: 320, correct: true },
-    { id: "t5", date: new Date(now - 5 * day).toISOString(), symbol: "NVDA", action: "BUY", qty: 15, price: 480.0, agent: "SWOT", confidence: 91, correct: true },
-    { id: "t6", date: new Date(now - 6 * day).toISOString(), symbol: "MSFT", action: "BUY", qty: 30, price: 370.0, agent: "SWOT", confidence: 79, correct: true },
-    { id: "t7", date: new Date(now - 8 * day).toISOString(), symbol: "ETH", action: "BUY", qty: 5, price: 2800, agent: "PESTLE", confidence: 82, correct: true },
-    { id: "t8", date: new Date(now - 10 * day).toISOString(), symbol: "META", action: "SELL", qty: 20, price: 320.0, agent: "Porter", confidence: 68, pnl: -180, correct: false },
-    { id: "t9", date: new Date(now - 12 * day).toISOString(), symbol: "AMZN", action: "BUY", qty: 25, price: 178.5, agent: "Porter", confidence: 75, correct: true },
-    { id: "t10", date: new Date(now - 15 * day).toISOString(), symbol: "SPY", action: "BUY", qty: 10, price: 450.0, agent: "PESTLE", confidence: 70, correct: true },
-  ];
-}
-
-function defaultAgents(): AgentPerf[] {
-  return [
-    { name: "SWOT", votes: 45, correct: 38, accuracy: 84.4, weight: 0.30, trend: "up", trustScore: 0.84 },
-    { name: "PESTLE", votes: 42, correct: 35, accuracy: 83.3, weight: 0.26, trend: "flat", trustScore: 0.83 },
-    { name: "Porter", votes: 38, correct: 29, accuracy: 76.3, weight: 0.22, trend: "up", trustScore: 0.76 },
-    { name: "Regression", votes: 40, correct: 28, accuracy: 70.0, weight: 0.18, trend: "down", trustScore: 0.70 },
-    { name: "Sentiment", votes: 30, correct: 18, accuracy: 60.0, weight: 0.10, trend: "down", trustScore: 0.60 },
-    { name: "Fundamental", votes: 25, correct: 17, accuracy: 68.0, weight: 0.14, trend: "flat", trustScore: 0.68 },
-  ];
-}
-
-function defaultTasks(): TaskRecord[] {
-  const now = Date.now();
-  const hour = 3_600_000;
-  return [
-    { id: "k1", name: "Morning Market Scan", status: "completed", startedAt: new Date(now - 2 * hour).toISOString(), completedAt: new Date(now - 1.5 * hour).toISOString(), duration: 1800000, phases: ["data-fetch", "agent-vote", "execution", "report"], gitCommit: "a1b2c3d" },
-    { id: "k2", name: "Portfolio Rebalance", status: "completed", startedAt: new Date(now - 5 * hour).toISOString(), completedAt: new Date(now - 4.7 * hour).toISOString(), duration: 1080000, phases: ["analysis", "allocation", "trades"], gitCommit: "e4f5g6h" },
-    { id: "k3", name: "Trust Score Update", status: "completed", startedAt: new Date(now - 8 * hour).toISOString(), completedAt: new Date(now - 7.9 * hour).toISOString(), duration: 360000, phases: ["score-calc", "persistence"], gitCommit: "i7j8k9l" },
-    { id: "k4", name: "Risk Assessment", status: "running", startedAt: new Date(now - 0.3 * hour).toISOString(), phases: ["data-fetch", "analysis"] },
-    { id: "k5", name: "Overnight Strategy", status: "failed", startedAt: new Date(now - 26 * hour).toISOString(), completedAt: new Date(now - 25.9 * hour).toISOString(), duration: 360000, phases: ["data-fetch"], gitCommit: undefined },
-    { id: "k6", name: "Sector Rotation Analysis", status: "completed", startedAt: new Date(now - 30 * hour).toISOString(), completedAt: new Date(now - 29.5 * hour).toISOString(), duration: 1800000, phases: ["fetch", "vote", "execute", "report"], gitCommit: "m1n2o3p" },
-  ];
+function alpacaStatus(api: AgentAPI): { connected: boolean; mode: "live" | "paper" } {
+  try {
+    return api.plugins.call("alpaca", "getConfig") as { connected: boolean; mode: "live" | "paper" };
+  } catch {
+    return { connected: false, mode: "paper" };
+  }
 }
 
 // ─── Shared CSS helpers ──────────────────────────────────────────────────────
@@ -351,6 +290,7 @@ function navTabs(active: string): string {
     { path: "/portfolio/agents", label: "Agents" },
     { path: "/portfolio/trades", label: "Trades" },
     { path: "/portfolio/tasks", label: "Tasks" },
+    { path: "/portfolio/settings", label: "⚙ Settings" },
   ];
   return `<nav class="nav-tabs">${tabs.map(t =>
     `<a href="${t.path}" class="nav-tab${t.path === active ? " active" : ""}">${t.label}</a>`
@@ -406,7 +346,9 @@ export default class PortfolioAgent extends BaseAgent {
     this.api.http.registerRoute("/portfolio/trades", this.handleTrades.bind(this));
     this.api.http.registerRoute("/portfolio/tasks", this.handleTasks.bind(this));
     this.api.http.registerRoute("/portfolio/assets", this.handleAssetsList.bind(this));
+    this.api.http.registerRoute("/portfolio/settings", this.handleSettings.bind(this));
     this.api.http.registerRoute("/portfolio/api/stats", this.handleApiStats.bind(this));
+    this.api.http.registerRoute("/portfolio/api/close-position", this.handleClosePosition.bind(this));
 
     // Dynamic routes – handled via prefix matching in the HTTP layer
     this.api.http.registerRoute("/portfolio/assets/", this.handleAssetDetail.bind(this));
@@ -415,48 +357,114 @@ export default class PortfolioAgent extends BaseAgent {
 
   // ── Data helpers ──────────────────────────────────────────────────────────
 
-  private async loadStats(): Promise<PortfolioStats> {
+  private async loadStats(): Promise<PortfolioStats | null> {
     try {
-      const raw = await this.api.files.read("portfolio-vault/stats.json");
-      return JSON.parse(raw) as PortfolioStats;
+      const acct = await this.api.plugins.call("alpaca", "getAccount") as Record<string, string>;
+      const totalValue = parseFloat(acct.portfolio_value ?? "0");
+      const lastEquity = parseFloat(acct.last_equity ?? "0");
+      const dayChange = totalValue - lastEquity;
+      const orders = await this.api.plugins.call("alpaca", "getOrderHistory", 200) as Array<Record<string, string>>;
+      const filled = orders.filter((o) => o.status === "filled");
+      const correct = filled.filter((o) => (parseFloat(o.filled_avg_price ?? "0") > 0)).length;
+      return {
+        totalValue,
+        dayChange,
+        dayChangePct: lastEquity > 0 ? (dayChange / lastEquity) * 100 : 0,
+        ytdReturn: 0,
+        ytdReturnPct: 0,
+        positions: 0,
+        winRate: filled.length > 0 ? Math.round((correct / filled.length) * 100) : 0,
+        sharpeRatio: 0,
+        maxDrawdown: 0,
+        totalTrades: filled.length,
+      };
     } catch {
-      return defaultStats();
+      return null;
     }
   }
 
   private async loadPositions(): Promise<Position[]> {
     try {
-      const raw = await this.api.files.read("portfolio-vault/positions.json");
-      return JSON.parse(raw) as Position[];
+      const raw = await this.api.plugins.call("alpaca", "getPositions") as Array<Record<string, string>>;
+      return raw.map((p) => ({
+        symbol: p.symbol,
+        qty: parseFloat(p.qty),
+        entryPrice: parseFloat(p.avg_entry_price),
+        currentPrice: parseFloat(p.current_price),
+        value: parseFloat(p.market_value),
+        unrealizedPnl: parseFloat(p.unrealized_pl),
+        agent: "Alpaca",
+        confidence: 0,
+      }));
     } catch {
-      return defaultPositions();
+      return [];
     }
   }
 
   private async loadTrades(): Promise<Trade[]> {
     try {
-      const raw = await this.api.files.read("portfolio-vault/trades.json");
-      return JSON.parse(raw) as Trade[];
+      const raw = await this.api.plugins.call("alpaca", "getOrderHistory", 50) as Array<Record<string, string>>;
+      return raw.map((o) => ({
+        id: o.id,
+        date: o.filled_at ?? o.submitted_at,
+        symbol: o.symbol,
+        action: o.side === "buy" ? "BUY" : "SELL",
+        qty: parseFloat(o.filled_qty ?? o.qty),
+        price: parseFloat(o.filled_avg_price ?? "0"),
+        agent: "Alpaca",
+        confidence: 0,
+      }));
     } catch {
-      return defaultTrades();
+      return [];
     }
   }
 
   private async loadAgents(): Promise<AgentPerf[]> {
     try {
-      const raw = await this.api.files.read("portfolio-vault/trust-scores.json");
-      return JSON.parse(raw) as AgentPerf[];
+      const rows = await this.api.db.query<{ source_kata: string; total: number; completed: number }>(
+        `SELECT source_kata, COUNT(*) as total,
+         SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed
+         FROM tasks_v2 WHERE source_kata IS NOT NULL GROUP BY source_kata`
+      );
+      return rows.map((r) => ({
+        name: r.source_kata,
+        votes: r.total,
+        correct: r.completed,
+        accuracy: r.total > 0 ? Math.round((r.completed / r.total) * 1000) / 10 : 0,
+        weight: 0,
+        trend: "flat" as const,
+        trustScore: r.total > 0 ? r.completed / r.total : 0,
+      }));
     } catch {
-      return defaultAgents();
+      return [];
     }
   }
 
   private async loadTasks(): Promise<TaskRecord[]> {
     try {
-      const raw = await this.api.files.read("portfolio-vault/tasks.json");
-      return JSON.parse(raw) as TaskRecord[];
+      const rows = await this.api.db.query<{
+        task_id: string;
+        source_kata: string;
+        status: string;
+        started_at: string;
+        completed_at: string | null;
+        duration: number | null;
+        error_phase: string | null;
+      }>(
+        `SELECT task_id, source_kata, status, started_at, completed_at, duration, error_phase
+         FROM tasks_v2 ORDER BY started_at DESC LIMIT 50`
+      );
+      return rows.map((r) => ({
+        id: r.task_id,
+        name: r.source_kata ?? r.task_id,
+        status: r.status === "completed" ? "completed" : r.status === "running" ? "running" : "failed",
+        startedAt: r.started_at,
+        completedAt: r.completed_at ?? undefined,
+        duration: r.duration ?? undefined,
+        phases: r.error_phase ? [r.error_phase] : [],
+      }));
     } catch {
-      return defaultTasks();
+      return [];
     }
   }
 
@@ -470,17 +478,165 @@ export default class PortfolioAgent extends BaseAgent {
       this.loadAgents(),
       this.loadTasks(),
     ]);
-    return Response.json({ stats, positions, trades, agents, tasks, timestamp: new Date().toISOString() });
+    const status = alpacaStatus(this.api);
+    return Response.json({ stats, positions, trades, agents, tasks, status, timestamp: new Date().toISOString() });
+  }
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+
+  private async handleSettings(req: Request): Promise<Response> {
+    if (req.method === "POST") {
+      const form = await req.formData();
+      const updates: Record<string, string> = {};
+      for (const [k, v] of form.entries()) {
+        if (typeof v === "string" && v !== "") updates[k] = v;
+      }
+      try {
+        await this.api.plugins.call("alpaca", "setConfig", updates);
+      } catch (e) {
+        // plugin may not be loaded — silently skip
+      }
+      return Response.redirect("/portfolio/settings?saved=1", 303);
+    }
+
+    const cfg = (() => {
+      try {
+        return this.api.plugins.call("alpaca", "getConfig") as { connected: boolean; mode: string; hasLive: boolean; hasPaper: boolean };
+      } catch {
+        return { connected: false, mode: "paper", hasLive: false, hasPaper: false };
+      }
+    })();
+
+    const saved = new URL(req.url).searchParams.get("saved") === "1";
+    const savedBanner = saved
+      ? `<div style="background:#14532d;border:1px solid #16a34a;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#86efac">✓ Settings saved successfully</div>`
+      : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio Settings</title>
+  <style>
+    ${sharedCSS()}
+    .settings-card { background:${roninTheme.colors.backgroundSecondary};border:1px solid ${roninTheme.colors.border};border-radius:${roninTheme.borderRadius.lg};padding:${roninTheme.spacing.xl};margin-bottom:${roninTheme.spacing.lg}; }
+    .settings-card h2 { margin:0 0 1rem;font-size:1rem;color:${roninTheme.colors.textPrimary}; }
+    .field { margin-bottom:1rem; }
+    .field label { display:block;font-size:0.75rem;color:${roninTheme.colors.textTertiary};margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
+    .field input { width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box; }
+    .field input:focus { outline:none;border-color:${roninTheme.colors.link}; }
+    .radio-group { display:flex;gap:1rem; }
+    .radio-option { display:flex;align-items:center;gap:6px;cursor:pointer;color:${roninTheme.colors.textSecondary};font-size:0.875rem; }
+    .btn-save { background:${roninTheme.colors.link};color:#000;border:none;padding:10px 24px;border-radius:6px;font-size:0.875rem;font-weight:600;cursor:pointer; }
+    .status-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
+    .connected { background:#22c55e; }
+    .disconnected { background:#6b7280; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>Portfolio Settings</h1>
+    <div class="header-meta">
+      <span class="status-dot ${cfg.connected ? "connected" : "disconnected"}"></span>
+      <span>${cfg.connected ? `Connected (${cfg.mode.toUpperCase()})` : "Not Connected"}</span>
+    </div>
+  </div>
+  ${navTabs("/portfolio/settings")}
+  <div class="container" style="max-width:720px">
+    ${savedBanner}
+
+    <form method="POST" action="/portfolio/settings">
+      <div class="settings-card">
+        <h2>Account Mode</h2>
+        <div class="field">
+          <label>Active Account</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="mode" value="paper" ${cfg.mode === "paper" ? "checked" : ""}> Paper Trading
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="mode" value="live" ${cfg.mode === "live" ? "checked" : ""}> Live Trading
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2>Paper Trading Credentials ${cfg.hasPaper ? '<span style="color:#22c55e;font-size:0.75rem">● Connected</span>' : ""}</h2>
+        <p style="font-size:0.8125rem;color:${roninTheme.colors.textTertiary};margin:0 0 1rem">Get these from <a href="https://app.alpaca.markets/paper-trading/overview" target="_blank" style="color:${roninTheme.colors.link}">paper-api.alpaca.markets</a></p>
+        <div class="field">
+          <label>Paper API Key ID</label>
+          <input type="text" name="paperApiKey" placeholder="PK…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Paper Secret Key</label>
+          <input type="password" name="paperSecretKey" placeholder="Leave blank to keep existing" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2>Live Trading Credentials ${cfg.hasLive ? '<span style="color:#22c55e;font-size:0.75rem">● Connected</span>' : ""}</h2>
+        <p style="font-size:0.8125rem;color:#dc2626;margin:0 0 0.5rem">⚠ Live trading uses real money. Double-check before enabling.</p>
+        <p style="font-size:0.8125rem;color:${roninTheme.colors.textTertiary};margin:0 0 1rem">Get these from <a href="https://app.alpaca.markets/live-trading/overview" target="_blank" style="color:${roninTheme.colors.link}">app.alpaca.markets</a></p>
+        <div class="field">
+          <label>Live API Key ID</label>
+          <input type="text" name="apiKey" placeholder="AK…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Live Secret Key</label>
+          <input type="password" name="secretKey" placeholder="Leave blank to keep existing" autocomplete="off">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-save">Save Settings</button>
+      <a href="/portfolio" style="margin-left:1rem;color:${roninTheme.colors.textTertiary};font-size:0.875rem">← Back to Dashboard</a>
+    </form>
+  </div>
+</body>
+</html>`;
+    return new Response(html, { headers: { "Content-Type": "text/html" } });
+  }
+
+  // ── Close position API ────────────────────────────────────────────────────
+
+  private async handleClosePosition(req: Request): Promise<Response> {
+    try {
+      const { symbol } = await req.json() as { symbol: string };
+      await this.api.plugins.call("alpaca", "closePosition", symbol);
+      return Response.json({ ok: true });
+    } catch (e) {
+      return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    }
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
 
   private async handleDashboard(_req: Request): Promise<Response> {
+    const status = alpacaStatus(this.api);
     const [stats, positions, trades] = await Promise.all([
       this.loadStats(),
       this.loadPositions(),
       this.loadTrades(),
     ]);
+
+    const modeBadge = status.connected
+      ? status.mode === "live"
+        ? `<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.6875rem;font-weight:700;letter-spacing:0.05em">LIVE</span>`
+        : `<span style="background:#d97706;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.6875rem;font-weight:700;letter-spacing:0.05em">PAPER</span>`
+      : `<a href="/portfolio/settings" style="background:#374151;color:#9ca3af;padding:2px 8px;border-radius:4px;font-size:0.6875rem;font-weight:700;letter-spacing:0.05em;text-decoration:none">NOT CONNECTED</a>`;
+
+    const connectBanner = !status.connected
+      ? `<div style="background:#1f2937;border:1px solid #374151;border-radius:8px;padding:1rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem">
+           <span style="font-size:1.5rem">🔌</span>
+           <div>
+             <div style="font-weight:600;color:#f9fafb">Connect your Alpaca account to see live data</div>
+             <div style="font-size:0.8125rem;color:#9ca3af;margin-top:2px">Add your API credentials to start tracking positions, orders, and account performance.</div>
+           </div>
+           <a href="/portfolio/settings" style="margin-left:auto;background:#22c55e;color:#000;padding:6px 16px;border-radius:6px;font-size:0.8125rem;font-weight:600;text-decoration:none;white-space:nowrap">Connect Alpaca →</a>
+         </div>`
+      : "";
 
     const posRows = positions.map(p => {
       const pnlClass = p.unrealizedPnl >= 0 ? "positive" : "negative";
@@ -493,14 +649,12 @@ export default class PortfolioAgent extends BaseAgent {
         <td>${fmtCurrency(p.value)}</td>
         <td class="${pnlClass}">${sign}${fmtCurrency(p.unrealizedPnl)}</td>
         <td>${p.agent}</td>
-        <td>${p.confidence}%</td>
+        <td><button onclick="closePosition('${p.symbol}')" style="background:#7f1d1d;color:#fca5a5;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.75rem">Close</button></td>
       </tr>`;
     }).join("");
 
     const tradeRows = trades.slice(0, 5).map(t => {
       const badgeClass = t.action === "BUY" ? "badge-buy" : "badge-sell";
-      const correctIcon = t.correct === true ? "✓" : t.correct === false ? "✗" : "—";
-      const correctClass = t.correct === true ? "positive" : t.correct === false ? "negative" : "";
       return `<tr>
         <td>${fmtDate(t.date)}</td>
         <td><a href="/portfolio/assets/${t.symbol}" style="color:${roninTheme.colors.link}">${t.symbol}</a></td>
@@ -508,13 +662,15 @@ export default class PortfolioAgent extends BaseAgent {
         <td>${t.qty}</td>
         <td>${fmtCurrency(t.price, 2)}</td>
         <td>${t.agent}</td>
-        <td>${t.confidence}%</td>
-        <td class="${correctClass}">${correctIcon}</td>
       </tr>`;
     }).join("");
 
-    const daySign = stats.dayChange >= 0 ? "+" : "";
-    const ytdSign = stats.ytdReturn >= 0 ? "+" : "";
+    const totalValue = stats?.totalValue ?? 0;
+    const dayChange = stats?.dayChange ?? 0;
+    const dayChangePct = stats?.dayChangePct ?? 0;
+    const daySign = dayChange >= 0 ? "+" : "";
+    const winRate = stats?.winRate ?? 0;
+    const totalTrades = stats?.totalTrades ?? 0;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -529,45 +685,35 @@ export default class PortfolioAgent extends BaseAgent {
     ${getHeaderHomeIconHTML()}
     <h1>Portfolio Dashboard</h1>
     <div class="header-meta">
-      <span>Updated ${new Date().toLocaleTimeString()}</span>
+      ${modeBadge}
+      <span style="margin-left:0.75rem">Updated ${new Date().toLocaleTimeString()}</span>
+      <a href="/portfolio/settings" style="margin-left:0.75rem;color:${roninTheme.colors.textTertiary};font-size:0.75rem">⚙ Settings</a>
     </div>
   </div>
   ${navTabs("/portfolio")}
   <div class="container">
+    ${connectBanner}
     <div class="cards">
       <div class="stat-card">
         <div class="label">Total Value</div>
-        <div class="value">${fmtCurrency(stats.totalValue)}</div>
+        <div class="value">${stats ? fmtCurrency(totalValue) : "—"}</div>
       </div>
       <div class="stat-card">
         <div class="label">Day Change</div>
-        <div class="value ${stats.dayChange >= 0 ? "positive" : "negative"}">${daySign}${fmtCurrency(stats.dayChange)}</div>
-        <div class="sub">${daySign}${stats.dayChangePct.toFixed(2)}%</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">YTD Return</div>
-        <div class="value ${stats.ytdReturn >= 0 ? "positive" : "negative"}">${ytdSign}${fmtCurrency(stats.ytdReturn)}</div>
-        <div class="sub">${ytdSign}${stats.ytdReturnPct.toFixed(2)}%</div>
+        <div class="value ${dayChange >= 0 ? "positive" : "negative"}">${stats ? daySign + fmtCurrency(dayChange) : "—"}</div>
+        ${stats ? `<div class="sub">${daySign}${dayChangePct.toFixed(2)}%</div>` : ""}
       </div>
       <div class="stat-card">
         <div class="label">Positions</div>
-        <div class="value">${stats.positions}</div>
+        <div class="value">${positions.length}</div>
       </div>
       <div class="stat-card">
         <div class="label">Win Rate</div>
-        <div class="value">${stats.winRate}%</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Sharpe Ratio</div>
-        <div class="value">${stats.sharpeRatio.toFixed(2)}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Max Drawdown</div>
-        <div class="value negative">${stats.maxDrawdown.toFixed(1)}%</div>
+        <div class="value">${stats ? winRate + "%" : "—"}</div>
       </div>
       <div class="stat-card">
         <div class="label">Total Trades</div>
-        <div class="value">${stats.totalTrades}</div>
+        <div class="value">${stats ? totalTrades : "—"}</div>
       </div>
     </div>
 
@@ -576,9 +722,9 @@ export default class PortfolioAgent extends BaseAgent {
       <table>
         <thead><tr>
           <th>Symbol</th><th>Qty</th><th>Entry</th><th>Current</th>
-          <th>Value</th><th>Unrealized P&amp;L</th><th>Agent</th><th>Confidence</th>
+          <th>Value</th><th>Unrealized P&amp;L</th><th>Agent</th><th>Action</th>
         </tr></thead>
-        <tbody>${posRows || '<tr><td colspan="8" class="empty-state">No positions</td></tr>'}</tbody>
+        <tbody>${posRows || `<tr><td colspan="8" class="empty-state">${status.connected ? "No open positions" : '<a href="/portfolio/settings" style="color:#22c55e">Connect Alpaca to view positions →</a>'}</td></tr>`}</tbody>
       </table>
     </div>
 
@@ -586,13 +732,20 @@ export default class PortfolioAgent extends BaseAgent {
       <div class="section-title">Recent Trades <a href="/portfolio/trades" style="font-size:0.75rem;margin-left:1rem">View all →</a></div>
       <table>
         <thead><tr>
-          <th>Date</th><th>Symbol</th><th>Action</th><th>Qty</th>
-          <th>Price</th><th>Agent</th><th>Confidence</th><th>Correct</th>
+          <th>Date</th><th>Symbol</th><th>Action</th><th>Qty</th><th>Price</th><th>Agent</th>
         </tr></thead>
-        <tbody>${tradeRows || '<tr><td colspan="8" class="empty-state">No trades</td></tr>'}</tbody>
+        <tbody>${tradeRows || `<tr><td colspan="6" class="empty-state">${status.connected ? "No recent trades" : '<a href="/portfolio/settings" style="color:#22c55e">Connect Alpaca to view trades →</a>'}</td></tr>`}</tbody>
       </table>
     </div>
   </div>
+  <script>
+    async function closePosition(symbol) {
+      if (!confirm('Close position in ' + symbol + '?')) return;
+      const res = await fetch('/portfolio/api/close-position', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol }) });
+      const data = await res.json();
+      if (data.ok) { alert('Position closed'); location.reload(); } else { alert('Error: ' + data.error); }
+    }
+  </script>
 </body>
 </html>`;
     return new Response(html, { headers: { "Content-Type": "text/html" } });

@@ -108,6 +108,10 @@ export interface SystemConfig {
   userPluginDir: string;
   /** User skills directory (AgentSkills). Defaults to ~/.ronin/skills */
   skillsDir?: string;
+  /** Number of run log files to retain on disk and as ontology nodes. Default: 2 */
+  logRetentionRuns?: number;
+  /** Whether to write per-run log files to ~/.ronin/logs/runs/. Default: true */
+  logToFile?: boolean;
 }
 
 export interface CLIOptions {
@@ -290,8 +294,17 @@ export interface FullConfig {
   notifications: NotificationsConfig;
   mesh: MeshNetworkConfig;
   obsidian?: ObsidianConfig;
+  alpaca: AlpacaConfig;
   pluginDir: string;
   geminiModel: string;
+}
+
+export interface AlpacaConfig {
+  apiKey: string;
+  secretKey: string;
+  paperApiKey: string;
+  paperSecretKey: string;
+  mode: "live" | "paper";
 }
 
 export type ConfigPath =
@@ -412,5 +425,11 @@ export type ConfigPath =
   | 'mesh.instance.description'
   | 'obsidian'
   | 'obsidian.vaults'
+  | 'alpaca'
+  | 'alpaca.apiKey'
+  | 'alpaca.secretKey'
+  | 'alpaca.paperApiKey'
+  | 'alpaca.paperSecretKey'
+  | 'alpaca.mode'
   | 'pluginDir'
   | 'geminiModel';

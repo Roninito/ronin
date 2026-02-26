@@ -1,0 +1,63 @@
+technique alpaca.place-order v1
+  description Place a buy or sell order via Alpaca
+  category finance
+  tags ["alpaca", "trading", "orders", "execution"]
+  type composite
+  requires plugin alpaca
+
+  input {
+    symbol: string
+      description Stock or crypto ticker symbol (e.g., AAPL, BTC/USD)
+      required true
+    qty: number
+      description Number of shares or units to trade
+      required true
+    side: string
+      description Direction — "buy" or "sell"
+      required true
+    type: string
+      description Order type — "market", "limit", "stop", "stop_limit"
+      required false
+      default "market"
+    limitPrice: number
+      description Limit price (required for limit and stop_limit orders)
+      required false
+  }
+
+  output {
+    orderId: string
+      description Alpaca order ID
+    symbol: string
+      description Symbol traded
+    side: string
+      description buy or sell
+    status: string
+      description Order status (pending_new, accepted, filled, etc.)
+    submittedAt: string
+      description ISO timestamp when order was submitted
+  }
+
+  step check-config
+    description Verify Alpaca is configured before placing order
+    run plugin alpaca.getConfig
+    output config
+
+  step place
+    description Submit the order to Alpaca
+    run plugin alpaca.placeOrder
+    with {
+      symbol: input.symbol,
+      qty: input.qty,
+      side: input.side,
+      type: input.type,
+      limitPrice: input.limitPrice
+    }
+    output order
+
+  return {
+    orderId: order.id,
+    symbol: order.symbol,
+    side: order.side,
+    status: order.status,
+    submittedAt: order.submitted_at
+  }

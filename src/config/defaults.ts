@@ -115,6 +115,8 @@ export const DEFAULT_CONFIG: FullConfig = {
     externalAgentDir: join(homedir(), ".ronin", "agents"),
     userPluginDir: join(homedir(), ".ronin", "plugins"),
     skillsDir: join(homedir(), ".ronin", "skills"),
+    logRetentionRuns: 2,
+    logToFile: true,
   },
   
   eventMonitor: {
@@ -213,6 +215,13 @@ export const DEFAULT_CONFIG: FullConfig = {
 
   pluginDir: join(process.cwd(), "plugins"),
   geminiModel: "gemini-3-pro-preview",
+  alpaca: {
+    apiKey: "",
+    secretKey: "",
+    paperApiKey: "",
+    paperSecretKey: "",
+    mode: "paper",
+  },
 };
 
 /**

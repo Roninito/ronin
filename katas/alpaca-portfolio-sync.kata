@@ -1,0 +1,26 @@
+kata alpaca-portfolio-sync v1
+  description Sync portfolio data from Alpaca — fetch account, positions, and order history, then persist
+  requires plugin alpaca
+  requires technique alpaca.sync-portfolio v1
+
+  initial fetch
+
+  # Phase 1: Fetch all data from Alpaca API
+  phase fetch
+    description Pull account summary, open positions, and recent orders from Alpaca
+    run technique alpaca.sync-portfolio v1
+    with { limit: 100 }
+    next persist
+
+  # Phase 2: Write data to portfolio-vault/ for the dashboard
+  phase persist
+    description Write fetched data to portfolio-vault JSON files
+    run technique alpaca.sync-portfolio v1
+    next complete
+
+  # Phase 3: Done
+  phase complete
+    description Mark sync complete and emit event
+    run event.emit
+    with { event: "portfolio.synced", source: "alpaca-portfolio-sync" }
+    complete

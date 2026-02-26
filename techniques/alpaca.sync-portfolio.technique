@@ -1,0 +1,73 @@
+technique alpaca.sync-portfolio v1
+  description Fetch account summary, positions, and recent orders from Alpaca and write to portfolio-vault/
+  category finance
+  tags ["alpaca", "portfolio", "sync", "data"]
+  type composite
+  requires plugin alpaca
+
+  input {
+    limit: number
+      description Number of recent orders to fetch
+      required false
+      default 100
+  }
+
+  output {
+    account: object
+      description Alpaca account summary
+    positions: array
+      description Open positions
+    orders: array
+      description Recent filled orders
+    written: boolean
+      description Whether files were written to portfolio-vault/
+  }
+
+  step fetch-account
+    description Get account equity, cash, and buying power
+    run plugin alpaca.getAccount
+    output account
+
+  step fetch-positions
+    description Get all open positions
+    run plugin alpaca.getPositions
+    output positions
+
+  step fetch-orders
+    description Get recent order history
+    run plugin alpaca.getOrderHistory
+    with { limit: input.limit }
+    output orders
+
+  step write-stats
+    description Write account stats to portfolio-vault/stats.json
+    run file.write
+    with {
+      path: "portfolio-vault/stats.json",
+      content: JSON.stringify({
+        totalValue: parseFloat(account.portfolio_value),
+        cash: parseFloat(account.cash),
+        buyingPower: parseFloat(account.buying_power),
+        equity: parseFloat(account.equity),
+        lastEquity: parseFloat(account.last_equity),
+        dayChange: parseFloat(account.portfolio_value) - parseFloat(account.last_equity),
+        updatedAt: new Date().toISOString()
+      }, null, 2)
+    }
+    output statsWritten
+
+  step write-positions
+    description Write positions to portfolio-vault/positions.json
+    run file.write
+    with {
+      path: "portfolio-vault/positions.json",
+      content: JSON.stringify(positions, null, 2)
+    }
+    output positionsWritten
+
+  return {
+    account: account,
+    positions: positions,
+    orders: orders,
+    written: true
+  }

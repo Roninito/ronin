@@ -97,9 +97,27 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
       const startTime = Date.now();
       try {
         const results = await api.memory.search(args.query, args.limit || 5);
+        const truncate = (s: string, max: number): string =>
+          s.length > max ? `${s.slice(0, max)}…` : s;
+        const summarizeValue = (value: unknown): string => {
+          try {
+            const raw = typeof value === "string" ? value : JSON.stringify(value);
+            return truncate(raw ?? String(value), 4000);
+          } catch {
+            return truncate(String(value), 4000);
+          }
+        };
+        const safeResults = results.map((r: any) => ({
+          id: r.id,
+          key: r.key,
+          text: r.text ? truncate(String(r.text), 500) : undefined,
+          valueSummary: summarizeValue(r.value),
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        }));
         return {
           success: true,
-          data: { results },
+          data: { results: safeResults, count: safeResults.length },
           metadata: {
             toolName: "local.memory.search",
             provider: "local",

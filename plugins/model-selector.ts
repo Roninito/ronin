@@ -107,7 +107,9 @@ class ModelSelectorPlugin {
    */
   async getModel(nametag: string): Promise<ModelConfig | null> {
     const registry = await this.loadRegistry();
-    return registry.models[nametag] || null;
+    const model = registry.models[nametag];
+    if (!model) return null;
+    return { ...model, isDefault: registry.default === nametag };
   }
 
   /**
@@ -115,7 +117,10 @@ class ModelSelectorPlugin {
    */
   async listModels(): Promise<ModelConfig[]> {
     const registry = await this.loadRegistry();
-    return Object.values(registry.models);
+    return Object.entries(registry.models).map(([nametag, model]) => ({
+      ...model,
+      isDefault: registry.default === nametag,
+    }));
   }
 
   /**
@@ -176,6 +181,9 @@ class ModelSelectorPlugin {
       throw new Error(`Model ${nametag} not found`);
     }
     registry.default = nametag;
+    for (const [key, model] of Object.entries(registry.models)) {
+      model.isDefault = key === nametag;
+    }
     await this.saveRegistry(registry);
     // Clear cache to ensure fresh load on next access
     this.registryCache = null;

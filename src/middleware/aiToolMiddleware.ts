@@ -154,14 +154,26 @@ export function createAiToolMiddleware(
             ? rawResult.slice(0, MAX_LOG_DATA_LEN) + "..."
             : rawResult;
         if (logLabel) log("Tool result:", `${call.name} → ${resultPreview}`);
+        const toolPayload = {
+          success: execResult.success,
+          data: execResult.data,
+          error: execResult.error,
+        };
+        let toolContent = JSON.stringify(toolPayload);
+        if (toolContent.length > 100_000) {
+          toolContent = JSON.stringify({
+            success: execResult.success,
+            data: {
+              truncated: true,
+              summary: resultPreview,
+            },
+            error: execResult.error,
+          });
+        }
         ctx.messages.push({
           role: "tool",
           name: call.name,
-          content: JSON.stringify({
-            success: execResult.success,
-            data: execResult.data,
-            error: execResult.error,
-          }),
+          content: toolContent,
         });
       }
       if (sameRepeat) break;

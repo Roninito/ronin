@@ -38,11 +38,14 @@ export class ToolRouter {
   /** Resolve model-reported name (e.g. "say") to registered tool name (e.g. "local.speech.say"). */
   private resolveToolName(name: string): string | undefined {
     if (this.tools.has(name)) return name;
-    const aliased = TOOL_ALIASES[name];
+    const dotted = name.includes("_") ? name.replace(/_/g, ".") : name;
+    if (dotted !== name && this.tools.has(dotted)) return dotted;
+    const aliased = TOOL_ALIASES[name] || TOOL_ALIASES[dotted];
     if (aliased && this.tools.has(aliased)) return aliased;
-    const suffix = `.${name}`;
+    const suffixes = [`.${name}`];
+    if (dotted !== name) suffixes.push(`.${dotted}`);
     for (const registered of this.tools.keys()) {
-      if (registered.endsWith(suffix)) return registered;
+      if (suffixes.some((suffix) => registered.endsWith(suffix))) return registered;
     }
     return undefined;
   }

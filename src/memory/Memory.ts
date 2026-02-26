@@ -91,7 +91,8 @@ export class MemoryStore {
    */
   async search(query: string, limit: number = 10): Promise<Memory[]> {
     const stmt = this.db.prepare(`
-      SELECT * FROM memories
+      SELECT id, key, substr(value, 1, 4000) AS value, text, metadata, created_at, updated_at
+      FROM memories
       WHERE text LIKE ? OR value LIKE ?
       ORDER BY created_at DESC
       LIMIT ?
@@ -99,7 +100,16 @@ export class MemoryStore {
 
     const searchPattern = `%${query}%`;
     const rows = stmt.all(searchPattern, searchPattern, limit) as MemoryRow[];
-    return rows.map(this.rowToMemory);
+    return rows.map((row) => ({
+      id: row.id,
+      key: row.key || undefined,
+      // Keep search lightweight: return preview string instead of parsing full JSON payloads
+      value: row.value,
+      text: row.text || undefined,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    }));
   }
 
   /**
@@ -257,4 +267,3 @@ export class MemoryStore {
     };
   }
 }
-

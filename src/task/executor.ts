@@ -35,6 +35,16 @@ export class TaskExecutor {
   }
 
   /**
+   * Poll pending tasks and execute one phase for each.
+   */
+  async pollAndExecute(): Promise<void> {
+    const pending = await this.engine.getPending();
+    for (const task of pending) {
+      await this.executePhase(task.id);
+    }
+  }
+
+  /**
    * Execute a phase for a task
    *
    * Handles:

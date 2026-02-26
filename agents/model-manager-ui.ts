@@ -958,14 +958,17 @@ export default class ModelManagerUIAgent extends BaseAgent {
       if (!confirm('Remove model: ' + nametag + '?')) return;
       
       try {
-        const response = await fetch('/models/api/managers/remove?nametag=' + encodeURIComponent(nametag), {
-          method: 'DELETE'
+        const response = await fetch('/models/api/managers/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
         });
 
         if (response.ok) {
           loadProviders();
         } else {
-          alert('Error removing model');
+          const error = await response.text();
+          alert('Error removing model: ' + error);
         }
       } catch (e) {
         alert('Error: ' + e.message);
@@ -1360,7 +1363,15 @@ export default class ModelManagerUIAgent extends BaseAgent {
   private async handleRemove(req: Request): Promise<Response> {
     try {
       const url = new URL(req.url);
-      const nametag = url.searchParams.get("nametag");
+      let nametag = url.searchParams.get("nametag");
+      if (!nametag && req.method !== "GET") {
+        try {
+          const body = (await req.json()) as { nametag?: string };
+          nametag = body.nametag || null;
+        } catch {
+          // ignore non-JSON body
+        }
+      }
 
       if (!nametag) {
         throw new Error("nametag required");
@@ -1387,13 +1398,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
         throw new Error("nametag required");
       }
 
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
-      if (!registry.models[nametag]) {
-        throw new Error(`Model ${nametag} not found`);
-      }
-
-      registry.default = nametag;
-      await this.api.plugins.call("model-selector", "saveRegistry", registry);
+      await this.api.plugins.call("model-selector", "setDefaultModel", nametag);
 
       return new Response(JSON.stringify({ success: true, default: nametag }), {
         headers: { "Content-Type": "application/json" },

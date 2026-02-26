@@ -386,7 +386,13 @@ export class ToolRouter {
   private async cacheResult(call: ToolCall, result: ToolResult, ttl?: number): Promise<void> {
     const cacheKey = `tool.cache.${call.name}.${JSON.stringify(call.arguments)}`;
     try {
-      await this.api.memory.store(cacheKey, JSON.stringify(result), { ttl });
+      const resultJson = JSON.stringify(result);
+      // Skip caching if result is too large (>5MB)
+      if (resultJson.length > 5 * 1024 * 1024) {
+        console.warn(`[ToolRouter] Skipping cache for ${call.name}: result too large (${resultJson.length} bytes)`);
+        return;
+      }
+      await this.api.memory.store(cacheKey, resultJson, { ttl });
     } catch (error) {
       console.error('[ToolRouter] Failed to cache result:', error);
     }
@@ -397,6 +403,13 @@ export class ToolRouter {
    */
   private async storeToolResult(result: ToolResult, context: ToolContext): Promise<void> {
     try {
+      // Skip storing if data is too large (>10MB)
+      const dataJson = JSON.stringify(result.data);
+      if (dataJson.length > 10 * 1024 * 1024) {
+        console.warn(`[ToolRouter] Skipping result storage for ${result.metadata.callId}: data too large (${dataJson.length} bytes)`);
+        return;
+      }
+      
       await this.api.memory.store(`tool.result.${result.metadata.callId}`, {
         data: result.data,
         metadata: result.metadata,

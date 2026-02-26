@@ -735,38 +735,77 @@ export default class ModelManagerUIAgent extends BaseAgent {
             for (const m of providerModels) {
               const card = document.createElement('div');
               card.className = 'model-card';
-              card.innerHTML = \`
-                <div class="model-header">
-                  <div class="model-info">
-                    <h3>\${m.displayName || m.nametag}</h3>
-                    <span class="model-nametag">\${m.nametag}</span>
-                  </div>
-                  <div class="model-actions">
-                    <button class="btn" onclick="testModel('\${m.nametag}')" title="Test model connectivity">🧪 Test</button>
-                    <button class="btn" onclick="setAsDefault('\${m.nametag}')" title="Set as default model">\${m.isDefault ? '⭐ Default' : '☆ Set Default'}</button>
-                    <button class="btn" onclick="editModel('\${m.nametag}')">⚙️ Edit</button>
-                    <button class="btn btn-danger" onclick="removeModel('\${m.nametag}')">🗑️ Remove</button>
-                  </div>
-                </div>
-                <div class="settings">
-                  <div class="setting">
-                    <label>Max Tokens</label>
-                    <span>\${m.limits.maxTokensPerRequest.toLocaleString()}</span>
-                  </div>
-                  <div class="setting">
-                    <label>Temperature</label>
-                    <span>\${(m.config.temperature || 0.7).toFixed(1)}</span>
-                  </div>
-                  <div class="setting">
-                    <label>Daily Budget</label>
-                    <span>\$\${m.limits.maxDailySpend.toFixed(2)}</span>
-                  </div>
-                  <div class="setting">
-                    <label>Monthly Budget</label>
-                    <span>\$\${m.limits.maxMonthlySpend.toFixed(2)}</span>
-                  </div>
-                </div>
-              \`;
+              
+              const headerDiv = document.createElement('div');
+              headerDiv.className = 'model-header';
+              
+              const infoDiv = document.createElement('div');
+              infoDiv.className = 'model-info';
+              const h3 = document.createElement('h3');
+              h3.textContent = m.displayName || m.nametag;
+              const tag = document.createElement('span');
+              tag.className = 'model-nametag';
+              tag.textContent = m.nametag;
+              infoDiv.appendChild(h3);
+              infoDiv.appendChild(tag);
+              
+              const actionsDiv = document.createElement('div');
+              actionsDiv.className = 'model-actions';
+              
+              const testBtn = document.createElement('button');
+              testBtn.className = 'btn';
+              testBtn.textContent = '🧪 Test';
+              testBtn.title = 'Test model connectivity';
+              testBtn.onclick = (e) => testModel(m.nametag, e);
+              actionsDiv.appendChild(testBtn);
+              
+              const defaultBtn = document.createElement('button');
+              defaultBtn.className = 'btn';
+              defaultBtn.textContent = m.isDefault ? '⭐ Default' : '☆ Set Default';
+              defaultBtn.title = 'Set as default model';
+              defaultBtn.onclick = () => setAsDefault(m.nametag);
+              actionsDiv.appendChild(defaultBtn);
+              
+              const editBtn = document.createElement('button');
+              editBtn.className = 'btn';
+              editBtn.textContent = '⚙️ Edit';
+              editBtn.onclick = () => editModel(m.nametag);
+              actionsDiv.appendChild(editBtn);
+              
+              const removeBtn = document.createElement('button');
+              removeBtn.className = 'btn btn-danger';
+              removeBtn.textContent = '🗑️ Remove';
+              removeBtn.onclick = () => removeModel(m.nametag);
+              actionsDiv.appendChild(removeBtn);
+              
+              headerDiv.appendChild(infoDiv);
+              headerDiv.appendChild(actionsDiv);
+              card.appendChild(headerDiv);
+              
+              const settingsDiv = document.createElement('div');
+              settingsDiv.className = 'settings';
+              
+              const tokenSetting = document.createElement('div');
+              tokenSetting.className = 'setting';
+              tokenSetting.innerHTML = '<label>Max Tokens</label><span>' + m.limits.maxTokensPerRequest.toLocaleString() + '</span>';
+              settingsDiv.appendChild(tokenSetting);
+              
+              const tempSetting = document.createElement('div');
+              tempSetting.className = 'setting';
+              tempSetting.innerHTML = '<label>Temperature</label><span>' + (m.config.temperature || 0.7).toFixed(1) + '</span>';
+              settingsDiv.appendChild(tempSetting);
+              
+              const dailySetting = document.createElement('div');
+              dailySetting.className = 'setting';
+              dailySetting.innerHTML = '<label>Daily Budget</label><span>$' + m.limits.maxDailySpend.toFixed(2) + '</span>';
+              settingsDiv.appendChild(dailySetting);
+              
+              const monthlySetting = document.createElement('div');
+              monthlySetting.className = 'setting';
+              monthlySetting.innerHTML = '<label>Monthly Budget</label><span>$' + m.limits.maxMonthlySpend.toFixed(2) + '</span>';
+              settingsDiv.appendChild(monthlySetting);
+              
+              card.appendChild(settingsDiv);
               modelsList.appendChild(card);
             }
             contentDiv.appendChild(modelsList);
@@ -891,8 +930,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
       }
     }
 
-    async function testModel(nametag) {
-      const button = event.target;
+    async function testModel(nametag, evt) {
+      const button = evt ? evt.target : event.target;
       button.disabled = true;
       button.textContent = '⏳ Testing...';
       

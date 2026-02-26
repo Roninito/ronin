@@ -15,7 +15,7 @@
  * Also syncs list-all capability nodes (skills, tools) with edges to the right tools.
  */
 
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { getConfigService } from "../../config/ConfigService.js";
@@ -327,8 +327,8 @@ function slugFromPath(path: string): string {
 /**
  * Ingest reference docs, tools, and skills into ontology and memory.
  */
-export async function doctorIngestDocsCommand(): Promise<void> {
-  console.log("\nRonin Doctor: Ingest docs, tools, and skills into ontology\n");
+export async function doctorIngestDocsCommand(options: { clean?: boolean } = {}): Promise<void> {
+  console.log(`\nRonin Doctor: Ingest docs, tools, and skills into ontology${options.clean ? " (clean mode)" : ""}\n`);
 
   const configService = getConfigService();
   await configService.load();
@@ -348,11 +348,58 @@ export async function doctorIngestDocsCommand(): Promise<void> {
   let skillCount = 0;
 
   if (api.ontology) {
-    for (const relPath of REFERENCE_DOC_PATHS) {
-      const fullPath = join(cwd, relPath);
-      if (!existsSync(fullPath)) continue;
+    if (options.clean) {
+      const onto = api.ontology as unknown as {
+        search?: (q: Record<string, unknown>) => Promise<any>;
+        deleteNode?: (id: string) => Promise<void>;
+      };
+      if (onto.search && onto.deleteNode) {
+        try {
+          const found = await onto.search({ type: "ReferenceDoc", limit: 5000 });
+          const nodes = Array.isArray(found) ? found : (Array.isArray(found?.nodes) ? found.nodes : []);
+          for (const n of nodes) {
+            if (n?.id && String(n.id).startsWith("ReferenceDoc-")) {
+              await onto.deleteNode(String(n.id));
+            }
+          }
+          if (!process.env.RONIN_QUIET) console.log(`  🧹 Cleaned ${nodes.length} ReferenceDoc nodes`);
+        } catch (err) {
+          console.warn(`  ⚠️ Clean mode skipped: ${(err as Error).message}`);
+        }
+      } else {
+        console.warn("  ⚠️ Clean mode requested, but ontology delete/search is unavailable");
+      }
+    }
+
+    const docsFromDisk: string[] = [];
+    const collectDocs = (dir: string): void => {
+      if (!existsSync(dir)) return;
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          collectDocs(full);
+          continue;
+        }
+        if (!entry.isFile()) continue;
+        if (entry.name.endsWith(".md") || entry.name.endsWith(".html")) {
+          if (statSync(full).size <= 1_500_000) {
+            docsFromDisk.push(full);
+          }
+        }
+      }
+    };
+    collectDocs(join(cwd, "docs"));
+    const referenceSet = new Set(
+      REFERENCE_DOC_PATHS.map((p) => join(cwd, p))
+    );
+    for (const fullPath of docsFromDisk) referenceSet.add(fullPath);
+
+    const ingestedPaths: string[] = [];
+    for (const absolutePath of referenceSet) {
+      const relPath = absolutePath.startsWith(cwd) ? absolutePath.slice(cwd.length + 1) : absolutePath;
+      if (!existsSync(absolutePath)) continue;
       try {
-        const content = readFileSync(fullPath, "utf-8");
+        const content = readFileSync(absolutePath, "utf-8");
         const slug = slugFromPath(relPath);
         const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? relPath;
         const summary = content.slice(0, 300).replace(/\n/g, " ").trim();
@@ -365,12 +412,14 @@ export async function doctorIngestDocsCommand(): Promise<void> {
           domain: "reference",
         });
         await api.memory.store(`refdoc:${slug}`, content);
+        ingestedPaths.push(relPath);
         docCount++;
         if (!process.env.RONIN_QUIET) console.log(`  ✅ ${relPath} → ${nodeId}`);
       } catch (err) {
         console.warn(`  ⚠️ ${relPath}: ${(err as Error).message}`);
       }
     }
+    await api.memory.store("refdoc:index", { updatedAt: Date.now(), paths: ingestedPaths });
   } else {
     console.log("  (Ontology plugin not loaded; skipping reference docs)");
   }

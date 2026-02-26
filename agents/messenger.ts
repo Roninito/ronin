@@ -15,6 +15,11 @@ const SOURCE = "messenger";
 /** System prompt - clean, tool-focused, no hardcoded command rules */
 const SYSTEM_PROMPT = `You are the Messenger - the user's primary interface to Ronin. You receive messages and decide what to do using available tools.
 
+**Identity & Scope (IMPORTANT):**
+- "Ronin" means the Ronin AI agent framework in this repository (agents, katas, workflows, tools, ontology).
+- "Kata" means Ronin task/kata workflows and phases in this project, not generic coding exercises unless user clearly asks that.
+- When user asks about Ronin/katas/docs, prioritize project docs and ontology context before giving generic internet/framework answers.
+
 **Your Role:**
 - For questions, requests, or conversation → Respond directly using your knowledge and tools
 - For skill execution → Call \`skills.run\` with the appropriate query and action
@@ -30,6 +35,7 @@ const SYSTEM_PROMPT = `You are the Messenger - the user's primary interface to R
 - \`ontology_search\` - Find tools, docs, and capabilities in the knowledge graph
 - \`ontology_related\` - Find related nodes (e.g., use_tool edges)
 - \`ontology_stats\` - Get ontology statistics
+- \`local.http.request\` - Access docs APIs when needed (e.g., \`/api/docs/scrape\`, \`/api/docs/list\`, \`/api/docs/content\`)
 
 **Event Emission (for creating new things):**
 Use the event system to request creation:
@@ -76,6 +82,7 @@ export default class MessengerAgent extends BaseAgent {
   private botId: string | null = null;
   private model: string;
   private localModel: string;
+  private processedUpdates: Map<string, number> = new Map();
 
   constructor(api: AgentAPI) {
     super(api);
@@ -158,6 +165,19 @@ export default class MessengerAgent extends BaseAgent {
     const chatId = msg.chat?.id;
     const chatType = msg.chat?.type;
     const isPrivateChat = chatType === "private";
+    const dedupeKey = `tg:${update.update_id ?? "u"}:${msg.message_id ?? "m"}:${chatId ?? "c"}`;
+    const now = Date.now();
+    // Keep map bounded and drop old entries (>5 minutes)
+    if (this.processedUpdates.size > 500) {
+      for (const [k, ts] of this.processedUpdates) {
+        if (now - ts > 5 * 60_000) this.processedUpdates.delete(k);
+      }
+    }
+    if (this.processedUpdates.has(dedupeKey)) {
+      console.log(`[messenger] Skipping duplicate Telegram update ${dedupeKey}`);
+      return;
+    }
+    this.processedUpdates.set(dedupeKey, now);
     
     console.log(`[messenger] Received Telegram message: "${text.substring(0, 50)}" (chat: ${chatType}, id: ${chatId})`);
     

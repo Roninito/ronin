@@ -587,7 +587,9 @@ async function main() {
     case "doctor": {
       if (args[0] === "ingest-docs") {
         const { doctorIngestDocsCommand } = await import("./commands/doctor.js");
-        await doctorIngestDocsCommand();
+        await doctorIngestDocsCommand({
+          clean: args.includes("--clean"),
+        });
       } else {
         const { doctorCommand } = await import("./commands/doctor.js");
         await doctorCommand();
@@ -886,4 +888,3 @@ main().catch(error => {
   console.error("❌ Fatal error:", error);
   process.exit(1);
 });
-

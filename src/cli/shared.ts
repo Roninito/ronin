@@ -262,7 +262,7 @@ Subcommands:
   clipboard disable   Disable clipboard watching
 `,
   doctor: `
-Usage: ronin doctor [ingest-docs]
+Usage: ronin doctor [ingest-docs [--clean]]
 
 Run health checks on the Ronin installation:
   - Verify Ollama connectivity
@@ -273,6 +273,7 @@ Run health checks on the Ronin installation:
 
 Use "ronin doctor ingest-docs" to sync reference docs, tools, and skills
 into the ontology so agents can find them via ontology_search (types ReferenceDoc, Tool, Skill).
+Use "ronin doctor ingest-docs --clean" to purge existing ReferenceDoc nodes first (when supported) before re-ingesting.
 `,
   create: `
 Usage: ronin create <type> [options]

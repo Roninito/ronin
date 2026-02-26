@@ -197,9 +197,23 @@ export default class DocsAgent extends BaseAgent {
     this.api.http.registerRoute("/docs", this.handleDocsUI.bind(this));
     this.api.http.registerRoute("/api/docs/list", this.handleDocsListAPI.bind(this));
     this.api.http.registerRoute("/api/docs/content", this.handleDocsContentAPI.bind(this));
+    this.api.http.registerRoute("/api/docs/scrape", this.handleDocsScrapeAPI.bind(this));
+    this.api.http.registerRoute("/api/docs/ingest", this.handleDocsIngestAPI.bind(this));
     // Serve book CSS files
     this.api.http.registerRoute("/docs/book/styles/", this.handleBookCSS.bind(this));
     this.api.http.registerRoute("/docs/skills-and-duties/styles/", this.handleSkillsDutiesCSS.bind(this));
+  }
+
+  private normalizeText(content: string, path: string): string {
+    if (path.endsWith(".html")) {
+      return content
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    return content.replace(/\s+/g, " ").trim();
   }
 
   /**
@@ -308,6 +322,135 @@ export default class DocsAgent extends BaseAgent {
       console.error("[Docs] Failed to read document:", error);
       return Response.json(
         { error: error instanceof Error ? error.message : "Failed to read document" },
+        { status: 500 }
+      );
+    }
+  }
+
+  /**
+   * Scrape/search docs content for agents and tools
+   * GET /api/docs/scrape?path=docs/FILE.md
+   * GET /api/docs/scrape?query=token+budget&limit=5
+   */
+  private async handleDocsScrapeAPI(req: Request): Promise<Response> {
+    if (req.method !== "GET") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    try {
+      await this.discoverDocuments();
+      const url = new URL(req.url);
+      const path = url.searchParams.get("path");
+      const query = url.searchParams.get("query")?.trim();
+      const limit = Math.max(1, Math.min(20, Number(url.searchParams.get("limit") || 5)));
+
+      if (path) {
+        const fullPath = join(process.cwd(), path);
+        const docsDir = join(process.cwd(), "docs");
+        if (path.includes("..") || path.startsWith("/") || !fullPath.startsWith(docsDir)) {
+          return Response.json({ error: "Invalid path" }, { status: 400 });
+        }
+        const content = await readFile(fullPath, "utf-8");
+        const normalized = this.normalizeText(content, path);
+        return Response.json({
+          path,
+          excerpt: normalized.slice(0, 4000),
+          length: normalized.length,
+        });
+      }
+
+      if (!query) {
+        return Response.json({ error: "Provide either path or query" }, { status: 400 });
+      }
+
+      const allDocs = [
+        ...this.documents.markdown,
+        ...this.documents.bookChapters,
+        ...this.documents.skillsDuties,
+      ];
+
+      const q = query.toLowerCase();
+      const hits: Array<{ path: string; name: string; score: number; excerpt: string }> = [];
+      for (const doc of allDocs) {
+        const fullPath = join(process.cwd(), doc.path);
+        let content = "";
+        try {
+          content = await readFile(fullPath, "utf-8");
+        } catch {
+          continue;
+        }
+        const normalized = this.normalizeText(content, doc.path);
+        const idx = normalized.toLowerCase().indexOf(q);
+        if (idx < 0) continue;
+        const start = Math.max(0, idx - 180);
+        const end = Math.min(normalized.length, idx + q.length + 220);
+        hits.push({
+          path: doc.path,
+          name: doc.displayName,
+          score: idx,
+          excerpt: normalized.slice(start, end),
+        });
+      }
+
+      hits.sort((a, b) => a.score - b.score);
+      return Response.json({
+        query,
+        total: hits.length,
+        results: hits.slice(0, limit),
+      });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Failed to scrape docs" },
+        { status: 500 }
+      );
+    }
+  }
+
+  /**
+   * Ingest docs into ontology as ReferenceDoc nodes
+   * POST /api/docs/ingest
+   */
+  private async handleDocsIngestAPI(req: Request): Promise<Response> {
+    if (req.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    if (!this.api.ontology) {
+      return Response.json({ error: "Ontology plugin not available" }, { status: 503 });
+    }
+
+    try {
+      await this.discoverDocuments();
+      const docs = [
+        ...this.documents.markdown,
+        ...this.documents.bookChapters,
+        ...this.documents.skillsDuties,
+      ];
+
+      let ingested = 0;
+      for (const doc of docs) {
+        const fullPath = join(process.cwd(), doc.path);
+        let content = "";
+        try {
+          content = await readFile(fullPath, "utf-8");
+        } catch {
+          continue;
+        }
+        const normalized = this.normalizeText(content, doc.path);
+        const slug = doc.path.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        await this.api.ontology.setNode({
+          id: `ReferenceDoc-${slug}`,
+          type: "ReferenceDoc",
+          name: doc.displayName,
+          summary: normalized.slice(0, 500),
+          domain: "reference",
+        });
+        ingested++;
+      }
+
+      return Response.json({ success: true, ingested, total: docs.length });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Failed to ingest docs" },
         { status: 500 }
       );
     }

@@ -343,6 +343,13 @@ export default class ConfigEditorAgent extends BaseAgent {
           description: 'User Plugin Directory',
           helpText: 'Directory for user plugins (overrides built-in)'
         },
+        safeShellCommands: {
+          type: 'array',
+          itemType: 'string',
+          default: ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript'],
+          description: 'Shell Safe Command Allowlist',
+          helpText: 'Commands allowed by local.shell.safe (base command only). Add/remove entries to control shell access.'
+        },
         logRetentionRuns: {
           type: 'number',
           default: 2,
@@ -730,7 +737,8 @@ export default class ConfigEditorAgent extends BaseAgent {
         webhookPort: 3000,
         httpIdleTimeout: 60,
         externalAgentDir: join(homedir(), '.ronin', 'agents'),
-        userPluginDir: join(homedir(), '.ronin', 'plugins')
+        userPluginDir: join(homedir(), '.ronin', 'plugins'),
+        safeShellCommands: ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript']
       },
       blogBoy: {
         aiTimeoutMs: 300000

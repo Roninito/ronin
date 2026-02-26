@@ -605,7 +605,10 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
       const startTime = Date.now();
       
       // Whitelist of safe commands (checked against the base command word)
-      const safeCommands = ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript'];
+      const configuredCommands = api.config.getAll?.()?.system?.safeShellCommands;
+      const safeCommands = Array.isArray(configuredCommands) && configuredCommands.length > 0
+        ? configuredCommands
+        : ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript'];
       const baseCmd = args.command.split(' ')[0];
       
       if (!safeCommands.includes(baseCmd)) {

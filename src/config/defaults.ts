@@ -114,6 +114,10 @@ export const DEFAULT_CONFIG: FullConfig = {
     httpIdleTimeout: 60,
     externalAgentDir: join(homedir(), ".ronin", "agents"),
     userPluginDir: join(homedir(), ".ronin", "plugins"),
+    safeShellCommands: [
+      "ls", "cat", "head", "tail", "echo", "pwd",
+      "git", "find", "grep", "wc", "curl", "bun", "osascript",
+    ],
     skillsDir: join(homedir(), ".ronin", "skills"),
     logRetentionRuns: 2,
     logToFile: true,

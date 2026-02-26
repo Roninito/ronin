@@ -106,6 +106,8 @@ export interface SystemConfig {
   httpIdleTimeout: number;
   externalAgentDir: string;
   userPluginDir: string;
+  /** Allowlist for local.shell.safe base commands */
+  safeShellCommands?: string[];
   /** User skills directory (AgentSkills). Defaults to ~/.ronin/skills */
   skillsDir?: string;
   /** Number of run log files to retain on disk and as ontology nodes. Default: 2 */
@@ -365,6 +367,7 @@ export type ConfigPath =
   | 'system.httpIdleTimeout'
   | 'system.externalAgentDir'
   | 'system.userPluginDir'
+  | 'system.safeShellCommands'
   | 'eventMonitor'
   | 'eventMonitor.enabled'
   | 'eventMonitor.retentionHours'

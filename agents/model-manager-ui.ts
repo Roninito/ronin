@@ -685,6 +685,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
         }
         const models = await modelsResp.json();
         console.log('[loadProviders] Got models:', models.length);
+        console.log('[loadProviders] Models:', models);
         
         console.log('[loadProviders] Fetching providers...');
         const providersResp = await fetch('/models/api/managers/providers');
@@ -693,15 +694,20 @@ export default class ModelManagerUIAgent extends BaseAgent {
         }
         const providers = await providersResp.json();
         console.log('[loadProviders] Got providers:', Object.keys(providers).length);
+        console.log('[loadProviders] Providers:', providers);
 
         const container = document.getElementById('providers-container');
         if (!container) {
           throw new Error('Container element not found');
         }
+        console.log('[loadProviders] Container found, clearing...');
         container.innerHTML = '';
 
+        console.log('[loadProviders] Creating sections for', Object.keys(providers).length, 'providers');
         for (const [providerKey, provider] of Object.entries(providers)) {
+          console.log('[loadProviders] Processing provider:', providerKey);
           const providerModels = models.filter(m => m.provider === providerKey);
+          console.log('[loadProviders] Found', providerModels.length, 'models for', providerKey);
           
           const section = document.createElement('div');
           section.className = 'provider-section';
@@ -711,10 +717,13 @@ export default class ModelManagerUIAgent extends BaseAgent {
           headerDiv.onclick = () => toggleProvider(headerDiv);
           
           const titleDiv = document.createElement('div');
-          titleDiv.innerHTML = \`
-            <h2>\${providerKey.charAt(0).toUpperCase() + providerKey.slice(1)}</h2>
-            <div class="info">\${providerModels.length} model(s) • \${provider.type}</div>
-          \`;
+          const h2 = document.createElement('h2');
+          h2.textContent = providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+          titleDiv.appendChild(h2);
+          const info = document.createElement('div');
+          info.className = 'info';
+          info.textContent = providerModels.length + ' model(s) • ' + provider.type;
+          titleDiv.appendChild(info);
           
           const toggleSpan = document.createElement('span');
           toggleSpan.className = 'toggle';
@@ -823,6 +832,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
           container.appendChild(section);
         }
       } catch (e) {
+        console.error('[loadProviders] Error:', e.message, e.stack);
         document.getElementById('providers-container').innerHTML = '<p class="loading">Error: ' + e.message + '</p>';
       }
     }

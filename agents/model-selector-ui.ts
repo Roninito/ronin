@@ -45,6 +45,7 @@ export default class ModelSelectorUIAgent extends BaseAgent {
 <body>
   <h1>⚙️  AI Model Selector</h1>
   <p>Select your default AI model</p>
+  <p><a href="/models/manage" style="color: #667eea; text-decoration: none;">→ Manage Models</a></p>
   <div class="models" id="models-container">
     <p>Loading...</p>
   </div>

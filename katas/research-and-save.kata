@@ -1,0 +1,15 @@
+kata research-and-save v1
+  requires skill reasoning.summarize
+  requires skill apple-notes-skill
+
+  initial scrape
+
+  # Phase 1: Scrape and summarize a URL
+  phase scrape
+    run skill reasoning.summarize
+    next save
+
+  # Phase 2: Save the summary to Apple Notes
+  phase save
+    run skill apple-notes-skill
+    complete

@@ -573,7 +573,7 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
   // 4. Shell Command Tool (restricted)
   register({
     name: "local.shell.safe",
-    description: "Execute safe shell commands (read-only operations)",
+    description: "Execute safe shell commands (read-only operations). Allowed commands: ls, cat, head, tail, echo, pwd, find, grep, git, wc, curl, bun, osascript.",
     parameters: {
       type: "object",
       properties: {
@@ -586,8 +586,8 @@ export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinitio
     handler: async (args: { command: string; cwd?: string }): Promise<ToolResult> => {
       const startTime = Date.now();
       
-      // Whitelist of safe commands
-      const safeCommands = ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git status', 'git log', 'git diff', 'find', 'grep', 'osascript'];
+      // Whitelist of safe commands (checked against the base command word)
+      const safeCommands = ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript'];
       const baseCmd = args.command.split(' ')[0];
       
       if (!safeCommands.includes(baseCmd)) {

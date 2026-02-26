@@ -1,0 +1,15 @@
+kata codebase-digest v1
+  requires skill reasoning.summarize
+  requires skill apple-notes-skill
+
+  initial diff
+
+  # Phase 1: Capture git status and staged diff
+  phase diff
+    run skill reasoning.summarize
+    next save
+
+  # Phase 2: Save the AI-generated digest to Apple Notes
+  phase save
+    run skill apple-notes-skill
+    complete

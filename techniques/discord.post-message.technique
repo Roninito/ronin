@@ -1,0 +1,34 @@
+technique discord.post-message v1
+  description Send a formatted message to a Discord channel
+  category communication
+  tags ["discord", "message", "notify", "social"]
+  type composite
+  requires skill discord
+
+  input {
+    channel_id: string
+      description Discord channel ID to post to
+      required true
+    message: string
+      description Message content to send
+      required true
+    guild_id: string
+      description Discord server (guild) ID
+      required false
+  }
+
+  output {
+    success: boolean
+      description Whether the message was sent
+    message_id: string
+      description ID of the sent message
+  }
+
+  step send
+    description Post the message to Discord
+    run skill discord
+    ability send_message
+    with { channel_id: input.channel_id, message: input.message, guild_id: input.guild_id }
+    output result
+
+  return { success: result.success, message_id: result.message_id }

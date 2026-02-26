@@ -342,6 +342,20 @@ export default class ConfigEditorAgent extends BaseAgent {
           default: join(homedir(), '.ronin', 'plugins'),
           description: 'User Plugin Directory',
           helpText: 'Directory for user plugins (overrides built-in)'
+        },
+        logRetentionRuns: {
+          type: 'number',
+          default: 2,
+          min: 1,
+          max: 20,
+          description: 'Log Retention (runs)',
+          helpText: 'Number of run log files to keep on disk and as ontology nodes'
+        },
+        logToFile: {
+          type: 'boolean',
+          default: true,
+          description: 'Log to File',
+          helpText: 'Write per-run logs to ~/.ronin/logs/runs/ and ingest into ontology'
         }
       }
     },

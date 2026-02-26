@@ -1,0 +1,39 @@
+technique research.web-summary v1
+  description Scrape a web page and return a concise AI summary of its content
+  category research
+  tags ["web", "scrape", "summarize", "research"]
+  type composite
+  requires skill reasoning.summarize
+
+  input {
+    url: string
+      description The URL to scrape and summarize
+      required true
+    limit: number
+      description Max sentences in summary
+      required false
+      default 5
+  }
+
+  output {
+    summary: string
+      description Concise summary of the web page
+    count: number
+      description Number of key points identified
+    url: string
+      description Source URL
+  }
+
+  step scrape
+    description Fetch and convert page to markdown
+    run tool web-scraper.scrape_to_markdown
+    with { url: input.url }
+    output page
+
+  step summarize
+    description Summarize the scraped content
+    run skill reasoning.summarize
+    with { content: page.markdown, limit: input.limit }
+    output summary
+
+  return { summary: summary.summary, count: summary.count, url: input.url }

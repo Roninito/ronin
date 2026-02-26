@@ -35,20 +35,14 @@ kata finance.audit v1
 export default class ExampleKatasAgent extends BaseAgent {
   constructor(api: AgentAPI) {
     super(api);
+    // Register example katas immediately — event-driven agent, execute() is not called at startup
+    const registry = new KataRegistry(api);
+    registry.registerOrSkip(FINANCE_AUDIT_DSL)
+      .then((kata) => console.log(`⚔️  Example katas ready. Registered: ${kata.name} v${kata.version}`))
+      .catch((error) => console.error(`[example-katas] Failed to register example katas: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   async execute(): Promise<void> {
-    // Register example katas on startup
-    try {
-      const registry = new KataRegistry(this.api);
-
-      // Register finance.audit kata
-      const financeAudit = await registry.register(FINANCE_AUDIT_DSL);
-      this.logger.info(`Registered kata: ${financeAudit.name} v${financeAudit.version}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to register example katas: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    // Event-driven — katas registered in constructor
   }
 }

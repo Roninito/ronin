@@ -9,8 +9,8 @@
  * - Retrieve task results
  */
 
-import { BaseAgent } from "@ronin/agent/index.js";
-import type { AgentAPI } from "@ronin/types/index.js";
+import { BaseAgent } from "../src/agent/index.js";
+import type { AgentAPI } from "../src/types/index.js";
 import { TaskExecutor } from "../src/task/executor.js";
 import { KataRegistry } from "../src/kata/registry.js";
 import { useMiddlewareStack } from "../src/chains/templates.js";
@@ -23,30 +23,29 @@ export default class KataExecutorAgent extends BaseAgent {
     super(api);
     this.executor = new TaskExecutor(api);
     this.registry = new KataRegistry(api);
-  }
 
-  async execute(): Promise<void> {
-    // Listen for task spawn requests
+    // Register event handlers in constructor (event-driven agent — execute() is not called at startup)
     this.api.events?.on("task.spawn_requested", async (payload: any) => {
       try {
         await this.handleSpawnRequest(payload);
       } catch (error) {
-        this.logger.error(
-          `Spawn request failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+        console.error(`[kata-executor] Spawn request failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
 
-    // Listen for manual execution requests
     this.api.events?.on("kata.execute", async (payload: any) => {
       try {
         await this.handleExecuteRequest(payload);
       } catch (error) {
-        this.logger.error(
-          `Execute request failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+        console.error(`[kata-executor] Execute request failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     });
+
+    console.log("⚔️  Kata Executor ready. Listening for task.spawn_requested and kata.execute");
+  }
+
+  async execute(): Promise<void> {
+    // Event-driven — handlers registered in constructor
   }
 
   /**
@@ -67,9 +66,7 @@ export default class KataExecutorAgent extends BaseAgent {
       await engine.updateVariables(task.id, payload.initialVariables);
     }
 
-    this.logger.info(
-      `Spawned task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`
-    );
+    console.log(`[kata-executor] Spawned task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`);
 
     // Emit event
     this.api.events?.emit(
@@ -106,9 +103,7 @@ export default class KataExecutorAgent extends BaseAgent {
     // Start immediately
     await this.executor.executePhase(task.id);
 
-    this.logger.info(
-      `Executed initial phase of task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`
-    );
+    console.log(`[kata-executor] Executed initial phase of task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`);
 
     this.api.events?.emit(
       "kata.task_executed",

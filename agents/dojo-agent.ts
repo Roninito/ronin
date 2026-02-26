@@ -13,13 +13,12 @@
 import { randomUUID } from "crypto";
 import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
+import { KataRegistry } from "../src/kata/registry.js";
 
 export default class DojoAgent extends BaseAgent {
   constructor(api: AgentAPI) {
     super(api);
-  }
 
-  async execute(): Promise<void> {
     // Listen for capability.missing events
     this.api.events.on("capability.missing", async (payload: any) => {
       await this.handleMissingCapability(payload);
@@ -29,6 +28,12 @@ export default class DojoAgent extends BaseAgent {
     this.api.events.on("kata.user_approved", async (payload: any) => {
       await this.handleApprovedKata(payload);
     });
+
+    console.log("🥋 Dojo Agent ready. Listening for capability.missing and kata.user_approved");
+  }
+
+  async execute(): Promise<void> {
+    // Event-driven — all handlers registered in constructor
   }
 
   private async handleMissingCapability(payload: {
@@ -176,8 +181,17 @@ export default class DojoAgent extends BaseAgent {
 
     this.api.realms.approveInstall(requestId.id, approvedBy);
 
-    // TODO: Download kata source and compile
-    // TODO: Register kata locally
+    // Get DSL source from realm discovery result and register locally
+    const source = proposal.versions[0].source;
+    if (source) {
+      try {
+        const registry = new KataRegistry(this.api);
+        await registry.register(source);
+        console.log(`[dojo] Installed kata '${proposal.name}' from realm '${proposal.fromRealm}'`);
+      } catch (error) {
+        console.error(`[dojo] Failed to compile/register kata from realm: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
 
     this.api.events.emit(
       "kata.installed",
@@ -191,16 +205,56 @@ export default class DojoAgent extends BaseAgent {
   }
 
   private async createNewKata(proposal: any, approvedBy: string) {
-    // TODO: Generate kata source from proposal
-    // TODO: Compile and validate
-    // TODO: Register locally
+    // Build DSL source from the AI-generated proposal structure
+    const lines: string[] = [];
+
+    // Header
+    lines.push(`kata ${proposal.name} v1`);
+
+    // Required skills
+    const skills: string[] = proposal.required_skills ?? [];
+    for (const skill of skills) {
+      lines.push(`  requires skill ${skill}`);
+    }
+
+    // Initial phase
+    const phases: Array<{ name: string; description?: string }> = proposal.phases ?? [];
+    if (phases.length > 0) {
+      lines.push(`  initial ${phases[0].name}`);
+    }
+    lines.push("");
+
+    // Phase blocks — each phase runs its corresponding skill (or first skill as fallback)
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
+      const skill = skills[i] ?? skills[0] ?? "noop";
+      lines.push(`  phase ${phase.name}`);
+      lines.push(`    run skill ${skill}`);
+      if (i < phases.length - 1) {
+        lines.push(`    next ${phases[i + 1].name}`);
+      } else {
+        lines.push(`    complete`);
+      }
+      lines.push("");
+    }
+
+    const source = lines.join("\n").trim();
+
+    // Compile, validate, and register
+    try {
+      const registry = new KataRegistry(this.api);
+      const compiled = await registry.register(source);
+      console.log(`[dojo] Created and registered kata '${compiled.name}' v${compiled.version} (${phases.length} phases)`);
+    } catch (error) {
+      console.error(`[dojo] Failed to compile/register new kata: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     this.api.events.emit(
       "kata.created",
       {
         kataName: proposal.name,
         createdBy: approvedBy,
-        phases: proposal.phases.map((p: any) => p.name),
+        phases: phases.map((p) => p.name),
       },
       "dojo"
     );

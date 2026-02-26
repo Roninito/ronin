@@ -21,6 +21,27 @@ export class KataRegistry {
 
   constructor(private api: AgentAPI) {
     this.storage = new KataStorage(api);
+    this.storage.init().catch((e) => console.error("[kata-registry] DB init failed:", e.message));
+  }
+
+  /**
+   * Register a kata from DSL source — idempotent.
+   * If the kata is already registered (same name + version), returns the existing compiled kata silently.
+   * Only registers (and throws on real errors) when the kata is new.
+   */
+  async registerOrSkip(source: string): Promise<CompiledKata> {
+    const ast = this.parser.parse(source);
+    const compiled = this.compiler.compile(ast);
+
+    if (await this.storage.exists(compiled.name, compiled.version)) {
+      // Already registered — return existing without error
+      const existing = await this.get(compiled.name, compiled.version);
+      return existing ?? compiled;
+    }
+
+    const id = `${compiled.name}_${compiled.version}`;
+    await this.storage.save(id, compiled.name, compiled.version, source, compiled, compiled.checksum);
+    return compiled;
   }
 
   /**

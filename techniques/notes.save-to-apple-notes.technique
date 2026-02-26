@@ -1,0 +1,35 @@
+technique notes.save-to-apple-notes v1
+  description Save a titled note to Apple Notes
+  category productivity
+  tags ["notes", "apple", "save", "productivity"]
+  type composite
+  requires skill apple-notes-skill
+
+  input {
+    title: string
+      description Title of the note
+      required true
+    body: string
+      description Body content of the note
+      required true
+    folder: string
+      description Target folder in Apple Notes
+      required false
+      default "Ronin"
+  }
+
+  output {
+    success: boolean
+      description Whether the note was saved
+    title: string
+      description Title of the saved note
+  }
+
+  step save
+    description Create the note in Apple Notes
+    run skill apple-notes-skill
+    ability create
+    with { title: input.title, body: input.body, folder: input.folder }
+    output result
+
+  return { success: result.success, title: input.title }

@@ -12,7 +12,7 @@ import type {
 import type { ToolFilter, ExecutorContext } from "./types.js";
 
 export class Executor {
-  constructor(private api: AgentAPI) {}
+  constructor(readonly api: AgentAPI) {}
 
   register(tool: ToolDefinition): void {
     this.api.tools.register(tool);

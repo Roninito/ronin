@@ -1,0 +1,31 @@
+technique test.hello v1
+  description A simple hello-world technique that summarizes a message
+  category testing
+  tags ["test", "hello"]
+  type composite
+  requires skill reasoning.summarize
+
+  input {
+    message: string
+      description The message to process
+      required true
+    limit: number
+      description Max sentences in summary
+      required false
+      default 10
+  }
+
+  output {
+    result: string
+      description Summarized result
+    count: number
+      description Number of key points
+  }
+
+  step process
+    description Summarize the message using local AI
+    run skill reasoning.summarize
+    with { content: input.message, limit: input.limit }
+    output processed
+
+  return { result: processed.summary, count: processed.count }

@@ -34,6 +34,10 @@ export interface ChainContext extends ExecutorContext {
   phase?: string;
   /** AI model tier for this chain (e.g. "smart", "fast", "default"). Passed to api.ai.callTools when set. */
   model?: string;
+  /** Model nametag from registry (e.g. "claude-haiku"). Takes precedence over model tier. */
+  modelNametag?: string;
+  /** Tags for model auto-selection (e.g. ["fast", "cheap"]). Used if modelNametag not specified. */
+  modelTags?: string[];
   /** Set by chain runner; excluded from serialized form. */
   executor?: Executor;
   /** Internal: ontology injected once per run. */

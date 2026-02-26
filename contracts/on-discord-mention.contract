@@ -1,0 +1,10 @@
+contract on-discord-mention v1
+  description When a Discord message is received, summarize it and save to Apple Notes
+  target kata url-to-notes v1
+  trigger event "discord.message.received"
+  parameters {
+    folder: Discord
+  }
+  on_failure {
+    action ignore
+  }

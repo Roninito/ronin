@@ -1,0 +1,21 @@
+kata morning-briefing v1
+  requires skill weather
+  requires skill apple-mail-skill
+  requires skill discord
+
+  initial weather
+
+  # Phase 1: Get weather forecast
+  phase weather
+    run skill weather
+    next mail
+
+  # Phase 2: Check email inbox for overnight messages
+  phase mail
+    run skill apple-mail-skill
+    next post
+
+  # Phase 3: Post combined briefing to Discord
+  phase post
+    run skill discord
+    complete

@@ -27,6 +27,7 @@ export class TaskEngine {
     this.taskStorage = new TaskStorage(api);
     this.kataStorage = new KataStorage(api);
     this.registry = new KataRegistry(api);
+    this.taskStorage.init().catch((e: Error) => console.error("[task-engine] DB init failed:", e.message));
   }
 
   /**

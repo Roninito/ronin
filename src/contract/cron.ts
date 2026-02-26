@@ -207,3 +207,40 @@ export class CronBuilder {
     return this.parts.join(" ");
   }
 }
+
+/**
+ * Get the next Date when a cron expression will fire.
+ * Scans minute-by-minute up to 1 year ahead.
+ */
+export function getNextCronRun(expression: string, after: Date = new Date()): Date | null {
+  const d = new Date(after.getTime());
+  d.setSeconds(0, 0);
+  d.setMinutes(d.getMinutes() + 1); // start from next minute
+
+  const limit = new Date(d.getTime() + 366 * 24 * 60 * 60 * 1000);
+  while (d < limit) {
+    if (CronEvaluator.matches(expression, d)) return new Date(d);
+    d.setMinutes(d.getMinutes() + 1);
+  }
+  return null;
+}
+
+/**
+ * Convert a cron expression to a human-readable string.
+ */
+export function cronToHuman(expression: string): string {
+  const parts = expression.trim().split(/\s+/);
+  if (parts.length !== 5) return expression;
+  const [min, hour, day, month, weekday] = parts;
+
+  if (min === "*" && hour === "*") return "Every minute";
+  if (min.startsWith("*/")) return `Every ${min.slice(2)} minutes`;
+  if (hour.startsWith("*/") && min === "0") return `Every ${hour.slice(2)} hours`;
+  if (weekday === "1-5" && day === "*" && month === "*")
+    return `Weekdays at ${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+  if (weekday === "0,6" && day === "*" && month === "*")
+    return `Weekends at ${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+  if (weekday === "*" && day === "*" && month === "*")
+    return `Daily at ${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
+  return expression;
+}

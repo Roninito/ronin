@@ -107,7 +107,16 @@ export class AgentLoader {
 
       // Validate instance has execute method
       if (typeof instance.execute !== "function") {
-        logger.warn("Agent missing execute method", { agent: name });
+        // Only warn if the agent has no other hooks — agents that rely purely on
+        // routes, events, or webhooks registered in the constructor are valid.
+        const hasWebhook = typeof agentConstructor.webhook === "string";
+        const hasSchedule = typeof agentConstructor.schedule === "string";
+        const hasWatch = Array.isArray(agentConstructor.watch) && agentConstructor.watch.length > 0;
+        const hasOnWebhook = typeof (instance as any).onWebhook === "function";
+        const hasOnFileChange = typeof (instance as any).onFileChange === "function";
+        if (!hasWebhook && !hasSchedule && !hasWatch && !hasOnWebhook && !hasOnFileChange) {
+          logger.warn("Agent missing execute method", { agent: name });
+        }
         return null;
       }
 
@@ -120,7 +129,9 @@ export class AgentLoader {
         instance,
       };
     } catch (error) {
-      logger.error("Failed to load agent", { filePath, error });
+      const msg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack?.split("\n").slice(0, 4).join(" | ") : undefined;
+      logger.error("Failed to load agent", { filePath, error: msg, stack });
       return null;
     }
   }

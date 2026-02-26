@@ -28,6 +28,10 @@ import { scheduleCommand } from "./commands/schedule.js";
 import { emitCommand } from "./commands/emit.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
+import { kataCommand } from "./commands/kata.js";
+import { techniqueCommand } from "./commands/technique.js";
+import { contractCommand } from "./commands/contract.js";
+import { taskCommand } from "./commands/task.js";
 import { handleVersionCommand } from "./commands/version.js";
 import { handleUpdateCommand } from "./commands/update.js";
 import { existsSync, readFileSync } from "fs";
@@ -289,9 +293,25 @@ async function main() {
           ollamaModel: getArg("--ollama-model", args),
           dbPath: getArg("--db-path", args),
         });
+      } else if (args[0] === "kata") {
+        const intent = args.slice(1).filter((a) => !a.startsWith("--")).join(" ");
+        if (!intent.trim()) {
+          console.error("❌ Intent required");
+          console.log('Usage: ronin create kata "sync obsidian notes to telegram daily"');
+          process.exit(1);
+        }
+        await kataCommand(["propose", ...args.slice(1)], {
+          dbPath: getArg("--db-path", args),
+          pluginDir: getArg("--plugin-dir", args),
+          userPluginDir: getArg("--user-plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          local: args.includes("--local"),
+          yes: args.includes("--yes") || args.includes("-y"),
+        });
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
-        console.log("Available: ronin create plugin <name>, ronin create agent [description], ronin create skill \"<description>\"");
+        console.log("Available: ronin create plugin <name>, ronin create agent [description], ronin create skill \"<description>\", ronin create kata \"<intent>\"");
         process.exit(1);
       }
       break;
@@ -600,6 +620,125 @@ async function main() {
       break;
     }
 
+    case "kata": {
+      const kataFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--port"]);
+      const kataArgs = args.filter((a, i) => {
+        if (kataFlags.has(a)) return false;
+        if (i > 0 && kataFlags.has(args[i - 1])) return false;
+        return true;
+      });
+      await kataCommand(kataArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
+        local: args.includes("--local"),
+        yes: args.includes("--yes") || args.includes("-y"),
+      });
+      break;
+    }
+
+    case "technique": {
+      const techniqueArgs = args.filter((a, i) => {
+        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--category", "--tag", "--type", "--sort", "--limit", "--params", "--timeout", "--replacement", "--reason"]);
+        if (flags.has(a)) return false;
+        if (i > 0 && flags.has(args[i - 1])) return false;
+        return true;
+      });
+      await techniqueCommand(techniqueArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        category: getArg("--category", args),
+        tag: getArg("--tag", args),
+        type: getArg("--type", args),
+        deprecated: args.includes("--deprecated"),
+        sort: getArg("--sort", args),
+        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
+        examples: args.includes("--examples"),
+        dependencies: args.includes("--dependencies"),
+        usedBy: args.includes("--used-by"),
+        stats: args.includes("--stats"),
+        params: getArg("--params", args),
+        verbose: args.includes("--verbose"),
+        timeout: getArg("--timeout", args) ? parseInt(getArg("--timeout", args)!) : undefined,
+        replacement: getArg("--replacement", args),
+        reason: getArg("--reason", args),
+        force: args.includes("--force"),
+      });
+      break;
+    }
+
+    case "contract": {
+      const contractArgs = args.filter((a, i) => {
+        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--kata", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
+        if (flags.has(a)) return false;
+        if (i > 0 && flags.has(args[i - 1])) return false;
+        return true;
+      });
+      await contractCommand(contractArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        kata: getArg("--kata", args),
+        triggerType: getArg("--trigger", args),
+        cron: getArg("--cron", args),
+        event: getArg("--event", args),
+        webhook: getArg("--webhook", args),
+        params: getArg("--params", args),
+        paramsFile: getArg("--params-file", args),
+        onFailure: getArg("--on-failure", args),
+        retryCount: getArg("--retry-count", args) ? parseInt(getArg("--retry-count", args)!) : undefined,
+        retryBackoff: getArg("--retry-backoff", args),
+        alertEmail: getArg("--alert-email", args),
+        description: getArg("--description", args),
+        version: getArg("--version", args),
+        sort: getArg("--sort", args),
+        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
+        status: getArg("--status", args),
+        since: getArg("--since", args),
+        until: getArg("--until", args),
+        format: getArg("--format", args),
+        outputFile: getArg("--output", args),
+        enable: args.includes("--enable"),
+        disable: args.includes("--disable"),
+        enabled: args.includes("--enabled"),
+        disabled: args.includes("--disabled"),
+        verbose: args.includes("--verbose"),
+        dryRun: args.includes("--dry-run"),
+        force: args.includes("--force"),
+        history: getArg("--history", args) ? parseInt(getArg("--history", args)!) : undefined,
+        nextRuns: getArg("--next-runs", args) ? parseInt(getArg("--next-runs", args)!) : undefined,
+      });
+      break;
+    }
+
+    case "task": {
+      const taskArgs = args.filter((a, i) => {
+        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--kata", "--contract", "--limit"]);
+        if (flags.has(a)) return false;
+        if (i > 0 && flags.has(args[i - 1])) return false;
+        return true;
+      });
+      await taskCommand(taskArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        status: getArg("--status", args),
+        kata: getArg("--kata", args),
+        contract: getArg("--contract", args),
+        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
+        force: args.includes("--force"),
+      });
+      break;
+    }
+
     case "help":
     case "--help":
     case "-h": {
@@ -667,6 +806,45 @@ AI & Tools:
 Creation:
   create plugin <name>    Create a new plugin template
   create agent [desc]     AI-powered agent creation
+  create skill "desc"     AI-powered skill creation
+  create kata "intent"    AI-powered kata proposal (alias for kata propose)
+
+Kata System:
+  kata propose "intent"   AI-generates kata DSL and registers it
+  kata list               List all registered katas
+  kata show <name>        Show a kata's DSL and phases
+  kata validate <file>    Validate a .kata file without registering
+
+Contracts & Techniques:
+  contract list           List all contracts
+  contract show <id>      Show contract details
+  contract create         Create a new contract
+  contract validate <id>  Validate a contract
+  contract sign <id>      Sign a contract
+  contract execute <id>   Execute a contract
+  contract status <id>    Check contract status
+  contract cancel <id>    Cancel a contract
+  contract renew <id>     Renew a contract
+  contract export <id>    Export contract to file
+  contract import <file>  Import contract from file
+  contract audit <id>     Audit contract history
+  contract dispute <id>   Raise a dispute
+  contract resolve <id>   Resolve a dispute
+  contract archive <id>   Archive a contract
+  technique list          List all techniques
+  technique show <name>   Show technique details
+  technique create        Create a new technique
+  technique test <name>   Run technique tests
+  technique validate <f>  Validate a technique file
+  technique register <f>  Register a technique
+  technique deprecate <n> Deprecate a technique
+  technique delete <name> Delete a technique
+
+Tasks:
+  task list               List all tasks
+  task show <id>          Show task details
+  task cancel <id>        Cancel a task
+  task retry <id>         Retry a failed task
 
 Plugins & Routes:
   plugins list            List loaded plugins

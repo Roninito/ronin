@@ -4,7 +4,6 @@
  * Optional logLabel: when set, log each iteration and tool call to the terminal.
  */
 
-import type { AgentAPI } from "../types/index.js";
 import type { ChainContext, ChainMessage } from "../chain/types.js";
 import type { Middleware } from "./MiddlewareStack.js";
 import { buildToolPrompt } from "../utils/prompt.js";
@@ -63,13 +62,15 @@ function buildPromptFromMessages(messages: ChainMessage[]): string {
 export interface AiToolMiddlewareOptions {
   /** When set, log each iteration and tool call to the terminal (e.g. "skill-maker"). */
   logLabel?: string;
+  /** Max tool loop iterations (default: 24). */
+  maxIterations?: number;
 }
 
 export function createAiToolMiddleware(
-  api: AgentAPI,
   options?: AiToolMiddlewareOptions
 ): Middleware<ChainContext> {
   const logLabel = options?.logLabel;
+  const maxLoops = options?.maxIterations ?? MAX_TOOL_LOOPS;
   const prefix = logLabel ? `[${logLabel}]` : "";
 
   function log(msg: string, data?: string): void {
@@ -83,13 +84,14 @@ export function createAiToolMiddleware(
       await next();
       return;
     }
+    const api = ctx.executor.api;
     let iterations = 0;
     let lastToolCall: { name: string; args: string } | null = null;
     let memoryFallbackInjected = false;
 
-    while (iterations < MAX_TOOL_LOOPS) {
+    while (iterations < maxLoops) {
       iterations += 1;
-      if (logLabel) log(`Iteration ${iterations}/${MAX_TOOL_LOOPS}`);
+      if (logLabel) log(`Iteration ${iterations}/${maxLoops}`);
       const prompt = buildPromptFromMessages(ctx.messages);
       let schemas = ctx.executor.describeTools(
         ctx.ontology?.relevantSkills?.length

@@ -1,0 +1,10 @@
+contract daily-morning-briefing v1
+  description Run the morning briefing kata every day at 8am
+  target kata morning-briefing v1
+  trigger cron "0 8 * * *"
+  parameters {
+    location: current
+  }
+  on_failure {
+    action ignore
+  }

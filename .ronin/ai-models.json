@@ -1,0 +1,176 @@
+{
+  "default": "claude-haiku",
+  "providers": {
+    "openai": {
+      "type": "remote",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "description": "OpenAI GPT models",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 4096
+      }
+    },
+    "anthropic": {
+      "type": "remote",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "description": "Anthropic Claude models",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 4096
+      }
+    },
+    "lmstudio": {
+      "type": "local",
+      "baseUrl": "http://localhost:1234/v1",
+      "description": "LM Studio local inference",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 2048
+      }
+    },
+    "ollama": {
+      "type": "local",
+      "baseUrl": "http://localhost:11434",
+      "description": "Ollama local inference",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 2048
+      }
+    },
+    "grok": {
+      "type": "remote",
+      "baseUrl": "https://api.x.ai/v1",
+      "apiKeyEnv": "GROK_API_KEY",
+      "description": "xAI Grok models",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 4096
+      }
+    },
+    "gemini": {
+      "type": "remote",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "description": "Google Gemini models",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 4096
+      }
+    },
+    "custom": {
+      "type": "remote",
+      "baseUrl": "https://your-custom-api.com/v1",
+      "apiKeyEnv": "CUSTOM_API_KEY",
+      "description": "Custom provider",
+      "defaults": {
+        "temperature": 0.7,
+        "maxTokens": 2048
+      }
+    }
+  },
+  "models": {
+    "claude-haiku": {
+      "provider": "anthropic",
+      "modelId": "claude-3-5-haiku-20241022",
+      "nametag": "claude-haiku",
+      "displayName": "Claude 3.5 Haiku",
+      "description": "Fast, efficient Claude model",
+      "tags": ["fast", "cheap", "reliable"],
+      "isDefault": true,
+      "limits": {
+        "costPerMTok": 0.80,
+        "costPerOTok": 2.40,
+        "maxDailySpend": 10.0,
+        "maxMonthlySpend": 100.0,
+        "maxConcurrent": 5,
+        "maxTokensPerRequest": 4096,
+        "rateLimit": {
+          "requestsPerMinute": 60,
+          "tokensPerMinute": 100000
+        }
+      },
+      "config": {
+        "temperature": 0.7,
+        "topP": 0.9
+      }
+    },
+    "gpt-4o": {
+      "provider": "openai",
+      "modelId": "gpt-4o",
+      "nametag": "gpt-4o",
+      "displayName": "GPT-4 Omni",
+      "description": "Powerful multimodal model",
+      "tags": ["powerful", "expensive", "multimodal"],
+      "isDefault": false,
+      "limits": {
+        "costPerMTok": 2.50,
+        "costPerOTok": 10.0,
+        "maxDailySpend": 50.0,
+        "maxMonthlySpend": 500.0,
+        "maxConcurrent": 3,
+        "maxTokensPerRequest": 8192,
+        "rateLimit": {
+          "requestsPerMinute": 30,
+          "tokensPerMinute": 200000
+        }
+      },
+      "config": {
+        "temperature": 0.7,
+        "topP": 0.9
+      }
+    },
+    "ministral-3b": {
+      "provider": "lmstudio",
+      "modelId": "ministral-3b",
+      "nametag": "ministral-3b",
+      "displayName": "Ministral 3B (Local)",
+      "description": "Fast local inference",
+      "tags": ["local", "fast", "private"],
+      "isDefault": false,
+      "limits": {
+        "costPerMTok": 0.0,
+        "costPerOTok": 0.0,
+        "maxDailySpend": 0.0,
+        "maxMonthlySpend": 0.0,
+        "maxConcurrent": 10,
+        "maxTokensPerRequest": 2048,
+        "rateLimit": {
+          "requestsPerMinute": 100,
+          "tokensPerMinute": 500000
+        }
+      },
+      "config": {
+        "temperature": 0.7,
+        "topP": 0.9
+      }
+    },
+    "llama2": {
+      "provider": "ollama",
+      "modelId": "llama2",
+      "nametag": "llama2",
+      "displayName": "Llama 2 (Local)",
+      "description": "Open-source local model",
+      "tags": ["local", "open-source", "private"],
+      "isDefault": false,
+      "limits": {
+        "costPerMTok": 0.0,
+        "costPerOTok": 0.0,
+        "maxDailySpend": 0.0,
+        "maxMonthlySpend": 0.0,
+        "maxConcurrent": 10,
+        "maxTokensPerRequest": 2048,
+        "rateLimit": {
+          "requestsPerMinute": 100,
+          "tokensPerMinute": 500000
+        }
+      },
+      "config": {
+        "temperature": 0.7,
+        "topP": 0.9
+      }
+    }
+  },
+  "usage": {}
+}

@@ -15,6 +15,32 @@ export class TaskStorage {
   constructor(private api: AgentAPI) {}
 
   /**
+   * Create tasks table if it doesn't exist
+   */
+  async init(): Promise<void> {
+    await this.api.db?.execute?.(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        kata_name TEXT NOT NULL,
+        kata_version TEXT NOT NULL,
+        state TEXT NOT NULL,
+        current_phase TEXT NOT NULL,
+        variables TEXT,
+        parent_task_id TEXT,
+        error TEXT,
+        started_at INTEGER,
+        completed_at INTEGER,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    await this.api.db?.execute?.(
+      `CREATE INDEX IF NOT EXISTS idx_task_state ON tasks(state)`
+    );
+    await this.api.db?.execute?.(
+      `CREATE INDEX IF NOT EXISTS idx_task_kata ON tasks(kata_name, kata_version)`
+    );
+  }
+  /**
    * Save a new task to database
    */
   async create(task: Omit<Task, "id" | "createdAt">): Promise<Task> {
@@ -201,6 +227,28 @@ export class TaskStorage {
 export class KataStorage {
   constructor(private api: AgentAPI) {}
 
+  /**
+   * Create tables if they don't exist
+   */
+  async init(): Promise<void> {
+    await this.api.db?.execute?.(`
+      CREATE TABLE IF NOT EXISTS kata_definitions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        version TEXT NOT NULL,
+        source_code TEXT NOT NULL,
+        compiled_graph TEXT NOT NULL,
+        required_skills TEXT NOT NULL,
+        checksum TEXT NOT NULL,
+        ontology_node_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    await this.api.db?.execute?.(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_kata_name_version ON kata_definitions(name, version)`
+    );
+  }
   /**
    * Save a compiled kata definition
    */

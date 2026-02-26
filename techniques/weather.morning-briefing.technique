@@ -1,0 +1,42 @@
+technique weather.morning-briefing v1
+  description Get current weather and forecast, formatted as a readable morning briefing
+  category lifestyle
+  tags ["weather", "briefing", "morning", "forecast"]
+  type composite
+  requires skill weather
+
+  input {
+    location: string
+      description City or location name
+      required false
+      default "current"
+  }
+
+  output {
+    briefing: string
+      description Formatted morning weather briefing
+    conditions: string
+      description Current conditions summary
+  }
+
+  step current
+    description Get current weather conditions
+    run skill weather
+    ability current
+    with { location: input.location }
+    output now
+
+  step forecast
+    description Get the weather forecast
+    run skill weather
+    ability forecast
+    with { location: input.location }
+    output ahead
+
+  step format
+    description Format into a readable briefing
+    run skill reasoning.summarize
+    with { content: now.description, limit: 2 }
+    output brief
+
+  return { briefing: brief.summary, conditions: now.description }

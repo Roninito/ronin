@@ -1,9 +1,9 @@
 /**
  * Middleware Templates
- * 
+ *
  * Pre-configured middleware stacks for common SAR patterns.
  * Use these instead of manually building middleware stacks.
- * 
+ *
  * Three templates:
  * - quickSAR: Fast, minimal overhead (logging + trim + tokens + tools)
  * - standardSAR: Recommended for most agents (+ ontology)
@@ -22,6 +22,11 @@ import {
   createPersistChainMiddleware,
   createPhaseResetMiddleware,
 } from "../middleware/index.js";
+import { modelResolution } from "../middleware/modelResolution.js";
+import { Chain } from "../chain/Chain.js";
+import { Executor } from "../executor/Executor.js";
+import type { AgentAPI } from "../types/index.js";
+import type { ChainContext } from "../chain/types.js";
 
 /**
  * Template configuration options
@@ -57,6 +62,9 @@ export function quickSAR(options: TemplateOptions = {}): MiddlewareStack {
       level: options.logLevel || "info",
     })
   );
+
+  // Resolve model selection
+  stack.use(modelResolution);
 
   stack.use(
     createSmartTrimMiddleware({
@@ -102,6 +110,9 @@ export function standardSAR(options: TemplateOptions = {}): MiddlewareStack {
       level: options.logLevel || "info",
     })
   );
+
+  // Resolve model selection
+  stack.use(modelResolution);
 
   // Resolve ontology references first
   stack.use(
@@ -165,6 +176,9 @@ export function smartSAR(options: TemplateOptions = {}): MiddlewareStack {
       level: options.logLevel || "debug",
     })
   );
+
+  // Resolve model selection
+  stack.use(modelResolution);
 
   // Resolve ontology references
   stack.use(
@@ -343,6 +357,49 @@ export function getTemplate(
     default:
       throw new Error(`Unknown template: ${name}`);
   }
+}
+
+/**
+ * Creates a Chain with a middleware template applied.
+ *
+ * This is a helper function that:
+ * 1. Creates an Executor
+ * 2. Gets the middleware stack from a template (or uses provided stack)
+ * 3. Creates a Chain with both
+ * 4. Optionally attaches context
+ *
+ * @param template - Template name ("quick" | "standard" | "smart") or a MiddlewareStack instance
+ * @param api - AgentAPI instance for creating the Executor
+ * @param ctx - Optional ChainContext to attach to the chain
+ * @param options - Template options (only used if template is a string)
+ * @returns A Chain ready to run
+ *
+ * @example
+ * // Using a template name (recommended)
+ * const chain = useMiddlewareStack("standard", api, ctx, { maxTokens: 8192 });
+ * await chain.run();
+ *
+ * @example
+ * // Using a MiddlewareStack instance
+ * const stack = standardSAR({ maxTokens: 8192 });
+ * const chain = useMiddlewareStack(stack, api, ctx);
+ * await chain.run();
+ */
+export function useMiddlewareStack(
+  template: "quick" | "standard" | "smart" | MiddlewareStack,
+  api: AgentAPI,
+  ctx?: ChainContext,
+  options?: TemplateOptions
+): Chain {
+  const executor = new Executor(api);
+  const stack = typeof template === "string"
+    ? getTemplate(template, options)
+    : template;
+  const chain = new Chain(executor, stack);
+  if (ctx) {
+    chain.withContext(ctx);
+  }
+  return chain;
 }
 
 /**

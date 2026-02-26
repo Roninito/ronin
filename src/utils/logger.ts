@@ -22,14 +22,56 @@ function isDebugEnabled(): boolean {
   );
 }
 
+// ANSI escape helpers — no external dependency
+const c = {
+  reset:  "\x1b[0m",
+  bold:   "\x1b[1m",
+  dim:    "\x1b[2m",
+  red:    "\x1b[31m",
+  yellow: "\x1b[33m",
+  cyan:   "\x1b[36m",
+  gray:   "\x1b[90m",
+  white:  "\x1b[97m",
+};
+
+const LEVEL_STYLE: Record<string, string> = {
+  ERROR: `${c.bold}${c.red}✖ ERROR${c.reset}`,
+  WARN:  `${c.yellow}⚠ WARN ${c.reset}`,
+  INFO:  `${c.cyan}✦ INFO ${c.reset}`,
+  DEBUG: `${c.gray}· DEBUG${c.reset}`,
+};
+
 class Logger {
   private level: LogLevel;
   private prefix: string;
+  private logStream: ReturnType<typeof Bun.file> | null = null;
+  private logWriter: { write: (s: string) => void } | null = null;
 
   constructor(options: LoggerOptions = {}) {
     const debug = options.debug !== undefined ? options.debug : isDebugEnabled();
     this.level = debug ? LogLevel.DEBUG : (options.level ?? LogLevel.INFO);
     this.prefix = options.prefix || "";
+  }
+
+  /**
+   * Tee all future log lines to a file (ANSI codes stripped).
+   * Safe to call multiple times — only the last path takes effect.
+   */
+  setLogFile(path: string): void {
+    try {
+      const file = Bun.file(path);
+      const writer = file.writer({ highWaterMark: 512 });
+      this.logWriter = {
+        write: (line: string) => {
+          // Strip ANSI codes for clean plain-text file output
+          const plain = line.replace(/\x1b\[[0-9;]*m/g, "");
+          writer.write(plain + "\n");
+          writer.flush();
+        },
+      };
+    } catch {
+      // If file write fails, silently ignore — console output is unaffected
+    }
   }
 
   setLevel(level: LogLevel): void {
@@ -47,8 +89,17 @@ class Logger {
 
   private format(level: string, message: string, context?: LogContext): string {
     const ts = new Date().toISOString();
-    const ctxStr = context != null && Object.keys(context).length > 0 ? " " + JSON.stringify(context) : "";
-    return `${ts} [${level}] ${message}${ctxStr}`.trim();
+    const ctxStr = context != null && Object.keys(context).length > 0
+      ? ` ${c.dim}${JSON.stringify(context)}${c.reset}`
+      : "";
+    const levelTag = LEVEL_STYLE[level] ?? `[${level}]`;
+    const dimTs = `${c.dim}${ts}${c.reset}`;
+    const boldMsg = `${c.bold}${message}${c.reset}`;
+    return `${dimTs} ${levelTag} ${boldMsg}${ctxStr}`;
+  }
+
+  private tee(line: string): void {
+    this.logWriter?.write(line);
   }
 
   error(message: string, context?: LogContext): void;
@@ -60,6 +111,7 @@ class Logger {
       const out = ctx !== undefined ? this.format("ERROR", message, ctx) : `${this.prefix}[ERROR] ${message}`;
       if (rest.length > 0) console.error(out, ...rest);
       else console.error(out);
+      this.tee(ctx !== undefined ? out : `${this.prefix}[ERROR] ${message}${rest.length ? " " + rest.map(String).join(" ") : ""}`);
     }
   }
 
@@ -72,6 +124,7 @@ class Logger {
       const out = ctx !== undefined ? this.format("WARN", message, ctx) : `${this.prefix}[WARN] ${message}`;
       if (rest.length > 0) console.warn(out, ...rest);
       else console.warn(out);
+      this.tee(ctx !== undefined ? out : `${this.prefix}[WARN] ${message}${rest.length ? " " + rest.map(String).join(" ") : ""}`);
     }
   }
 
@@ -84,6 +137,7 @@ class Logger {
       const out = ctx !== undefined ? this.format("INFO", message, ctx) : `${this.prefix}[INFO] ${message}`;
       if (rest.length > 0) console.log(out, ...rest);
       else console.log(out);
+      this.tee(ctx !== undefined ? out : `${this.prefix}[INFO] ${message}${rest.length ? " " + rest.map(String).join(" ") : ""}`);
     }
   }
 
@@ -96,6 +150,7 @@ class Logger {
       const out = ctx !== undefined ? this.format("DEBUG", message, ctx) : `${this.prefix}[DEBUG] ${message}`;
       if (rest.length > 0) console.log(out, ...rest);
       else console.log(out);
+      this.tee(ctx !== undefined ? out : `${this.prefix}[DEBUG] ${message}${rest.length ? " " + rest.map(String).join(" ") : ""}`);
     }
   }
 

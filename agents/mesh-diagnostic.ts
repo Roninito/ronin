@@ -7,6 +7,8 @@
  *   ronin run mesh-diagnostic
  */
 
+import { BaseAgent } from "../src/agent/index.js";
+
 export default class MeshDiagnosticAgent extends BaseAgent {
   async execute(): Promise<void> {
     console.log("\n╔═══════════════════════════════════════════════════════════╗");

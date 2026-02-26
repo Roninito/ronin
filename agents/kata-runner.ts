@@ -21,6 +21,7 @@ export default class KataRunnerAgent extends BaseAgent {
   constructor(api: AgentAPI) {
     super(api);
     this.executor = new TaskExecutor(api);
+    console.log("⚔️  Kata Runner ready. Polling every 30s for pending tasks");
   }
 
   async execute(): Promise<void> {
@@ -28,9 +29,7 @@ export default class KataRunnerAgent extends BaseAgent {
       // Poll all pending tasks and execute
       await this.executor.pollAndExecute();
     } catch (error) {
-      this.logger.error(
-        `Kata runner error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      console.error(`[kata-runner] error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

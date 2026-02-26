@@ -1,0 +1,44 @@
+technique git.commit-summary v1
+  description Summarize staged git changes using AI and commit with the generated message
+  category development
+  tags ["git", "commit", "ai", "summary", "devtools"]
+  type composite
+  requires skill reasoning.summarize
+
+  input {
+    repo_path: string
+      description Path to the git repository
+      required false
+      default "."
+    prefix: string
+      description Optional commit message prefix (e.g. "feat:", "fix:")
+      required false
+      default ""
+  }
+
+  output {
+    commit_message: string
+      description The AI-generated commit message used
+    committed: boolean
+      description Whether the commit was created
+  }
+
+  step diff
+    description Get the current git diff of staged changes
+    run tool git.status
+    with { cwd: input.repo_path }
+    output status
+
+  step summarize
+    description Summarize the changes into a commit message
+    run skill reasoning.summarize
+    with { content: status.diff, limit: 1 }
+    output summary
+
+  step commit
+    description Commit with the AI-generated message
+    run tool git.commit
+    with { message: summary.summary, cwd: input.repo_path }
+    output committed
+
+  return { commit_message: summary.summary, committed: committed.success }

@@ -1,0 +1,15 @@
+kata url-to-notes v1
+  requires skill reasoning.summarize
+  requires skill apple-notes-skill
+
+  initial summarize
+
+  # Phase 1: Summarize the content (web page passed via input)
+  phase summarize
+    run skill reasoning.summarize
+    next save
+
+  # Phase 2: Save the summary to Apple Notes
+  phase save
+    run skill apple-notes-skill
+    complete

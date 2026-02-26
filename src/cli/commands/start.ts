@@ -1,10 +1,14 @@
 import { createAPI } from "../../api/index.js";
 import type { AgentAPI } from "../../types/api.js";
 import { AgentLoader, AgentRegistry, HotReloadService } from "../../agent/index.js";
+import { TechniqueLoader } from "../../techniques/loader.js";
+import { KataLoader } from "../../kata/loader.js";
+import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
-import { existsSync, mkdirSync, openSync, closeSync } from "fs";
+import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -90,8 +94,8 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   const desktopEnabled = options.desktop || config.desktop?.enabled;
   if (desktopEnabled) {
     logger.info("Desktop Mode enabled");
-    const { getStatus } = await import("../../os/index.js");
-    const osStatus = getStatus();
+    const { getMacStatus } = await import("../../os/index.js");
+    const osStatus = getMacStatus();
     if (!osStatus.quickActionInstalled || !osStatus.launchAgentInstalled) {
       logger.warn("macOS integrations not fully installed. Run: ronin os install mac");
     } else {
@@ -109,6 +113,25 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   }
 
   logger.info("Loaded agents", { count: agents.length });
+
+  // Load techniques, katas, and contracts from filesystem
+  const techniqueLoader = new TechniqueLoader(process.cwd());
+  const techniqueResult = await techniqueLoader.loadAll(api);
+  if (techniqueResult.loaded > 0 || techniqueResult.errors.length > 0) {
+    logger.info("Loaded techniques from files", { loaded: techniqueResult.loaded, skipped: techniqueResult.skipped, errors: techniqueResult.errors.length });
+  }
+
+  const kataLoader = new KataLoader(process.cwd());
+  const kataResult = await kataLoader.loadAll(api);
+  if (kataResult.loaded > 0 || kataResult.errors.length > 0) {
+    logger.info("Loaded katas from files", { loaded: kataResult.loaded, skipped: kataResult.skipped, errors: kataResult.errors.length });
+  }
+
+  const contractLoader = new ContractLoader(process.cwd());
+  const contractResult = await contractLoader.loadAll(api);
+  if (contractResult.loaded > 0 || contractResult.errors.length > 0) {
+    logger.info("Loaded contracts from files", { loaded: contractResult.loaded, skipped: contractResult.skipped, errors: contractResult.errors.length });
+  }
 
   const registry = new AgentRegistry({
     files: api.files as any,
@@ -173,6 +196,63 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
 const NINJA_LOG_PATH = join(homedir(), ".ronin", "ninja.log");
 const DAEMON_LOG_PATH = join(homedir(), ".ronin", "daemon.log");
 const DAEMON_PID_PATH = join(homedir(), ".ronin", "ronin.pid");
+const RUN_LOGS_DIR = join(homedir(), ".ronin", "logs", "runs");
+
+/**
+ * Set up a per-run log file, rotate old ones to keep only `retentionRuns` most recent.
+ * Returns the path of the newly created log file.
+ */
+function setupRunLog(retentionRuns: number): string {
+  if (!existsSync(RUN_LOGS_DIR)) mkdirSync(RUN_LOGS_DIR, { recursive: true });
+
+  // Rotate: keep only (retentionRuns - 1) existing files to make room for the new one
+  const existing = readdirSync(RUN_LOGS_DIR)
+    .filter((f) => f.startsWith("run-") && f.endsWith(".log"))
+    .sort(); // ISO timestamps sort lexicographically
+  const toDelete = existing.slice(0, Math.max(0, existing.length - (retentionRuns - 1)));
+  for (const f of toDelete) {
+    try { unlinkSync(join(RUN_LOGS_DIR, f)); } catch { /* ignore */ }
+  }
+
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").replace("Z", "");
+  const logPath = join(RUN_LOGS_DIR, `run-${ts}.log`);
+  return logPath;
+}
+
+/**
+ * Ingest retained run log files as SystemLog nodes in the ontology.
+ */
+async function ingestRunLogsToOntology(api: AgentAPI): Promise<void> {
+  if (!api.ontology) return;
+  if (!existsSync(RUN_LOGS_DIR)) return;
+
+  const files = readdirSync(RUN_LOGS_DIR)
+    .filter((f) => f.startsWith("run-") && f.endsWith(".log"))
+    .sort();
+
+  for (const file of files) {
+    const filePath = join(RUN_LOGS_DIR, file);
+    try {
+      const content = await readFile(filePath, "utf-8");
+      const lines = content.split("\n");
+      const errors = lines.filter((l) => l.includes("[ERROR]") || l.includes("✖ ERROR")).length;
+      const warns  = lines.filter((l) => l.includes("[WARN]")  || l.includes("⚠ WARN")).length;
+      // Extract run timestamp from filename: run-2026-02-24T18-09-51.log
+      const tsRaw = file.replace("run-", "").replace(".log", "").replace(/-(\d{2})-(\d{2})-(\d{2})$/, "T$1:$2:$3");
+      const runDate = new Date(tsRaw).toISOString().slice(0, 19).replace("T", " ");
+      const summary = `Run: ${runDate} | Lines: ${lines.length} | Errors: ${errors} | Warnings: ${warns}\n\n${content.slice(0, 3000)}`;
+      await api.ontology.setNode({
+        id: `SystemLog-${file.replace(".log", "")}`,
+        type: "SystemLog",
+        name: `Run ${runDate}`,
+        summary: summary.slice(0, 8000),
+        domain: "system",
+      });
+    } catch {
+      // If one file fails, continue with others
+    }
+  }
+}
 
 /**
  * Start Ronin in ninja mode: spawn a detached background process with logs to ~/.ronin/ninja.log.
@@ -274,12 +354,52 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
     return;
   }
 
+  // Set up per-run log file (foreground only; ninja/daemon already redirect stdout)
+  const config = await loadConfig();
+  const sysConfig = config.system ?? {};
+  const logToFile = sysConfig.logToFile !== false; // default true
+  const logRetentionRuns = Math.max(1, sysConfig.logRetentionRuns ?? 2);
+  if (logToFile) {
+    const runLogPath = setupRunLog(logRetentionRuns);
+    logger.setLogFile(runLogPath);
+  }
+
   const state = await startRoninServer(options);
   if (!state) return;
 
   const status = state.registry.getStatus();
-  logger.info(`\n📊 Agent Status:\n   Total agents: ${status.totalAgents}\n   Scheduled: ${status.scheduledAgents}\n   File watchers: ${status.watchedAgents}\n   Webhooks: ${status.webhookAgents}`);
-  logger.info("\n✨ All agents are running. Press Ctrl+C to stop.\n");
+  const port = options.port ?? 3000;
+
+  // Styled startup summary box
+  const reset  = "\x1b[0m";
+  const bold   = "\x1b[1m";
+  const dim    = "\x1b[2m";
+  const cyan   = "\x1b[36m";
+  const green  = "\x1b[32m";
+  const yellow = "\x1b[33m";
+  const gray   = "\x1b[90m";
+
+  const pluginCount = state.api?.plugins?.list().length ?? 0;
+  const width = 52;
+  const line  = "─".repeat(width);
+
+  const pad = (s: string, w: number) => s + " ".repeat(Math.max(0, w - s.replace(/\x1b\[[0-9;]*m/g, "").length));
+
+  const row1 = `  ${bold}${cyan}🥷 Ronin${reset}  ${dim}·${reset}  ${bold}${status.totalAgents} agents loaded${reset}  ${dim}·${reset}  ${cyan}:${port}${reset}`;
+  const row2 = `  ${green}✦${reset} ${bold}${status.scheduledAgents}${reset} scheduled   ${dim}·${reset}  ${yellow}⬡${reset} ${bold}${pluginCount}${reset} plugins`;
+  const row3 = `  ${green}✦${reset} ${bold}${status.webhookAgents}${reset} webhooks    ${dim}·${reset}  ${gray}${status.watchedAgents} watchers${reset}`;
+
+  console.log(`\n${cyan}┌${line}┐${reset}`);
+  console.log(`${cyan}│${reset}${pad(row1, width)}${cyan}│${reset}`);
+  console.log(`${cyan}├${line}┤${reset}`);
+  console.log(`${cyan}│${reset}${pad(row2, width)}${cyan}│${reset}`);
+  console.log(`${cyan}│${reset}${pad(row3, width)}${cyan}│${reset}`);
+  console.log(`${cyan}└${line}┘${reset}\n`);
+
+  // Ingest retained run logs into ontology (non-blocking)
+  if (logToFile) {
+    ingestRunLogsToOntology(state.api).catch(() => { /* silently ignore */ });
+  }
 
   const shutdown = () => {
     logger.info("Shutting down...");

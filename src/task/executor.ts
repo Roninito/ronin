@@ -137,6 +137,7 @@ export class TaskExecutor {
       ...task.variables,
       [skillName]: result,
     });
+  }
 
   /**
    * Execute wait phase - subscribe to event and wait

@@ -17,8 +17,8 @@ import {
   getMonthlyStats,
   getUsageLog,
   getTotalCost,
-} from "../database/index.js";
-import { migrateUsageData, isUsageDataMigrated } from "../database/migration.js";
+} from "../src/database/usage.js";
+import { migrateUsageData, isUsageDataMigrated } from "../src/database/migration.js";
 
 const modelSelectorDbPlugin: Plugin = {
   name: "model-selector-db",

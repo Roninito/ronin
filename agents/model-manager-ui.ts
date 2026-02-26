@@ -736,6 +736,21 @@ export default class ModelManagerUIAgent extends BaseAgent {
               
               const modelActions = document.createElement('div');
               modelActions.className = 'model-actions';
+              
+              const testBtn = document.createElement('button');
+              testBtn.className = 'btn';
+              testBtn.textContent = '🧪 Test';
+              testBtn.title = 'Test model connectivity';
+              testBtn.onclick = (e) => testModel(m.nametag, e);
+              modelActions.appendChild(testBtn);
+              
+              const defaultBtn = document.createElement('button');
+              defaultBtn.className = 'btn';
+              defaultBtn.textContent = m.isDefault ? '⭐ Default' : '☆ Set Default';
+              defaultBtn.title = 'Set as default model';
+              defaultBtn.onclick = () => setAsDefault(m.nametag);
+              modelActions.appendChild(defaultBtn);
+              
               const editBtn = document.createElement('button');
               editBtn.className = 'btn';
               editBtn.textContent = '⚙️ Edit';

@@ -756,7 +756,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
           const addButton = document.createElement('button');
           addButton.className = 'add-button';
           addButton.textContent = '+ Add Model';
-          addButton.onclick = () => openAddModelModal('${providerKey}');
+          addButton.onclick = () => openAddModelModal(providerKey);
           contentDiv.appendChild(addButton);
           
           section.appendChild(headerDiv);
@@ -1039,7 +1039,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
 
     function openAddModelModal(providerName) {
       addingToProvider = providerName;
-      document.getElementById('add-model-title').textContent = `Add Model to ${providerName}`;
+      document.getElementById('add-model-title').textContent = 'Add Model to ' + providerName;
       document.getElementById('add-model-displayName').value = '';
       document.getElementById('add-model-nametag').value = '';
       document.getElementById('add-model-description').value = '';

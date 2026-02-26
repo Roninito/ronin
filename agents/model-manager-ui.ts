@@ -27,8 +27,6 @@ export default class ModelManagerUIAgent extends BaseAgent {
     this.api.http.registerRoute("/models/api/managers/update", this.handleUpdate.bind(this));
     this.api.http.registerRoute("/models/api/managers/add", this.handleAdd.bind(this));
     this.api.http.registerRoute("/models/api/managers/remove", this.handleRemove.bind(this));
-    this.api.http.registerRoute("/models/api/managers/setdefault", this.handleSetDefault.bind(this));
-    this.api.http.registerRoute("/models/api/managers/test", this.handleTestModel.bind(this));
     // Provider management endpoints
     this.api.http.registerRoute("/models/api/managers/provider/add", this.handleAddProvider.bind(this));
     this.api.http.registerRoute("/models/api/managers/provider/update", this.handleUpdateProvider.bind(this));
@@ -671,43 +669,21 @@ export default class ModelManagerUIAgent extends BaseAgent {
   </div>
 
   <script>
-    console.log('[Models Manager] Script loaded');
     let editingModel = null;
     let editingProvider = null;
 
     async function loadProviders() {
-      console.log('[loadProviders] Starting...');
       try {
-        console.log('[loadProviders] Fetching models...');
         const modelsResp = await fetch('/models/api/managers/list');
-        if (!modelsResp.ok) {
-          throw new Error('Failed to load models: ' + modelsResp.status);
-        }
         const models = await modelsResp.json();
-        console.log('[loadProviders] Got models:', models.length);
-        console.log('[loadProviders] Models:', models);
-        
-        console.log('[loadProviders] Fetching providers...');
         const providersResp = await fetch('/models/api/managers/providers');
-        if (!providersResp.ok) {
-          throw new Error('Failed to load providers: ' + providersResp.status);
-        }
         const providers = await providersResp.json();
-        console.log('[loadProviders] Got providers:', Object.keys(providers).length);
-        console.log('[loadProviders] Providers:', providers);
 
         const container = document.getElementById('providers-container');
-        if (!container) {
-          throw new Error('Container element not found');
-        }
-        console.log('[loadProviders] Container found, clearing...');
         container.innerHTML = '';
 
-        console.log('[loadProviders] Creating sections for', Object.keys(providers).length, 'providers');
         for (const [providerKey, provider] of Object.entries(providers)) {
-          console.log('[loadProviders] Processing provider:', providerKey);
           const providerModels = models.filter(m => m.provider === providerKey);
-          console.log('[loadProviders] Found', providerModels.length, 'models for', providerKey);
           
           const section = document.createElement('div');
           section.className = 'provider-section';
@@ -719,11 +695,11 @@ export default class ModelManagerUIAgent extends BaseAgent {
           const titleDiv = document.createElement('div');
           const h2 = document.createElement('h2');
           h2.textContent = providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'info';
+          infoDiv.textContent = providerModels.length + ' model(s) • ' + provider.type;
           titleDiv.appendChild(h2);
-          const info = document.createElement('div');
-          info.className = 'info';
-          info.textContent = providerModels.length + ' model(s) • ' + provider.type;
-          titleDiv.appendChild(info);
+          titleDiv.appendChild(infoDiv);
           
           const toggleSpan = document.createElement('span');
           toggleSpan.className = 'toggle';
@@ -745,76 +721,81 @@ export default class ModelManagerUIAgent extends BaseAgent {
               const card = document.createElement('div');
               card.className = 'model-card';
               
-              const modelHeaderDiv = document.createElement('div');
-              modelHeaderDiv.className = 'model-header';
+              const modelHeader = document.createElement('div');
+              modelHeader.className = 'model-header';
               
-              const infoDiv = document.createElement('div');
-              infoDiv.className = 'model-info';
-              const h3 = document.createElement('h3');
-              h3.textContent = m.displayName || m.nametag;
-              const tag = document.createElement('span');
-              tag.className = 'model-nametag';
-              tag.textContent = m.nametag;
-              infoDiv.appendChild(h3);
-              infoDiv.appendChild(tag);
+              const modelInfo = document.createElement('div');
+              modelInfo.className = 'model-info';
+              const modelTitle = document.createElement('h3');
+              modelTitle.textContent = m.displayName || m.nametag;
+              const modelNametag = document.createElement('span');
+              modelNametag.className = 'model-nametag';
+              modelNametag.textContent = m.nametag;
+              modelInfo.appendChild(modelTitle);
+              modelInfo.appendChild(modelNametag);
               
-              const actionsDiv = document.createElement('div');
-              actionsDiv.className = 'model-actions';
-              
-              const testBtn = document.createElement('button');
-              testBtn.className = 'btn';
-              testBtn.textContent = '🧪 Test';
-              testBtn.title = 'Test model connectivity';
-              testBtn.onclick = (e) => testModel(m.nametag, e);
-              actionsDiv.appendChild(testBtn);
-              
-              const defaultBtn = document.createElement('button');
-              defaultBtn.className = 'btn';
-              defaultBtn.textContent = m.isDefault ? '⭐ Default' : '☆ Set Default';
-              defaultBtn.title = 'Set as default model';
-              defaultBtn.onclick = () => setAsDefault(m.nametag);
-              actionsDiv.appendChild(defaultBtn);
-              
+              const modelActions = document.createElement('div');
+              modelActions.className = 'model-actions';
               const editBtn = document.createElement('button');
               editBtn.className = 'btn';
               editBtn.textContent = '⚙️ Edit';
               editBtn.onclick = () => editModel(m.nametag);
-              actionsDiv.appendChild(editBtn);
-              
               const removeBtn = document.createElement('button');
               removeBtn.className = 'btn btn-danger';
               removeBtn.textContent = '🗑️ Remove';
               removeBtn.onclick = () => removeModel(m.nametag);
-              actionsDiv.appendChild(removeBtn);
+              modelActions.appendChild(editBtn);
+              modelActions.appendChild(removeBtn);
               
-              modelHeaderDiv.appendChild(infoDiv);
-              modelHeaderDiv.appendChild(actionsDiv);
-              card.appendChild(modelHeaderDiv);
+              modelHeader.appendChild(modelInfo);
+              modelHeader.appendChild(modelActions);
               
-              const settingsDiv = document.createElement('div');
-              settingsDiv.className = 'settings';
+              const settings = document.createElement('div');
+              settings.className = 'settings';
               
-              const tokenSetting = document.createElement('div');
-              tokenSetting.className = 'setting';
-              tokenSetting.innerHTML = '<label>Max Tokens</label><span>' + m.limits.maxTokensPerRequest.toLocaleString() + '</span>';
-              settingsDiv.appendChild(tokenSetting);
+              const maxTokensSetting = document.createElement('div');
+              maxTokensSetting.className = 'setting';
+              const maxTokensLabel = document.createElement('label');
+              maxTokensLabel.textContent = 'Max Tokens';
+              const maxTokensSpan = document.createElement('span');
+              maxTokensSpan.textContent = m.limits.maxTokensPerRequest.toLocaleString();
+              maxTokensSetting.appendChild(maxTokensLabel);
+              maxTokensSetting.appendChild(maxTokensSpan);
               
               const tempSetting = document.createElement('div');
               tempSetting.className = 'setting';
-              tempSetting.innerHTML = '<label>Temperature</label><span>' + (m.config.temperature || 0.7).toFixed(1) + '</span>';
-              settingsDiv.appendChild(tempSetting);
+              const tempLabel = document.createElement('label');
+              tempLabel.textContent = 'Temperature';
+              const tempSpan = document.createElement('span');
+              tempSpan.textContent = (m.config.temperature || 0.7).toFixed(1);
+              tempSetting.appendChild(tempLabel);
+              tempSetting.appendChild(tempSpan);
               
-              const dailySetting = document.createElement('div');
-              dailySetting.className = 'setting';
-              dailySetting.innerHTML = '<label>Daily Budget</label><span>$' + m.limits.maxDailySpend.toFixed(2) + '</span>';
-              settingsDiv.appendChild(dailySetting);
+              const dailyBudgetSetting = document.createElement('div');
+              dailyBudgetSetting.className = 'setting';
+              const dailyBudgetLabel = document.createElement('label');
+              dailyBudgetLabel.textContent = 'Daily Budget';
+              const dailyBudgetSpan = document.createElement('span');
+              dailyBudgetSpan.textContent = '$' + m.limits.maxDailySpend.toFixed(2);
+              dailyBudgetSetting.appendChild(dailyBudgetLabel);
+              dailyBudgetSetting.appendChild(dailyBudgetSpan);
               
-              const monthlySetting = document.createElement('div');
-              monthlySetting.className = 'setting';
-              monthlySetting.innerHTML = '<label>Monthly Budget</label><span>$' + m.limits.maxMonthlySpend.toFixed(2) + '</span>';
-              settingsDiv.appendChild(monthlySetting);
+              const monthlyBudgetSetting = document.createElement('div');
+              monthlyBudgetSetting.className = 'setting';
+              const monthlyBudgetLabel = document.createElement('label');
+              monthlyBudgetLabel.textContent = 'Monthly Budget';
+              const monthlyBudgetSpan = document.createElement('span');
+              monthlyBudgetSpan.textContent = '$' + m.limits.maxMonthlySpend.toFixed(2);
+              monthlyBudgetSetting.appendChild(monthlyBudgetLabel);
+              monthlyBudgetSetting.appendChild(monthlyBudgetSpan);
               
-              card.appendChild(settingsDiv);
+              settings.appendChild(maxTokensSetting);
+              settings.appendChild(tempSetting);
+              settings.appendChild(dailyBudgetSetting);
+              settings.appendChild(monthlyBudgetSetting);
+              
+              card.appendChild(modelHeader);
+              card.appendChild(settings);
               modelsList.appendChild(card);
             }
             contentDiv.appendChild(modelsList);
@@ -832,7 +813,6 @@ export default class ModelManagerUIAgent extends BaseAgent {
           container.appendChild(section);
         }
       } catch (e) {
-        console.error('[loadProviders] Error:', e.message, e.stack);
         document.getElementById('providers-container').innerHTML = '<p class="loading">Error: ' + e.message + '</p>';
       }
     }
@@ -921,130 +901,50 @@ export default class ModelManagerUIAgent extends BaseAgent {
       }
     }
 
-    async function setAsDefault(nametag) {
-      try {
-        const response = await fetch('/models/api/managers/setdefault', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nametag })
-        });
-
-        if (response.ok) {
-          loadProviders();
-        } else {
-          const error = await response.text();
-          alert('Error setting default model: ' + error);
-        }
-      } catch (e) {
-        alert('Error: ' + e.message);
-      }
-    }
-
-    async function testModel(nametag, evt) {
-      const button = evt ? evt.target : event.target;
-      button.disabled = true;
-      button.textContent = '⏳ Testing...';
-      
-      try {
-        const response = await fetch('/models/api/managers/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nametag })
-        });
-
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-          alert('✅ Model test successful!\\n\\nResponse: ' + (result.response || 'OK'));
-          button.textContent = '✅ Working';
-          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
-        } else {
-          alert('❌ Model test failed:\\n\\n' + (result.error || 'Unknown error'));
-          button.textContent = '❌ Failed';
-          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
-        }
-      } catch (e) {
-        alert('❌ Error testing model:\\n\\n' + e.message);
-        button.textContent = '❌ Error';
-        setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
-      }
-    }
-
     function closeModal() {
       document.getElementById('edit-modal').classList.remove('show');
     }
 
     // Provider management functions
     async function loadProvidersTab() {
-      console.log('[loadProvidersTab] Starting...');
       try {
-        console.log('[loadProvidersTab] Fetching providers...');
         const providersResp = await fetch('/models/api/managers/providers');
-        if (!providersResp.ok) {
-          throw new Error('Failed to load providers: ' + providersResp.status);
-        }
         const providers = await providersResp.json();
-        console.log('[loadProvidersTab] Got providers:', Object.keys(providers).length);
         
         const container = document.getElementById('providers-list');
-        if (!container) {
-          throw new Error('Container element not found');
-        }
         container.innerHTML = '';
 
         for (const [providerKey, provider] of Object.entries(providers)) {
           const card = document.createElement('div');
           card.className = 'provider-card';
-          
-          const h3 = document.createElement('h3');
-          h3.textContent = providerKey;
-          card.appendChild(h3);
-          
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'provider-info';
-          
-          const typeItem = document.createElement('div');
-          typeItem.className = 'provider-info-item';
-          typeItem.innerHTML = '<label>Type</label><span>' + (provider.type || 'N/A') + '</span>';
-          infoDiv.appendChild(typeItem);
-          
-          const baseUrlItem = document.createElement('div');
-          baseUrlItem.className = 'provider-info-item';
-          baseUrlItem.innerHTML = '<label>Base URL</label><span>' + (provider.baseUrl || 'N/A') + '</span>';
-          infoDiv.appendChild(baseUrlItem);
-          
-          const keyEnvItem = document.createElement('div');
-          keyEnvItem.className = 'provider-info-item';
-          keyEnvItem.innerHTML = '<label>API Key Env</label><span>' + (provider.apiKeyEnv || 'N/A') + '</span>';
-          infoDiv.appendChild(keyEnvItem);
-          
-          const descItem = document.createElement('div');
-          descItem.className = 'provider-info-item';
-          descItem.innerHTML = '<label>Description</label><span>' + (provider.description || 'N/A') + '</span>';
-          infoDiv.appendChild(descItem);
-          
-          card.appendChild(infoDiv);
-          
-          const actionsDiv = document.createElement('div');
-          actionsDiv.className = 'provider-actions';
-          
-          const editBtn = document.createElement('button');
-          editBtn.className = 'btn';
-          editBtn.textContent = '⚙️ Edit';
-          editBtn.onclick = () => openEditProviderModal(providerKey);
-          actionsDiv.appendChild(editBtn);
-          
-          const removeBtn = document.createElement('button');
-          removeBtn.className = 'btn btn-danger';
-          removeBtn.textContent = '🗑️ Remove';
-          removeBtn.onclick = () => removeProvider(providerKey);
-          actionsDiv.appendChild(removeBtn);
-          
-          card.appendChild(actionsDiv);
+          card.innerHTML = \`
+            <h3>\${providerKey}</h3>
+            <div class="provider-info">
+              <div class="provider-info-item">
+                <label>Type</label>
+                <span>\${provider.type || 'N/A'}</span>
+              </div>
+              <div class="provider-info-item">
+                <label>Base URL</label>
+                <span>\${provider.baseUrl || 'N/A'}</span>
+              </div>
+              <div class="provider-info-item">
+                <label>API Key Env</label>
+                <span>\${provider.apiKeyEnv || 'N/A'}</span>
+              </div>
+              <div class="provider-info-item">
+                <label>Description</label>
+                <span>\${provider.description || 'N/A'}</span>
+              </div>
+            </div>
+            <div class="provider-actions">
+              <button class="btn" onclick="openEditProviderModal('\${providerKey}')">⚙️ Edit</button>
+              <button class="btn btn-danger" onclick="removeProvider('\${providerKey}')">🗑️ Remove</button>
+            </div>
+          \`;
           container.appendChild(card);
         }
       } catch (e) {
-        console.error('[loadProvidersTab] Error:', e.message);
         document.getElementById('providers-list').innerHTML = '<p class="loading">Error: ' + e.message + '</p>';
       }
     }
@@ -1454,138 +1354,6 @@ export default class ModelManagerUIAgent extends BaseAgent {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
-    }
-  }
-
-  private async handleSetDefault(req: Request): Promise<Response> {
-    try {
-      const body = await req.json() as { nametag: string };
-      const { nametag } = body;
-
-      if (!nametag) {
-        throw new Error("nametag required");
-      }
-
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
-      if (!registry.models[nametag]) {
-        throw new Error(`Model ${nametag} not found`);
-      }
-
-      registry.default = nametag;
-      await this.api.plugins.call("model-selector", "saveRegistry", registry);
-
-      return new Response(JSON.stringify({ success: true, default: nametag }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (e) {
-      return new Response(JSON.stringify({ error: String(e) }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  }
-
-  private async handleTestModel(req: Request): Promise<Response> {
-    try {
-      const body = await req.json() as { nametag: string };
-      const { nametag } = body;
-
-      if (!nametag) {
-        throw new Error("nametag required");
-      }
-
-      const model = await this.api.plugins.call("model-selector", "getModel", nametag);
-      if (!model) {
-        throw new Error(`Model ${nametag} not found`);
-      }
-
-      // Try to call the model with a simple test prompt
-      const testPrompt = "Say 'Hello, Ronin!' and nothing else.";
-      
-      try {
-        // Use the model-selector plugin to get the provider and model details
-        const registry = await this.api.plugins.call("model-selector", "loadRegistry");
-        const provider = registry.providers[model.provider];
-
-        if (!provider) {
-          throw new Error(`Provider ${model.provider} not configured`);
-        }
-
-        // Check if we have API key for remote providers
-        if (provider.type === "remote" && provider.apiKeyEnv) {
-          const apiKey = process.env[provider.apiKeyEnv];
-          if (!apiKey) {
-            throw new Error(`API key not set for environment variable: ${provider.apiKeyEnv}. Please set this environment variable and restart Ronin.`);
-          }
-        }
-
-        // Make a simple test call
-        let response: Response;
-        
-        if (provider.type === "local") {
-          // For local models (Ollama, LM Studio), use the local API
-          response = await fetch(`${provider.baseUrl}/api/generate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: model.modelId,
-              prompt: testPrompt,
-              stream: false,
-            }),
-          });
-        } else {
-          // For remote models, use OpenAI-compatible API
-          const apiKey = process.env[provider.apiKeyEnv!];
-          response = await fetch(`${provider.baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: model.modelId,
-              messages: [{ role: "user", content: testPrompt }],
-              max_tokens: 50,
-            }),
-          });
-        }
-
-        if (!response.ok) {
-          const error = await response.text();
-          throw new Error(`API returned ${response.status}: ${error}`);
-        }
-
-        const result = await response.json();
-        let testResponse = "";
-
-        if (provider.type === "local" && result.response) {
-          testResponse = result.response;
-        } else if (result.choices?.[0]?.message?.content) {
-          testResponse = result.choices[0].message.content;
-        } else {
-          testResponse = "Model responded but format was unexpected";
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            response: testResponse.slice(0, 200),
-            provider: model.provider,
-            model: model.modelId,
-          }),
-          { headers: { "Content-Type": "application/json" } }
-        );
-      } catch (testError) {
-        throw new Error(`Failed to test model: ${testError instanceof Error ? testError.message : String(testError)}`);
-      }
-    } catch (e) {
-      return new Response(
-        JSON.stringify({ error: String(e), success: false }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
     }
   }
 }

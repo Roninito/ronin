@@ -6,6 +6,7 @@
 
 import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
+import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelSelectorUIAgent extends BaseAgent {
   constructor(api: AgentAPI) {
@@ -30,32 +31,171 @@ export default class ModelSelectorUIAgent extends BaseAgent {
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Model Selector</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Model Selector - Ronin</title>
   <style>
-    body { font-family: system-ui; padding: 20px; background: #f5f5f5; }
-    h1 { color: #333; }
-    .models { display: grid; gap: 20px; }
-    .model-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .model-name { font-weight: bold; font-size: 18px; margin-bottom: 8px; }
-    button { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; }
-    button:hover { background: #764ba2; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page-content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: ${roninTheme.spacing.xl};
+    }
+
+    .page-intro {
+      margin-bottom: ${roninTheme.spacing.xl};
+      color: ${roninTheme.colors.textSecondary};
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .models {
+      display: grid;
+      gap: ${roninTheme.spacing.lg};
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .model-card {
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.lg};
+      padding: ${roninTheme.spacing.lg};
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: default;
+    }
+
+    .model-card:hover {
+      border-color: ${roninTheme.colors.borderHover};
+      background: ${roninTheme.colors.backgroundTertiary};
+      transform: translateY(-4px);
+    }
+
+    .model-card h3 {
+      margin: 0 0 ${roninTheme.spacing.sm} 0;
+      font-size: 1.05rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: ${roninTheme.colors.textPrimary};
+    }
+
+    .model-provider {
+      font-size: 0.75rem;
+      color: ${roninTheme.colors.textTertiary};
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: ${roninTheme.spacing.md};
+    }
+
+    .model-description {
+      font-size: 0.875rem;
+      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${roninTheme.spacing.md};
+      line-height: 1.5;
+    }
+
+    .model-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: ${roninTheme.spacing.sm};
+      margin-bottom: ${roninTheme.spacing.md};
+    }
+
+    .tag {
+      background: ${roninTheme.colors.background};
+      color: ${roninTheme.colors.link};
+      padding: 3px 8px;
+      border-radius: ${roninTheme.borderRadius.sm};
+      font-size: 0.7rem;
+      font-family: ${roninTheme.fonts.mono};
+      letter-spacing: 0.02em;
+      border: 1px solid rgba(132, 204, 22, 0.2);
+    }
+
+    .btn {
+      width: 100%;
+      padding: ${roninTheme.spacing.md};
+      background: ${roninTheme.colors.backgroundTertiary};
+      border: 1px solid ${roninTheme.colors.border};
+      color: ${roninTheme.colors.textSecondary};
+      border-radius: ${roninTheme.borderRadius.md};
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: ${roninTheme.fonts.primary};
+      font-weight: 400;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      letter-spacing: -0.005em;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: ${roninTheme.colors.link};
+      color: ${roninTheme.colors.background};
+      border-color: ${roninTheme.colors.link};
+      transform: translateY(-2px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .action-links {
+      display: flex;
+      gap: ${roninTheme.spacing.md};
+      margin-bottom: ${roninTheme.spacing.xl};
+      align-items: center;
+    }
+
+    .action-links a {
+      color: ${roninTheme.colors.link};
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: ${roninTheme.spacing.sm};
+    }
+
+    .action-links a:hover {
+      color: ${roninTheme.colors.linkHover};
+    }
   </style>
 </head>
 <body>
-  <h1>⚙️  AI Model Selector</h1>
-  <p>Select your default AI model</p>
-  <p><a href="/models/manage" style="color: #667eea; text-decoration: none;">→ Manage Models</a></p>
-  <div class="models" id="models-container">
-    <p>Loading...</p>
+  <div class="header">
+    ${getHeaderHomeIconHTML()}
+    <h1>AI Model Selector</h1>
   </div>
+
+  <div class="page-content">
+    <div class="action-links">
+      <a href="/models/manage">⚙️ Manage Models</a>
+    </div>
+
+    <div class="page-intro">
+      <p>Select your default AI model for task execution. The default model will be used for all chain operations unless explicitly overridden.</p>
+    </div>
+
+    <div class="models" id="models-container">
+      <p style="color: ${roninTheme.colors.textTertiary}; grid-column: 1/-1;">Loading models...</p>
+    </div>
+  </div>
+
   <script>
     async function loadModels() {
       try {
         const response = await fetch('/models/api/list');
         const data = await response.json();
         if (!data.success && !Array.isArray(data)) {
-          document.getElementById('models-container').innerHTML = '<p>Failed to load models</p>';
+          document.getElementById('models-container').innerHTML = '<p style="color: ${roninTheme.colors.error}; grid-column: 1/-1;">Failed to load models</p>';
           return;
         }
         const models = Array.isArray(data) ? data : data.models || [];
@@ -65,17 +205,22 @@ export default class ModelSelectorUIAgent extends BaseAgent {
         
         const html = models.map(m => \`
           <div class="model-card">
-            <div class="model-name">\${m.displayName || m.nametag}</div>
-            <p><small>\${m.provider}</small></p>
-            <p>\${m.description || 'No description'}</p>
-            <button \${m.nametag === defaultModel ? 'disabled' : ''} onclick="setDefault('\${m.nametag}')">
-              \${m.nametag === defaultModel ? '✓ Default' : 'Set Default'}
+            <h3>\${m.displayName || m.nametag}</h3>
+            <div class="model-provider">\${m.provider}</div>
+            <p class="model-description">\${m.description || 'No description available'}</p>
+            \${m.tags && m.tags.length > 0 ? \`
+              <div class="model-tags">
+                \${m.tags.map(tag => \`<span class="tag">\${tag}</span>\`).join('')}
+              </div>
+            \` : ''}
+            <button class="btn" \${m.nametag === defaultModel ? 'disabled' : ''} onclick="setDefault('\${m.nametag}')">
+              \${m.nametag === defaultModel ? '✓ Default Model' : 'Set as Default'}
             </button>
           </div>
         \`).join('');
         document.getElementById('models-container').innerHTML = html;
       } catch (e) {
-        document.getElementById('models-container').innerHTML = '<p>Error: ' + e.message + '</p>';
+        document.getElementById('models-container').innerHTML = '<p style="color: ${roninTheme.colors.error}; grid-column: 1/-1;">Error: ' + e.message + '</p>';
       }
     }
 

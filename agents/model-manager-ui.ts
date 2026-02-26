@@ -917,31 +917,72 @@ export default class ModelManagerUIAgent extends BaseAgent {
         for (const [providerKey, provider] of Object.entries(providers)) {
           const card = document.createElement('div');
           card.className = 'provider-card';
-          card.innerHTML = \`
-            <h3>\${providerKey}</h3>
-            <div class="provider-info">
-              <div class="provider-info-item">
-                <label>Type</label>
-                <span>\${provider.type || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>Base URL</label>
-                <span>\${provider.baseUrl || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>API Key Env</label>
-                <span>\${provider.apiKeyEnv || 'N/A'}</span>
-              </div>
-              <div class="provider-info-item">
-                <label>Description</label>
-                <span>\${provider.description || 'N/A'}</span>
-              </div>
-            </div>
-            <div class="provider-actions">
-              <button class="btn" onclick="openEditProviderModal('\${providerKey}')">⚙️ Edit</button>
-              <button class="btn btn-danger" onclick="removeProvider('\${providerKey}')">🗑️ Remove</button>
-            </div>
-          \`;
+          
+          const h3 = document.createElement('h3');
+          h3.textContent = providerKey;
+          card.appendChild(h3);
+          
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'provider-info';
+          
+          const typeItem = document.createElement('div');
+          typeItem.className = 'provider-info-item';
+          const typeLabel = document.createElement('label');
+          typeLabel.textContent = 'Type';
+          const typeSpan = document.createElement('span');
+          typeSpan.textContent = provider.type || 'N/A';
+          typeItem.appendChild(typeLabel);
+          typeItem.appendChild(typeSpan);
+          infoDiv.appendChild(typeItem);
+          
+          const urlItem = document.createElement('div');
+          urlItem.className = 'provider-info-item';
+          const urlLabel = document.createElement('label');
+          urlLabel.textContent = 'Base URL';
+          const urlSpan = document.createElement('span');
+          urlSpan.textContent = provider.baseUrl || 'N/A';
+          urlItem.appendChild(urlLabel);
+          urlItem.appendChild(urlSpan);
+          infoDiv.appendChild(urlItem);
+          
+          const keyItem = document.createElement('div');
+          keyItem.className = 'provider-info-item';
+          const keyLabel = document.createElement('label');
+          keyLabel.textContent = 'API Key Env';
+          const keySpan = document.createElement('span');
+          keySpan.textContent = provider.apiKeyEnv || 'N/A';
+          keyItem.appendChild(keyLabel);
+          keyItem.appendChild(keySpan);
+          infoDiv.appendChild(keyItem);
+          
+          const descItem = document.createElement('div');
+          descItem.className = 'provider-info-item';
+          const descLabel = document.createElement('label');
+          descLabel.textContent = 'Description';
+          const descSpan = document.createElement('span');
+          descSpan.textContent = provider.description || 'N/A';
+          descItem.appendChild(descLabel);
+          descItem.appendChild(descSpan);
+          infoDiv.appendChild(descItem);
+          
+          card.appendChild(infoDiv);
+          
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'provider-actions';
+          
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn';
+          editBtn.textContent = '⚙️ Edit';
+          editBtn.onclick = () => openEditProviderModal(providerKey);
+          actionsDiv.appendChild(editBtn);
+          
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'btn btn-danger';
+          removeBtn.textContent = '🗑️ Remove';
+          removeBtn.onclick = () => removeProvider(providerKey);
+          actionsDiv.appendChild(removeBtn);
+          
+          card.appendChild(actionsDiv);
           container.appendChild(card);
         }
       } catch (e) {

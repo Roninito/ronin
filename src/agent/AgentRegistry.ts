@@ -558,6 +558,7 @@ export class AgentRegistry {
     webhookAgents: number;
     agents: Array<{
       name: string;
+      description?: string;
       schedule?: string;
       watch?: string[];
       webhook?: string;
@@ -571,6 +572,7 @@ export class AgentRegistry {
       webhookAgents: agents.filter(a => a.webhook).length,
       agents: agents.map(a => ({
         name: a.name,
+        description: a.description,
         schedule: a.schedule,
         watch: a.watch,
         webhook: a.webhook,

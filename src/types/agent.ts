@@ -27,6 +27,11 @@ export interface AgentConstructor {
   new (api: AgentAPI): Agent;
   
   /**
+   * Optional: Human-readable description of what the agent does
+   */
+  description?: string;
+  
+  /**
    * Optional: Cron schedule expression (e.g., "0 */6 * * *")
    */
   schedule?: string;
@@ -48,6 +53,7 @@ export interface AgentConstructor {
 export interface AgentMetadata {
   name: string;
   filePath: string;
+  description?: string;
   schedule?: string;
   watch?: string[];
   webhook?: string;

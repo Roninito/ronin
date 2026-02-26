@@ -27,6 +27,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
     this.api.http.registerRoute("/models/api/managers/update", this.handleUpdate.bind(this));
     this.api.http.registerRoute("/models/api/managers/add", this.handleAdd.bind(this));
     this.api.http.registerRoute("/models/api/managers/remove", this.handleRemove.bind(this));
+    this.api.http.registerRoute("/models/api/managers/setdefault", this.handleSetDefault.bind(this));
+    this.api.http.registerRoute("/models/api/managers/test", this.handleTestModel.bind(this));
     // Provider management endpoints
     this.api.http.registerRoute("/models/api/managers/provider/add", this.handleAddProvider.bind(this));
     this.api.http.registerRoute("/models/api/managers/provider/update", this.handleUpdateProvider.bind(this));
@@ -724,6 +726,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
                     <span class="model-nametag">\${m.nametag}</span>
                   </div>
                   <div class="model-actions">
+                    <button class="btn" onclick="testModel('\${m.nametag}')" title="Test model connectivity">🧪 Test</button>
+                    <button class="btn" onclick="setAsDefault('\${m.nametag}')" title="Set as default model">\${m.isDefault ? '⭐ Default' : '☆ Set Default'}</button>
                     <button class="btn" onclick="editModel('\${m.nametag}')">⚙️ Edit</button>
                     <button class="btn btn-danger" onclick="removeModel('\${m.nametag}')">🗑️ Remove</button>
                   </div>
@@ -849,6 +853,55 @@ export default class ModelManagerUIAgent extends BaseAgent {
         }
       } catch (e) {
         alert('Error: ' + e.message);
+      }
+    }
+
+    async function setAsDefault(nametag) {
+      try {
+        const response = await fetch('/models/api/managers/setdefault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
+        });
+
+        if (response.ok) {
+          loadProviders();
+        } else {
+          const error = await response.text();
+          alert('Error setting default model: ' + error);
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function testModel(nametag) {
+      const button = event.target;
+      button.disabled = true;
+      button.textContent = '⏳ Testing...';
+      
+      try {
+        const response = await fetch('/models/api/managers/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          alert('✅ Model test successful!\n\nResponse: ' + (result.response || 'OK'));
+          button.textContent = '✅ Working';
+          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
+        } else {
+          alert('❌ Model test failed:\n\n' + (result.error || 'Unknown error'));
+          button.textContent = '❌ Failed';
+          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
+        }
+      } catch (e) {
+        alert('❌ Error testing model:\n\n' + e.message);
+        button.textContent = '❌ Error';
+        setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
       }
     }
 
@@ -1305,6 +1358,138 @@ export default class ModelManagerUIAgent extends BaseAgent {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+  }
+
+  private async handleSetDefault(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { nametag: string };
+      const { nametag } = body;
+
+      if (!nametag) {
+        throw new Error("nametag required");
+      }
+
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      if (!registry.models[nametag]) {
+        throw new Error(`Model ${nametag} not found`);
+      }
+
+      registry.default = nametag;
+      await this.api.plugins.call("model-selector", "saveRegistry", registry);
+
+      return new Response(JSON.stringify({ success: true, default: nametag }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e) }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  private async handleTestModel(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { nametag: string };
+      const { nametag } = body;
+
+      if (!nametag) {
+        throw new Error("nametag required");
+      }
+
+      const model = await this.api.plugins.call("model-selector", "getModel", nametag);
+      if (!model) {
+        throw new Error(`Model ${nametag} not found`);
+      }
+
+      // Try to call the model with a simple test prompt
+      const testPrompt = "Say 'Hello, Ronin!' and nothing else.";
+      
+      try {
+        // Use the model-selector plugin to get the provider and model details
+        const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+        const provider = registry.providers[model.provider];
+
+        if (!provider) {
+          throw new Error(`Provider ${model.provider} not configured`);
+        }
+
+        // Check if we have API key for remote providers
+        if (provider.type === "remote" && provider.apiKeyEnv) {
+          const apiKey = process.env[provider.apiKeyEnv];
+          if (!apiKey) {
+            throw new Error(`API key not set for environment variable: ${provider.apiKeyEnv}`);
+          }
+        }
+
+        // Make a simple test call
+        let response: Response;
+        
+        if (provider.type === "local") {
+          // For local models (Ollama, LM Studio), use the local API
+          response = await fetch(`${provider.baseUrl}/api/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: model.modelId,
+              prompt: testPrompt,
+              stream: false,
+            }),
+          });
+        } else {
+          // For remote models, use OpenAI-compatible API
+          const apiKey = process.env[provider.apiKeyEnv!];
+          response = await fetch(`${provider.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model.modelId,
+              messages: [{ role: "user", content: testPrompt }],
+              max_tokens: 50,
+            }),
+          });
+        }
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`API returned ${response.status}: ${error}`);
+        }
+
+        const result = await response.json();
+        let testResponse = "";
+
+        if (provider.type === "local" && result.response) {
+          testResponse = result.response;
+        } else if (result.choices?.[0]?.message?.content) {
+          testResponse = result.choices[0].message.content;
+        } else {
+          testResponse = "Model responded but format was unexpected";
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: testResponse.slice(0, 200),
+            provider: model.provider,
+            model: model.modelId,
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      } catch (testError) {
+        throw new Error(`Failed to test model: ${testError instanceof Error ? testError.message : String(testError)}`);
+      }
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: String(e), success: false }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
 }

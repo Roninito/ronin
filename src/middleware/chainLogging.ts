@@ -16,14 +16,14 @@ export interface ChainLoggingOptions {
 }
 
 export function createChainLoggingMiddleware(
-  options: ChainLoggingOptions | string
+  options?: ChainLoggingOptions | string
 ): Middleware<ChainContext> {
   let label = "chain";
   let verbose = false;
   
   if (typeof options === "string") {
     label = options;
-  } else {
+  } else if (options && typeof options === "object") {
     label = options.label || "chain";
     verbose = options.verbose || options.level === "debug";
   }

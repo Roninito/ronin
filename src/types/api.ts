@@ -750,6 +750,7 @@ export interface AgentAPI {
     getNotifications(): import("../config/types.js").NotificationsConfig;
     isFromEnv(path: string): boolean;
     reload(): Promise<void>;
+    set(path: string, value: unknown): Promise<void>;
   };
 
   /**

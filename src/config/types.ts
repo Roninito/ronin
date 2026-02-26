@@ -302,8 +302,6 @@ export interface FullConfig {
 export interface AlpacaConfig {
   apiKey: string;
   secretKey: string;
-  paperApiKey: string;
-  paperSecretKey: string;
   mode: "live" | "paper";
 }
 
@@ -428,8 +426,6 @@ export type ConfigPath =
   | 'alpaca'
   | 'alpaca.apiKey'
   | 'alpaca.secretKey'
-  | 'alpaca.paperApiKey'
-  | 'alpaca.paperSecretKey'
   | 'alpaca.mode'
   | 'pluginDir'
   | 'geminiModel';

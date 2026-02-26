@@ -21,6 +21,8 @@ export interface APIOptions {
   dbPath?: string;
   pluginDir?: string;
   userPluginDir?: string;
+  /** When true, skip plugin and MCP loading. Use for read-only CLI commands that only need DB access. */
+  skipPlugins?: boolean;
 }
 
 /** Internal methods that should not be exposed as tools */
@@ -125,7 +127,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const builtinPluginDir = options.pluginDir || "./plugins";
   const userPluginDir = options.userPluginDir || null;
   const pluginLoader = new PluginLoader(builtinPluginDir, userPluginDir);
-  const plugins = await pluginLoader.loadAllPlugins();
+  const plugins = options.skipPlugins ? [] : await pluginLoader.loadAllPlugins();
 
   // Register all loaded plugins
   for (const plugin of plugins) {
@@ -451,6 +453,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
       getNotifications: () => configService.getNotifications(),
       isFromEnv: (path: string) => configService.isFromEnv(path as any),
       reload: () => configService.reload(),
+      set: (path: string, value: unknown) => configService.set(path as any, value),
     },
     ...(gitAPI && { git: gitAPI }),
     ...(shellAPI && { shell: shellAPI }),
@@ -469,12 +472,14 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     tools: {} as AgentAPI["tools"],
   };
 
-  // Initialize tool system with full API
-  await initializeTools(api);
+  // Initialize tool system with full API (skip for read-only CLI commands)
+  if (!options.skipPlugins) {
+    await initializeTools(api);
+  }
 
   // Add tools API to the api object
-  const toolsAPI = getToolsAPI(api);
-  (api as any).tools = toolsAPI;
+  const toolsAPI = options.skipPlugins ? null : getToolsAPI(api);
+  if (toolsAPI) (api as any).tools = toolsAPI;
 
   // Register plugin tools with the router so execute() can dispatch to plugins
   // (pluginTools are already passed to the AI in callTools; without this, execute would fail)
@@ -482,14 +487,8 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
 
   // Skills plugin needs API reference for files, shell, config, events
   const skillsPlugin = plugins.find(p => p.name === "skills");
-  console.log("[createAPI] skillsPlugin found:", !!skillsPlugin);
-  console.log("[createAPI] skillsPlugin.methods:", skillsPlugin?.plugin?.methods ? Object.keys(skillsPlugin.plugin.methods) : "none");
   if (skillsPlugin?.plugin?.methods?.setAPI) {
-    console.log("[createAPI] Calling setAPI for skills plugin...");
     (skillsPlugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
-    console.log("[createAPI] setAPI called successfully");
-  } else {
-    console.log("[createAPI] setAPI NOT called - skillsPlugin?.plugin?.methods?.setAPI is", skillsPlugin?.plugin?.methods?.setAPI);
   }
 
   return api;

@@ -218,8 +218,6 @@ export const DEFAULT_CONFIG: FullConfig = {
   alpaca: {
     apiKey: "",
     secretKey: "",
-    paperApiKey: "",
-    paperSecretKey: "",
     mode: "paper",
   },
 };

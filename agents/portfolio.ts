@@ -72,7 +72,11 @@ interface PortfolioStats {
 
 function alpacaStatus(api: AgentAPI): { connected: boolean; mode: "live" | "paper" } {
   try {
-    return api.plugins.call("alpaca", "getConfig") as { connected: boolean; mode: "live" | "paper" };
+    const cfg = api.config.getAll().alpaca;
+    return {
+      connected: !!(cfg?.apiKey && cfg?.secretKey),
+      mode: (cfg?.mode as "live" | "paper") ?? "paper",
+    };
   } catch {
     return { connected: false, mode: "paper" };
   }
@@ -486,31 +490,41 @@ export default class PortfolioAgent extends BaseAgent {
 
   private async handleSettings(req: Request): Promise<Response> {
     if (req.method === "POST") {
-      const form = await req.formData();
-      const updates: Record<string, string> = {};
-      for (const [k, v] of form.entries()) {
-        if (typeof v === "string" && v !== "") updates[k] = v;
-      }
+      let saveError = "";
       try {
-        await this.api.plugins.call("alpaca", "setConfig", updates);
+        const form = await req.formData();
+        const mode = form.get("mode");
+        const apiKey = form.get("apiKey");
+        const secretKey = form.get("secretKey");
+
+        // Always save mode
+        if (mode === "live" || mode === "paper") {
+          await this.api.config.set("alpaca.mode", mode);
+        }
+        // Only overwrite key/secret if user provided non-empty values
+        if (typeof apiKey === "string" && apiKey.trim() !== "") {
+          await this.api.config.set("alpaca.apiKey", apiKey.trim());
+        }
+        if (typeof secretKey === "string" && secretKey.trim() !== "") {
+          await this.api.config.set("alpaca.secretKey", secretKey.trim());
+        }
       } catch (e) {
-        // plugin may not be loaded — silently skip
+        saveError = encodeURIComponent(e instanceof Error ? e.message : String(e));
+        return Response.redirect(`/portfolio/settings?error=${saveError}`, 303);
       }
       return Response.redirect("/portfolio/settings?saved=1", 303);
     }
 
-    const cfg = (() => {
-      try {
-        return this.api.plugins.call("alpaca", "getConfig") as { connected: boolean; mode: string; hasLive: boolean; hasPaper: boolean };
-      } catch {
-        return { connected: false, mode: "paper", hasLive: false, hasPaper: false };
-      }
-    })();
+    const alpacaCfg = this.api.config.getAll().alpaca ?? { apiKey: "", secretKey: "", mode: "paper" };
+    const connected = !!(alpacaCfg.apiKey && alpacaCfg.secretKey);
+    const mode = alpacaCfg.mode ?? "paper";
 
-    const saved = new URL(req.url).searchParams.get("saved") === "1";
-    const savedBanner = saved
-      ? `<div style="background:#14532d;border:1px solid #16a34a;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#86efac">✓ Settings saved successfully</div>`
-      : "";
+    const params = new URL(req.url).searchParams;
+    const savedBanner = params.get("saved") === "1"
+      ? `<div style="background:#14532d;border:1px solid #16a34a;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#86efac">✓ Credentials saved to ~/.ronin/config.json</div>`
+      : params.get("error")
+        ? `<div style="background:#7f1d1d;border:1px solid #dc2626;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#fca5a5">✗ Save failed: ${decodeURIComponent(params.get("error")!)}</div>`
+        : "";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -521,17 +535,18 @@ export default class PortfolioAgent extends BaseAgent {
   <style>
     ${sharedCSS()}
     .settings-card { background:${roninTheme.colors.backgroundSecondary};border:1px solid ${roninTheme.colors.border};border-radius:${roninTheme.borderRadius.lg};padding:${roninTheme.spacing.xl};margin-bottom:${roninTheme.spacing.lg}; }
-    .settings-card h2 { margin:0 0 1rem;font-size:1rem;color:${roninTheme.colors.textPrimary}; }
+    .settings-card h2 { margin:0 0 0.5rem;font-size:1rem;color:${roninTheme.colors.textPrimary}; }
+    .settings-card p { margin:0 0 1rem;font-size:0.8125rem;color:${roninTheme.colors.textTertiary}; }
     .field { margin-bottom:1rem; }
     .field label { display:block;font-size:0.75rem;color:${roninTheme.colors.textTertiary};margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
-    .field input { width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box; }
+    .field input[type=text], .field input[type=password] { width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box; }
     .field input:focus { outline:none;border-color:${roninTheme.colors.link}; }
-    .radio-group { display:flex;gap:1rem; }
+    .radio-group { display:flex;gap:1.5rem; }
     .radio-option { display:flex;align-items:center;gap:6px;cursor:pointer;color:${roninTheme.colors.textSecondary};font-size:0.875rem; }
     .btn-save { background:${roninTheme.colors.link};color:#000;border:none;padding:10px 24px;border-radius:6px;font-size:0.875rem;font-weight:600;cursor:pointer; }
     .status-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
-    .connected { background:#22c55e; }
-    .disconnected { background:#6b7280; }
+    .dot-on { background:#22c55e; }
+    .dot-off { background:#6b7280; }
   </style>
 </head>
 <body>
@@ -539,54 +554,41 @@ export default class PortfolioAgent extends BaseAgent {
     ${getHeaderHomeIconHTML()}
     <h1>Portfolio Settings</h1>
     <div class="header-meta">
-      <span class="status-dot ${cfg.connected ? "connected" : "disconnected"}"></span>
-      <span>${cfg.connected ? `Connected (${cfg.mode.toUpperCase()})` : "Not Connected"}</span>
+      <span class="status-dot ${connected ? "dot-on" : "dot-off"}"></span>
+      <span>${connected ? `Connected · ${mode.toUpperCase()}` : "Not Connected"}</span>
     </div>
   </div>
   ${navTabs("/portfolio/settings")}
-  <div class="container" style="max-width:720px">
+  <div class="container" style="max-width:680px">
     ${savedBanner}
 
     <form method="POST" action="/portfolio/settings">
       <div class="settings-card">
-        <h2>Account Mode</h2>
+        <h2>Alpaca API Credentials ${connected ? '<span style="color:#22c55e;font-size:0.75rem">● Saved</span>' : ""}</h2>
+        <p>Get your API Key ID and Secret Key from <a href="https://app.alpaca.markets" target="_blank" style="color:${roninTheme.colors.link}">app.alpaca.markets</a> → API Keys. Use Paper Trading keys to test safely.</p>
         <div class="field">
-          <label>Active Account</label>
+          <label>API Key ID</label>
+          <input type="text" name="apiKey" placeholder="${connected ? "•••••••••••• (saved — enter new value to replace)" : "Paste your API Key ID"}" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Secret Key</label>
+          <input type="password" name="secretKey" placeholder="${connected ? "•••••••••••• (saved — enter new value to replace)" : "Paste your Secret Key"}" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h2>Account Mode</h2>
+        <p>Paper Trading uses a simulated account — no real money at risk. Switch to Live only when you're ready.</p>
+        <div class="field">
           <div class="radio-group">
             <label class="radio-option">
-              <input type="radio" name="mode" value="paper" ${cfg.mode === "paper" ? "checked" : ""}> Paper Trading
+              <input type="radio" name="mode" value="paper" ${mode === "paper" ? "checked" : ""}> 📄 Paper Trading
             </label>
             <label class="radio-option">
-              <input type="radio" name="mode" value="live" ${cfg.mode === "live" ? "checked" : ""}> Live Trading
+              <input type="radio" name="mode" value="live" ${mode === "live" ? "checked" : ""}> 💰 Live Trading
             </label>
           </div>
-        </div>
-      </div>
-
-      <div class="settings-card">
-        <h2>Paper Trading Credentials ${cfg.hasPaper ? '<span style="color:#22c55e;font-size:0.75rem">● Connected</span>' : ""}</h2>
-        <p style="font-size:0.8125rem;color:${roninTheme.colors.textTertiary};margin:0 0 1rem">Get these from <a href="https://app.alpaca.markets/paper-trading/overview" target="_blank" style="color:${roninTheme.colors.link}">paper-api.alpaca.markets</a></p>
-        <div class="field">
-          <label>Paper API Key ID</label>
-          <input type="text" name="paperApiKey" placeholder="PK…" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Paper Secret Key</label>
-          <input type="password" name="paperSecretKey" placeholder="Leave blank to keep existing" autocomplete="off">
-        </div>
-      </div>
-
-      <div class="settings-card">
-        <h2>Live Trading Credentials ${cfg.hasLive ? '<span style="color:#22c55e;font-size:0.75rem">● Connected</span>' : ""}</h2>
-        <p style="font-size:0.8125rem;color:#dc2626;margin:0 0 0.5rem">⚠ Live trading uses real money. Double-check before enabling.</p>
-        <p style="font-size:0.8125rem;color:${roninTheme.colors.textTertiary};margin:0 0 1rem">Get these from <a href="https://app.alpaca.markets/live-trading/overview" target="_blank" style="color:${roninTheme.colors.link}">app.alpaca.markets</a></p>
-        <div class="field">
-          <label>Live API Key ID</label>
-          <input type="text" name="apiKey" placeholder="AK…" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Live Secret Key</label>
-          <input type="password" name="secretKey" placeholder="Leave blank to keep existing" autocomplete="off">
+          ${mode === "live" ? `<p style="color:#dc2626;margin-top:0.5rem;margin-bottom:0">⚠ Live mode uses real money.</p>` : ""}
         </div>
       </div>
 

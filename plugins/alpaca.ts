@@ -62,8 +62,6 @@ export interface AlpacaBar {
 export interface AlpacaConfig {
   apiKey: string;
   secretKey: string;
-  paperApiKey: string;
-  paperSecretKey: string;
   mode: "live" | "paper";
 }
 
@@ -78,17 +76,16 @@ function getAlpacaConfig(): AlpacaConfig {
   return {
     apiKey: (cs.get("alpaca.apiKey") as string) || "",
     secretKey: (cs.get("alpaca.secretKey") as string) || "",
-    paperApiKey: (cs.get("alpaca.paperApiKey") as string) || "",
-    paperSecretKey: (cs.get("alpaca.paperSecretKey") as string) || "",
     mode: (cs.get("alpaca.mode") as "live" | "paper") || "paper",
   };
 }
 
 function getCredentials(cfg: AlpacaConfig): { key: string; secret: string; base: string } {
-  if (cfg.mode === "live") {
-    return { key: cfg.apiKey, secret: cfg.secretKey, base: LIVE_BASE };
-  }
-  return { key: cfg.paperApiKey, secret: cfg.paperSecretKey, base: PAPER_BASE };
+  return {
+    key: cfg.apiKey,
+    secret: cfg.secretKey,
+    base: cfg.mode === "live" ? LIVE_BASE : PAPER_BASE,
+  };
 }
 
 async function alpacaFetch<T>(
@@ -129,13 +126,11 @@ const alpacaPlugin: Plugin = {
     /**
      * Check if Alpaca credentials are configured and return current config (secrets masked).
      */
-    getConfig(): { connected: boolean; mode: "live" | "paper"; hasLive: boolean; hasPaper: boolean } {
+    getConfig(): { connected: boolean; mode: "live" | "paper" } {
       const cfg = getAlpacaConfig();
       return {
-        connected: cfg.mode === "live" ? !!(cfg.apiKey && cfg.secretKey) : !!(cfg.paperApiKey && cfg.paperSecretKey),
+        connected: !!(cfg.apiKey && cfg.secretKey),
         mode: cfg.mode,
-        hasLive: !!(cfg.apiKey && cfg.secretKey),
-        hasPaper: !!(cfg.paperApiKey && cfg.paperSecretKey),
       };
     },
 

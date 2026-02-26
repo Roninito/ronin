@@ -1468,7 +1468,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       let body = '';
       if (schemaNode.type === 'nested' && schemaNode.fields) {
         for (const [k, subSchema] of Object.entries(schemaNode.fields)) {
-          if (subSchema.optional && value && value[k] === undefined && value[k] === null) continue;
+          if (subSchema.optional && (!value || value[k] === undefined || value[k] === null)) continue;
           body += renderField(sectionKey + '.' + k, subSchema, value && value[k], sectionKey);
         }
       } else {
@@ -1492,7 +1492,12 @@ export default class ConfigEditorAgent extends BaseAgent {
     }
     function arrayAdd(path) {
       const arr = getByPath(currentConfig, path);
-      const list = Array.isArray(arr) ? arr : [];
+      let list = Array.isArray(arr) ? [...arr] : [];
+      if (!Array.isArray(arr)) {
+        const schemaNode = getByPath(configSchema, path);
+        const schemaDefault = schemaNode && Array.isArray(schemaNode.default) ? [...schemaNode.default] : null;
+        if (schemaDefault) list = schemaDefault;
+      }
       list.push('');
       setByPath(currentConfig, path, list);
       renderForm();

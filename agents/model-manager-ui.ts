@@ -27,6 +27,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
     this.api.http.registerRoute("/models/api/managers/update", this.handleUpdate.bind(this));
     this.api.http.registerRoute("/models/api/managers/add", this.handleAdd.bind(this));
     this.api.http.registerRoute("/models/api/managers/remove", this.handleRemove.bind(this));
+    this.api.http.registerRoute("/models/api/managers/setdefault", this.handleSetDefault.bind(this));
+    this.api.http.registerRoute("/models/api/managers/test", this.handleTestModel.bind(this));
     // Provider management endpoints
     this.api.http.registerRoute("/models/api/managers/provider/add", this.handleAddProvider.bind(this));
     this.api.http.registerRoute("/models/api/managers/provider/update", this.handleUpdateProvider.bind(this));
@@ -1361,6 +1363,132 @@ export default class ModelManagerUIAgent extends BaseAgent {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+  }
+
+  private async handleSetDefault(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { nametag: string };
+      const { nametag } = body;
+
+      if (!nametag) {
+        throw new Error("nametag required");
+      }
+
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      if (!registry.models[nametag]) {
+        throw new Error(`Model ${nametag} not found`);
+      }
+
+      registry.default = nametag;
+      await this.api.plugins.call("model-selector", "saveRegistry", registry);
+
+      return new Response(JSON.stringify({ success: true, default: nametag }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e) }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  private async handleTestModel(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { nametag: string };
+      const { nametag } = body;
+
+      if (!nametag) {
+        throw new Error("nametag required");
+      }
+
+      const model = await this.api.plugins.call("model-selector", "getModel", nametag);
+      if (!model) {
+        throw new Error(`Model ${nametag} not found`);
+      }
+
+      const testPrompt = "Say 'Hello, Ronin!' and nothing else.";
+      
+      try {
+        const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+        const provider = registry.providers[model.provider];
+
+        if (!provider) {
+          throw new Error(`Provider ${model.provider} not configured`);
+        }
+
+        if (provider.type === "remote" && provider.apiKeyEnv) {
+          const apiKey = process.env[provider.apiKeyEnv];
+          if (!apiKey) {
+            throw new Error(`API key not set for provider: ${model.provider}`);
+          }
+        }
+
+        let response: Response;
+        
+        if (provider.type === "local") {
+          response = await fetch(`${provider.baseUrl}/api/generate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: model.modelId,
+              prompt: testPrompt,
+              stream: false,
+            }),
+          });
+        } else {
+          const apiKey = process.env[provider.apiKeyEnv!];
+          response = await fetch(`${provider.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model.modelId,
+              messages: [{ role: "user", content: testPrompt }],
+              max_tokens: 50,
+            }),
+          });
+        }
+
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(`API returned ${response.status}: ${error}`);
+        }
+
+        const result = await response.json();
+        let testResponse = "";
+
+        if (provider.type === "local" && result.response) {
+          testResponse = result.response;
+        } else if (result.choices?.[0]?.message?.content) {
+          testResponse = result.choices[0].message.content;
+        } else {
+          testResponse = "Model responded but format was unexpected";
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: testResponse.slice(0, 200),
+            provider: model.provider,
+            model: model.modelId,
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        );
+      } catch (testError) {
+        throw new Error(`Failed to test model: ${testError instanceof Error ? testError.message : String(testError)}`);
+      }
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: String(e), success: false }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
 

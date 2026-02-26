@@ -28,6 +28,12 @@ export interface Phase {
   action: PhaseAction;
   next?: string; // Next phase name, or undefined if terminal
   terminal?: PhaseTerminal; // Set if phase is terminal (no next)
+  /** AI model selection for this phase */
+  aiModel?: {
+    nametag?: string;
+    tags?: string[];
+    fallback?: string;
+  };
 }
 /**
  * Parsed Kata AST (output of parser)
@@ -38,6 +44,12 @@ export interface KataAST {
   requires: Requirement[];
   initial: string;
   phases: Record<string, Phase>;
+  /** AI model selection for all phases */
+  aiModel?: {
+    nametag?: string;
+    tags?: string[];
+    fallback?: string;
+  };
 }
 
 /**

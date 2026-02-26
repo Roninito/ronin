@@ -73,6 +73,7 @@ export class TechniqueParser {
     const steps: TechniqueStep[] = [];
     let returnMapping: ReturnMapping = {};
     let handlerPath: string | undefined;
+    let aiModel: { nametag?: string; tags?: string[]; fallback?: string } | undefined;
 
     while (!ctx.done()) {
       const line = ctx.nextMeaningfulLine();
@@ -92,6 +93,18 @@ export class TechniqueParser {
           throw new TechniqueParseError(`type must be "composite" or "custom"`, line.lineNo);
         }
         type = t;
+      } else if (stripped.startsWith("ai-model ")) {
+        const nametag = stripped.replace(/^ai-model\s+/, "").trim();
+        if (!aiModel) aiModel = {};
+        aiModel.nametag = nametag;
+      } else if (stripped.startsWith("ai-tags ")) {
+        const tagStr = stripped.replace(/^ai-tags\s+/, "").trim();
+        if (!aiModel) aiModel = {};
+        aiModel.tags = parseInlineArray(tagStr, line.lineNo);
+      } else if (stripped.startsWith("ai-fallback ")) {
+        const fallback = stripped.replace(/^ai-fallback\s+/, "").trim();
+        if (!aiModel) aiModel = {};
+        aiModel.fallback = fallback;
       } else if (stripped.startsWith("requires ")) {
         const dep = parseRequires(stripped, line.lineNo);
         requires.push(dep);
@@ -152,6 +165,7 @@ export class TechniqueParser {
       outputSchema,
       ast,
       source,
+      aiModel: aiModel && Object.keys(aiModel).length > 0 ? aiModel : undefined,
     };
   }
 }

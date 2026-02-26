@@ -36,6 +36,9 @@ function tokenize(source: string): Token[] {
     "next",
     "complete",
     "fail",
+    "ai-model",
+    "ai-tags",
+    "ai-fallback",
   ]);
 
   for (const line of lines) {
@@ -125,6 +128,39 @@ export class KataParser {
     const version = this.expectVersion();
     this.skipNewlines();
 
+    let aiModel: KataAST["aiModel"] | undefined;
+
+    // Optional kata-level ai-model, ai-tags, ai-fallback directives
+    while (
+      this.peekKeyword("ai-model") ||
+      this.peekKeyword("ai-tags") ||
+      this.peekKeyword("ai-fallback")
+    ) {
+      if (this.peekKeyword("ai-model")) {
+        this.consumeKeyword("ai-model");
+        const nametag = this.expectIdentifier();
+        if (!aiModel) aiModel = {};
+        aiModel.nametag = nametag;
+        this.skipNewlines();
+      } else if (this.peekKeyword("ai-tags")) {
+        this.consumeKeyword("ai-tags");
+        const tags: string[] = [];
+        while (!this.peekKeyword("ai-model") && !this.peekKeyword("ai-fallback") && !this.peekKeyword("requires") && !this.peekKeyword("initial")) {
+          tags.push(this.expectIdentifier());
+          if (!this.peekType("identifier")) break;
+        }
+        if (!aiModel) aiModel = {};
+        aiModel.tags = tags;
+        this.skipNewlines();
+      } else if (this.peekKeyword("ai-fallback")) {
+        this.consumeKeyword("ai-fallback");
+        const fallback = this.expectIdentifier();
+        if (!aiModel) aiModel = {};
+        aiModel.fallback = fallback;
+        this.skipNewlines();
+      }
+    }
+
     // requires ...
     const requires: Requirement[] = [];
     while (this.peekKeyword("requires")) {
@@ -152,6 +188,7 @@ export class KataParser {
       requires,
       initial,
       phases,
+      aiModel: aiModel && Object.keys(aiModel).length > 0 ? aiModel : undefined,
     };
   }
 
@@ -175,6 +212,44 @@ export class KataParser {
     this.expectKeyword("phase");
     const name = this.expectIdentifier();
     this.skipNewlines();
+
+    let aiModel: Phase["aiModel"] | undefined;
+
+    // Optional ai-model, ai-tags, ai-fallback directives
+    while (
+      this.peekKeyword("ai-model") ||
+      this.peekKeyword("ai-tags") ||
+      this.peekKeyword("ai-fallback")
+    ) {
+      if (this.peekKeyword("ai-model")) {
+        this.consumeKeyword("ai-model");
+        const nametag = this.expectIdentifier();
+        if (!aiModel) aiModel = {};
+        aiModel.nametag = nametag;
+        this.skipNewlines();
+      } else if (this.peekKeyword("ai-tags")) {
+        this.consumeKeyword("ai-tags");
+        const tags: string[] = [];
+        // Parse comma-separated or space-separated tags
+        while (!this.isAtPhaseStart() && !this.peekKeyword("ai-model") && !this.peekKeyword("ai-fallback") && !this.peekKeyword("run") && !this.peekKeyword("spawn")) {
+          tags.push(this.expectIdentifier());
+          if (this.peekType("identifier")) {
+            continue;
+          } else {
+            break;
+          }
+        }
+        if (!aiModel) aiModel = {};
+        aiModel.tags = tags;
+        this.skipNewlines();
+      } else if (this.peekKeyword("ai-fallback")) {
+        this.consumeKeyword("ai-fallback");
+        const fallback = this.expectIdentifier();
+        if (!aiModel) aiModel = {};
+        aiModel.fallback = fallback;
+        this.skipNewlines();
+      }
+    }
 
     // Action: run or spawn
     let action: Phase["action"];
@@ -239,6 +314,7 @@ export class KataParser {
       action,
       next,
       terminal,
+      aiModel: aiModel && Object.keys(aiModel).length > 0 ? aiModel : undefined,
     };
   }
 

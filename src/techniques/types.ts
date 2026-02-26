@@ -70,6 +70,15 @@ export interface TechniqueDefinition {
   ast: TechniqueAST;
   /** Raw DSL source */
   source: string;
+  /** AI model selection */
+  aiModel?: {
+    /** Explicit model nametag (e.g., "claude-haiku") */
+    nametag?: string;
+    /** Tag-based selection (e.g., ["fast", "cheap"]) */
+    tags?: string[];
+    /** Fallback model if primary fails */
+    fallback?: string;
+  };
 }
 
 /** Database row for a technique */

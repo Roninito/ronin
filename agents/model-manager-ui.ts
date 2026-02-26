@@ -839,6 +839,55 @@ export default class ModelManagerUIAgent extends BaseAgent {
       header.querySelector('.toggle').textContent = isExpanded ? '▼' : '▲';
     }
 
+    async function setAsDefault(nametag) {
+      try {
+        const response = await fetch('/models/api/managers/setdefault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
+        });
+
+        if (response.ok) {
+          loadProviders();
+        } else {
+          const error = await response.text();
+          alert('Error setting default model: ' + error);
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function testModel(nametag, evt) {
+      const button = evt ? evt.target : event.target;
+      button.disabled = true;
+      button.textContent = '⏳ Testing...';
+      
+      try {
+        const response = await fetch('/models/api/managers/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
+        });
+
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          alert('✅ Model test successful!\\n\\nResponse: ' + (result.response || 'OK'));
+          button.textContent = '✅ Working';
+          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
+        } else {
+          alert('❌ Model test failed:\\n\\n' + (result.error || 'Unknown error'));
+          button.textContent = '❌ Failed';
+          setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
+        }
+      } catch (e) {
+        alert('❌ Error testing model:\\n\\n' + e.message);
+        button.textContent = '❌ Error';
+        setTimeout(() => { button.textContent = '🧪 Test'; button.disabled = false; }, 2000);
+      }
+    }
+
     async function editModel(nametag) {
       editingModel = nametag;
       try {

@@ -29,6 +29,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
     this.api.http.registerRoute("/models/api/managers/remove", this.handleRemove.bind(this));
     this.api.http.registerRoute("/models/api/managers/setdefault", this.handleSetDefault.bind(this));
     this.api.http.registerRoute("/models/api/managers/test", this.handleTestModel.bind(this));
+    this.api.http.registerRoute("/models/api/managers/setkey", this.handleSetKey.bind(this));
     // Provider management endpoints
     this.api.http.registerRoute("/models/api/managers/provider/add", this.handleAddProvider.bind(this));
     this.api.http.registerRoute("/models/api/managers/provider/update", this.handleUpdateProvider.bind(this));
@@ -490,6 +491,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
     <div class="tabs">
       <button class="tab-button active" onclick="switchTab('models')">Models</button>
       <button class="tab-button" onclick="switchTab('providers')">Providers</button>
+      <button class="tab-button" onclick="switchTab('keys')">API Keys</button>
     </div>
 
     <div id="models-tab" class="tab-content active">
@@ -502,6 +504,13 @@ export default class ModelManagerUIAgent extends BaseAgent {
       <button class="add-button" onclick="openAddProviderModal()">+ Add Provider</button>
       <div id="providers-list" class="provider-list">
         <p class="loading">Loading providers...</p>
+      </div>
+    </div>
+
+    <div id="keys-tab" class="tab-content">
+      <div id="keys-container">
+        <p>Configure API keys for remote providers:</p>
+        <div id="keys-list" style="margin-top: 1.5rem;"></div>
       </div>
     </div>
   </div>
@@ -1056,6 +1065,76 @@ export default class ModelManagerUIAgent extends BaseAgent {
       }
     }
 
+    async function loadKeysTab() {
+      try {
+        const providersResp = await fetch('/models/api/managers/providers');
+        if (!providersResp.ok) throw new Error('Failed to load providers');
+        const providers = await providersResp.json();
+
+        const container = document.getElementById('keys-list');
+        container.innerHTML = '';
+
+        for (const [providerKey, provider] of Object.entries(providers)) {
+          if (provider.type !== 'remote' || !provider.apiKeyEnv) continue;
+
+          const div = document.createElement('div');
+          div.style.marginBottom = '1.5rem';
+          div.style.padding = '1rem';
+          div.style.border = '1px solid #ccc';
+          div.style.borderRadius = '4px';
+
+          const label = document.createElement('label');
+          label.style.display = 'block';
+          label.style.marginBottom = '0.5rem';
+          label.style.fontWeight = 'bold';
+          label.textContent = providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+
+          const input = document.createElement('input');
+          input.type = 'password';
+          input.placeholder = 'Enter API key...';
+          input.style.width = '100%';
+          input.style.padding = '0.5rem';
+          input.style.marginBottom = '0.5rem';
+          input.style.boxSizing = 'border-box';
+
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.textContent = '💾 Save';
+          btn.type = 'button';
+          btn.onclick = async () => {
+            const apiKey = input.value.trim();
+            if (!apiKey) {
+              alert('Please enter an API key');
+              return;
+            }
+            try {
+              const resp = await fetch('/models/api/managers/setkey', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: providerKey, apiKey })
+              });
+              const result = await resp.json();
+              if (result.success) {
+                alert('✅ API key saved for ' + providerKey);
+                input.value = '';
+              } else {
+                alert('❌ Error: ' + result.error);
+              }
+            } catch (e) {
+              alert('❌ Error: ' + e.message);
+            }
+          };
+
+          div.appendChild(label);
+          div.appendChild(input);
+          div.appendChild(btn);
+          container.appendChild(div);
+        }
+      } catch (e) {
+        document.getElementById('keys-list').innerHTML = '<p style="color: red;">Error: ' + e.message + '</p>';
+      }
+    }
+
     function switchTab(tabName) {
       // Hide all tabs
       document.querySelectorAll('.tab-content').forEach(tab => {
@@ -1069,9 +1148,11 @@ export default class ModelManagerUIAgent extends BaseAgent {
       document.getElementById(tabName + '-tab').classList.add('active');
       event.target.classList.add('active');
 
-      // Load data if switching to providers tab
+      // Load data if switching tabs
       if (tabName === 'providers') {
         loadProvidersTab();
+      } else if (tabName === 'keys') {
+        loadKeysTab();
       }
     }
 
@@ -1489,6 +1570,40 @@ export default class ModelManagerUIAgent extends BaseAgent {
           headers: { "Content-Type": "application/json" },
         }
       );
+    }
+  }
+
+  private async handleSetKey(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { provider: string; apiKey: string };
+      const { provider, apiKey } = body;
+
+      if (!provider || !apiKey) {
+        throw new Error("provider and apiKey required");
+      }
+
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      const providerConfig = registry.providers[provider];
+
+      if (!providerConfig) {
+        throw new Error(`Provider ${provider} not found`);
+      }
+
+      if (!providerConfig.apiKeyEnv) {
+        throw new Error(`Provider ${provider} does not have an apiKeyEnv configured`);
+      }
+
+      // Set the environment variable
+      process.env[providerConfig.apiKeyEnv] = apiKey;
+
+      return new Response(JSON.stringify({ success: true, message: `API key set for ${provider}` }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e), success: false }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
   }
 

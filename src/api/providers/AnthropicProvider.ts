@@ -184,15 +184,23 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
     options?: CompletionOptions,
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
     const model = options?.model || this.model;
-    const anthropicTools = tools.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      input_schema: {
-        type: "object",
-        properties: tool.parameters?.properties || {},
-        required: tool.parameters?.required || [],
-      },
-    }));
+    
+    // Create a mapping from sanitized names back to original names
+    // Anthropic only allows a-z, A-Z, 0-9, _, - in tool names
+    const nameMapping: Record<string, string> = {};
+    const anthropicTools = tools.map((tool) => {
+      const sanitizedName = tool.name.replace(/\./g, "_");
+      nameMapping[sanitizedName] = tool.name;
+      return {
+        name: sanitizedName,
+        description: tool.description,
+        input_schema: {
+          type: "object",
+          properties: tool.parameters?.properties || {},
+          required: tool.parameters?.required || [],
+        },
+      };
+    });
 
     const response = await this.request<{
       content: Array<{ type: string; text?: string; tool_use?: { id: string; name: string; input: Record<string, unknown> } }>;
@@ -218,8 +226,8 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
       if (block.type === "text" && block.text) {
         messageText = block.text;
       } else if (block.type === "tool_use" && block.tool_use) {
-        // Anthropic converts dots to underscores in tool names, so convert back
-        const toolName = block.tool_use.name.replace(/_/g, ".");
+        // Map the sanitized name back to the original name with dots
+        const toolName = nameMapping[block.tool_use.name] || block.tool_use.name;
         toolCalls.push({
           id: block.tool_use.id,
           name: toolName,

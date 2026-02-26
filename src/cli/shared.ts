@@ -355,6 +355,33 @@ Examples:
   ronin kdb ontology search --type ReferenceDoc --limit 20
   ronin kdb ontology lookup Task-abc123
 `,
+  update: `
+Usage: ronin update [options]
+
+Update Ronin and Bun to the latest versions. Creates an automatic backup
+before updating.
+
+Options:
+  --check                    Check for available updates without installing
+  --rollback                 Rollback to the previous version
+  --quiet                    Suppress verbose output
+
+Features:
+  - Automatic backup before update (kept in ~/.ronin/backups/)
+  - Git pull from main branch
+  - Dependency reinstall (bun install)
+  - Optional RoninTray app update (macOS)
+  - Cache cleanup
+  - Old backups auto-pruned (keeps last 5)
+
+Examples:
+  ronin update                       # Update to latest version
+  ronin update --check               # Check for updates without installing
+  ronin update --rollback            # Rollback to previous version
+
+Note:
+  After updating, restart Ronin: ronin start
+`,
 };
 
 /**

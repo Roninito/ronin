@@ -3,7 +3,7 @@ technique alpaca.place-order v1
   category finance
   tags ["alpaca", "trading", "orders", "execution"]
   type composite
-  requires plugin alpaca
+  requires tool alpaca
 
   input {
     symbol: string
@@ -39,12 +39,12 @@ technique alpaca.place-order v1
 
   step check-config
     description Verify Alpaca is configured before placing order
-    run plugin alpaca.getConfig
+    run tool alpaca.getConfig
     output config
 
   step place
     description Submit the order to Alpaca
-    run plugin alpaca.placeOrder
+    run tool alpaca.placeOrder
     with {
       symbol: input.symbol,
       qty: input.qty,

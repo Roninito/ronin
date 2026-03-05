@@ -1,0 +1,36 @@
+technique alpaca.write-run-report v1
+  description Write trading run report artifacts to portfolio-vault
+  category finance
+  tags ["alpaca", "portfolio", "reporting"]
+  type composite
+  requires tool mcp_filesystem_write_file
+
+  input {
+    path: string
+      description Output file path
+      required true
+    content: string
+      description File content to write
+      required true
+  }
+
+  output {
+    path: string
+      description Path written
+    result: object
+      description Filesystem tool response
+  }
+
+  step write-file
+    description Persist report file
+    run tool mcp_filesystem_write_file
+    with {
+      path: input.path,
+      content: input.content
+    }
+    output writeResult
+
+  return {
+    path: input.path,
+    result: writeResult
+  }

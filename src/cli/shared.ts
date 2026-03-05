@@ -261,6 +261,33 @@ Subcommands:
   clipboard enable    Enable clipboard watching
   clipboard disable   Disable clipboard watching
 `,
+  client: `
+Usage: ronin client [start|install|build] [options]
+
+Launch the optional ElectronBun desktop client with a built-in Home/Dashboard view.
+This does not replace existing RoninTray/Desktop Mode integrations.
+
+Subcommands:
+  start                    Launch desktop client (default)
+  install                  Install desktop client dependencies
+  build                    Build distributable app packages
+
+Options:
+  --url <url>               Target Ronin URL (default: http://127.0.0.1:3000/)
+  --port <number>           Target Ronin port when --url is not provided (default: 3000)
+  --skip-health-check       Open client view without pre-flight /api/health check
+  --platform <name>         Build target for "build": mac|win|linux|all (default: all)
+  --dry-run                 Print build intent without executing build
+
+Examples:
+  ronin client
+  ronin client start --port 17341
+  ronin client install
+  ronin client build --platform mac
+  ronin client build --platform all
+  ronin client --port 17341
+  ronin client --url http://127.0.0.1:3000/
+`,
   doctor: `
 Usage: ronin doctor [ingest-docs [--clean]]
 

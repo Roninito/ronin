@@ -7,7 +7,7 @@ import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
-import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync } from "fs";
+import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync, readFileSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
@@ -297,17 +297,21 @@ function runDaemonMode(): void {
   // Check if daemon is already running
   if (existsSync(DAEMON_PID_PATH)) {
     try {
-      const pid = parseInt(Bun.file(DAEMON_PID_PATH).text().toString().trim());
-      // Check if process is still running
-      try {
-        process.kill(pid, 0); // Signal 0 checks if process exists
-        console.error(`Daemon already running with PID ${pid}`);
-        console.error(`  Logs: ${DAEMON_LOG_PATH}`);
-        console.error(`  Use 'ronin daemon stop' to stop it.`);
-        process.exit(1);
-      } catch {
-        // Process doesn't exist, remove stale PID file
+      const pid = parseInt(readFileSync(DAEMON_PID_PATH, "utf8").trim(), 10);
+      if (!Number.isFinite(pid)) {
         Bun.write(DAEMON_PID_PATH, "");
+      } else {
+      // Check if process is still running
+        try {
+          process.kill(pid, 0); // Signal 0 checks if process exists
+          console.error(`Daemon already running with PID ${pid}`);
+          console.error(`  Logs: ${DAEMON_LOG_PATH}`);
+          console.error(`  Use 'ronin daemon stop' to stop it.`);
+          process.exit(1);
+        } catch {
+          // Process doesn't exist, remove stale PID file
+          Bun.write(DAEMON_PID_PATH, "");
+        }
       }
     } catch {
       // PID file exists but can't read it, continue
@@ -364,7 +368,19 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
     logger.setLogFile(runLogPath);
   }
 
-  const state = await startRoninServer(options);
+  let state: RoninServerState | null = null;
+  try {
+    state = await startRoninServer(options);
+  } catch (error) {
+    const err = error as { code?: string; message?: string };
+    const message = err?.message || String(error);
+    if (err?.code === "EADDRINUSE" || message.includes("EADDRINUSE")) {
+      console.error("❌ Port 3000 is already in use.");
+      console.error("   If Ronin is already running, use 'ronin status' or 'ronin stop' first.");
+      process.exit(1);
+    }
+    throw error;
+  }
   if (!state) return;
 
   const status = state.registry.getStatus();
@@ -409,4 +425,3 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }
-

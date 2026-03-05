@@ -2,7 +2,7 @@ import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import { readdir, readFile, stat } from "fs/promises";
 import { join, relative, extname, basename } from "path";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface DocumentItem {
   type: "markdown" | "book-chapter";
@@ -471,8 +471,9 @@ export default class DocsAgent extends BaseAgent {
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       height: 100vh;
@@ -492,8 +493,8 @@ export default class DocsAgent extends BaseAgent {
     
     .sidebar {
       width: 300px;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${roninTheme.colors.border};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${dramTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -501,8 +502,8 @@ export default class DocsAgent extends BaseAgent {
     }
     
     .sidebar-section {
-      padding: ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${dramTheme.spacing.md};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
     
     .sidebar-section-title {
@@ -510,41 +511,41 @@ export default class DocsAgent extends BaseAgent {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: ${roninTheme.colors.textTertiary};
-      margin-bottom: ${roninTheme.spacing.sm};
+      color: ${dramTheme.colors.textTertiary};
+      margin-bottom: ${dramTheme.spacing.sm};
     }
     
     .doc-item {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.xs};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      margin-bottom: ${dramTheme.spacing.xs};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       transition: all 0.2s;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
     
     .doc-item:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textPrimary};
     }
     
     .doc-item.active {
-      background: ${roninTheme.colors.accent};
-      color: ${roninTheme.colors.textPrimary};
-      border-left: 2px solid ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.accent};
+      color: ${dramTheme.colors.textPrimary};
+      border-left: 2px solid ${dramTheme.colors.textPrimary};
     }
     
     .content-area {
       flex: 1;
       overflow-y: auto;
-      background: ${roninTheme.colors.background};
+      background: ${dramTheme.colors.background};
     }
     
     .content-wrapper {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${dramTheme.spacing.xl};
       min-height: 100%;
     }
     
@@ -555,16 +556,16 @@ export default class DocsAgent extends BaseAgent {
     
     .loading {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${dramTheme.spacing.xl};
+      color: ${dramTheme.colors.textSecondary};
     }
     
     .error {
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.error}20;
-      border: 1px solid ${roninTheme.colors.error};
-      border-radius: ${roninTheme.borderRadius.md};
-      color: ${roninTheme.colors.error};
+      padding: ${dramTheme.spacing.md};
+      background: ${dramTheme.colors.error}20;
+      border: 1px solid ${dramTheme.colors.error};
+      border-radius: ${dramTheme.borderRadius.md};
+      color: ${dramTheme.colors.error};
     }
     
     /* Markdown styling */
@@ -574,41 +575,41 @@ export default class DocsAgent extends BaseAgent {
     
     .markdown-content h1 {
       font-size: 2rem;
-      margin-top: ${roninTheme.spacing.xl};
-      margin-bottom: ${roninTheme.spacing.md};
-      padding-bottom: ${roninTheme.spacing.sm};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      margin-top: ${dramTheme.spacing.xl};
+      margin-bottom: ${dramTheme.spacing.md};
+      padding-bottom: ${dramTheme.spacing.sm};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
     
     .markdown-content h2 {
       font-size: 1.5rem;
-      margin-top: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.md};
-      padding-bottom: ${roninTheme.spacing.xs};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      margin-top: ${dramTheme.spacing.lg};
+      margin-bottom: ${dramTheme.spacing.md};
+      padding-bottom: ${dramTheme.spacing.xs};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
     
     .markdown-content h3 {
       font-size: 1.25rem;
-      margin-top: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-top: ${dramTheme.spacing.md};
+      margin-bottom: ${dramTheme.spacing.sm};
     }
     
     .markdown-content code {
-      background: ${roninTheme.colors.backgroundSecondary};
+      background: ${dramTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${dramTheme.borderRadius.sm};
       font-size: 0.85em;
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${dramTheme.fonts.mono};
     }
     
     .markdown-content pre {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.md};
       overflow-x: auto;
-      margin: ${roninTheme.spacing.md} 0;
+      margin: ${dramTheme.spacing.md} 0;
     }
     
     .markdown-content pre code {
@@ -627,49 +628,49 @@ export default class DocsAgent extends BaseAgent {
     }
     
     .hljs {
-      background: ${roninTheme.colors.backgroundSecondary} !important;
+      background: ${dramTheme.colors.backgroundSecondary} !important;
     }
     
     .markdown-content blockquote {
-      border-left: 3px solid ${roninTheme.colors.accent};
-      padding-left: ${roninTheme.spacing.md};
-      margin: ${roninTheme.spacing.md} 0;
-      color: ${roninTheme.colors.textSecondary};
+      border-left: 3px solid ${dramTheme.colors.accent};
+      padding-left: ${dramTheme.spacing.md};
+      margin: ${dramTheme.spacing.md} 0;
+      color: ${dramTheme.colors.textSecondary};
     }
     
     .markdown-content ul, .markdown-content ol {
-      margin: ${roninTheme.spacing.md} 0;
-      padding-left: ${roninTheme.spacing.lg};
+      margin: ${dramTheme.spacing.md} 0;
+      padding-left: ${dramTheme.spacing.lg};
     }
     
     .markdown-content li {
-      margin: ${roninTheme.spacing.xs} 0;
+      margin: ${dramTheme.spacing.xs} 0;
     }
     
     .markdown-content a {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       text-decoration: underline;
     }
     
     .markdown-content a:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
     }
     
     .markdown-content table {
       width: 100%;
       border-collapse: collapse;
-      margin: ${roninTheme.spacing.md} 0;
+      margin: ${dramTheme.spacing.md} 0;
     }
     
     .markdown-content th,
     .markdown-content td {
-      padding: ${roninTheme.spacing.sm};
-      border: 1px solid ${roninTheme.colors.border};
+      padding: ${dramTheme.spacing.sm};
+      border: 1px solid ${dramTheme.colors.border};
       text-align: left;
     }
     
     .markdown-content th {
-      background: ${roninTheme.colors.backgroundSecondary};
+      background: ${dramTheme.colors.backgroundSecondary};
       font-weight: 600;
     }
     
@@ -681,21 +682,21 @@ export default class DocsAgent extends BaseAgent {
     
     /* Override any book chapter specific elements to match our theme */
     .book-chapter-content .chapter-header {
-      margin-bottom: ${roninTheme.spacing.lg};
-      padding-bottom: ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      margin-bottom: ${dramTheme.spacing.lg};
+      padding-bottom: ${dramTheme.spacing.md};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
     
     .book-chapter-content .chapter-number {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${dramTheme.spacing.xs};
     }
     
     .book-chapter-content .chapter-title {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
       font-size: 2rem;
       font-weight: 300;
       margin: 0;
@@ -703,7 +704,7 @@ export default class DocsAgent extends BaseAgent {
     
     /* Ensure all text uses our theme colors - but NOT hljs syntax tokens */
     .book-chapter-content {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
     }
     
     .book-chapter-content p,
@@ -715,21 +716,21 @@ export default class DocsAgent extends BaseAgent {
     .book-chapter-content h4,
     .book-chapter-content span:not([class*="hljs"]),
     .book-chapter-content div:not([class*="hljs"]) {
-      color: ${roninTheme.colors.textPrimary} !important;
+      color: ${dramTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content :not(pre) > code {
-      background: ${roninTheme.colors.backgroundSecondary} !important;
-      color: ${roninTheme.colors.textPrimary} !important;
+      background: ${dramTheme.colors.backgroundSecondary} !important;
+      color: ${dramTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content pre {
-      background: ${roninTheme.colors.backgroundSecondary} !important;
-      border: 1px solid ${roninTheme.colors.border} !important;
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary} !important;
+      border: 1px solid ${dramTheme.colors.border} !important;
+      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.md};
       overflow-x: auto;
-      margin: ${roninTheme.spacing.md} 0;
+      margin: ${dramTheme.spacing.md} 0;
     }
     
     .book-chapter-content pre code {
@@ -745,24 +746,24 @@ export default class DocsAgent extends BaseAgent {
     }
     
     .book-chapter-content a {
-      color: ${roninTheme.colors.textSecondary} !important;
+      color: ${dramTheme.colors.textSecondary} !important;
     }
     
     .book-chapter-content a:hover {
-      color: ${roninTheme.colors.textPrimary} !important;
+      color: ${dramTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content table {
-      border-color: ${roninTheme.colors.border} !important;
+      border-color: ${dramTheme.colors.border} !important;
     }
     
     .book-chapter-content th {
-      background: ${roninTheme.colors.backgroundSecondary} !important;
-      color: ${roninTheme.colors.textPrimary} !important;
+      background: ${dramTheme.colors.backgroundSecondary} !important;
+      color: ${dramTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content td {
-      border-color: ${roninTheme.colors.border} !important;
+      border-color: ${dramTheme.colors.border} !important;
     }
     
     /* Code example titles */
@@ -771,8 +772,8 @@ export default class DocsAgent extends BaseAgent {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: ${roninTheme.colors.textTertiary} !important;
-      margin-bottom: ${roninTheme.spacing.xs};
+      color: ${dramTheme.colors.textTertiary} !important;
+      margin-bottom: ${dramTheme.spacing.xs};
     }
   </style>
 </head>
@@ -880,7 +881,7 @@ export default class DocsAgent extends BaseAgent {
       (documents.skillsDuties || []).forEach(doc => {
         if (doc.category !== lastCategory) {
           const catHeader = document.createElement('div');
-          catHeader.style.cssText = 'font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${roninTheme.colors.textTertiary}; margin-top: 0.5rem; margin-bottom: 0.25rem; padding-left: 0.75rem;';
+          catHeader.style.cssText = 'font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${dramTheme.colors.textTertiary}; margin-top: 0.5rem; margin-bottom: 0.25rem; padding-left: 0.75rem;';
           catHeader.textContent = doc.category;
           skillsDutiesList.appendChild(catHeader);
           lastCategory = doc.category;

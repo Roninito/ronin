@@ -7,7 +7,7 @@
 
 import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelManagerUIAgent extends BaseAgent {
   constructor(api: AgentAPI) {
@@ -28,6 +28,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
     this.api.http.registerRoute("/models/api/managers/add", this.handleAdd.bind(this));
     this.api.http.registerRoute("/models/api/managers/remove", this.handleRemove.bind(this));
     this.api.http.registerRoute("/models/api/managers/setdefault", this.handleSetDefault.bind(this));
+    this.api.http.registerRoute("/models/api/managers/setsmart", this.handleSetSmart.bind(this));
     this.api.http.registerRoute("/models/api/managers/test", this.handleTestModel.bind(this));
     // Provider management endpoints
     this.api.http.registerRoute("/models/api/managers/provider/add", this.handleAddProvider.bind(this));
@@ -45,8 +46,9 @@ export default class ModelManagerUIAgent extends BaseAgent {
   <title>Model Manager - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;
@@ -757,6 +759,13 @@ export default class ModelManagerUIAgent extends BaseAgent {
               defaultBtn.title = 'Set as default model';
               defaultBtn.onclick = () => setAsDefault(m.nametag);
               modelActions.appendChild(defaultBtn);
+
+              const smartBtn = document.createElement('button');
+              smartBtn.className = 'btn';
+              smartBtn.textContent = m.isSmart ? '⚡ Smart/Tool' : '⚡ Set Smart';
+              smartBtn.title = 'Set as smart/tool model';
+              smartBtn.onclick = () => setAsSmart(m.nametag);
+              modelActions.appendChild(smartBtn);
               
               const editBtn = document.createElement('button');
               editBtn.className = 'btn';
@@ -859,6 +868,25 @@ export default class ModelManagerUIAgent extends BaseAgent {
         } else {
           const error = await response.text();
           alert('Error setting default model: ' + error);
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function setAsSmart(nametag) {
+      try {
+        const response = await fetch('/models/api/managers/setsmart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nametag })
+        });
+
+        if (response.ok) {
+          loadProviders();
+        } else {
+          const error = await response.text();
+          alert('Error setting smart/tool model: ' + error);
         }
       } catch (e) {
         alert('Error: ' + e.message);
@@ -1292,8 +1320,19 @@ export default class ModelManagerUIAgent extends BaseAgent {
 
   private async handleList(): Promise<Response> {
     try {
-      const models = await this.api.plugins.call("model-selector", "listModels");
-      return new Response(JSON.stringify(Array.isArray(models) ? models : []), {
+      const models = await this.api.plugins.call("model-selector", "listModels") as any[];
+      const aiConfig = this.api.config.getAI();
+      const smartSlot = aiConfig.models?.smart;
+      const smartModelId = typeof smartSlot === "string" && smartSlot.includes(":")
+        ? smartSlot.split(":").slice(1).join(":")
+        : smartSlot;
+      const normalized = Array.isArray(models)
+        ? models.map((m) => ({
+          ...m,
+          isSmart: m?.modelId === smartModelId,
+        }))
+        : [];
+      return new Response(JSON.stringify(normalized), {
         headers: { "Content-Type": "application/json" },
       });
     } catch (e) {
@@ -1399,8 +1438,38 @@ export default class ModelManagerUIAgent extends BaseAgent {
       }
 
       await this.api.plugins.call("model-selector", "setDefaultModel", nametag);
+      const model = await this.api.plugins.call("model-selector", "getModel", nametag) as any;
+      if (model?.modelId) {
+        const providerQualified = model?.provider ? `${model.provider}:${model.modelId}` : model.modelId;
+        await this.api.config.set("ai.models.default", providerQualified);
+      }
 
       return new Response(JSON.stringify({ success: true, default: nametag }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      return new Response(JSON.stringify({ error: String(e) }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  private async handleSetSmart(req: Request): Promise<Response> {
+    try {
+      const body = await req.json() as { nametag: string };
+      const { nametag } = body;
+      if (!nametag) {
+        throw new Error("nametag required");
+      }
+      const model = await this.api.plugins.call("model-selector", "getModel", nametag) as any;
+      if (!model?.modelId) {
+        throw new Error(`Model ${nametag} not found`);
+      }
+      const providerQualified = model?.provider ? `${model.provider}:${model.modelId}` : model.modelId;
+      await this.api.config.set("ai.models.smart", providerQualified);
+      await this.api.config.set("ai.useSmartForTools", true);
+      return new Response(JSON.stringify({ success: true, smart: nametag }), {
         headers: { "Content-Type": "application/json" },
       });
     } catch (e) {
@@ -1435,8 +1504,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
           throw new Error(`Provider ${model.provider} not configured`);
         }
 
+        const apiKey = this.resolveProviderApiKey(model.provider, provider);
         if (provider.type === "remote" && provider.apiKeyEnv) {
-          const apiKey = process.env[provider.apiKeyEnv];
           if (!apiKey) {
             throw new Error(`API key not set for provider: ${model.provider}`);
           }
@@ -1455,19 +1524,34 @@ export default class ModelManagerUIAgent extends BaseAgent {
             }),
           });
         } else {
-          const apiKey = process.env[provider.apiKeyEnv!];
-          response = await fetch(`${provider.baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: model.modelId,
-              messages: [{ role: "user", content: testPrompt }],
-              max_tokens: 50,
-            }),
-          });
+          if (model.provider === "anthropic") {
+            response = await fetch(`${provider.baseUrl}/v1/messages`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey || "",
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: model.modelId,
+                messages: [{ role: "user", content: testPrompt }],
+                max_tokens: 50,
+              }),
+            });
+          } else {
+            response = await fetch(`${provider.baseUrl}/chat/completions`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model: model.modelId,
+                messages: [{ role: "user", content: testPrompt }],
+                max_tokens: 50,
+              }),
+            });
+          }
         }
 
         if (!response.ok) {
@@ -1482,6 +1566,8 @@ export default class ModelManagerUIAgent extends BaseAgent {
           testResponse = result.response;
         } else if (result.choices?.[0]?.message?.content) {
           testResponse = result.choices[0].message.content;
+        } else if (Array.isArray(result.content) && result.content[0]?.text) {
+          testResponse = result.content[0].text;
         } else {
           testResponse = "Model responded but format was unexpected";
         }
@@ -1566,6 +1652,7 @@ export default class ModelManagerUIAgent extends BaseAgent {
       // Set environment variable if API key provided
       if (apiKey && updates.apiKeyEnv) {
         process.env[updates.apiKeyEnv] = apiKey;
+        await this.persistProviderApiKey(name, apiKey);
       }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -1610,6 +1697,45 @@ export default class ModelManagerUIAgent extends BaseAgent {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
+    }
+  }
+
+  private resolveProviderApiKey(providerName: string, provider: any): string | undefined {
+    const full = this.api.config.getAll() as any;
+    if (provider?.apiKeyEnv && process.env[provider.apiKeyEnv]) {
+      return process.env[provider.apiKeyEnv];
+    }
+    if (providerName === "anthropic") {
+      return full?.ai?.providers?.anthropic?.apiKey;
+    }
+    if (providerName === "openai") {
+      return full?.ai?.openai?.apiKey;
+    }
+    if (providerName === "gemini") {
+      return this.api.config.getGemini().apiKey;
+    }
+    if (providerName === "grok") {
+      return this.api.config.getGrok().apiKey;
+    }
+    return undefined;
+  }
+
+  private async persistProviderApiKey(providerName: string, apiKey: string): Promise<void> {
+    if (!apiKey) return;
+    if (providerName === "anthropic") {
+      await this.api.config.set("ai.providers.anthropic.apiKey", apiKey);
+      return;
+    }
+    if (providerName === "openai") {
+      await this.api.config.set("ai.openai.apiKey", apiKey);
+      return;
+    }
+    if (providerName === "gemini") {
+      await this.api.config.set("gemini.apiKey", apiKey);
+      return;
+    }
+    if (providerName === "grok") {
+      await this.api.config.set("grok.apiKey", apiKey);
     }
   }
 }

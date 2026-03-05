@@ -6,7 +6,22 @@ export class MemoryStore {
 
   constructor(dbPath: string = "ronin.db") {
     this.db = new Database(dbPath);
+    this.db.exec("PRAGMA busy_timeout = 3000;");
     this.initializeSchema();
+  }
+
+  private async runWithBusyRetry(run: () => void, maxAttempts = 4): Promise<void> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        run();
+        return;
+      } catch (error) {
+        const err = error as { code?: string; errno?: number; message?: string };
+        const busy = err.code === "SQLITE_BUSY" || err.errno === 5 || String(err.message || "").includes("database is locked");
+        if (!busy || attempt === maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+      }
+    }
   }
 
   private initializeSchema(): void {
@@ -67,7 +82,9 @@ export class MemoryStore {
       VALUES (?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, key, valueJson, now, now);
+    await this.runWithBusyRetry(() => {
+      stmt.run(id, key, valueJson, now, now);
+    });
   }
 
   /**
@@ -125,7 +142,9 @@ export class MemoryStore {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, JSON.stringify({ text }), text, metadataJson, now, now);
+    await this.runWithBusyRetry(() => {
+      stmt.run(id, JSON.stringify({ text }), text, metadataJson, now, now);
+    });
     return id;
   }
 
@@ -180,7 +199,9 @@ export class MemoryStore {
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, agentName, role, content, metadataJson, now);
+    await this.runWithBusyRetry(() => {
+      stmt.run(id, agentName, role, content, metadataJson, now);
+    });
     return id;
   }
 
@@ -226,7 +247,9 @@ export class MemoryStore {
       VALUES (?, ?, ?, ?)
     `);
 
-    stmt.run(agentName, stateJson, metadataJson, now);
+    await this.runWithBusyRetry(() => {
+      stmt.run(agentName, stateJson, metadataJson, now);
+    });
   }
 
   /**

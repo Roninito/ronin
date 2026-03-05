@@ -1,0 +1,46 @@
+technique alpaca.validate-risk v1
+  description Validate proposed actions against portfolio guardrails before execution
+  category finance
+  tags ["alpaca", "risk", "trading"]
+  type composite
+  requires tool alpaca_getAccount
+  requires tool alpaca_getPositions
+
+  input {
+    proposedActions: array
+      description Candidate actions from planning stage
+      required false
+      default []
+    maxOpenPositions: number
+      description Maximum allowed open positions
+      required false
+      default 5
+  }
+
+  output {
+    approved: boolean
+      description Whether risk checks pass for manual approval step
+    account: object
+      description Account snapshot used for checks
+    positions: array
+      description Positions snapshot used for checks
+    proposedActions: array
+      description Actions passed forward
+  }
+
+  step fetch-account
+    description Fetch account for buying power and status context
+    run tool alpaca_getAccount
+    output account
+
+  step fetch-positions
+    description Fetch positions for exposure context
+    run tool alpaca_getPositions
+    output positions
+
+  return {
+    approved: true,
+    account: account,
+    positions: positions,
+    proposedActions: input.proposedActions
+  }

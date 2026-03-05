@@ -11,7 +11,7 @@
 
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
+import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
 
 export default class AgentDependencyDashboard extends BaseAgent {
   constructor(api: AgentAPI) {
@@ -207,19 +207,20 @@ export default class AgentDependencyDashboard extends BaseAgent {
   <title>Agent & Plugin Dependencies</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     ${getAdobeCleanFontFaceCSS()}
-    ${getHeaderBarCSS()}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textSecondary};
+      background: ${dramTheme.colors.background};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .header {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.xl};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${dramTheme.colors.border};
+      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.xl};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -232,27 +233,27 @@ export default class AgentDependencyDashboard extends BaseAgent {
       font-size: 1.5rem;
       font-weight: 600;
       margin: 0;
-      color: ${roninTheme.colors.link};
+      color: ${dramTheme.colors.link};
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${dramTheme.spacing.xl};
     }
 
     .tabs {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      gap: ${dramTheme.spacing.sm};
+      margin-bottom: ${dramTheme.spacing.lg};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
 
     .tab {
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
+      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.lg};
       background: transparent;
       border: none;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       cursor: pointer;
       border-bottom: 2px solid transparent;
       font-size: 0.95rem;
@@ -260,12 +261,12 @@ export default class AgentDependencyDashboard extends BaseAgent {
     }
 
     .tab.active {
-      color: ${roninTheme.colors.link};
-      border-bottom-color: ${roninTheme.colors.link};
+      color: ${dramTheme.colors.link};
+      border-bottom-color: ${dramTheme.colors.link};
     }
 
     .tab:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
     }
 
     .section {
@@ -279,171 +280,171 @@ export default class AgentDependencyDashboard extends BaseAgent {
     table {
       width: 100%;
       border-collapse: collapse;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.lg};
       overflow: hidden;
     }
 
     th {
-      background: ${roninTheme.colors.backgroundTertiary};
-      padding: ${roninTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundTertiary};
+      padding: ${dramTheme.spacing.md};
       text-align: left;
       font-weight: 600;
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      border-bottom: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textSecondary};
       font-size: 0.9rem;
     }
 
     td {
-      padding: ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      padding: ${dramTheme.spacing.md};
+      border-bottom: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textPrimary};
     }
 
     tr:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${dramTheme.colors.backgroundTertiary};
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${dramTheme.spacing.lg};
+      margin-bottom: ${dramTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.lg};
+      padding: ${dramTheme.spacing.lg};
       text-align: center;
       transition: all 0.2s;
     }
 
     .stat-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${dramTheme.colors.borderHover};
+      background: ${dramTheme.colors.backgroundTertiary};
     }
 
     .stat-value {
       font-size: 2rem;
       font-weight: 700;
-      color: ${roninTheme.colors.link};
-      margin: ${roninTheme.spacing.sm} 0;
+      color: ${dramTheme.colors.link};
+      margin: ${dramTheme.spacing.sm} 0;
     }
 
     .stat-label {
       font-size: 0.9rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .status-enabled {
-      color: ${roninTheme.colors.success};
+      color: ${dramTheme.colors.success};
     }
 
     .status-disabled {
-      color: ${roninTheme.colors.error};
+      color: ${dramTheme.colors.error};
     }
 
     .refresh-btn {
-      background: ${roninTheme.colors.link};
-      color: ${roninTheme.colors.background};
+      background: ${dramTheme.colors.link};
+      color: ${dramTheme.colors.background};
       border: none;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.9rem;
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${dramTheme.spacing.md};
       font-weight: 500;
       transition: all 0.2s;
     }
 
     .refresh-btn:hover {
-      background: ${roninTheme.colors.linkHover};
+      background: ${dramTheme.colors.linkHover};
       transform: translateY(-1px);
     }
 
     #graph-container {
       width: 100%;
       height: 600px;
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      background: ${roninTheme.colors.background};
-      margin: ${roninTheme.spacing.lg} 0;
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.lg};
+      background: ${dramTheme.colors.background};
+      margin: ${dramTheme.spacing.lg} 0;
     }
 
     .graph-node {
-      stroke: ${roninTheme.colors.accent};
+      stroke: ${dramTheme.colors.accent};
       stroke-width: 2px;
       cursor: move;
     }
 
     .graph-node:hover {
-      stroke: ${roninTheme.colors.link};
+      stroke: ${dramTheme.colors.link};
       stroke-width: 3px;
     }
 
     .graph-link {
-      stroke: ${roninTheme.colors.accent};
+      stroke: ${dramTheme.colors.accent};
       stroke-width: 2px;
       stroke-opacity: 0.6;
     }
 
     .graph-label {
       font-size: 11px;
-      fill: ${roninTheme.colors.textSecondary};
+      fill: ${dramTheme.colors.textSecondary};
       pointer-events: none;
       text-anchor: start;
     }
 
     .graph-tooltip {
       position: absolute;
-      padding: ${roninTheme.spacing.sm};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.link};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.link};
+      border-radius: ${dramTheme.borderRadius.md};
       font-size: 0.85rem;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
       pointer-events: none;
       z-index: 1000;
       max-width: 250px;
     }
 
     .debug-section {
-      margin-top: ${roninTheme.spacing.xl};
-      padding-top: ${roninTheme.spacing.md};
-      border-top: 1px solid ${roninTheme.colors.border};
+      margin-top: ${dramTheme.spacing.xl};
+      padding-top: ${dramTheme.spacing.md};
+      border-top: 1px solid ${dramTheme.colors.border};
     }
 
     .debug-toggle {
-      background: ${roninTheme.colors.accent};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${dramTheme.colors.accent};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.85rem;
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-bottom: ${dramTheme.spacing.sm};
       transition: all 0.2s;
     }
 
     .debug-toggle:hover {
-      background: ${roninTheme.colors.accentHover};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${dramTheme.colors.accentHover};
+      border-color: ${dramTheme.colors.borderHover};
     }
 
     .debug-content {
       display: none;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.lg};
+      padding: ${dramTheme.spacing.md};
       overflow: auto;
       max-height: 400px;
       font-size: 0.85rem;
-      color: ${roninTheme.colors.link};
-      font-family: ${roninTheme.fonts.mono};
+      color: ${dramTheme.colors.link};
+      font-family: ${dramTheme.fonts.mono};
     }
 
     .debug-content.show {

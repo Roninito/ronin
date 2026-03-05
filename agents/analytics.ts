@@ -13,7 +13,7 @@ import type {
   AIStreamEvent,
   AIToolCallEvent,
 } from "../src/tools/types.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /**
  * Ring buffer that keeps the last N items in memory.
@@ -737,8 +737,9 @@ export default class AnalyticsAgent extends BaseAgent {
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;

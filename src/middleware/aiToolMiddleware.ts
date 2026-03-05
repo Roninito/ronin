@@ -108,12 +108,16 @@ export function createAiToolMiddleware(
         ...(ctx.model ? { model: ctx.model } : {}),
       });
 
+      const toolCalls = result.toolCalls ?? [];
+      const assistantContent = result.message.content ?? "";
+      const assistantTrimmed = assistantContent.trim();
       ctx.messages.push({
         role: "assistant",
-        content: result.message.content ?? "",
+        content:
+          toolCalls.length === 0 && assistantTrimmed.length === 0
+            ? "I couldn't complete this request with available tools, so I'm ending this run."
+            : assistantContent,
       });
-
-      const toolCalls = result.toolCalls ?? [];
       if (toolCalls.length === 0) {
         if (logLabel) log("No tool calls; stopping.");
         break;

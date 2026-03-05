@@ -2,7 +2,7 @@ import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import {
   getRoninContext,
   buildSystemPrompt,
@@ -309,8 +309,9 @@ export default class ChattyAgent extends BaseAgent {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       height: 100vh;
@@ -330,45 +331,45 @@ export default class ChattyAgent extends BaseAgent {
     
     .sidebar {
       width: 280px;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${roninTheme.colors.border};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${dramTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
     }
     
     .sidebar-header {
-      padding: ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${dramTheme.spacing.md};
+      border-bottom: 1px solid ${dramTheme.colors.border};
     }
     
     .new-chat-button {
       width: 100%;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       font-size: 0.8125rem;
       cursor: pointer;
       transition: all 0.3s;
     }
     
     .new-chat-button:hover {
-      background: ${roninTheme.colors.accent};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${dramTheme.colors.accent};
+      border-color: ${dramTheme.colors.borderHover};
     }
     
     .chat-list {
       flex: 1;
       overflow-y: auto;
-      padding: ${roninTheme.spacing.sm};
+      padding: ${dramTheme.spacing.sm};
     }
     
     .chat-item {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.xs};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      margin-bottom: ${dramTheme.spacing.xs};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       transition: all 0.2s;
       display: flex;
@@ -378,12 +379,12 @@ export default class ChattyAgent extends BaseAgent {
     }
     
     .chat-item:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${dramTheme.colors.backgroundTertiary};
     }
     
     .chat-item.active {
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.borderHover};
+      background: ${dramTheme.colors.accent};
+      border: 1px solid ${dramTheme.colors.borderHover};
     }
     
     .chat-item-content {
@@ -393,7 +394,7 @@ export default class ChattyAgent extends BaseAgent {
     
     .chat-item-title {
       font-size: 0.8125rem;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -402,7 +403,7 @@ export default class ChattyAgent extends BaseAgent {
     
     .chat-item-time {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
     }
     
     .chat-item-delete {
@@ -410,7 +411,7 @@ export default class ChattyAgent extends BaseAgent {
       padding: 0.25rem;
       background: transparent;
       border: none;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
       cursor: pointer;
       font-size: 0.75rem;
       transition: all 0.2s;
@@ -421,13 +422,13 @@ export default class ChattyAgent extends BaseAgent {
     }
     
     .chat-item-delete:hover {
-      color: ${roninTheme.colors.error};
+      color: ${dramTheme.colors.error};
     }
     
     .empty-state {
-      padding: ${roninTheme.spacing.lg};
+      padding: ${dramTheme.spacing.lg};
       text-align: center;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
       font-size: 0.75rem;
     }
     
@@ -435,15 +436,15 @@ export default class ChattyAgent extends BaseAgent {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: ${roninTheme.colors.background};
+      background: ${dramTheme.colors.background};
       overflow: hidden;
     }
     
     #chat-history {
       flex: 1;
       overflow-y: auto;
-      padding: ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.background};
+      padding: ${dramTheme.spacing.lg};
+      background: ${dramTheme.colors.background};
     }
     
     .message {
@@ -456,32 +457,32 @@ export default class ChattyAgent extends BaseAgent {
     
     .message-content {
       max-width: 70%;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.md};
       word-wrap: break-word;
       font-size: 0.8125rem; /* 13px - smaller */
       line-height: 1.5;
     }
     
     .message.user .message-content {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-bottom-right-radius: ${roninTheme.borderRadius.sm};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-bottom-right-radius: ${dramTheme.borderRadius.sm};
     }
     
     .message.assistant .message-content {
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-bottom-left-radius: ${roninTheme.borderRadius.sm};
+      background: ${dramTheme.colors.backgroundSecondary};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-bottom-left-radius: ${dramTheme.borderRadius.sm};
     }
     
     .message-content h1,
     .message-content h2,
     .message-content h3 {
-      margin-top: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-top: ${dramTheme.spacing.sm};
+      margin-bottom: ${dramTheme.spacing.sm};
       font-weight: 300;
     }
     
@@ -490,27 +491,27 @@ export default class ChattyAgent extends BaseAgent {
     .message-content h3 { font-size: 1rem; /* Smaller */ }
     
     .message-content p {
-      margin: ${roninTheme.spacing.sm} 0;
+      margin: ${dramTheme.spacing.sm} 0;
       line-height: 1.6;
       font-size: 0.8125rem; /* 13px */
     }
     
     .message-content ul,
     .message-content ol {
-      margin: ${roninTheme.spacing.sm} 0;
-      padding-left: ${roninTheme.spacing.lg};
+      margin: ${dramTheme.spacing.sm} 0;
+      padding-left: ${dramTheme.spacing.lg};
     }
     
     .message-content li {
-      margin: ${roninTheme.spacing.xs} 0;
+      margin: ${dramTheme.spacing.xs} 0;
       font-size: 0.8125rem; /* 13px */
     }
     
     .message-content code {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${dramTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
-      border-radius: ${roninTheme.borderRadius.sm};
-      font-family: ${roninTheme.fonts.mono};
+      border-radius: ${dramTheme.borderRadius.sm};
+      font-family: ${dramTheme.fonts.mono};
       font-size: 0.75rem; /* 12px - smaller */
     }
     
@@ -520,16 +521,16 @@ export default class ChattyAgent extends BaseAgent {
     
     .message-content pre {
       background: #161b22 !important;
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.md};
       overflow-x: auto;
-      margin: ${roninTheme.spacing.sm} 0;
-      border: 1px solid ${roninTheme.colors.border};
+      margin: ${dramTheme.spacing.sm} 0;
+      border: 1px solid ${dramTheme.colors.border};
     }
     
     .message.user .message-content pre {
       background: rgba(255, 255, 255, 0.05) !important;
-      border-color: ${roninTheme.colors.border};
+      border-color: ${dramTheme.colors.border};
     }
     
     .message-content pre code {
@@ -540,10 +541,10 @@ export default class ChattyAgent extends BaseAgent {
     }
     
     .message-content blockquote {
-      border-left: 2px solid ${roninTheme.colors.borderHover};
-      padding-left: ${roninTheme.spacing.md};
-      margin: ${roninTheme.spacing.sm} 0;
-      color: ${roninTheme.colors.textSecondary};
+      border-left: 2px solid ${dramTheme.colors.borderHover};
+      padding-left: ${dramTheme.spacing.md};
+      margin: ${dramTheme.spacing.sm} 0;
+      color: ${dramTheme.colors.textSecondary};
       font-style: italic;
     }
     
@@ -556,63 +557,63 @@ export default class ChattyAgent extends BaseAgent {
     }
     
     .message-content a {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       text-decoration: none;
     }
     
     .message-content a:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
       text-decoration: underline;
     }
     
     .message.user .message-content a {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
     }
     
     .input-area {
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-top: 1px solid ${roninTheme.colors.border};
+      padding: ${dramTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-top: 1px solid ${dramTheme.colors.border};
       display: flex;
-      gap: ${roninTheme.spacing.sm};
+      gap: ${dramTheme.spacing.sm};
       flex-shrink: 0;
     }
     
     #message-input {
       flex: 1;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       font-size: 0.8125rem; /* 13px - smaller */
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.background};
+      color: ${dramTheme.colors.textPrimary};
       outline: none;
       transition: all 0.3s;
     }
     
     #message-input:focus {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundSecondary};
+      border-color: ${dramTheme.colors.borderHover};
+      background: ${dramTheme.colors.backgroundSecondary};
     }
     
     #message-input::placeholder {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
     }
     
     #send-button {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.lg};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       font-size: 0.8125rem; /* 13px - smaller */
       cursor: pointer;
       transition: all 0.3s;
     }
     
     #send-button:hover:not(:disabled) {
-      background: ${roninTheme.colors.accent};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${dramTheme.colors.accent};
+      border-color: ${dramTheme.colors.borderHover};
     }
     
     #send-button:disabled {
@@ -621,27 +622,27 @@ export default class ChattyAgent extends BaseAgent {
     }
     
     #drop-zone {
-      padding: ${roninTheme.spacing.md};
-      border: 2px dashed ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.md};
+      border: 2px dashed ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       text-align: center;
-      color: ${roninTheme.colors.textTertiary};
-      margin-bottom: ${roninTheme.spacing.sm};
+      color: ${dramTheme.colors.textTertiary};
+      margin-bottom: ${dramTheme.spacing.sm};
       display: none;
       font-size: 0.75rem; /* 12px */
     }
     
     #drop-zone.drag-over {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundSecondary};
+      border-color: ${dramTheme.colors.borderHover};
+      background: ${dramTheme.colors.backgroundSecondary};
     }
     
     .loading {
       display: inline-block;
       width: 10px;
       height: 10px;
-      border: 2px solid ${roninTheme.colors.border};
-      border-top-color: ${roninTheme.colors.textPrimary};
+      border: 2px solid ${dramTheme.colors.border};
+      border-top-color: ${dramTheme.colors.textPrimary};
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
@@ -662,6 +663,149 @@ export default class ChattyAgent extends BaseAgent {
       justify-content: center;
       z-index: 1000;
     }
+
+    /* Fresh-chat visual override */
+    .main-container {
+      background: radial-gradient(circle at top left, rgba(124,58,237,0.18), transparent 28%), ${dramTheme.colors.background};
+    }
+    .sidebar {
+      width: 260px;
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-right: 1px solid rgba(255,255,255,0.08);
+      align-items: stretch;
+      padding: ${dramTheme.spacing.md};
+    }
+    .sidebar-header {
+      padding: 0 0 ${dramTheme.spacing.sm};
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: block;
+    }
+    .new-chat-button {
+      width: 100%;
+      padding: 0.5rem 0.7rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-radius: ${dramTheme.borderRadius.sm};
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(124,58,237,0.1);
+      color: ${dramTheme.colors.textPrimary};
+    }
+    .chat-container {
+      background: #050506;
+    }
+    .chat-topbar { display: none; }
+    .chat-list {
+      margin-top: ${dramTheme.spacing.sm};
+      display: block;
+      overflow-y: auto;
+      padding: 0;
+    }
+    .chat-tabs-empty {
+      color: ${dramTheme.colors.textTertiary};
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .chat-item {
+      margin-bottom: ${dramTheme.spacing.xs};
+      padding: 0.4rem 0.6rem;
+      border-radius: ${dramTheme.borderRadius.sm};
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      max-width: none;
+      gap: 0.4rem;
+    }
+    .chat-item.active {
+      background: rgba(124,58,237,0.18);
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 1px rgba(124,58,237,0.35);
+    }
+    .chat-item:hover {
+      background: rgba(124,58,237,0.12);
+      border-color: rgba(124,58,237,0.55);
+    }
+    .chat-item-title {
+      font-size: 0.7rem;
+      margin-bottom: 0;
+    }
+    .chat-item-time { display: none; }
+    .chat-item-delete {
+      opacity: 1;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border-radius: 999px;
+    }
+    #chat-history {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .hero-state {
+      margin: auto;
+      text-align: center;
+    }
+    .hero-title {
+      font-size: clamp(3rem, 8vw, 5rem);
+      font-weight: 200;
+      letter-spacing: 0.2em;
+    }
+    .hero-subtitle {
+      margin-top: ${dramTheme.spacing.sm};
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: ${dramTheme.colors.textSecondary};
+    }
+    .hero-console {
+      margin: ${dramTheme.spacing.md} auto 0;
+      display: inline-flex;
+      padding: 0.2rem 0.7rem;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: ${dramTheme.colors.textTertiary};
+      font-family: ${dramTheme.fonts.mono};
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .message.user .message-content,
+    .message.assistant .message-content {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      max-width: 86%;
+    }
+    .input-area {
+      justify-content: center;
+      background: transparent;
+      border-top: none;
+      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.lg} ${dramTheme.spacing.lg};
+    }
+    #message-input {
+      flex: 0 1 780px;
+      background: rgba(10,10,12,0.95);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: ${dramTheme.borderRadius.sm};
+      font-size: 0.78rem;
+      padding: 0.8rem 0.9rem;
+    }
+    #send-button {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: ${dramTheme.borderRadius.sm};
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.02);
+      color: ${dramTheme.colors.textSecondary};
+      padding: 0.8rem 1rem;
+    }
+    #send-button:hover:not(:disabled) {
+      background: rgba(124,58,237,0.16);
+      border-color: rgba(124,58,237,0.6);
+      color: ${dramTheme.colors.textPrimary};
+    }
   </style>
 </head>
 <body>
@@ -673,17 +817,17 @@ export default class ChattyAgent extends BaseAgent {
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-header">
-        <button class="new-chat-button" id="new-chat-button">+ New Chat</button>
+        <button class="new-chat-button" id="new-chat-button" title="New Chat">+ NEW CHAT</button>
       </div>
       <div class="chat-list" id="chat-list">
-        <div class="empty-state">Loading chats...</div>
+        <div class="chat-tabs-empty">Loading chats...</div>
       </div>
     </div>
     <div class="chat-container">
       <div id="chat-history"></div>
       <div id="drop-zone">Drop files here to analyze</div>
       <div class="input-area">
-        <input type="text" id="message-input" placeholder="Type a message... (add @ninja for smart model)" />
+        <input type="text" id="message-input" placeholder="Ask Ronin..." />
         <button id="send-button">Send</button>
       </div>
     </div>
@@ -692,6 +836,9 @@ export default class ChattyAgent extends BaseAgent {
     let currentChatId = null;
     let chats = [];
     let currentMessages = []; // Maintain message state
+    if (window.self !== window.top) {
+      document.body.classList.add('embedded-client');
+    }
     
     // Get chat ID from URL or create new
     function getChatIdFromURL() {
@@ -732,14 +879,14 @@ export default class ChattyAgent extends BaseAgent {
         renderChatList();
       } catch (error) {
         console.error('Failed to load chats:', error);
-        document.getElementById('chat-list').innerHTML = '<div class="empty-state">Failed to load chats</div>';
+        document.getElementById('chat-list').innerHTML = '<div class="chat-tabs-empty">Failed to load chats</div>';
       }
     }
     
     function renderChatList() {
       const container = document.getElementById('chat-list');
       if (chats.length === 0) {
-        container.innerHTML = '<div class="empty-state">No chats yet. Create a new one!</div>';
+        container.innerHTML = '<div class="chat-tabs-empty">No chats yet</div>';
         return;
       }
       
@@ -817,7 +964,7 @@ export default class ChattyAgent extends BaseAgent {
           currentChatId = null;
           currentMessages = [];
           updateURL(null);
-          document.getElementById('chat-history').innerHTML = '';
+          renderHistory([]);
         }
         renderChatList();
       } catch (error) {
@@ -835,6 +982,17 @@ export default class ChattyAgent extends BaseAgent {
     function renderHistory(messages) {
       const container = document.getElementById('chat-history');
       container.innerHTML = '';
+
+      if (!messages || messages.length === 0) {
+        container.innerHTML = \`
+          <div class="hero-state">
+            <div class="hero-title">RONIN</div>
+            <div class="hero-subtitle">Digital Resource Allocation Module</div>
+            <div class="hero-console">Secure Link Active</div>
+          </div>
+        \`;
+        return;
+      }
       
       messages.forEach(msg => {
         const div = document.createElement('div');
@@ -938,9 +1096,16 @@ export default class ChattyAgent extends BaseAgent {
         });
         
         if (!response.ok) {
-          throw new Error('Request failed');
+          let errorMessage = 'Request failed';
+          try {
+            const errorData = await response.json();
+            if (errorData?.error) errorMessage = errorData.error;
+          } catch {}
+          throw new Error(errorMessage);
         }
-        
+        if (!response.body) {
+          throw new Error('No response body from chat API');
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let aiResponse = '';
@@ -1029,6 +1194,8 @@ export default class ChattyAgent extends BaseAgent {
       const chatIdFromURL = getChatIdFromURL();
       if (chatIdFromURL) {
         await switchToChat(chatIdFromURL);
+      } else {
+        renderHistory([]);
       }
     })();
   </script>

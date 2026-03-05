@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "mode": "paper",
+  "dryRun": true,
+  "approval": {
+    "required": true,
+    "eventName": "portfolio.trading.approved"
+  },
+  "universe": [
+    "AAPL",
+    "TSLA"
+  ],
+  "risk": {
+    "maxPositionNotionalUSD": 1500,
+    "maxDailyNotionalUSD": 2500,
+    "maxOpenPositions": 4
+  },
+  "execution": {
+    "defaultBehavior": "manual",
+    "perSymbolOverrides": {}
+  }
+}

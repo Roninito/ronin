@@ -3,7 +3,7 @@ import type { AgentAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface BlogPost {
   id: string;
@@ -285,8 +285,9 @@ export default class BlogsAgent extends BaseAgent {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;
@@ -420,7 +421,8 @@ export default class BlogsAgent extends BaseAgent {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       min-height: 100vh;
@@ -707,8 +709,9 @@ export default class BlogsAgent extends BaseAgent {
   <title>Blog Admin - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;
@@ -1031,7 +1034,8 @@ export default class BlogsAgent extends BaseAgent {
   <title>Blog Admin Login - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       min-height: 100vh;
@@ -1580,7 +1584,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       height: 100vh;

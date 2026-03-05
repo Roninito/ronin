@@ -57,17 +57,28 @@ class ModelSelectorPlugin {
       return this.registryCache;
     }
 
-    // Load repo defaults
-    const repoPath = join(process.cwd(), ".ronin", "ai-models.json");
+    // Load repo defaults (if present)
+    const projectRoot = process.env.RONIN_PROJECT_ROOT || process.cwd();
+    const repoPath = join(projectRoot, ".ronin", "ai-models.json");
     const repoDefaults = loadRegistryFromFile(repoPath);
-
-    if (!repoDefaults) {
-      throw new Error(`Failed to load model registry from ${repoPath}`);
-    }
 
     // Load user overrides
     const userPath = join(homedir(), ".ronin", "ai-models.json");
     const userOverrides = loadRegistryFromFile(userPath);
+    if (userOverrides && (userOverrides as any).__fullOverride === true) {
+      this.registryCache = userOverrides as ModelRegistry;
+      this.cacheTime = now;
+      return this.registryCache;
+    }
+
+    if (!repoDefaults) {
+      if (!userOverrides) {
+        throw new Error(`Failed to load model registry from ${repoPath} or ${userPath}`);
+      }
+      this.registryCache = userOverrides;
+      this.cacheTime = now;
+      return userOverrides;
+    }
 
     const merged = mergeRegistries(repoDefaults, userOverrides);
     this.registryCache = merged;
@@ -85,7 +96,8 @@ class ModelSelectorPlugin {
     }
 
     const userPath = join(userDir, "ai-models.json");
-    writeFileSync(userPath, JSON.stringify(registry, null, 2));
+    const toSave = { ...registry, __fullOverride: true } as ModelRegistry & { __fullOverride: boolean };
+    writeFileSync(userPath, JSON.stringify(toSave, null, 2));
 
     // Invalidate cache
     this.registryCache = null;

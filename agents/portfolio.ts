@@ -2,11 +2,15 @@ import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import {
   roninTheme,
+  dramTheme,
+  getSharedUIPrimitivesCSS,
   getAdobeCleanFontFaceCSS,
   getThemeCSS,
   getHeaderBarCSS,
   getHeaderHomeIconHTML,
 } from "../src/utils/theme.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { join } from "path";
 
 // ─── Data Shapes ────────────────────────────────────────────────────────────
 
@@ -68,13 +72,104 @@ interface PortfolioStats {
   totalTrades: number;
 }
 
+interface TradingRules {
+  version: number;
+  mode: "paper" | "live";
+  dryRun: boolean;
+  approval: { required: boolean; eventName: string };
+  universe: string[];
+  risk: {
+    maxPositionNotionalUSD: number;
+    maxDailyNotionalUSD: number;
+    maxOpenPositions: number;
+  };
+  execution: {
+    defaultBehavior: "manual";
+    perSymbolOverrides: Record<string, string>;
+  };
+}
+
+const PORTFOLIO_VAULT_DIR = join(process.cwd(), "portfolio-vault");
+const TRADING_RULES_PATH = join(PORTFOLIO_VAULT_DIR, "trading-rules.json");
+const TRADING_STATE_PATH = join(PORTFOLIO_VAULT_DIR, "TRADING_CHAIN_STATE.md");
+
+function defaultTradingRules(): TradingRules {
+  return {
+    version: 1,
+    mode: "paper",
+    dryRun: true,
+    approval: { required: true, eventName: "portfolio.trading.approved" },
+    universe: ["AAPL", "MSFT", "SPY"],
+    risk: {
+      maxPositionNotionalUSD: 1000,
+      maxDailyNotionalUSD: 2000,
+      maxOpenPositions: 5,
+    },
+    execution: {
+      defaultBehavior: "manual",
+      perSymbolOverrides: {},
+    },
+  };
+}
+
+function readTradingRules(): TradingRules {
+  try {
+    if (!existsSync(TRADING_RULES_PATH)) return defaultTradingRules();
+    const parsed = JSON.parse(readFileSync(TRADING_RULES_PATH, "utf8")) as Partial<TradingRules>;
+    const fallback = defaultTradingRules();
+    return {
+      ...fallback,
+      ...parsed,
+      approval: { ...fallback.approval, ...(parsed.approval ?? {}) },
+      risk: { ...fallback.risk, ...(parsed.risk ?? {}) },
+      execution: { ...fallback.execution, ...(parsed.execution ?? {}) },
+      universe: Array.isArray(parsed.universe) ? parsed.universe : fallback.universe,
+    };
+  } catch {
+    return defaultTradingRules();
+  }
+}
+
+function writeTradingRules(rules: TradingRules): void {
+  if (!existsSync(PORTFOLIO_VAULT_DIR)) mkdirSync(PORTFOLIO_VAULT_DIR, { recursive: true });
+  writeFileSync(TRADING_RULES_PATH, JSON.stringify(rules, null, 2));
+}
+
+function readTradingStatePreview(limit = 4000): string {
+  try {
+    if (!existsSync(TRADING_STATE_PATH)) return "No trading state file yet.";
+    const content = readFileSync(TRADING_STATE_PATH, "utf8");
+    return content.length > limit ? `${content.slice(0, limit)}\n\n... (truncated)` : content;
+  } catch {
+    return "Unable to read trading state.";
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ─── Alpaca connection check ─────────────────────────────────────────────────
 
-function alpacaStatus(api: AgentAPI): { connected: boolean; mode: "live" | "paper" } {
+async function alpacaStatus(api: AgentAPI): Promise<{ connected: boolean; mode: "live" | "paper" }> {
   try {
     const cfg = api.config.getAll().alpaca;
+    const hasKeys = !!(cfg?.apiKey && cfg?.secretKey);
+    if (!hasKeys) {
+      return { connected: false, mode: (cfg?.mode as "live" | "paper") ?? "paper" };
+    }
+    try {
+      await api.plugins.call("alpaca", "getAccount");
+    } catch {
+      return { connected: false, mode: (cfg?.mode as "live" | "paper") ?? "paper" };
+    }
     return {
-      connected: !!(cfg?.apiKey && cfg?.secretKey),
+      connected: true,
       mode: (cfg?.mode as "live" | "paper") ?? "paper",
     };
   } catch {
@@ -87,8 +182,9 @@ function alpacaStatus(api: AgentAPI): { connected: boolean; mode: "live" | "pape
 function sharedCSS(): string {
   return `
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body { min-height: 100vh; padding: 0; font-size: 0.8125rem; }
 
@@ -353,6 +449,7 @@ export default class PortfolioAgent extends BaseAgent {
     this.api.http.registerRoute("/portfolio/settings", this.handleSettings.bind(this));
     this.api.http.registerRoute("/portfolio/api/stats", this.handleApiStats.bind(this));
     this.api.http.registerRoute("/portfolio/api/close-position", this.handleClosePosition.bind(this));
+    this.api.http.registerRoute("/portfolio/api/trading/approve", this.handleTradingApprove.bind(this));
 
     // Dynamic routes – handled via prefix matching in the HTTP layer
     this.api.http.registerRoute("/portfolio/assets/", this.handleAssetDetail.bind(this));
@@ -482,7 +579,7 @@ export default class PortfolioAgent extends BaseAgent {
       this.loadAgents(),
       this.loadTasks(),
     ]);
-    const status = alpacaStatus(this.api);
+    const status = await alpacaStatus(this.api);
     return Response.json({ stats, positions, trades, agents, tasks, status, timestamp: new Date().toISOString() });
   }
 
@@ -493,31 +590,75 @@ export default class PortfolioAgent extends BaseAgent {
       let saveError = "";
       try {
         const form = await req.formData();
-        const mode = form.get("mode");
-        const apiKey = form.get("apiKey");
-        const secretKey = form.get("secretKey");
+        const formType = (form.get("formType") as string) || "alpaca";
 
-        // Always save mode
-        if (mode === "live" || mode === "paper") {
-          await this.api.config.set("alpaca.mode", mode);
-        }
-        // Only overwrite key/secret if user provided non-empty values
-        if (typeof apiKey === "string" && apiKey.trim() !== "") {
-          await this.api.config.set("alpaca.apiKey", apiKey.trim());
-        }
-        if (typeof secretKey === "string" && secretKey.trim() !== "") {
-          await this.api.config.set("alpaca.secretKey", secretKey.trim());
+        if (formType === "trading") {
+          const rules = readTradingRules();
+          const mode = form.get("tradingMode");
+          const dryRun = form.get("dryRun");
+          const approvalRequired = form.get("approvalRequired");
+          const approvalEventName = form.get("approvalEventName");
+          const universeRaw = form.get("universe");
+          const maxPositionNotionalUSD = Number(form.get("maxPositionNotionalUSD"));
+          const maxDailyNotionalUSD = Number(form.get("maxDailyNotionalUSD"));
+          const maxOpenPositions = Number(form.get("maxOpenPositions"));
+
+          const universe = typeof universeRaw === "string"
+            ? universeRaw
+                .split(/[\n,]/)
+                .map((s) => s.trim().toUpperCase())
+                .filter(Boolean)
+            : rules.universe;
+
+          const nextRules: TradingRules = {
+            ...rules,
+            mode: mode === "live" ? "live" : "paper",
+            dryRun: dryRun === "on",
+            approval: {
+              required: approvalRequired !== "off",
+              eventName: typeof approvalEventName === "string" && approvalEventName.trim()
+                ? approvalEventName.trim()
+                : "portfolio.trading.approved",
+            },
+            universe,
+            risk: {
+              maxPositionNotionalUSD: Number.isFinite(maxPositionNotionalUSD) ? maxPositionNotionalUSD : rules.risk.maxPositionNotionalUSD,
+              maxDailyNotionalUSD: Number.isFinite(maxDailyNotionalUSD) ? maxDailyNotionalUSD : rules.risk.maxDailyNotionalUSD,
+              maxOpenPositions: Number.isFinite(maxOpenPositions) ? maxOpenPositions : rules.risk.maxOpenPositions,
+            },
+          };
+          writeTradingRules(nextRules);
+          return Response.redirect("/portfolio/settings?savedTrading=1", 303);
+        } else {
+          const mode = form.get("mode");
+          const apiKey = form.get("apiKey");
+          const secretKey = form.get("secretKey");
+
+          if (mode === "live" || mode === "paper") {
+            await this.api.config.set("alpaca.mode", mode);
+          }
+          if (typeof apiKey === "string" && apiKey.trim() !== "") {
+            await this.api.config.set("alpaca.apiKey", apiKey.trim());
+          }
+          if (typeof secretKey === "string" && secretKey.trim() !== "") {
+            await this.api.config.set("alpaca.secretKey", secretKey.trim());
+          }
+          return Response.redirect("/portfolio/settings?saved=1", 303);
         }
       } catch (e) {
         saveError = encodeURIComponent(e instanceof Error ? e.message : String(e));
         return Response.redirect(`/portfolio/settings?error=${saveError}`, 303);
       }
-      return Response.redirect("/portfolio/settings?saved=1", 303);
     }
 
     const alpacaCfg = this.api.config.getAll().alpaca ?? { apiKey: "", secretKey: "", mode: "paper" };
-    const connected = !!(alpacaCfg.apiKey && alpacaCfg.secretKey);
+    const status = await alpacaStatus(this.api);
+    const connected = status.connected;
+    const hasSavedCreds = !!(alpacaCfg.apiKey && alpacaCfg.secretKey);
     const mode = alpacaCfg.mode ?? "paper";
+    const tradingRules = readTradingRules();
+    const tradingStatePreview = readTradingStatePreview();
+    const tradingMode = tradingRules.mode ?? "paper";
 
     const params = new URL(req.url).searchParams;
     const savedBanner = params.get("saved") === "1"
@@ -525,6 +666,12 @@ export default class PortfolioAgent extends BaseAgent {
       : params.get("error")
         ? `<div style="background:#7f1d1d;border:1px solid #dc2626;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#fca5a5">✗ Save failed: ${decodeURIComponent(params.get("error")!)}</div>`
         : "";
+    const tradingSavedBanner = params.get("savedTrading") === "1"
+      ? `<div style="background:#14532d;border:1px solid #16a34a;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#86efac">✓ Trading rules saved to portfolio-vault/trading-rules.json</div>`
+      : "";
+    const authBanner = hasSavedCreds && !connected
+      ? `<div style="background:#7f1d1d;border:1px solid #dc2626;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1.5rem;color:#fca5a5">✗ Credentials are saved but authentication failed. Verify key/secret and ensure they match <b>${mode.toUpperCase()}</b> mode.</div>`
+      : "";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -561,8 +708,10 @@ export default class PortfolioAgent extends BaseAgent {
   ${navTabs("/portfolio/settings")}
   <div class="container" style="max-width:680px">
     ${savedBanner}
+    ${authBanner}
 
     <form method="POST" action="/portfolio/settings">
+      <input type="hidden" name="formType" value="alpaca">
       <div class="settings-card">
         <h2>Alpaca API Credentials ${connected ? '<span style="color:#22c55e;font-size:0.75rem">● Saved</span>' : ""}</h2>
         <p>Get your API Key ID and Secret Key from <a href="https://app.alpaca.markets" target="_blank" style="color:${roninTheme.colors.link}">app.alpaca.markets</a> → API Keys. Use Paper Trading keys to test safely.</p>
@@ -595,7 +744,74 @@ export default class PortfolioAgent extends BaseAgent {
       <button type="submit" class="btn-save">Save Settings</button>
       <a href="/portfolio" style="margin-left:1rem;color:${roninTheme.colors.textTertiary};font-size:0.875rem">← Back to Dashboard</a>
     </form>
+
+    ${tradingSavedBanner}
+    <form method="POST" action="/portfolio/settings">
+      <input type="hidden" name="formType" value="trading">
+      <div class="settings-card">
+        <h2>Trading Workflow Rules</h2>
+        <p>These rules drive the new trading kata pipeline. Manual approval is currently required before execution.</p>
+        <div class="field">
+          <label>Trading Mode</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="tradingMode" value="paper" ${tradingMode === "paper" ? "checked" : ""}> 📄 Paper
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="tradingMode" value="live" ${tradingMode === "live" ? "checked" : ""}> 💰 Live
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" name="dryRun" ${tradingRules.dryRun ? "checked" : ""}> Dry Run (no execution)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" name="approvalRequired" ${tradingRules.approval?.required !== false ? "checked" : ""}> Require Approval Event</label>
+        </div>
+        <div class="field">
+          <label>Approval Event Name</label>
+          <input type="text" name="approvalEventName" value="${escapeHtml(tradingRules.approval?.eventName ?? "portfolio.trading.approved")}">
+        </div>
+        <div class="field">
+          <label>Universe (comma or newline separated symbols)</label>
+          <textarea name="universe" rows="3" style="width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box;">${escapeHtml((tradingRules.universe ?? []).join(", "))}</textarea>
+        </div>
+        <div class="field">
+          <label>Max Position Notional (USD)</label>
+          <input type="text" name="maxPositionNotionalUSD" value="${tradingRules.risk?.maxPositionNotionalUSD ?? 1000}">
+        </div>
+        <div class="field">
+          <label>Max Daily Notional (USD)</label>
+          <input type="text" name="maxDailyNotionalUSD" value="${tradingRules.risk?.maxDailyNotionalUSD ?? 2000}">
+        </div>
+        <div class="field">
+          <label>Max Open Positions</label>
+          <input type="text" name="maxOpenPositions" value="${tradingRules.risk?.maxOpenPositions ?? 5}">
+        </div>
+      </div>
+      <button type="submit" class="btn-save">Save Trading Rules</button>
+      <button type="button" class="btn-save" style="margin-left:0.5rem;background:#f59e0b;color:#111" onclick="approveTradingRun()">Emit Approval Event</button>
+    </form>
+
+    <div class="settings-card">
+      <h2>Trading Chain State (Preview)</h2>
+      <p>Shared markdown state used by chain personas.</p>
+      <pre style="max-height:320px;overflow:auto;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};padding:0.75rem;border-radius:6px;white-space:pre-wrap;">${escapeHtml(tradingStatePreview)}</pre>
+    </div>
   </div>
+  <script>
+    async function approveTradingRun() {
+      const note = prompt("Optional approval note:");
+      const res = await fetch('/portfolio/api/trading/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note || '' })
+      });
+      const data = await res.json();
+      if (data.ok) alert('Approval event emitted.');
+      else alert('Failed: ' + (data.error || 'unknown error'));
+    }
+  </script>
 </body>
 </html>`;
     return new Response(html, { headers: { "Content-Type": "text/html" } });
@@ -613,10 +829,27 @@ export default class PortfolioAgent extends BaseAgent {
     }
   }
 
+  private async handleTradingApprove(req: Request): Promise<Response> {
+    if (req.method !== "POST") {
+      return Response.json({ ok: false, error: "Method not allowed" }, { status: 405 });
+    }
+    try {
+      const payload = await req.json().catch(() => ({})) as Record<string, unknown>;
+      this.api.events.emit(
+        "portfolio.trading.approved",
+        { approved: true, source: "portfolio-ui", approvedAt: new Date().toISOString(), ...payload },
+        "portfolio"
+      );
+      return Response.json({ ok: true, event: "portfolio.trading.approved" });
+    } catch (e) {
+      return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    }
+  }
+
   // ── Dashboard ─────────────────────────────────────────────────────────────
 
   private async handleDashboard(_req: Request): Promise<Response> {
-    const status = alpacaStatus(this.api);
+    const status = await alpacaStatus(this.api);
     const [stats, positions, trades] = await Promise.all([
       this.loadStats(),
       this.loadPositions(),

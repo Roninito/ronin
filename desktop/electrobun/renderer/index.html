@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ronin Desktop Client</title>
+    <style>
+      :root {
+        /* Shared DRAM primitives from src/utils/theme.ts (dramVisualTokens + dramTheme) */
+        --dram-bg-deep: #030304;
+        --dram-bg-base: #060607;
+        --dram-bg-surface: #0a0a0c;
+        --dram-bg-elevated: #111114;
+        --dram-bg-hover: #18181c;
+        --dram-accent: #7c3aed;
+        --dram-accent-subtle: rgba(124, 58, 237, 0.1);
+        --dram-accent-glow: rgba(124, 58, 237, 0.2);
+        --dram-text-primary: #e2e2e7;
+        --dram-text-secondary: #8e8e93;
+        --dram-text-tertiary: #48484a;
+        --dram-border: #1c1c1e;
+        --dram-border-subtle: #141416;
+        --dram-success: #22c55e;
+        --dram-warning: #f59e0b;
+        --dram-error: #ef4444;
+        --dram-font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --dram-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+        --dram-space-1: 4px;
+        --dram-space-2: 8px;
+        --dram-space-4: 16px;
+        --dram-space-5: 24px;
+        --dram-radius: 2px;
+        --sidebar-width: 58px;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        font-family: var(--dram-font-sans);
+        background: radial-gradient(circle at top right, var(--dram-accent-subtle), transparent 42%), var(--dram-bg-base);
+        color: var(--dram-text-primary);
+      }
+      #frame {
+        width: calc(100% - var(--sidebar-width));
+        margin-left: var(--sidebar-width);
+        height: 100%;
+        border: 0;
+        display: block;
+        background: #fff;
+      }
+      #sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: var(--sidebar-width);
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        border-right: 1px solid var(--dram-border);
+        background: var(--dram-bg-surface);
+        padding: var(--dram-space-2) 0;
+      }
+      .sidebar-group {
+        display: flex;
+        flex-direction: column;
+        gap: var(--dram-space-2);
+      }
+      .indicator-wrap {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        padding: 28px 0 16px;
+      }
+      .connection-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--dram-warning);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--dram-warning) 18%, transparent);
+      }
+      @keyframes statusPulse {
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dram-success) 35%, transparent); }
+        70% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--dram-success) 0%, transparent); }
+        100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dram-success) 0%, transparent); }
+      }
+      #sidebar.state-ready .connection-dot {
+        background: var(--dram-success);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--dram-success) 18%, transparent);
+        animation: statusPulse 2s ease-out infinite;
+      }
+      #sidebar.state-error .connection-dot,
+      #sidebar.state-disconnected .connection-dot,
+      #sidebar.bad .connection-dot { background: var(--dram-error); box-shadow: 0 0 0 4px color-mix(in srgb, var(--dram-error) 18%, transparent); }
+      .sidebar-btn {
+        appearance: none;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--dram-border);
+        background: var(--dram-bg-elevated);
+        color: var(--dram-text-secondary);
+        border-radius: var(--dram-radius);
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .sidebar-btn:hover,
+      .sidebar-btn.active {
+        border-color: var(--dram-accent);
+        color: var(--dram-text-primary);
+        background: var(--dram-accent-subtle);
+      }
+      .sidebar-btn:focus-visible {
+        outline: 2px solid var(--dram-accent);
+        outline-offset: 2px;
+      }
+      .sidebar-btn svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      #panel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: color-mix(in srgb, var(--dram-bg-deep) 86%, transparent);
+        padding: var(--dram-space-5);
+      }
+      .panel-inner {
+        max-width: 680px;
+        border: 1px solid var(--dram-border);
+        border-radius: var(--dram-radius);
+        background: var(--dram-bg-surface);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+        padding: var(--dram-space-5);
+      }
+      #panel h2 {
+        margin: 0 0 var(--dram-space-2);
+        font-size: 15px;
+        letter-spacing: 0.02em;
+      }
+      #panel p {
+        margin: 0;
+        color: var(--dram-text-secondary);
+        font-size: 13px;
+      }
+      .code {
+        margin-top: var(--dram-space-2);
+        color: var(--dram-text-tertiary);
+        font-family: var(--dram-font-mono);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav id="sidebar" aria-label="Primary">
+      <div class="sidebar-group">
+        <div class="indicator-wrap">
+          <span id="connectionDot" class="connection-dot" aria-hidden="true"></span>
+        </div>
+        <button class="sidebar-btn active" data-route="home" type="button" title="Home" aria-label="Home">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M6.5 10.5V20h11V10.5"/></svg>
+        </button>
+        <button class="sidebar-btn" data-route="chat" type="button" title="Chat" aria-label="Chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v10H9l-5 4V6z"/></svg>
+        </button>
+        <button class="sidebar-btn" data-route="analytics" type="button" title="Analytics" aria-label="Analytics">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M7 16v-3"/><path d="M12 16V8"/><path d="M17 16v-6"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-group">
+        <button class="sidebar-btn" data-route="config" type="button" title="Config" aria-label="Config">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5A3.5 3.5 0 1 1 8.5 12 3.5 3.5 0 0 1 12 8.5Z"/><path d="m19.4 15-.9.5.1 1.1-1.6 1.6-1.1-.1-.5.9h-2.2l-.5-.9-1.1.1-1.6-1.6.1-1.1-.9-.5v-2.2l.9-.5-.1-1.1 1.6-1.6 1.1.1.5-.9h2.2l.5.9 1.1-.1 1.6 1.6-.1 1.1.9.5Z"/></svg>
+        </button>
+      </div>
+    </nav>
+    <iframe id="frame" title="Ronin Home Dashboard"></iframe>
+    <div id="panel">
+      <div class="panel-inner">
+        <h2 id="panelTitle"></h2>
+        <p id="panelMessage"></p>
+        <div class="code" id="reason"></div>
+      </div>
+    </div>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

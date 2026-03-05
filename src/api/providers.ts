@@ -758,6 +758,7 @@ export function createProvider(
   geminiConfig?: GeminiConfig,
   grokConfig?: GrokConfig,
 ): AIProvider {
+  const providerCfg = (aiConfig as any)?.providers ?? {};
   const timeout = aiConfig.ollamaTimeoutMs;
   const temp = aiConfig.temperature;
 
@@ -766,22 +767,40 @@ export function createProvider(
       return new OllamaProvider(aiConfig.ollamaUrl, aiConfig.ollamaModel, timeout, temp);
     case "openai":
       return new OpenAICompatibleProvider(
-        aiConfig.openai.apiKey, aiConfig.openai.baseUrl, aiConfig.openai.model, timeout, temp,
+        providerCfg?.openai?.apiKey || aiConfig.openai.apiKey,
+        providerCfg?.openai?.baseUrl || aiConfig.openai.baseUrl,
+        providerCfg?.openai?.model || aiConfig.openai.model,
+        timeout,
+        temp,
       );
     case "anthropic":
-      const anthropicApiKey = aiConfig.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY;
+      const anthropicApiKey = providerCfg?.anthropic?.apiKey || (aiConfig as any).anthropic?.apiKey || process.env.ANTHROPIC_API_KEY;
       if (!anthropicApiKey) throw new Error("Anthropic API key not configured. Set anthropic.apiKey in config or ANTHROPIC_API_KEY env var.");
       return new AnthropicProvider({
         apiKey: anthropicApiKey,
-        model: aiConfig.anthropic?.model,
+        model: providerCfg?.anthropic?.model || (aiConfig as any).anthropic?.model,
         timeout,
       });
     case "gemini":
-      if (!geminiConfig?.apiKey) throw new Error("Gemini API key not configured. Set gemini.apiKey in config or GEMINI_API_KEY env var.");
-      return new GeminiProvider(geminiConfig, timeout, temp);
+      if (!(providerCfg?.gemini?.apiKey || geminiConfig?.apiKey)) throw new Error("Gemini API key not configured. Set gemini.apiKey in config or GEMINI_API_KEY env var.");
+      const mergedGemini = providerCfg?.gemini?.apiKey
+        ? ({ ...(geminiConfig || {}), ...providerCfg.gemini } as GeminiConfig)
+        : geminiConfig!;
+      return new GeminiProvider(
+        mergedGemini,
+        timeout,
+        temp,
+      );
     case "grok":
-      if (!grokConfig?.apiKey) throw new Error("Grok API key not configured. Set grok.apiKey in config or GROK_API_KEY env var.");
-      return createGrokProvider(grokConfig, timeout, temp);
+      if (!(providerCfg?.grok?.apiKey || grokConfig?.apiKey)) throw new Error("Grok API key not configured. Set grok.apiKey in config or GROK_API_KEY env var.");
+      const mergedGrok = providerCfg?.grok?.apiKey
+        ? ({ ...(grokConfig || {}), ...providerCfg.grok } as GrokConfig)
+        : grokConfig!;
+      return createGrokProvider(
+        mergedGrok,
+        timeout,
+        temp,
+      );
     default:
       throw new Error(`Unknown AI provider: ${providerType}`);
   }

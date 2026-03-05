@@ -172,6 +172,13 @@ ronin os clipboard enable
 ## CLI Commands
 
 ```bash
+# Launch optional ElectronBun desktop client (cross-platform)
+ronin client
+ronin client --port 17341
+ronin client install
+ronin client build --platform mac
+ronin client build --platform all
+
 # Install macOS integrations
 ronin os install mac
 
@@ -193,6 +200,46 @@ ronin os clipboard disable
 # Install with custom settings
 ronin os install mac --bridge-port 8080 --folders "~/Desktop,~/Downloads,~/Documents"
 ```
+
+## ElectronBun Client (Optional)
+
+`ronin client` launches an additive desktop client path and does not replace existing `ronin os` integrations or Swift RoninTray workflows.
+The first version embeds a single Home/Dashboard view and performs a startup health check against `/api/health` (use `--skip-health-check` to bypass).
+Use `ronin client build --platform <mac|win|linux|all>` to create distributable packages from `desktop/electrobun`.
+After startup, the client continuously monitors Ronin health; if connection is lost, it shows a reconnecting state and retries with exponential backoff.
+Closing the window minimizes the client to tray; use tray menu or app controls to show the window, restart Ronin, or open logs.
+
+### Signed Build Environment Variables
+
+For signed release artifacts, export platform signing credentials before `ronin client build`:
+
+```bash
+# macOS (Apple Developer ID signing + notarization via electron-builder)
+export CSC_LINK="file:///path/to/DeveloperID.p12"
+export CSC_KEY_PASSWORD="your-cert-password"
+export APPLE_ID="dev@example.com"
+export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_TEAM_ID="TEAMID1234"
+
+# Windows code signing (PKCS#12)
+export CSC_LINK="file:///path/to/windows-signing.p12"
+export CSC_KEY_PASSWORD="your-cert-password"
+```
+
+Then build:
+
+```bash
+ronin client build --platform mac
+ronin client build --platform win
+```
+
+### CI Packaging
+
+GitHub Actions workflow: `.github/workflows/electrobun-packaging.yml`
+
+- Triggers on tag push (`v*`) and manual dispatch
+- Builds ElectronBun artifacts for macOS, Windows, and Linux
+- Uploads platform artifacts from `desktop/electrobun/dist/`
 
 ## Architecture
 

@@ -2,7 +2,7 @@ import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 const execAsync = promisify(exec);
 
@@ -98,8 +98,9 @@ export default class ServedAgent extends BaseAgent {
   <title>Servers - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       margin: 0;
@@ -114,25 +115,25 @@ export default class ServedAgent extends BaseAgent {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${dramTheme.spacing.lg};
     }
 
     .servers-container {
       display: grid;
-      gap: ${roninTheme.spacing.md};
-      margin-top: ${roninTheme.spacing.lg};
+      gap: ${dramTheme.spacing.md};
+      margin-top: ${dramTheme.spacing.lg};
     }
 
     .server-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${dramTheme.spacing.md};
       transition: all 0.2s;
     }
 
     .server-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${dramTheme.colors.borderHover};
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -140,32 +141,32 @@ export default class ServedAgent extends BaseAgent {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-bottom: ${dramTheme.spacing.sm};
     }
 
     .server-port {
       font-size: 1.25rem;
       font-weight: 600;
-      color: ${roninTheme.colors.accent};
+      color: ${dramTheme.colors.accent};
       font-family: 'Courier New', monospace;
     }
 
     .server-protocol {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${dramTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
       text-transform: uppercase;
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textSecondary};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .server-info {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${roninTheme.spacing.sm};
-      margin-top: ${roninTheme.spacing.sm};
+      gap: ${dramTheme.spacing.sm};
+      margin-top: ${dramTheme.spacing.sm};
     }
 
     .info-item {
@@ -175,47 +176,47 @@ export default class ServedAgent extends BaseAgent {
 
     .info-label {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       margin-bottom: 2px;
     }
 
     .info-value {
       font-weight: 500;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
       font-family: 'Courier New', monospace;
     }
 
     .empty-state {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${dramTheme.spacing.xl};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .refresh-button {
-      margin-top: ${roninTheme.spacing.md};
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.accent};
-      color: ${roninTheme.colors.textPrimary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      margin-top: ${dramTheme.spacing.md};
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      background: ${dramTheme.colors.accent};
+      color: ${dramTheme.colors.textPrimary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.8125rem;
       transition: all 0.2s;
     }
 
     .refresh-button:hover {
-      background: ${roninTheme.colors.accentHover};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${dramTheme.colors.accentHover};
+      border-color: ${dramTheme.colors.borderHover};
     }
 
     .stats {
       display: flex;
-      gap: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      gap: ${dramTheme.spacing.lg};
+      margin-bottom: ${dramTheme.spacing.lg};
+      padding: ${dramTheme.spacing.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
     }
 
     .stat-item {
@@ -226,12 +227,12 @@ export default class ServedAgent extends BaseAgent {
     .stat-value {
       font-size: 1.5rem;
       font-weight: 600;
-      color: ${roninTheme.colors.accent};
+      color: ${dramTheme.colors.accent};
     }
 
     .stat-label {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
   </style>
 </head>

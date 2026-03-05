@@ -1,0 +1,53 @@
+technique alpaca.place-orders-batch v1
+  description Place one approved order (batch entrypoint for manual execution stage)
+  category finance
+  tags ["alpaca", "trading", "execution"]
+  type composite
+  requires tool alpaca_placeOrder
+
+  input {
+    symbol: string
+      description Symbol to trade
+      required true
+    qty: number
+      description Quantity to trade
+      required true
+    side: string
+      description buy or sell
+      required true
+    type: string
+      description market, limit, stop, stop_limit
+      required false
+      default "market"
+    limitPrice: number
+      description Optional limit price for limit orders
+      required false
+    approved: boolean
+      description Must be true when user approved execution
+      required false
+      default false
+  }
+
+  output {
+    approved: boolean
+      description Approval flag passed into execution
+    order: object
+      description Order response from Alpaca
+  }
+
+  step place-order
+    description Submit approved order
+    run tool alpaca_placeOrder
+    with {
+      symbol: input.symbol,
+      qty: input.qty,
+      side: input.side,
+      type: input.type,
+      limitPrice: input.limitPrice
+    }
+    output order
+
+  return {
+    approved: input.approved,
+    order: order
+  }

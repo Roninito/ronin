@@ -35,6 +35,7 @@ interface ConfigManifest {
 export default class ConfigEditorAgent extends BaseAgent {
   private configPath: string;
   private historyDir: string;
+  private dashboardNavPath: string;
   private password: string;
   private sessions: Set<string> = new Set();
   private currentConfig: Record<string, unknown> = {};
@@ -350,6 +351,19 @@ export default class ConfigEditorAgent extends BaseAgent {
           description: 'Shell Safe Command Allowlist',
           helpText: 'Commands allowed by local.shell.safe (base command only). Add/remove entries to control shell access.'
         },
+        skillProviders: {
+          type: 'array',
+          itemType: 'string',
+          default: ['skills.sh', 'playbooks.com'],
+          description: 'Skill Providers',
+          helpText: 'Remote providers to include for skills/mcp discovery (edited more easily in the Skill Providers tab).'
+        },
+        includeRemoteSkillsOnDiscover: {
+          type: 'boolean',
+          default: true,
+          description: 'Include Remote Skills on Discover',
+          helpText: 'When enabled, ronin skills discover and ronin mcp discover include selected remote providers by default.'
+        },
         logRetentionRuns: {
           type: 'number',
           default: 2,
@@ -614,6 +628,7 @@ export default class ConfigEditorAgent extends BaseAgent {
     super(api);
     this.configPath = join(homedir(), '.ronin', 'config.json');
     this.historyDir = join(homedir(), '.ronin', 'config.history');
+    this.dashboardNavPath = join(homedir(), '.ronin', 'dashboard-nav.config.json');
     
     // Use config service with env var fallback
     const configEditor = this.api.config.getConfigEditor();
@@ -643,6 +658,48 @@ export default class ConfigEditorAgent extends BaseAgent {
 
     // Load current config
     await this.loadConfig();
+    await this.ensureDashboardNavConfig();
+  }
+
+  private async ensureDashboardNavConfig(): Promise<void> {
+    if (existsSync(this.dashboardNavPath)) return;
+    const defaultNav = {
+      routes: ["/chat", "/analytics", "/config", "/routes"]
+    };
+    await writeFile(this.dashboardNavPath, JSON.stringify(defaultNav, null, 2), "utf-8");
+  }
+
+  private async readDashboardNavConfig(): Promise<{ routes: string[] }> {
+    await this.ensureDashboardNavConfig();
+    try {
+      const raw = await readFile(this.dashboardNavPath, "utf-8");
+      const parsed = JSON.parse(raw) as { routes?: unknown };
+      const routes = Array.isArray(parsed?.routes)
+        ? parsed.routes.map((r) => String(r).trim()).filter((r) => r.startsWith("/"))
+        : [];
+      return { routes };
+    } catch {
+      return { routes: ["/chat", "/analytics", "/config", "/routes"] };
+    }
+  }
+
+  private async handleDashNavConfig(req: Request): Promise<Response> {
+    if (!this.isAuthenticated(req)) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (req.method === "GET") {
+      return Response.json(await this.readDashboardNavConfig());
+    }
+    if (req.method === "PUT") {
+      const body = await req.json().catch(() => ({} as { routes?: unknown }));
+      const routes = Array.isArray(body?.routes)
+        ? body.routes.map((r) => String(r).trim()).filter((r) => r.startsWith("/"))
+        : [];
+      const deduped = Array.from(new Set(routes));
+      await writeFile(this.dashboardNavPath, JSON.stringify({ routes: deduped }, null, 2), "utf-8");
+      return Response.json({ success: true, routes: deduped });
+    }
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
 
   /**
@@ -805,6 +862,7 @@ export default class ConfigEditorAgent extends BaseAgent {
     this.api.http.registerRoute('/config/api/backups', this.handleListBackups.bind(this));
     this.api.http.registerRoute('/config/api/restore', this.handleRestoreBackup.bind(this));
     this.api.http.registerRoute('/config/api/backup', this.handleCreateBackup.bind(this));
+    this.api.http.registerRoute('/config/api/dashnav', this.handleDashNavConfig.bind(this));
 
     // Auth routes
     this.api.http.registerRoute('/config/login', this.handleLogin.bind(this));
@@ -815,6 +873,20 @@ export default class ConfigEditorAgent extends BaseAgent {
    * Check if request is authenticated
    */
   private isAuthenticated(req: Request): boolean {
+    const headerSession = req.headers.get("x-config-session");
+    if (headerSession && this.sessions.has(headerSession)) {
+      return true;
+    }
+
+    try {
+      const sid = new URL(req.url).searchParams.get("sid");
+      if (sid && this.sessions.has(sid)) {
+        return true;
+      }
+    } catch {
+      // ignore malformed URL
+    }
+
     const cookie = req.headers.get('cookie') || '';
     const sessionMatch = cookie.match(/config_session=([^;]+)/);
     if (!sessionMatch) return false;
@@ -849,10 +921,10 @@ export default class ConfigEditorAgent extends BaseAgent {
       this.sessions.add(sessionId);
 
       return Response.json(
-        { success: true },
+        { success: true, sessionId },
         {
           headers: {
-            'Set-Cookie': `config_session=${sessionId}; HttpOnly; Path=/config; Max-Age=3600`
+            'Set-Cookie': `config_session=${sessionId}; HttpOnly; Path=/; Max-Age=3600`
           }
         }
       );
@@ -875,7 +947,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       { success: true },
       {
         headers: {
-          'Set-Cookie': 'config_session=; HttpOnly; Path=/config; Max-Age=0'
+          'Set-Cookie': 'config_session=; HttpOnly; Path=/; Max-Age=0'
         }
       }
     );
@@ -898,6 +970,9 @@ export default class ConfigEditorAgent extends BaseAgent {
    * Render login page
    */
   private renderLoginPage(): Response {
+    const passwordHint = this.password === "roninpass"
+      ? `<strong>Default:</strong> "roninpass"<br>Change via CONFIG_EDITOR_PASSWORD env var`
+      : `<strong>Password:</strong> configured in environment or config`;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1028,8 +1103,7 @@ export default class ConfigEditorAgent extends BaseAgent {
     </form>
     
     <div class="info">
-      <strong>Default:</strong> "roninpass"<br>
-      Change via CONFIG_EDITOR_PASSWORD env var
+      ${passwordHint}
     </div>
   </div>
 
@@ -1047,7 +1121,13 @@ export default class ConfigEditorAgent extends BaseAgent {
         });
         
         if (res.ok) {
-          window.location.reload();
+          const data = await res.json().catch(() => ({}));
+          if (data && data.sessionId) {
+            sessionStorage.setItem('config_session', data.sessionId);
+            window.location.href = '/config?sid=' + encodeURIComponent(data.sessionId);
+          } else {
+            window.location.reload();
+          }
         } else {
           const data = await res.json();
           errorDiv.textContent = data.error || 'Login failed';
@@ -1089,9 +1169,57 @@ export default class ConfigEditorAgent extends BaseAgent {
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 2rem;
+      padding: 1rem;
+    }
+
+    .config-layout {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 0.85rem;
+      align-items: start;
+    }
+
+    .category-nav {
+      position: sticky;
+      top: 70px;
+      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
+      padding: 0.65rem;
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+    }
+
+    .category-nav-title {
+      margin: 0 0 0.55rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: ${roninTheme.colors.textTertiary};
+      font-weight: 600;
+    }
+
+    .category-link {
+      display: block;
+      color: ${roninTheme.colors.textSecondary};
+      text-decoration: none;
+      font-size: 0.78rem;
+      padding: 0.4rem 0.5rem;
+      border-radius: 5px;
+      border: 1px solid transparent;
+      margin-bottom: 0.2rem;
+    }
+
+    .category-link:hover {
+      background: ${roninTheme.colors.backgroundTertiary};
+      color: ${roninTheme.colors.textPrimary};
+      border-color: ${roninTheme.colors.border};
+    }
+
+    .editor-main {
+      min-width: 0;
     }
 
     .btn {
@@ -1123,7 +1251,7 @@ export default class ConfigEditorAgent extends BaseAgent {
     .tabs {
       display: flex;
       gap: 0.5rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0.75rem;
       border-bottom: 1px solid ${roninTheme.colors.border};
     }
 
@@ -1147,15 +1275,16 @@ export default class ConfigEditorAgent extends BaseAgent {
       background: ${roninTheme.colors.backgroundSecondary};
       border: 1px solid ${roninTheme.colors.border};
       border-radius: ${roninTheme.borderRadius.md};
-      padding: 1.5rem;
+      padding: 0.85rem;
     }
 
     .section {
-      margin-bottom: 2rem;
+      margin-bottom: 0.75rem;
       border: 1px solid ${roninTheme.colors.border};
       border-radius: ${roninTheme.borderRadius.md};
-      padding: 1rem 1.25rem;
+      padding: 0.65rem 0.85rem;
       background: ${roninTheme.colors.background};
+      scroll-margin-top: 86px;
     }
 
     .section-header {
@@ -1218,7 +1347,7 @@ export default class ConfigEditorAgent extends BaseAgent {
     .keyValue-item input:last-child { flex: 1; }
 
     .form-group {
-      margin-bottom: 1.25rem;
+      margin-bottom: 0.75rem;
     }
 
     label {
@@ -1273,7 +1402,7 @@ export default class ConfigEditorAgent extends BaseAgent {
 
     textarea {
       width: 100%;
-      min-height: 400px;
+      min-height: 300px;
       background: ${roninTheme.colors.background};
       border: 1px solid ${roninTheme.colors.border};
       color: ${roninTheme.colors.textPrimary};
@@ -1283,6 +1412,11 @@ export default class ConfigEditorAgent extends BaseAgent {
       font-size: 0.875rem;
       resize: vertical;
       box-sizing: border-box;
+    }
+
+    @media (max-width: 960px) {
+      .config-layout { grid-template-columns: 1fr; }
+      .category-nav { position: static; max-height: none; }
     }
   </style>
 </head>
@@ -1298,37 +1432,100 @@ export default class ConfigEditorAgent extends BaseAgent {
     </div>
   </div>
   <div class="container">
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('form', this)">📋 Form Mode</button>
-      <button class="tab" onclick="switchTab('shell', this)">🛡️ Shell Safe List</button>
-      <button class="tab" onclick="switchTab('json', this)">📝 JSON Mode</button>
-    </div>
-
-    <div id="validationStatus"></div>
-
-    <div class="editor-container" id="editorContainer">
-      <div id="formEditor">
-        <!-- Form content loaded via JS -->
-        <p>Loading configuration...</p>
-      </div>
-      <div id="jsonEditor" style="display: none;">
-        <textarea id="jsonTextarea"></textarea>
-      </div>
-      <div id="shellEditor" style="display: none;">
-        <div class="section">
-          <div class="section-header">
-            <span class="section-title">Shell Safe Command Allowlist</span>
+    <div class="config-layout">
+      <aside class="category-nav">
+        <h2 class="category-nav-title">Categories</h2>
+        <div id="categoryNav"><p class="help-text">Loading...</p></div>
+      </aside>
+      <div class="editor-main">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('form', this)">📋 Form Mode</button>
+          <button class="tab" onclick="switchTab('shell', this)">🛡️ Shell Safe List</button>
+          <button class="tab" onclick="switchTab('dashnav', this)">🧭 DashNav</button>
+          <button class="tab" onclick="switchTab('providers', this)">🧩 Skill Providers</button>
+          <button class="tab" onclick="switchTab('json', this)">📝 JSON Mode</button>
+        </div>
+    
+        <div id="validationStatus"></div>
+    
+        <div class="editor-container" id="editorContainer">
+          <div id="formEditor">
+            <!-- Form content loaded via JS -->
+            <p>Loading configuration...</p>
           </div>
-          <div class="help-text" style="margin-bottom:0.75rem">
-            One base command per line (e.g. ls, git, grep). This controls what <code>local.shell.safe</code> can execute.
+          <div id="jsonEditor" style="display: none;">
+            <textarea id="jsonTextarea"></textarea>
           </div>
-          <textarea id="shellCommandsTextarea" style="min-height: 320px; font-family: monospace; width:100%;"></textarea>
+          <div id="shellEditor" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <span class="section-title">Shell Safe Command Allowlist</span>
+              </div>
+              <div class="help-text" style="margin-bottom:0.75rem">
+                One base command per line (e.g. ls, git, grep). This controls what <code>local.shell.safe</code> can execute.
+              </div>
+              <textarea id="shellCommandsTextarea" style="min-height: 260px; font-family: monospace; width:100%;"></textarea>
+            </div>
+          </div>
+          <div id="dashnavEditor" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <span class="section-title">Dashboard Navigation</span>
+              </div>
+              <div class="help-text" style="margin-bottom:0.75rem">
+                Configure routes shown in the dashboard secondary sidebar (stored in <code>~/.ronin/dashboard-nav.config.json</code>).
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;">
+                <select id="dashnavRouteSelect" style="max-width:420px;"></select>
+                <button type="button" class="btn btn-secondary" onclick="addDashNavRoute()">Add</button>
+              </div>
+              <div id="dashnavList"></div>
+            </div>
+          </div>
+          <div id="providersEditor" style="display: none;">
+            <div class="section">
+              <div class="section-header">
+                <span class="section-title">Remote Skill Providers</span>
+              </div>
+              <div class="help-text" style="margin-bottom:0.75rem">
+                Select which remote providers are used during skill/MCP discovery. Local skills are always discoverable.
+              </div>
+              <div id="skillProvidersList" style="display:grid;gap:0.45rem;margin-bottom:0.75rem;"></div>
+              <label style="display:flex;align-items:center;gap:0.5rem;">
+                <input type="checkbox" id="includeRemoteSkillsToggle" onchange="saveSkillProvidersToConfig()">
+                <span>Include selected remote providers by default in <code>discover</code> commands</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
+    const sessionParams = new URLSearchParams(window.location.search);
+    const sidFromQuery = sessionParams.get('sid');
+    const sidFromStorage = sessionStorage.getItem('config_session');
+    const activeSessionId = sidFromQuery || sidFromStorage || '';
+
+    if (activeSessionId) {
+      sessionStorage.setItem('config_session', activeSessionId);
+      if (sidFromQuery) {
+        sessionParams.delete('sid');
+        const cleanQuery = sessionParams.toString();
+        history.replaceState({}, '', cleanQuery ? ('/config?' + cleanQuery) : '/config');
+      }
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init = {}) => {
+        const requestUrl = typeof input === 'string' ? input : input.url;
+        const headers = new Headers(init.headers || {});
+        if (requestUrl.startsWith('/config/')) {
+          headers.set('x-config-session', activeSessionId);
+        }
+        return originalFetch(input, { ...init, headers });
+      };
+    }
+
     const roninTheme = {
       colors: {
         background: '#1a1a1a',
@@ -1346,7 +1543,12 @@ export default class ConfigEditorAgent extends BaseAgent {
     let currentConfig = {};
     let defaultConfig = {};
     let configSchema = {};
+    let dashNavConfig = { routes: [] };
+    let availableRouteOptions = [];
+    const SKILL_PROVIDER_OPTIONS = ['skills.sh', 'playbooks.com'];
+    let dragDashNavIndex = -1;
     let currentTab = 'form';
+    const sectionOrder = ['configVersion','defaultCLI','defaultAppsDirectory','apps','cliOptions','ai','gemini','grok','braveSearch','system','eventMonitor','telegram','discord','realm','desktop','mcp','blogBoy','configEditor','rssToTelegram','pluginDir','geminiModel','speech'];
 
     function getByPath(obj, path) {
       const parts = path.split('.');
@@ -1486,7 +1688,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       } else {
         body = renderField(sectionKey, schemaNode, value, sectionKey);
       }
-      return \`<div class="section" data-section="\${escapeHtml(sectionKey)}">
+      return \`<div class="section" id="section-\${escapeHtml(sectionKey)}" data-section="\${escapeHtml(sectionKey)}">
         <div class="section-header">
           <span class="section-title">\${escapeHtml(title)}</span>
           <button type="button" class="reset-section-btn" onclick="resetSection('\${sectionKey.replace(/'/g, "\\\\'")}')">Reset to default</button>
@@ -1494,6 +1696,18 @@ export default class ConfigEditorAgent extends BaseAgent {
         \${help ? \`<div class="help-text" style="margin-bottom:0.75rem">\${escapeHtml(help)}</div>\` : ''}
         \${body}
       </div>\`;
+    }
+
+    function renderCategoryNav() {
+      const el = document.getElementById('categoryNav');
+      if (!el) return;
+      el.innerHTML = sectionOrder
+        .filter((key) => !!configSchema[key])
+        .map((key) => {
+          const title = (configSchema[key] && configSchema[key].description) || key;
+          return \`<a class="category-link" href="#section-\${escapeHtml(key)}" onclick="if (currentTab !== 'form') switchTab('form', document.querySelector('.tab')); return true;">\${escapeHtml(title)}</a>\`;
+        })
+        .join('');
     }
 
     function arrayItemChange(path, index, value) {
@@ -1568,14 +1782,14 @@ export default class ConfigEditorAgent extends BaseAgent {
 
     function renderForm() {
       const container = document.getElementById('formEditor');
-      const order = ['configVersion','defaultCLI','defaultAppsDirectory','apps','cliOptions','ai','gemini','grok','braveSearch','system','eventMonitor','telegram','discord','realm','desktop','mcp','blogBoy','configEditor','rssToTelegram','pluginDir','geminiModel','speech'];
       let html = '';
-      for (const key of order) {
+      for (const key of sectionOrder) {
         const schemaNode = configSchema[key];
         if (!schemaNode) continue;
         html += renderSection(key, schemaNode, currentConfig, defaultConfig);
       }
       container.innerHTML = html;
+      renderCategoryNav();
     }
 
     function renderShellList() {
@@ -1598,12 +1812,128 @@ export default class ConfigEditorAgent extends BaseAgent {
       currentConfig.system.safeShellCommands = Array.from(new Set(list));
     }
 
+    function renderDashNavList() {
+      const listEl = document.getElementById('dashnavList');
+      const routes = Array.isArray(dashNavConfig.routes) ? dashNavConfig.routes : [];
+      const formatDashNavRoute = (route) => String(route || '');
+      if (!routes.length) {
+        listEl.innerHTML = '<div class="help-text">No dashboard nav routes configured.</div>';
+        return;
+      }
+      listEl.innerHTML = routes.map((route, idx) => \`
+        <div class="array-item" draggable="true" ondragstart="dashNavDragStart(\${idx})" ondragend="dashNavDragEnd()" ondragover="dashNavDragOver(event)" ondrop="dashNavDrop(\${idx})">
+          <span title="Drag to reorder" style="cursor:grab;color:\${roninTheme.colors.textSecondary};font-size:0.95rem;padding:0 0.25rem;">≡</span>
+          <input type="text" value="\${escapeHtml(formatDashNavRoute(route))}" readonly>
+          <button type="button" class="btn btn-secondary" style="padding:0.25rem 0.5rem" onclick="removeDashNavRoute(\${idx})">Remove</button>
+        </div>
+      \`).join('');
+    }
+
+    function renderDashNavOptions() {
+      const select = document.getElementById('dashnavRouteSelect');
+      const current = new Set(Array.isArray(dashNavConfig.routes) ? dashNavConfig.routes : []);
+      const opts = availableRouteOptions.filter((p) => !current.has(p));
+      select.innerHTML = opts
+        .map((p) => \`<option value="\${escapeHtml(p)}">\${escapeHtml(String(p))}</option>\`)
+        .join('');
+    }
+
+    function saveSkillProvidersToConfig() {
+      if (!currentConfig.system || typeof currentConfig.system !== 'object') currentConfig.system = {};
+      const selected = Array.from(document.querySelectorAll('input[name="skillProvider"]:checked'))
+        .map((el) => el.value)
+        .filter((v) => SKILL_PROVIDER_OPTIONS.includes(v));
+      currentConfig.system.skillProviders = selected;
+      const includeRemoteToggle = document.getElementById('includeRemoteSkillsToggle');
+      currentConfig.system.includeRemoteSkillsOnDiscover = !!(includeRemoteToggle && includeRemoteToggle.checked);
+    }
+
+    function renderSkillProviders() {
+      const listEl = document.getElementById('skillProvidersList');
+      if (!listEl) return;
+      if (!currentConfig.system || typeof currentConfig.system !== 'object') currentConfig.system = {};
+      if (!Array.isArray(currentConfig.system.skillProviders)) {
+        currentConfig.system.skillProviders = Array.isArray(defaultConfig?.system?.skillProviders)
+          ? [...defaultConfig.system.skillProviders]
+          : [...SKILL_PROVIDER_OPTIONS];
+      }
+      if (typeof currentConfig.system.includeRemoteSkillsOnDiscover !== 'boolean') {
+        currentConfig.system.includeRemoteSkillsOnDiscover = defaultConfig?.system?.includeRemoteSkillsOnDiscover !== false;
+      }
+      const selected = new Set(currentConfig.system.skillProviders);
+      listEl.innerHTML = SKILL_PROVIDER_OPTIONS.map((provider) => \`
+        <label style="display:flex;align-items:center;gap:0.5rem;">
+          <input type="checkbox" name="skillProvider" value="\${escapeHtml(provider)}" \${selected.has(provider) ? 'checked' : ''} onchange="saveSkillProvidersToConfig()">
+          <span>\${escapeHtml(provider)}</span>
+        </label>
+      \`).join('');
+      const includeRemoteToggle = document.getElementById('includeRemoteSkillsToggle');
+      if (includeRemoteToggle) {
+        includeRemoteToggle.checked = !!currentConfig.system.includeRemoteSkillsOnDiscover;
+      }
+    }
+
+    function addDashNavRoute() {
+      const select = document.getElementById('dashnavRouteSelect');
+      const route = (select && select.value) ? select.value : '';
+      if (!route) return;
+      if (!Array.isArray(dashNavConfig.routes)) dashNavConfig.routes = [];
+      if (!dashNavConfig.routes.includes(route)) dashNavConfig.routes.push(route);
+      renderDashNavOptions();
+      renderDashNavList();
+    }
+
+    function removeDashNavRoute(index) {
+      if (!Array.isArray(dashNavConfig.routes)) return;
+      dashNavConfig.routes.splice(index, 1);
+      renderDashNavOptions();
+      renderDashNavList();
+    }
+
+    function dashNavDragStart(index) {
+      dragDashNavIndex = index;
+    }
+
+    function dashNavDragOver(event) {
+      event.preventDefault();
+    }
+
+    function dashNavDrop(targetIndex) {
+      if (!Array.isArray(dashNavConfig.routes)) return;
+      if (dragDashNavIndex < 0 || dragDashNavIndex === targetIndex) return;
+      const routes = [...dashNavConfig.routes];
+      const [moved] = routes.splice(dragDashNavIndex, 1);
+      routes.splice(targetIndex, 0, moved);
+      dashNavConfig.routes = routes;
+      dragDashNavIndex = -1;
+      renderDashNavList();
+    }
+
+    function dashNavDragEnd() {
+      dragDashNavIndex = -1;
+    }
+
+    async function saveDashNavConfig() {
+      const res = await fetch('/config/api/dashnav', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routes: Array.isArray(dashNavConfig.routes) ? dashNavConfig.routes : [] })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) throw new Error(result.error || 'Failed to save dashboard nav');
+      dashNavConfig.routes = Array.isArray(result.routes) ? result.routes : dashNavConfig.routes;
+      renderDashNavOptions();
+      renderDashNavList();
+    }
+
     async function loadConfig() {
       try {
-        const [currentRes, schemaRes, defaultsRes] = await Promise.all([
+        const [currentRes, schemaRes, defaultsRes, dashNavRes, routesRes] = await Promise.all([
           fetch('/config/api/current'),
           fetch('/config/api/schema'),
-          fetch('/config/api/defaults')
+          fetch('/config/api/defaults'),
+          fetch('/config/api/dashnav'),
+          fetch('/api/routes')
         ]);
         if (!currentRes.ok) throw new Error((await currentRes.json().catch(() => ({}))).error || 'Failed to load config');
         if (!schemaRes.ok) throw new Error('Failed to load schema');
@@ -1611,6 +1941,14 @@ export default class ConfigEditorAgent extends BaseAgent {
         currentConfig = await currentRes.json();
         configSchema = await schemaRes.json();
         defaultConfig = await defaultsRes.json();
+        dashNavConfig = await dashNavRes.json().catch(() => ({ routes: [] }));
+        const routeResponse = await routesRes.json().catch(() => ({ routes: [] }));
+        availableRouteOptions = Array.isArray(routeResponse.routes)
+          ? routeResponse.routes
+              .map((r) => r && r.path ? String(r.path) : '')
+              .filter((p) => p && !p.startsWith('/api/') && p !== '/')
+          : [];
+        availableRouteOptions = Array.from(new Set(availableRouteOptions)).sort();
         if (!currentConfig || Object.keys(currentConfig).length === 0) {
           currentConfig = JSON.parse(JSON.stringify(defaultConfig));
         } else {
@@ -1623,9 +1961,21 @@ export default class ConfigEditorAgent extends BaseAgent {
               ? [...defaultConfig.system.safeShellCommands]
               : [];
           }
+          if (!Array.isArray(currentConfig.system.skillProviders)) {
+            currentConfig.system.skillProviders = Array.isArray(defaultConfig?.system?.skillProviders)
+              ? [...defaultConfig.system.skillProviders]
+              : [...SKILL_PROVIDER_OPTIONS];
+          }
+          if (typeof currentConfig.system.includeRemoteSkillsOnDiscover !== 'boolean') {
+            currentConfig.system.includeRemoteSkillsOnDiscover = defaultConfig?.system?.includeRemoteSkillsOnDiscover !== false;
+          }
         }
         renderForm();
         renderShellList();
+        if (!Array.isArray(dashNavConfig.routes)) dashNavConfig.routes = [];
+        renderDashNavOptions();
+        renderDashNavList();
+        renderSkillProviders();
         document.getElementById('jsonTextarea').value = JSON.stringify(currentConfig, null, 2);
       } catch (err) {
         console.error(err);
@@ -1640,15 +1990,36 @@ export default class ConfigEditorAgent extends BaseAgent {
         document.getElementById('formEditor').style.display = 'block';
         document.getElementById('jsonEditor').style.display = 'none';
         document.getElementById('shellEditor').style.display = 'none';
+        document.getElementById('dashnavEditor').style.display = 'none';
+        document.getElementById('providersEditor').style.display = 'none';
       } else if (tab === 'json') {
         document.getElementById('formEditor').style.display = 'none';
         document.getElementById('jsonEditor').style.display = 'block';
         document.getElementById('shellEditor').style.display = 'none';
+        document.getElementById('dashnavEditor').style.display = 'none';
+        document.getElementById('providersEditor').style.display = 'none';
         document.getElementById('jsonTextarea').value = JSON.stringify(currentConfig, null, 2);
+      } else if (tab === 'dashnav') {
+        document.getElementById('formEditor').style.display = 'none';
+        document.getElementById('jsonEditor').style.display = 'none';
+        document.getElementById('shellEditor').style.display = 'none';
+        document.getElementById('dashnavEditor').style.display = 'block';
+        document.getElementById('providersEditor').style.display = 'none';
+        renderDashNavOptions();
+        renderDashNavList();
+      } else if (tab === 'providers') {
+        document.getElementById('formEditor').style.display = 'none';
+        document.getElementById('jsonEditor').style.display = 'none';
+        document.getElementById('shellEditor').style.display = 'none';
+        document.getElementById('dashnavEditor').style.display = 'none';
+        document.getElementById('providersEditor').style.display = 'block';
+        renderSkillProviders();
       } else {
         document.getElementById('formEditor').style.display = 'none';
         document.getElementById('jsonEditor').style.display = 'none';
         document.getElementById('shellEditor').style.display = 'block';
+        document.getElementById('dashnavEditor').style.display = 'none';
+        document.getElementById('providersEditor').style.display = 'none';
         renderShellList();
       }
     }
@@ -1662,6 +2033,16 @@ export default class ConfigEditorAgent extends BaseAgent {
         }
       } else if (currentTab === 'shell') {
         saveShellListToConfig();
+      } else if (currentTab === 'dashnav') {
+        try {
+          await saveDashNavConfig();
+          showSuccess('Dashboard navigation saved.');
+        } catch (err) {
+          showError('DashNav save failed: ' + err.message);
+        }
+        return;
+      } else if (currentTab === 'providers') {
+        saveSkillProvidersToConfig();
       }
       try {
         const res = await fetch('/config/api/update', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentConfig) });
@@ -1683,7 +2064,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       setTimeout(() => { document.getElementById('validationStatus').innerHTML = ''; }, 5000);
     }
     async function showBackups() { window.open('/config/api/backups', '_blank'); }
-    async function logout() { await fetch('/config/logout', { method: 'POST' }); window.location.reload(); }
+    async function logout() { await fetch('/config/logout', { method: 'POST' }); sessionStorage.removeItem('config_session'); window.location.reload(); }
     loadConfig();
   </script>
 </body>

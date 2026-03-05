@@ -26,6 +26,7 @@ import { initCommand } from "./commands/init.js";
 import { interactiveCommand } from "./commands/interactive.js";
 import { scheduleCommand } from "./commands/schedule.js";
 import { emitCommand } from "./commands/emit.js";
+import { clientCommand } from "./commands/client.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
 import { kataCommand } from "./commands/kata.js";
@@ -41,7 +42,7 @@ import { fileURLToPath } from "url";
 import { getArg, getCommandHelp, parseGlobalOptions } from "./shared.js";
 
 // Commands that require being in the ronin directory
-const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "run", "interactive", "i", "create"]);
+const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "restart", "run", "interactive", "i", "create", "client"]);
 
 // Check if we're in the ronin directory (has package.json with name "ronin")
 function isInRoninDir(): boolean {
@@ -56,8 +57,9 @@ function isInRoninDir(): boolean {
   }
 }
 
-function checkRoninDir(command: string): void {
-  if (COMMANDS_REQUIRING_RONIN_DIR.has(command) && !isInRoninDir()) {
+function checkRoninDir(command: string, args: string[]): void {
+  const daemonStartsServer = command === "daemon" && (args[0] === "start" || args[0] === "restart");
+  if ((COMMANDS_REQUIRING_RONIN_DIR.has(command) || daemonStartsServer) && !isInRoninDir()) {
     console.error("❌ This command must be run from the Ronin installation directory");
     console.error(`   cd ${roninProjectRoot}`);
     console.error(`   ronin ${command} ${process.argv.slice(3).join(" ")}`);
@@ -142,7 +144,7 @@ async function main() {
   }
 
   // Check directory for commands that require it
-  checkRoninDir(command);
+  checkRoninDir(command, args);
 
   // Initialize guidelines early
   const { initializeGuidelines } = await import("../guidelines/index.js");
@@ -564,6 +566,18 @@ async function main() {
       await handleOSCommand(action, subAction, options);
       break;
 
+    case "client":
+      const clientSubcommand = args[0] && !args[0].startsWith("--") ? args[0] : "start";
+      await clientCommand({
+        subcommand: clientSubcommand,
+        url: getArg("--url", args),
+        port: getArg("--port", args) ? parseInt(getArg("--port", args)!, 10) : undefined,
+        skipHealthCheck: args.includes("--skip-health-check"),
+        platform: (getArg("--platform", args) as "mac" | "win" | "linux" | "all" | undefined) || "all",
+        dryRun: args.includes("--dry-run"),
+      });
+      break;
+
     case "version":
       await handleVersionCommand();
       break;
@@ -857,6 +871,7 @@ Integrations:
   realm connect           Connect to Realm discovery server
   realm status            Show Realm connection status
   realm discover <call>   Discover a peer by call sign
+  client                  Launch optional ElectronBun desktop client
   mcp <subcommand>        Manage MCP server connections
   cloudflare <subcommand> Manage Cloudflare tunnels and route policy
   os <subcommand>         Desktop Mode commands (macOS)

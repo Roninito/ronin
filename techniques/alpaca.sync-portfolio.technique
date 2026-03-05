@@ -1,9 +1,11 @@
-technique alpaca.sync-portfolio v1
-  description Fetch account summary, positions, and recent orders from Alpaca and write to portfolio-vault/
+technique alpaca.sync-portfolio v2
+  description Fetch account summary, positions, and recent orders from Alpaca for portfolio sync
   category finance
   tags ["alpaca", "portfolio", "sync", "data"]
   type composite
-  requires plugin alpaca
+  requires tool alpaca_getAccount
+  requires tool alpaca_getPositions
+  requires tool alpaca_getOrderHistory
 
   input {
     limit: number
@@ -19,55 +21,29 @@ technique alpaca.sync-portfolio v1
       description Open positions
     orders: array
       description Recent filled orders
-    written: boolean
-      description Whether files were written to portfolio-vault/
+    source: string
+      description Data source marker
   }
 
   step fetch-account
     description Get account equity, cash, and buying power
-    run plugin alpaca.getAccount
+    run tool alpaca_getAccount
     output account
 
   step fetch-positions
     description Get all open positions
-    run plugin alpaca.getPositions
+    run tool alpaca_getPositions
     output positions
 
   step fetch-orders
     description Get recent order history
-    run plugin alpaca.getOrderHistory
+    run tool alpaca_getOrderHistory
     with { limit: input.limit }
     output orders
-
-  step write-stats
-    description Write account stats to portfolio-vault/stats.json
-    run file.write
-    with {
-      path: "portfolio-vault/stats.json",
-      content: JSON.stringify({
-        totalValue: parseFloat(account.portfolio_value),
-        cash: parseFloat(account.cash),
-        buyingPower: parseFloat(account.buying_power),
-        equity: parseFloat(account.equity),
-        lastEquity: parseFloat(account.last_equity),
-        dayChange: parseFloat(account.portfolio_value) - parseFloat(account.last_equity),
-        updatedAt: new Date().toISOString()
-      }, null, 2)
-    }
-    output statsWritten
-
-  step write-positions
-    description Write positions to portfolio-vault/positions.json
-    run file.write
-    with {
-      path: "portfolio-vault/positions.json",
-      content: JSON.stringify(positions, null, 2)
-    }
-    output positionsWritten
 
   return {
     account: account,
     positions: positions,
     orders: orders,
-    written: true
+    source: "alpaca"
   }

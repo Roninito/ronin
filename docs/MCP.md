@@ -35,7 +35,10 @@ This shows all built-in MCP servers you can add.
 ### 2. Add a Server
 
 ```bash
-# Filesystem access (specify directory)
+# Filesystem access (defaults to ~/.ronin + ~/.ronin/logs + current working directory)
+ronin mcp add filesystem
+
+# Optional: add one extra directory in addition to defaults
 ronin mcp add filesystem --path ~/Documents
 
 # GitHub integration (requires GITHUB_TOKEN in env)
@@ -168,7 +171,7 @@ List all configured MCP servers with their status and commands.
 
    filesystem
       Status: enabled
-      Command: npx -y @modelcontextprotocol/server-filesystem /tmp
+      Command: npx -y @modelcontextprotocol/server-filesystem ~/.ronin <cwd>
 
    brave-search
       Status: enabled
@@ -196,13 +199,14 @@ Show all known MCP servers available for installation.
 Add an MCP server from the known list or a custom server.
 
 **Options:**
-- `--path <path>`: Path for filesystem or sqlite servers
+- `--path <path>`: Extra path for filesystem (added alongside `~/.ronin`, `~/.ronin/logs`, and current working directory), or DB path for sqlite
 - `--command <cmd>`: Command to run (for custom servers)
 - `--args '<json>'`: JSON array of arguments (for custom servers)
 
 **Examples:**
 ```bash
 # Add known servers
+ronin mcp add filesystem
 ronin mcp add filesystem --path ~/Documents
 ronin mcp add github
 ronin mcp add brave-search

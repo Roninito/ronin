@@ -1,4 +1,4 @@
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { execSync } from "child_process";
@@ -14,7 +14,7 @@ function getDaemonPID(): number | null {
     if (!existsSync(DAEMON_PID_PATH)) {
       return null;
     }
-    const pidStr = Bun.file(DAEMON_PID_PATH).text().toString().trim();
+    const pidStr = readFileSync(DAEMON_PID_PATH, "utf8").trim();
     if (!pidStr) {
       return null;
     }

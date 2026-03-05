@@ -91,12 +91,14 @@ SkillMaker uses `api.ai.complete` to generate skill.md and script contents, then
 
 - **ronin skills** – Same as `ronin skills list`.
 - **ronin skills list** – List all skills.
-- **ronin skills discover "<query>"** – Print matching skills (JSON).
+- **ronin skills discover "<query>" [--remote|--no-remote] [--providers=skills.sh,playbooks.com]** – Print matching skills (JSON).
 - **ronin skills explore <name> [--scripts]** – Print skill details (JSON).
 - **ronin skills use <name> [--ability=...] [--pipeline=a,b,c] [--params='{}']** – Run a skill.
-- **ronin skills install <git-repo> [--name <skill-name>]** – Clone into `~/.ronin/skills/<name>` (requires git plugin).
+- **ronin skills install <git-repo|skills.sh:owner/repo/skill|playbooks.com:owner/repo/skill> [--name <skill-name>]** – Clone into `~/.ronin/skills/<name>` (requires git plugin).
 - **ronin skills update <name>** – Pull latest for an installed skill (must be a git repo).
 - **ronin skills init** – Run `git init` in `~/.ronin/skills` for versioning.
+- **Note:** Project skills are loaded from `./skills` relative to your current working directory.
+- **Remote providers:** selected via `system.skillProviders` in config (multi-select), with default discover behavior controlled by `system.includeRemoteSkillsOnDiscover`.
 
 Create a skill from a description (runs SkillMaker logic in-process):
 

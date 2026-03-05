@@ -1,0 +1,44 @@
+technique alpaca.generate-orders v1
+  description Prepare candidate order actions from current account state and provided targets
+  category finance
+  tags ["alpaca", "trading", "planning"]
+  type composite
+  requires tool alpaca_getPositions
+  requires tool alpaca_getOrderHistory
+
+  input {
+    limit: number
+      description Number of recent orders to inspect
+      required false
+      default 50
+    proposedActions: array
+      description Candidate actions supplied by planner/rules
+      required false
+      default []
+  }
+
+  output {
+    currentPositions: array
+      description Current open positions
+    recentOrders: array
+      description Recently closed orders
+    proposedActions: array
+      description Candidate actions forwarded to risk review
+  }
+
+  step fetch-positions
+    description Load current positions
+    run tool alpaca_getPositions
+    output positions
+
+  step fetch-recent-orders
+    description Load recent orders for context
+    run tool alpaca_getOrderHistory
+    with { limit: input.limit }
+    output orders
+
+  return {
+    currentPositions: positions,
+    recentOrders: orders,
+    proposedActions: input.proposedActions
+  }

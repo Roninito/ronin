@@ -23,6 +23,27 @@ const html = `
 `;
 ```
 
+## DRAM-style UI quick guide (migration scope)
+
+Token source: `dramTheme` from `src/utils/theme.ts` (mapped from DRAM visual tokens for Ronin pages).
+
+Use these helpers together for new DRAM-style pages:
+- `getThemeCSS(dramTheme)` - base typography/layout/colors
+- `getHeaderBarCSS(dramTheme)` - standard top header shell
+- `getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })` - shared controls/cards/badges and interaction styles
+
+Use the DRAM variant when you are building or migrating page-level UIs that should match the DRAM visual language (deep dark surfaces, purple accent, compact tactile controls). Keep default `roninTheme` for legacy pages that must preserve current look-and-feel.
+
+Do:
+- Import from `../src/utils/theme.js` in agents and pass `dramTheme` explicitly.
+- Compose base + header + primitives CSS in the page `<style>` block.
+- Use shared primitives (`.ui-btn`, `.ui-card`, `.ui-badge`, etc.) before adding one-off classes.
+
+Don't:
+- Mix `roninTheme` tokens with DRAM primitives in the same page.
+- Re-define core DRAM token values inline when `dramTheme` already exposes them.
+- Skip `getHeaderBarCSS` on full-page UIs that use the standard header pattern.
+
 ## Theme Colors
 
 - `background`: `#0a0a0a` - Main dark background

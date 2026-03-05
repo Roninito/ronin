@@ -45,6 +45,8 @@ export interface RoninTheme {
   };
 }
 
+export type ThemeVariant = "ronin" | "dram";
+
 /**
  * Default Ronin theme matching the dark aesthetic used across agents
  */
@@ -88,6 +90,93 @@ export const roninTheme: RoninTheme = {
     lg: "0 10px 40px rgba(0, 0, 0, 0.2)",
   },
 };
+
+/**
+ * DRAM visual tokens extracted from DRAM-main renderer CSS variables/base styles.
+ */
+export const dramVisualTokens = {
+  colors: {
+    bgDeep: "#030304",
+    bgBase: "#060607",
+    bgSurface: "#0a0a0c",
+    bgElevated: "#111114",
+    bgHover: "#18181c",
+    accent: "#7c3aed",
+    accentSubtle: "rgba(124, 58, 237, 0.1)",
+    accentGlow: "rgba(124, 58, 237, 0.2)",
+    textPrimary: "#e2e2e7",
+    textSecondary: "#8e8e93",
+    textTertiary: "#48484a",
+    border: "#1c1c1e",
+    borderSubtle: "#141416",
+    success: "#22c55e",
+    warning: "#f59e0b",
+    error: "#ef4444",
+  },
+  fonts: {
+    sans: "'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
+  },
+  spacing: {
+    space1: "4px",
+    space2: "8px",
+    space4: "16px",
+    space5: "24px",
+    space6: "32px",
+  },
+  radius: "2px",
+  shadows: {
+    tactile: "0 4px 12px rgba(0, 0, 0, 0.6)",
+  },
+} as const;
+
+/**
+ * DRAM-compatible theme variant mapped to RoninTheme for drop-in usage.
+ */
+export const dramTheme: RoninTheme = {
+  colors: {
+    background: dramVisualTokens.colors.bgBase,
+    backgroundSecondary: dramVisualTokens.colors.bgSurface,
+    backgroundTertiary: dramVisualTokens.colors.bgElevated,
+    textPrimary: dramVisualTokens.colors.textPrimary,
+    textSecondary: dramVisualTokens.colors.textSecondary,
+    textTertiary: dramVisualTokens.colors.textTertiary,
+    border: dramVisualTokens.colors.border,
+    borderHover: dramVisualTokens.colors.bgHover,
+    accent: dramVisualTokens.colors.accentSubtle,
+    accentHover: dramVisualTokens.colors.accentGlow,
+    link: dramVisualTokens.colors.accent,
+    linkHover: dramVisualTokens.colors.accent,
+    success: dramVisualTokens.colors.success,
+    error: dramVisualTokens.colors.error,
+    warning: dramVisualTokens.colors.warning,
+  },
+  fonts: {
+    primary: dramVisualTokens.fonts.sans,
+    mono: dramVisualTokens.fonts.mono,
+  },
+  spacing: {
+    xs: dramVisualTokens.spacing.space1,
+    sm: dramVisualTokens.spacing.space2,
+    md: dramVisualTokens.spacing.space4,
+    lg: dramVisualTokens.spacing.space5,
+    xl: dramVisualTokens.spacing.space6,
+  },
+  borderRadius: {
+    sm: "1px",
+    md: dramVisualTokens.radius,
+    lg: "4px",
+  },
+  shadows: {
+    sm: dramVisualTokens.shadows.tactile,
+    md: dramVisualTokens.shadows.tactile,
+    lg: dramVisualTokens.shadows.tactile,
+  },
+};
+
+export function getThemeVariant(variant: ThemeVariant = "ronin"): RoninTheme {
+  return variant === "dram" ? dramTheme : roninTheme;
+}
 
 /**
  * Generate CSS for Adobe Clean font face declarations
@@ -235,21 +324,21 @@ input::placeholder, textarea::placeholder {
 `;
 }
 
-/** Lime green used for the header home icon */
+/** Lime green used for the header routes icon */
 export const HEADER_HOME_ICON_COLOR = "#84cc16";
 
 /**
- * SVG markup for the flat house icon (lime green). Use inside .header-home anchor.
+ * SVG markup for the routes icon (lime green). Use inside .header-home anchor.
  */
 export function getHeaderHomeIconSVG(): string {
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="${HEADER_HOME_ICON_COLOR}" d="M12 2L2 10h2v10h6v-6h4v6h6V10h2L12 2z"/></svg>`;
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 6h10" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M4 12h8" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M4 18h6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M14 6h6v6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m20 6-6 6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/></svg>`;
 }
 
 /**
- * Full home link HTML for the standard header. Place as first child of .header.
+ * Full routes link HTML for the standard header. Place as first child of .header.
  */
 export function getHeaderHomeIconHTML(): string {
-  return `<a href="/" class="header-home" aria-label="Home">${getHeaderHomeIconSVG()}</a>`;
+  return `<script>(function(){if(location.pathname==='/'||window.__roninHeaderTitlePatched)return;window.__roninHeaderTitlePatched=true;var clean=function(){document.querySelectorAll('.header h1').forEach(function(el){var t=(el.textContent||'').replace(/\\bRonin\\b/gi,'').replace(/\\s{2,}/g,' ').trim();if(t)el.textContent=t;});};if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',clean,{once:true});}else{clean();}})();</script>`;
 }
 
 /**
@@ -263,6 +352,7 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   background: ${theme.colors.backgroundSecondary};
   backdrop-filter: blur(10px);
   padding: ${theme.spacing.md} ${theme.spacing.lg};
+  border-top: 3px solid rgba(0, 0, 0, 0.85);
   border-bottom: 1px solid ${theme.colors.border};
   display: flex;
   justify-content: space-between;
@@ -272,6 +362,9 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   top: 0;
   z-index: 100;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
 }
 
 .header::before {
@@ -361,12 +454,13 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
 }
 
 .header h1 {
-  font-size: 1.375rem;
+  font-size: 1rem;
   font-weight: 300;
   margin: 0;
   margin-right: auto;
   color: ${theme.colors.link};
-  letter-spacing: -0.02em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   position: relative;
   z-index: 1;
 }
@@ -390,6 +484,221 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   align-items: center;
   position: relative;
   z-index: 1;
+}
+
+.header a,
+.header button,
+.header input,
+.header select,
+.header textarea,
+.header-actions,
+.header-meta {
+  -webkit-app-region: no-drag;
+}
+`;
+}
+
+export interface SharedUIPrimitivesOptions {
+  variant?: ThemeVariant;
+}
+
+/**
+ * Reusable DRAM-style primitives for route UIs and Electron shell pages.
+ */
+export function getSharedUIPrimitivesCSS(
+  theme: RoninTheme = roninTheme,
+  options: SharedUIPrimitivesOptions = {},
+): string {
+  const variant = options.variant ?? (theme === dramTheme ? "dram" : "ronin");
+  const dram = variant === "dram";
+  const accent = dram ? dramVisualTokens.colors.accent : theme.colors.link;
+  const accentGlow = dram ? dramVisualTokens.colors.accentGlow : theme.colors.accentHover;
+  const panelBg = dram ? dramVisualTokens.colors.bgSurface : theme.colors.backgroundSecondary;
+  const panelHoverBg = dram ? dramVisualTokens.colors.bgElevated : theme.colors.backgroundTertiary;
+  const panelBorder = dram ? dramVisualTokens.colors.border : theme.colors.border;
+  const panelBorderHover = dram ? dramVisualTokens.colors.bgHover : theme.colors.borderHover;
+  const badgeBg = dram ? dramVisualTokens.colors.bgElevated : theme.colors.backgroundTertiary;
+  const badgeText = dram ? dramVisualTokens.colors.textSecondary : theme.colors.textSecondary;
+
+  return `
+.ui-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${theme.spacing.sm};
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  border: 1px solid ${panelBorder};
+  border-radius: ${theme.borderRadius.md};
+  background: ${panelBg};
+  color: ${theme.colors.textSecondary};
+  font-family: ${theme.fonts.primary};
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.ui-btn:hover:not(:disabled) {
+  background: ${panelHoverBg};
+  border-color: ${panelBorderHover};
+  color: ${theme.colors.textPrimary};
+}
+.ui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ui-btn--primary {
+  background: ${dram ? `${accent}22` : theme.colors.accent};
+  border-color: ${accent};
+  color: ${theme.colors.textPrimary};
+}
+.ui-btn--primary:hover:not(:disabled) {
+  background: ${accentGlow};
+  border-color: ${accent};
+}
+.ui-btn--ghost {
+  background: transparent;
+}
+
+.ui-panel, .ui-card {
+  background: ${panelBg};
+  border: 1px solid ${panelBorder};
+  border-radius: ${theme.borderRadius.md};
+  padding: ${theme.spacing.md};
+}
+.ui-panel--interactive:hover, .ui-card--interactive:hover {
+  background: ${panelHoverBg};
+  border-color: ${panelBorderHover};
+}
+
+.ui-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${theme.spacing.md};
+  width: 100%;
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  border-radius: ${theme.borderRadius.md};
+  border: 1px solid transparent;
+  color: ${theme.colors.textSecondary};
+  text-decoration: none;
+}
+.ui-nav-row:hover,
+.ui-nav-row--active {
+  background: ${panelHoverBg};
+  border-color: ${panelBorder};
+  color: ${theme.colors.textPrimary};
+}
+
+.ui-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${theme.spacing.sm};
+  margin-bottom: ${theme.spacing.sm};
+}
+.ui-section-header h2,
+.ui-section-header h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: ${theme.colors.textSecondary};
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: ${theme.spacing.xs};
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: ${theme.borderRadius.sm};
+  border: 1px solid ${panelBorder};
+  background: ${badgeBg};
+  color: ${badgeText};
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ui-badge--success { color: ${theme.colors.success}; }
+.ui-badge--warning { color: ${theme.colors.warning}; }
+.ui-badge--error { color: ${theme.colors.error}; }
+
+.ui-input,
+input.ui-input,
+textarea.ui-input,
+select.ui-input {
+  width: 100%;
+  font-family: ${theme.fonts.primary};
+  font-size: 0.8125rem;
+  padding: ${theme.spacing.sm} ${theme.spacing.md};
+  border-radius: ${theme.borderRadius.md};
+  border: 1px solid ${panelBorder};
+  background: ${panelBg};
+  color: ${theme.colors.textPrimary};
+  transition: all 0.2s ease;
+}
+.ui-input:focus,
+input.ui-input:focus,
+textarea.ui-input:focus,
+select.ui-input:focus {
+  outline: none;
+  border-color: ${accent};
+  box-shadow: 0 0 0 1px ${accentGlow};
+}
+
+input.ui-switch {
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid ${panelBorder};
+  background: ${panelBg};
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+input.ui-switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: ${theme.colors.textSecondary};
+  transition: transform 0.2s ease;
+}
+input.ui-switch:checked {
+  border-color: ${accent};
+  background: ${accentGlow};
+}
+input.ui-switch:checked::after {
+  transform: translateX(14px);
+  background: ${theme.colors.textPrimary};
+}
+
+input[type="range"].ui-range {
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: ${panelBorder};
+}
+input[type="range"].ui-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid ${accent};
+  background: ${panelBg};
+}
+input[type="range"].ui-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid ${accent};
+  background: ${panelBg};
 }
 `;
 }

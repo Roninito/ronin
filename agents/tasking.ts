@@ -1,6 +1,6 @@
 import { BaseAgent } from "../src/agent/index.js";
 import type { AgentAPI } from "../src/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface Board {
   id: string;
@@ -2100,8 +2100,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
   <title>${this.escapeHtml(board.name)} - Kanban</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     * {
       margin: 0;
@@ -2358,6 +2359,15 @@ Execute the task using the available tools and emit events as needed. Provide a 
       font-size: 0.875rem;
       margin-bottom: 0.5rem;
       line-height: 1.4;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .task-line-icon {
+      color: ${roninTheme.colors.textSecondary};
+      font-size: 0.7rem;
+      letter-spacing: -0.08em;
     }
 
     .card-meta {
@@ -2724,14 +2734,13 @@ Execute the task using the available tools and emit events as needed. Provide a 
   <div class="header">
     ${getHeaderHomeIconHTML()}
     <div class="header-left">
-      <a href="/todo" class="back-link">← Back to Boards</a>
       <div>
         <h1>${this.escapeHtml(board.name)}</h1>
         ${board.description ? `<div class="board-description">${this.escapeHtml(board.description)}</div>` : ''}
       </div>
     </div>
     <div class="header-actions">
-      <button class="add-card-btn" onclick="openCreateModal()">+ Add Card</button>
+      <button class="add-card-btn" onclick="openCreateModal()">+ Add Task</button>
     </div>
   </div>
 
@@ -2802,7 +2811,6 @@ Execute the task using the available tools and emit events as needed. Provide a 
         <div class="column-content" data-column-id="${column.id}">
           ${column.cards.map(card => this.renderCard(card)).join('')}
         </div>
-        <button class="add-card-column-btn" onclick="openCreateModal('${column.id}')">+ Add a card</button>
       </div>
     `).join('')}
   </div>
@@ -2811,7 +2819,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
   <div class="modal" id="cardModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2 id="modalTitle">Add Card</h2>
+        <h2 id="modalTitle">Add Task</h2>
       </div>
       <form id="cardForm">
         <input type="hidden" id="cardId">
@@ -2935,7 +2943,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
         (cliTag ? '<span class="badge badge-cli badge-' + cliTag + '">' + escapeHtml(cliTag) + '</span>' : '') +
         (appTag ? '<span class="badge badge-app">' + escapeHtml(appTag.replace('app-', '')) + '</span>' : '') +
         '</div>' +
-        '<div class="card-title">' + escapeHtml(card.title) + '</div>' +
+        '<div class="card-title"><span class="task-line-icon">≡</span>' + escapeHtml(card.title) + '</div>' +
         '<div class="card-meta">' +
           '<span class="priority priority-' + escapeHtml(card.priority || 'medium') + '" title="' + escapeHtml(card.priority || 'medium') + ' priority"></span>' +
           (labels.length > 0
@@ -3200,7 +3208,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     qa('.card').forEach((card) => bindCardEvents(card));
 
     function openCreateModal(columnId = null) {
-      document.getElementById('modalTitle').textContent = 'Add Card';
+      document.getElementById('modalTitle').textContent = 'Add Task';
       document.getElementById('cardForm').reset();
       document.getElementById('cardId').value = '';
       document.getElementById('columnId').value = columnId || qa('.column-content')[0]?.dataset.columnId || '';
@@ -3522,7 +3530,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
           ${cliTag ? `<span class="badge badge-cli badge-${cliTag}">${cliTag}</span>` : ''}
           ${appTag ? `<span class="badge badge-app">${appTag.replace('app-', '')}</span>` : ''}
         </div>
-        <div class="card-title">${this.escapeHtml(card.title)}</div>
+        <div class="card-title"><span class="task-line-icon">≡</span>${this.escapeHtml(card.title)}</div>
         <div class="card-meta">
           <span class="priority priority-${card.priority}" title="${card.priority} priority"></span>
           ${labels.length > 0 ? `

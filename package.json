@@ -10,7 +10,9 @@
   "scripts": {
     "ronin": "bun run src/cli/index.ts",
     "start": "bun run ronin start",
-    "dev": "bun run ronin start"
+    "dev": "bun run ronin start",
+    "client": "bun run ronin client",
+    "check:skills-local": "bun run scripts/check-skills-local.mjs"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -21,20 +23,20 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "marked": "^15.0.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@langchain/community": "^0.3.0",
     "@langchain/core": "^0.3.0",
     "@langchain/langgraph": "^0.2.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "cheerio": "^1.1.2",
     "discord.js": "^14.15.3",
     "grammy": "^1.23.1",
     "imapflow": "^1.2.8",
     "langchain": "^0.3.0",
+    "marked": "^15.0.0",
     "nodemailer": "^8.0.0",
+    "systray2": "^2.1.4",
     "turndown": "^7.2.2",
     "webtorrent": "^1.9.5",
-    "zod": "^3.23.0",
-    "systray2": "^2.1.4"
+    "zod": "^3.23.0"
   }
 }

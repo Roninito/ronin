@@ -211,8 +211,15 @@ export class AgentRegistry {
         const url = new URL(req.url);
         const path = url.pathname;
 
-        // Root route - Show all available routes
+        // Root route - Main dashboard
         if (path === "/") {
+          return new Response(await this.getDashboardHTML(port), {
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+
+        // Routes explorer (legacy homepage)
+        if (path === "/routes" || path === "/routes/") {
           return new Response(this.getRootHTML(port), {
             headers: { "Content-Type": "text/html" },
           });
@@ -606,7 +613,8 @@ export class AgentRegistry {
     };
 
     // System routes
-    addRoute("/", "system", "Routes dashboard");
+    addRoute("/", "system", "Home dashboard");
+    addRoute("/routes", "system", "Routes dashboard");
     addRoute("/status", "system", "Status UI");
     addRoute("/api/status", "system", "Status JSON");
     addRoute("/health", "system", "Health check");
@@ -628,6 +636,154 @@ export class AgentRegistry {
 
   /**
    * Generate root HTML page with all available routes
+   */
+  private escapeHtml(input: string): string {
+    return String(input)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  private async getRecentLogPreview(): Promise<string> {
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    const candidates = [
+      join(home, ".ronin", "ninja.log"),
+      join(home, ".ronin", "daemon.log"),
+      join(home, ".ronin", "logs", "runs", "latest.log"),
+    ];
+    for (const filePath of candidates) {
+      try {
+        const file = Bun.file(filePath);
+        if (!(await file.exists())) continue;
+        const text = await file.text();
+        const lines = text.split("\n").filter(Boolean);
+        if (lines.length === 0) continue;
+        return lines.slice(-12).join("\n");
+      } catch {
+        // try next
+      }
+    }
+    return "No recent logs found at ~/.ronin/ninja.log, ~/.ronin/daemon.log, or ~/.ronin/logs/runs/latest.log";
+  }
+
+  private getDashboardNavConfigPath(): string {
+    const home = process.env.HOME || process.env.USERPROFILE || "";
+    return join(home, ".ronin", "dashboard-nav.config.json");
+  }
+
+  private async getDashboardNavRoutes(allRoutes: Array<{ path: string }>): Promise<string[]> {
+    const defaults = ["/chat", "/analytics", "/config", "/routes"];
+    const validSet = new Set(allRoutes.map((r) => r.path));
+    const path = this.getDashboardNavConfigPath();
+    try {
+      const file = Bun.file(path);
+      if (!(await file.exists())) {
+        await Bun.write(path, JSON.stringify({ routes: defaults }, null, 2));
+        return defaults;
+      }
+      const raw = await file.text();
+      const parsed = JSON.parse(raw) as { routes?: unknown };
+      const routes = Array.isArray(parsed?.routes)
+        ? parsed.routes.map((r) => String(r).trim()).filter((r) => r.startsWith("/") && validSet.has(r))
+        : [];
+      return routes.length ? Array.from(new Set(routes)) : defaults;
+    } catch {
+      return defaults;
+    }
+  }
+
+  private async getDashboardHTML(port: number): Promise<string> {
+    const status = this.getStatus();
+    const allRoutes = this.getRoutesList(port);
+    const dashboardNavRoutes = await this.getDashboardNavRoutes(allRoutes);
+    const formatDashNavRoute = (route: string) => route.toUpperCase().replaceAll("/", "🗎 ");
+    const httpRoutes = allRoutes.filter((r) => r.type === "http").length;
+    const systemRoutes = allRoutes.filter((r) => r.type === "system").length;
+    const webhookRoutes = allRoutes.filter((r) => r.type === "webhook").length;
+    const logPreview = await this.getRecentLogPreview();
+    const uptime = Math.floor(process.uptime());
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ronin Dashboard</title>
+  <style>
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+    body { margin: 0; background: #000; color: #fff; font-family: 'Adobe Clean', 'Inter', sans-serif; }
+    .shell { max-width: 1320px; margin: 0 auto; padding: 1rem; display: grid; grid-template-columns: 220px minmax(0,1fr); gap: .75rem; }
+    .dashboard-nav { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: .65rem; position: sticky; top: 8px; margin-top: 11px; z-index: 1100; height: fit-content; }
+    .dashboard-nav h2 { margin: 0 0 .55rem; font-size: .7rem; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .1em; }
+    .dashboard-nav a { display:block; color:#b4b4bb; text-decoration:none; font-size:.74rem; font-weight:700; padding:.42rem .5rem; border-radius:4px; border:1px solid transparent; margin-bottom:.2rem; }
+    .dashboard-nav a:hover { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.35); color:#fff; }
+    .page { min-width: 0; }
+    .loading-screen { position: fixed; inset: 0; background: radial-gradient(circle at 50% 35%, rgba(132,204,22,0.18), transparent 45%), #050506; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; transition: opacity .45s ease; }
+    .loading-screen.hidden { opacity: 0; pointer-events: none; }
+    .spinner { width: 72px; height: 72px; border-radius: 50%; border: 2px solid rgba(132,204,22,0.25); border-top-color: #84cc16; animation: spin 1.2s linear infinite; box-shadow: 0 0 30px rgba(132,204,22,0.25); }
+    .loading-title { font-size: 0.9rem; letter-spacing: .16em; text-transform: uppercase; color: #d9f99d; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .35rem; margin: .75rem 0; }
+    .card { background: #000; border: 0.5px solid rgba(255,255,255,0.22); border-radius: 0; padding: .8rem; }
+    .label { color: rgba(255,255,255,.6); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+    .value { font-size: 1.35rem; margin-top: .3rem; }
+    .content { display: grid; grid-template-columns: 2fr 1fr; gap: .35rem; }
+    .panel-title { margin: 0 0 .45rem; font-size: .9rem; }
+    .panel-actions a { color: #84cc16; text-decoration: none; font-size: .8rem; margin-right: .8rem; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: #d4d4d8; }
+    @media (max-width: 980px){ .shell{grid-template-columns:1fr;} .dashboard-nav{position:static;} .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .content{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen"><div class="spinner"></div><div class="loading-title">Initializing Ronin Dashboard</div></div>
+  <div class="header">${getHeaderHomeIconHTML()}<h1>DASH</h1><div class="header-meta"><span>Runtime overview</span></div></div>
+  <div class="shell">
+    <aside class="dashboard-nav">
+      <h2>DASH</h2>
+      ${dashboardNavRoutes.map((route) => `<a href="${route}">${this.escapeHtml(formatDashNavRoute(route))}</a>`).join("")}
+    </aside>
+    <div class="page">
+    <div class="grid">
+      <div class="card"><div class="label">Agents</div><div class="value">${status.totalAgents}</div></div>
+      <div class="card"><div class="label">Scheduled</div><div class="value">${status.scheduledAgents}</div></div>
+      <div class="card"><div class="label">Uptime (s)</div><div class="value">${uptime}</div></div>
+      <div class="card"><div class="label">PID</div><div class="value">${process.pid}</div></div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <h2 class="panel-title">Recent Logs</h2>
+        <pre>${this.escapeHtml(logPreview)}</pre>
+      </div>
+      <div class="card">
+        <h2 class="panel-title">Basic Analytics</h2>
+        <div class="label">System Routes</div><div class="value">${systemRoutes}</div>
+        <div class="label" style="margin-top:.55rem">HTTP Routes</div><div class="value">${httpRoutes}</div>
+        <div class="label" style="margin-top:.55rem">Webhook Routes</div><div class="value">${webhookRoutes}</div>
+        <div class="panel-actions" style="margin-top: .9rem;">
+          <a href="/routes">Open Routes</a>
+          <a href="/status">Status</a>
+          <a href="/analytics">Analytics</a>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+  <script>
+    window.setTimeout(() => {
+      const el = document.getElementById('loadingScreen');
+      if (el) el.classList.add('hidden');
+    }, 1500);
+  </script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Generate routes explorer HTML page with all available routes
    */
   private getRootHTML(port: number): string {
     const status = this.getStatus();
@@ -654,6 +810,7 @@ export class AgentRegistry {
         if (description.includes("Webhook for")) {
           return description.replace("Webhook for ", "") + " Webhook";
         }
+        if (description.includes("Home dashboard")) return "Home Dashboard";
         if (description.includes("Routes dashboard")) return "Routes Dashboard";
         if (description.includes("Status UI")) return "Status Dashboard";
         if (description.includes("Status JSON")) return "Status API";
@@ -662,7 +819,8 @@ export class AgentRegistry {
       }
       
       // Generate title from path
-      if (path === "/") return "Routes Dashboard";
+      if (path === "/") return "Home Dashboard";
+      if (path === "/routes") return "Routes Dashboard";
       if (path === "/status") return "Status Dashboard";
       if (path.startsWith("/api/")) {
         const apiName = path.replace("/api/", "").split("/")[0];
@@ -696,7 +854,8 @@ export class AgentRegistry {
       }
       
       if (type === "system") {
-        if (path === "/") return "Routes dashboard";
+        if (path === "/") return "Main dashboard with runtime stats, logs, and analytics";
+        if (path === "/routes") return "Routes dashboard";
         if (path === "/status") return "View system status, agents, and runtime information";
         if (path === "/api/status") return "Get system status as JSON";
         if (path === "/api/health" || path === "/health") return "Simple health check endpoint";
@@ -765,6 +924,8 @@ export class AgentRegistry {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin - Available Routes</title>
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
@@ -804,9 +965,11 @@ export class AgentRegistry {
     }
     
     .routes-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .routes-grid .grid-stack-item-content {
+      inset: 0.5rem;
     }
     
     .route-card {
@@ -930,16 +1093,18 @@ export class AgentRegistry {
             ${category}
           </h2>
           ${categoryRoutes.length > 0 ? `
-            <div class="routes-grid">
+            <div class="routes-grid grid-stack">
               ${categoryRoutes.map(route => `
-                <a href="${route.path}" class="route-card">
-                  <div class="route-header">
-                    <span class="route-icon">${route.icon}</span>
-                    <span class="route-title">${route.title}</span>
-                  </div>
-                  <div class="route-path">${route.path}</div>
-                  <div class="route-description">${route.description}</div>
-                </a>
+                <div class="grid-stack-item" gs-w="4" gs-h="2">
+                  <a href="${route.path}" class="route-card grid-stack-item-content">
+                    <div class="route-header">
+                      <span class="route-icon">${route.icon}</span>
+                      <span class="route-title">${route.title}</span>
+                    </div>
+                    <div class="route-path">${route.path}</div>
+                    <div class="route-description">${route.description}</div>
+                  </a>
+                </div>
               `).join("")}
             </div>
           ` : `
@@ -953,6 +1118,14 @@ export class AgentRegistry {
       <p>Ronin Agent System • Running on port ${port}</p>
     </div>
   </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof GridStack === 'undefined') return;
+      document.querySelectorAll('.routes-grid.grid-stack').forEach((el) => {
+        GridStack.init({ staticGrid: true, disableDrag: true, disableResize: true, margin: 8, cellHeight: 'auto' }, el);
+      });
+    });
+  </script>
 </body>
 </html>`;
   }
@@ -1414,4 +1587,3 @@ export class AgentRegistry {
     this.webhookRoutes.clear();
   }
 }
-

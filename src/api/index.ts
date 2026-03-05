@@ -158,6 +158,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const ragAPI = bindPluginAPI<"rag">("rag");
   const ontologyAPI = bindPluginAPI<"ontology">("ontology");
   const skillsAPI = bindPluginAPI<"skills">("skills");
+  const emailAPI = bindPluginAPI<"email">("email");
   const pythonAPI = bindPluginAPI<"python">("python");
   const reticulumAPI = bindPluginAPI<"reticulum">("reticulum");
 
@@ -469,6 +470,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(ragAPI && { rag: ragAPI }),
     ...(ontologyAPI && { ontology: ontologyAPI }),
     ...(skillsAPI && { skills: skillsAPI }),
+    ...(emailAPI && { email: emailAPI }),
     tools: {} as AgentAPI["tools"],
   };
 
@@ -493,4 +495,3 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
 
   return api;
 }
-

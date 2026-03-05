@@ -37,6 +37,7 @@ export class AIAPI {
   private smartProvider?: AIProvider;
   private fallbackProviders: AIProvider[];
   private aiConfig?: AIConfig;
+  private providerMap: Map<AIProviderType, AIProvider>;
 
   constructor(
     baseUrl: string = DEFAULT_OLLAMA_URL,
@@ -47,6 +48,7 @@ export class AIAPI {
     grokConfig?: GrokConfig,
   ) {
     this.aiConfig = aiConfig;
+    this.providerMap = new Map();
 
     // Build the primary provider
     if (aiConfig) {
@@ -58,13 +60,16 @@ export class AIAPI {
       };
       try {
         this.provider = createProvider(aiConfig.provider, effectiveConfig, geminiConfig, grokConfig);
+        this.providerMap.set(aiConfig.provider, this.provider);
       } catch {
         // If configured provider can't be created (e.g. missing API key), fall back to Ollama
         console.warn(`[AI] Failed to create ${aiConfig.provider} provider, falling back to Ollama`);
         this.provider = new OllamaProvider(baseUrl, defaultModel, defaultTimeoutMs, aiConfig.temperature ?? DEFAULT_TEMPERATURE);
+        this.providerMap.set("ollama", this.provider);
       }
     } else {
       this.provider = new OllamaProvider(baseUrl, defaultModel, defaultTimeoutMs, DEFAULT_TEMPERATURE);
+      this.providerMap.set("ollama", this.provider);
     }
 
     // Optional "smart" tier → remote Ollama (e.g. Ollama Cloud) for tool calling
@@ -84,6 +89,25 @@ export class AIAPI {
         temp,
         smartApiKey || undefined,
       );
+    }
+
+    if (aiConfig) {
+      const providerTypes: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"];
+      for (const providerType of providerTypes) {
+        if (this.providerMap.has(providerType)) continue;
+        try {
+          const effectiveConfig: AIConfig = {
+            ...aiConfig,
+            ollamaUrl: baseUrl,
+            ollamaModel: defaultModel,
+            ollamaTimeoutMs: defaultTimeoutMs,
+          };
+          const p = createProvider(providerType, effectiveConfig, geminiConfig, grokConfig);
+          this.providerMap.set(providerType, p);
+        } catch {
+          // Optional providers may be unconfigured; ignore.
+        }
+      }
     }
 
     // Build fallback chain
@@ -117,21 +141,50 @@ export class AIAPI {
     modelOrTier: string | undefined,
     _resolvedModel?: string | undefined,
   ): AIProvider {
+    const providerFromModel = this.getProviderFromModelOrTier(modelOrTier);
+    if (providerFromModel) {
+      const mapped = this.providerMap.get(providerFromModel);
+      if (mapped) return mapped;
+      throw new Error(
+        `Provider "${providerFromModel}" is selected by model "${this.resolveModelRaw(modelOrTier) ?? modelOrTier}" but is not configured or failed to initialize.`,
+      );
+    }
     if (modelOrTier === "smart" && this.smartProvider) {
       return this.smartProvider;
     }
     return this.provider;
   }
 
-  /**
-   * Resolve a model name, supporting named tiers (fast, smart, default, embedding)
-   */
-  private resolveModel(modelOrTier?: string): string | undefined {
+  private getProviderFromModelOrTier(modelOrTier?: string): AIProviderType | undefined {
+    if (!modelOrTier) return undefined;
+    const raw = this.resolveModelRaw(modelOrTier);
+    if (!raw) return undefined;
+    const idx = raw.indexOf(":");
+    if (idx <= 0) return undefined;
+    const maybeProvider = raw.slice(0, idx);
+    const allowed: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"];
+    return (allowed as string[]).includes(maybeProvider) ? (maybeProvider as AIProviderType) : undefined;
+  }
+
+  private resolveModelRaw(modelOrTier?: string): string | undefined {
     if (!modelOrTier) return undefined;
     if (!this.aiConfig?.models) return modelOrTier;
     const tier = modelOrTier as keyof NonNullable<AIConfig["models"]>;
     const mapped = this.aiConfig.models[tier];
     return mapped || modelOrTier;
+  }
+
+  /**
+   * Resolve a model name, supporting named tiers (fast, smart, default, embedding)
+   */
+  private resolveModel(modelOrTier?: string): string | undefined {
+    const raw = this.resolveModelRaw(modelOrTier);
+    if (!raw) return undefined;
+    const idx = raw.indexOf(":");
+    if (idx <= 0) return raw;
+    const maybeProvider = raw.slice(0, idx);
+    const allowed = new Set(["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"]);
+    return allowed.has(maybeProvider) ? raw.slice(idx + 1) : raw;
   }
 
   /**

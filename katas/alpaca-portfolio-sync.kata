@@ -1,19 +1,49 @@
-kata alpaca-portfolio-sync v1
-  requires skill alpaca
+kata alpaca-portfolio-sync v2
+  requires skill alpaca_getAccount
+  requires skill alpaca_getPositions
+  requires skill alpaca_getOrderHistory
+  requires skill local.notify.ask
+  requires skill alpaca_placeOrder
+  requires skill mcp_filesystem_write_file
 
-  initial fetch
+  initial sense-market
 
-  # Phase 1: Fetch all data from Alpaca API
-  phase fetch
-    run skill alpaca
-    next persist
+  # Phase 1: collect market/account state
+  phase sense-market
+    run skill alpaca_getAccount
+    next collect-positions
 
-  # Phase 2: Write data to portfolio-vault/ for the dashboard
-  phase persist
-    run skill alpaca
+  # Phase 2: collect current positions
+  phase collect-positions
+    run skill alpaca_getPositions
+    next collect-orders
+
+  # Phase 3: collect recent orders
+  phase collect-orders
+    run skill alpaca_getOrderHistory
+    next request-approval
+
+  # Phase 4: explicit human-in-the-loop request
+  phase request-approval
+    run skill local.notify.ask
+    next wait-approval
+
+  # Phase 5: execution requires explicit approval event
+  phase wait-approval
+    wait event portfolio.trading.approved
+    next execute-orders
+
+  # Phase 6: execute approved order payload
+  phase execute-orders
+    run skill alpaca_placeOrder
+    next persist-state
+
+  # Phase 7: write report/state artifact
+  phase persist-state
+    run skill mcp_filesystem_write_file
     next done
 
-  # Phase 3: Done
+  # Phase 8: complete
   phase done
-    run skill alpaca
+    run skill local.notify.ask
     complete

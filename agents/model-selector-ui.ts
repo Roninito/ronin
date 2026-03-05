@@ -6,7 +6,7 @@
 
 import { BaseAgent } from "@ronin/agent/index.js";
 import type { AgentAPI } from "@ronin/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelSelectorUIAgent extends BaseAgent {
   constructor(api: AgentAPI) {
@@ -36,8 +36,9 @@ export default class ModelSelectorUIAgent extends BaseAgent {
   <title>AI Model Selector - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;

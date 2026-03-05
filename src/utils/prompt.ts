@@ -5,7 +5,9 @@
  */
 
 import { readdir, readFile } from "fs/promises";
-import { join } from "path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
+import { homedir } from "os";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../cli/commands/config.js";
 import { getDefaultCache } from "./cache.js";
 import type { AgentAPI } from "../types/index.js";
@@ -57,6 +59,17 @@ const ARCHITECTURE_MAX_AGE_MS = 300_000;
 const CHAT_SUMMARY_PREFIX = "chat-summary:";
 const CHAT_SUMMARY_MAX_USES = 5;
 const CHAT_SUMMARY_MAX_AGE_MS = 120_000;
+const PERSONA_FILE_PATH = join(homedir(), ".ronin", "persona.md");
+const DEFAULT_PERSONA = `# Ronin Persona
+
+Personality:
+- Helpful, practical, and calm.
+- Prioritize clarity over verbosity.
+
+Communication style:
+- Use concise, direct language.
+- Explain decisions briefly.
+- Be transparent about uncertainty and next steps.`;
 
 const DEFAULT_ROLE = `You are Ronin AI, a helpful assistant for the Ronin AI agent framework.
 
@@ -78,6 +91,58 @@ DISCOVERY (basic capability): When you are unsure how to fulfill a request, use 
 LISTING SKILLS: To list available Ronin skills you MUST call at least one of: (1) ontology_search with { type: "Skill", limit: 50 } to get Skill nodes (name/summary per skill), or (2) skills.list to get the list from disk. If ontology_search returns empty, use skills.list. Never say "no tools are available to retrieve skills" or "skills are not registered in the ontology" without having called one of these first. ontology_stats only gives counts; use ontology_search(type: "Skill") to get the actual skill names and details.
 
 Use the graph both for recall (past work, failures, task context) and for discovery (what tools exist, how to list skills/tools, how to do X). ReferenceDoc and Tool nodes are synced from docs and the tool registry; Skill nodes are installed AgentSkills.`;
+
+function buildFileStructureGuide(): string {
+  const projectRoot = process.cwd();
+  return `FILE SEARCH MAP (use this before saying information is unavailable):
+When users ask about previous work, conversations, logs, configs, or project files, search in this order:
+1) local.memory.search (semantic recall)
+2) ontology_search / ontology_history / ontology_context (structured recall)
+3) skills.run -> recall/find-related (deep grep-style lookup)
+4) local.file.list / local.file.read or local.shell.safe (find/grep/pwd) for direct file inspection
+
+Project workspace tree:
+${projectRoot}/
+├── agents/              # Project agents (repo-local)
+├── skills/              # Project skills (repo-local)
+├── docs/                # Project docs/reference
+├── src/                 # Core framework/runtime code
+└── ...                  # Other project files
+
+Local Ronin home tree:
+~/.ronin/
+├── config.json          # User configuration
+├── ronin.log            # App/server logs
+├── ninja.log            # Background mode log
+├── daemon.log           # Daemon log
+├── logs/
+│   └── runs/            # Per-run logs
+├── skills/              # User-installed skills
+├── agents/              # User-installed agents
+├── plugins/             # User plugins
+└── data/                # Runtime data files
+
+Search guidance:
+- For "what did we discuss / do before": query memory + ontology first, then recall skill.
+- For config/runtime issues: inspect ~/.ronin/config.json and ~/.ronin/*.log.
+- For implementation/code questions: inspect ${projectRoot}/src, agents, skills, docs.
+- Prefer evidence from tool results over guessing.`;
+}
+
+function getPersonaSection(): string {
+  try {
+    if (!existsSync(PERSONA_FILE_PATH)) {
+      mkdirSync(dirname(PERSONA_FILE_PATH), { recursive: true });
+      writeFileSync(PERSONA_FILE_PATH, DEFAULT_PERSONA, "utf-8");
+      return `USER PERSONA (apply this tone and style in every response):\n${DEFAULT_PERSONA}`;
+    }
+    const persona = readFileSync(PERSONA_FILE_PATH, "utf-8").trim();
+    if (!persona) return "";
+    return `USER PERSONA (apply this tone and style in every response):\n${persona}`;
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Single source of truth for discovering agents, plugins, routes.
@@ -208,6 +273,9 @@ export function buildSystemPrompt(
   } = options;
 
   const parts: string[] = [role];
+  parts.push(buildFileStructureGuide());
+  const personaSection = getPersonaSection();
+  if (personaSection) parts.push(personaSection);
 
   if (includeArchitecture) {
     parts.push(context.architecture);
@@ -285,7 +353,7 @@ ${params.toolResults
   const failureInstruction = params.toolResults.some(
     (tr) => !tr.success || tr.error
   )
-    ? "\n\nIMPORTANT: At least one tool failed (success: false or error). Before concluding you cannot help: (1) If you have not yet called local.memory.search, call it with a query about the user's question. (2) Use ontology_search (e.g. type 'ReferenceDoc' or 'Tool', nameLike matching the request) to find how to fulfill the request and which tool to call. (3) Only after trying memory search and/or ontology discovery may you tell the user that a tool failed and what went wrong."
+    ? "\n\nIMPORTANT: At least one tool failed (success: false or error). Before concluding you cannot help: (1) If you have not yet called local.memory.search, call it with a query about the user's question. (2) Use ontology_search (e.g. type 'ReferenceDoc' or 'Tool', nameLike matching the request) to find how to fulfill the request and which tool to call. (3) For prior conversation/context questions, run skills.run with skill_name \"recall\" and ability \"find-related\" plus the user topic/query. (4) Only after trying memory search/recall/ontology discovery may you tell the user that a tool failed and what went wrong."
     : "";
 
   return `${params.systemPrompt}
@@ -293,7 +361,19 @@ ${params.toolResults
 Conversation transcript:
 ${transcript}${toolSection}${failureInstruction}
 
-TOOL CALLING: To run a tool you must respond with tool calls (each with a tool name and arguments). Plain text alone does not execute any tool. If the task requires tools, output tool calls now. If you cannot complete the task (e.g. you need to give up or only have a text reply), use the available abort/finish mechanism (e.g. skill_maker.finish with status "abort") so the run is explicitly aborted rather than leaving it ambiguous. After your tool calls run, you get another turn with the results; you can call more tools or call finish. Respond to the latest message; if you need to act, call the appropriate tool(s) first.`;
+TOOL CALLING: To run a tool you must respond with tool calls (each with a tool name and arguments). Plain text alone does not execute any tool. If the task requires tools, output tool calls now. Use exact registered tool names (including dots), e.g. local.memory.search, ontology_search, skills.run, local.ronin_script.aggregate, local.ronin_script.parse, local.ronin_script.to_json, local.ronin_script.from_json.
+
+TOOL CALL SHAPE:
+- Native tool-calling models: emit function/tool calls with { name, arguments } only.
+- Text-only fallback models: emit exact lines like: TOOL: local.memory.search, ARGS: {"query":"..."} (valid JSON args).
+
+RECALL WORKFLOW (when user asks about previous work/history/context): call tools first, in order:
+1) local.memory.search with the topic or key phrase
+2) ontology_search / ontology_history for structured prior knowledge
+3) skills.run with { "skill_name":"recall", "options": { "ability":"find-related", "params": { "query":"<topic>" } } } for deep grep-style lookup
+Then synthesize from tool evidence.
+
+If you cannot complete the task (e.g. you need to give up or only have a text reply), use the available abort/finish mechanism (e.g. skill_maker.finish with status "abort") so the run is explicitly aborted rather than leaving it ambiguous. After your tool calls run, you get another turn with the results; you can call more tools or call finish. Respond to the latest message; if you need to act, call the appropriate tool(s) first.`;
 }
 
 export type ToolResultEntry = { name: string; success: boolean; result: unknown; error?: string };
@@ -454,7 +534,7 @@ export function filterToolSchemas(
   const msg = (context.message ?? "").toLowerCase();
 
   // Check if this looks like a tool-using query vs simple chat
-  const isToolQuery = /\b(skills?|notes?|weather|email|mail|messages?|discord|telegram|search|run|execute|list|get|find|read|write|create|delete|update|discuss|explain|tell me about|about|tables?|database|schema|ronin\.db|diagram|mermaid|flowchart|flow chart|chart|draw)\b/.test(msg);
+  const isToolQuery = /\b(skills?|notes?|weather|email|mail|messages?|discord|telegram|search|run|execute|list|get|find|read|write|create|delete|update|discuss|explain|tell me about|about|tables?|database|schema|ronin\.db|diagram|mermaid|flowchart|flow chart|chart|draw|recall|remember|memory|history|conversation|context)\b/.test(msg);
   const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
   const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
   // Include tools when user asks about agents/architecture (so memory + ontology can be used)

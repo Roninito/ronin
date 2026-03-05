@@ -110,6 +110,10 @@ export interface SystemConfig {
   safeShellCommands?: string[];
   /** User skills directory (AgentSkills). Defaults to ~/.ronin/skills */
   skillsDir?: string;
+  /** Enabled remote skill/MCP providers for discovery */
+  skillProviders?: string[];
+  /** Include configured remote providers in discover commands by default */
+  includeRemoteSkillsOnDiscover?: boolean;
   /** Number of run log files to retain on disk and as ontology nodes. Default: 2 */
   logRetentionRuns?: number;
   /** Whether to write per-run log files to ~/.ronin/logs/runs/. Default: true */
@@ -368,6 +372,8 @@ export type ConfigPath =
   | 'system.externalAgentDir'
   | 'system.userPluginDir'
   | 'system.safeShellCommands'
+  | 'system.skillProviders'
+  | 'system.includeRemoteSkillsOnDiscover'
   | 'eventMonitor'
   | 'eventMonitor.enabled'
   | 'eventMonitor.retentionHours'

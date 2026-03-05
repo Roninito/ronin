@@ -7,6 +7,7 @@ import { getDefaultSkillsDir } from "./config.js";
 import { existsSync } from "fs";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
+import { URL } from "url";
 
 export interface SkillsCLIOptions {
   agentDir?: string;
@@ -16,6 +17,17 @@ export interface SkillsCLIOptions {
   ollamaModel?: string;
   dbPath?: string;
 }
+
+type RemoteSkillProvider = "skills.sh" | "playbooks.com";
+type DiscoveredSkill = {
+  name: string;
+  description: string;
+  provider?: string;
+  repo?: string;
+  ref?: string;
+};
+
+const DEFAULT_REMOTE_SKILL_PROVIDERS: RemoteSkillProvider[] = ["skills.sh", "playbooks.com"];
 
 function getSkillsDirFromApi(api: { config: { getSystem(): { skillsDir?: string } } }): string {
   const system = api.config.getSystem();
@@ -49,6 +61,202 @@ async function readSkillFile(skillDir: string): Promise<{ path: string; content:
   } catch {
     return null;
   }
+}
+
+function normalizeProviderName(value: string): RemoteSkillProvider | null {
+  const v = value.trim().toLowerCase();
+  if (v === "skills.sh" || v === "skillssh") return "skills.sh";
+  if (v === "playbooks.com" || v === "playbooks") return "playbooks.com";
+  return null;
+}
+
+function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+function parseSkillsShLinks(markdown: string): Array<{ owner: string; repo: string; skill: string }> {
+  const out: Array<{ owner: string; repo: string; skill: string }> = [];
+  const re = /\]\(\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.:-]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1], repo: m[2], skill: m[3] });
+  return out;
+}
+
+function parsePlaybooksSkillLinks(markdown: string): Array<{ owner: string; repo: string; skill: string }> {
+  const out: Array<{ owner: string; repo: string; skill: string }> = [];
+  const re = /\]\(\/skills\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.:-]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1], repo: m[2], skill: m[3] });
+  return out;
+}
+
+function filterAndDedupeSkills(list: DiscoveredSkill[], query: string, limit = 50): DiscoveredSkill[] {
+  const q = query.trim().toLowerCase();
+  const seen = new Set<string>();
+  const out: DiscoveredSkill[] = [];
+  for (const item of list) {
+    if (q) {
+      const hay = `${item.name} ${item.description} ${item.repo ?? ""} ${item.ref ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) continue;
+    }
+    const key = `${item.provider ?? "local"}::${(item.ref ?? item.name).toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+async function discoverSkillsSh(query: string, limit = 50): Promise<DiscoveredSkill[]> {
+  const pages = ["https://skills.sh/", "https://skills.sh/trending", "https://skills.sh/hot"];
+  const collected: DiscoveredSkill[] = [];
+  for (const page of pages) {
+    try {
+      const res = await fetchWithTimeout(page, 10000);
+      if (!res.ok) continue;
+      const text = await res.text();
+      for (const link of parseSkillsShLinks(text)) {
+        const ref = `${link.owner}/${link.repo}/${link.skill}`;
+        collected.push({
+          name: link.skill,
+          description: `skills.sh • ${link.owner}/${link.repo}`,
+          provider: "skills.sh",
+          repo: `${link.owner}/${link.repo}`,
+          ref,
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return filterAndDedupeSkills(collected, query, limit);
+}
+
+async function discoverPlaybooks(query: string, limit = 50): Promise<DiscoveredSkill[]> {
+  const url = `https://playbooks.com/skills?search=${encodeURIComponent(query || "")}`;
+  try {
+    const res = await fetchWithTimeout(url, 10000);
+    if (!res.ok) return [];
+    const text = await res.text();
+    const list = parsePlaybooksSkillLinks(text).map((link) => {
+      const ref = `${link.owner}/${link.repo}/${link.skill}`;
+      return {
+        name: link.skill,
+        description: `playbooks.com • ${link.owner}/${link.repo}`,
+        provider: "playbooks.com",
+        repo: `${link.owner}/${link.repo}`,
+        ref,
+      } satisfies DiscoveredSkill;
+    });
+    return filterAndDedupeSkills(list, query, limit);
+  } catch {
+    return [];
+  }
+}
+
+function parseDiscoverArgs(subArgs: string[]): {
+  query: string;
+  providersOverride?: RemoteSkillProvider[];
+  forceRemote?: boolean;
+} {
+  const queryParts: string[] = [];
+  let providersOverride: RemoteSkillProvider[] | undefined;
+  let forceRemote: boolean | undefined;
+
+  for (const arg of subArgs) {
+    if (arg === "--remote") {
+      forceRemote = true;
+      continue;
+    }
+    if (arg === "--no-remote") {
+      forceRemote = false;
+      continue;
+    }
+    if (arg.startsWith("--providers=")) {
+      const parsed = arg
+        .slice("--providers=".length)
+        .split(",")
+        .map((v) => normalizeProviderName(v))
+        .filter((v): v is RemoteSkillProvider => !!v);
+      providersOverride = Array.from(new Set(parsed));
+      continue;
+    }
+    if (arg.startsWith("--")) continue;
+    queryParts.push(arg);
+  }
+
+  const query = queryParts.join(" ").trim();
+  return { query, providersOverride, forceRemote };
+}
+
+function getConfiguredRemoteProviders(systemConfig: { skillProviders?: string[] }): RemoteSkillProvider[] {
+  const fromConfig = Array.isArray(systemConfig?.skillProviders)
+    ? systemConfig.skillProviders
+        .map((v) => normalizeProviderName(String(v)))
+        .filter((v): v is RemoteSkillProvider => !!v)
+    : DEFAULT_REMOTE_SKILL_PROVIDERS;
+  return Array.from(new Set(fromConfig));
+}
+
+async function discoverRemoteSkills(
+  query: string,
+  providers: RemoteSkillProvider[],
+  limit = 50
+): Promise<DiscoveredSkill[]> {
+  const out: DiscoveredSkill[] = [];
+  for (const provider of providers) {
+    if (provider === "skills.sh") {
+      out.push(...(await discoverSkillsSh(query, limit)));
+    } else if (provider === "playbooks.com") {
+      out.push(...(await discoverPlaybooks(query, limit)));
+    }
+  }
+  return filterAndDedupeSkills(out, query, limit);
+}
+
+function resolveRemoteInstallRepo(input: string): { repoUrl: string; suggestedName?: string } | null {
+  const parseOwnerRepoSkill = (parts: string[]): { owner: string; repo: string; skill?: string } | null => {
+    if (parts.length < 2) return null;
+    return { owner: parts[0], repo: parts[1], skill: parts[2] };
+  };
+
+  if (input.startsWith("skills.sh:") || input.startsWith("playbooks.com:")) {
+    const raw = input.split(":")[1] ?? "";
+    const parsed = parseOwnerRepoSkill(raw.split("/").filter(Boolean));
+    if (!parsed) return null;
+    return {
+      repoUrl: `https://github.com/${parsed.owner}/${parsed.repo}.git`,
+      suggestedName: parsed.skill || parsed.repo,
+    };
+  }
+
+  try {
+    const u = new URL(input);
+    if (u.hostname === "skills.sh") {
+      const parsed = parseOwnerRepoSkill(u.pathname.split("/").filter(Boolean));
+      if (!parsed) return null;
+      return {
+        repoUrl: `https://github.com/${parsed.owner}/${parsed.repo}.git`,
+        suggestedName: parsed.skill || parsed.repo,
+      };
+    }
+    if (u.hostname === "playbooks.com") {
+      const segments = u.pathname.split("/").filter(Boolean);
+      if (segments[0] !== "skills") return null;
+      const parsed = parseOwnerRepoSkill(segments.slice(1));
+      if (!parsed) return null;
+      return {
+        repoUrl: `https://github.com/${parsed.owner}/${parsed.repo}.git`,
+        suggestedName: parsed.skill || parsed.repo,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 async function discoverLocalSkills(query: string): Promise<Array<{ name: string; description: string }>> {
@@ -170,9 +378,32 @@ export async function skillsCommand(
     }
 
     case "discover": {
-      const query = subArgs.join(" ").trim() || "*";
+      const api = await createAPI({
+        pluginDir: options.pluginDir,
+        userPluginDir: options.userPluginDir,
+        ollamaUrl: options.ollamaUrl,
+        ollamaModel: options.ollamaModel,
+        dbPath: options.dbPath,
+      });
+      const parsed = parseDiscoverArgs(subArgs);
+      const query = parsed.query || "*";
       const normalizedQuery = query === "*" ? "" : query;
-      const list = await discoverLocalSkills(normalizedQuery);
+      const localList = await discoverLocalSkills(normalizedQuery);
+      const system = api.config.getSystem();
+      const includeRemote = parsed.forceRemote ?? (system.includeRemoteSkillsOnDiscover !== false);
+      const configuredProviders = parsed.providersOverride ?? getConfiguredRemoteProviders(system);
+      const remoteProviders = includeRemote ? configuredProviders : [];
+      const remoteList = remoteProviders.length > 0
+        ? await discoverRemoteSkills(normalizedQuery, remoteProviders, 50)
+        : [];
+      const list = filterAndDedupeSkills(
+        [
+          ...localList.map((s) => ({ ...s, provider: "local" })),
+          ...remoteList,
+        ],
+        normalizedQuery,
+        100
+      );
       console.log(JSON.stringify(list, null, 2));
       return;
     }
@@ -238,14 +469,16 @@ export async function skillsCommand(
         dbPath: options.dbPath,
       });
       const skillsDir = getSkillsDirFromApi(api);
-      const repo = subArgs[0];
+      const repoInput = subArgs[0];
+      const resolvedRemote = repoInput ? resolveRemoteInstallRepo(repoInput) : null;
+      const repo = resolvedRemote?.repoUrl ?? repoInput;
       if (!repo || repo.startsWith("--")) {
-        console.error("❌ Usage: ronin skills install <git-repo> [--name <skill-name>]");
+        console.error("❌ Usage: ronin skills install <git-repo|skills.sh:owner/repo/skill|playbooks.com:owner/repo/skill> [--name <skill-name>]");
         process.exit(1);
       }
       const nameOpt = subArgs.find((a) => a.startsWith("--name="))?.slice("--name=".length)
         ?? subArgs[subArgs.indexOf("--name") + 1];
-      const skillName = nameOpt ?? repo.replace(/\.git$/, "").split("/").pop() ?? "skill";
+      const skillName = nameOpt ?? resolvedRemote?.suggestedName ?? repo.replace(/\.git$/, "").split("/").pop() ?? "skill";
       const targetDir = join(skillsDir, skillName);
       if (existsSync(targetDir)) {
         console.error(`❌ Directory already exists: ${targetDir}`);

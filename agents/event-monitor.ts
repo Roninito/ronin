@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface EventRecord {
   id: string;
@@ -305,8 +305,9 @@ export default class EventMonitorAgent extends BaseAgent {
   <title>Event Timeline - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     .container {
       max-width: 1400px;
@@ -322,7 +323,7 @@ export default class EventMonitorAgent extends BaseAgent {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
 
@@ -331,9 +332,9 @@ export default class EventMonitorAgent extends BaseAgent {
     }
 
     .filters {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
@@ -349,7 +350,7 @@ export default class EventMonitorAgent extends BaseAgent {
       font-size: 0.875rem;
       font-weight: 500;
       margin-bottom: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .checkbox-group {
@@ -359,9 +360,9 @@ export default class EventMonitorAgent extends BaseAgent {
       max-height: 150px;
       overflow-y: auto;
       padding: 0.5rem;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.sm};
+      background: ${dramTheme.colors.background};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.sm};
     }
 
     .checkbox-item {
@@ -384,36 +385,36 @@ export default class EventMonitorAgent extends BaseAgent {
 
     .search-box input {
       flex: 1;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.background};
+      border: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textPrimary};
       padding: 0.5rem 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${dramTheme.borderRadius.md};
       font-family: inherit;
     }
 
     .btn {
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.accent};
+      border: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textPrimary};
       padding: 0.5rem 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
     }
 
     .btn:hover {
-      background: ${roninTheme.colors.accentHover};
+      background: ${dramTheme.colors.accentHover};
     }
 
     .btn-secondary {
       background: transparent;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .btn-secondary:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textPrimary};
     }
 
     .stats {
@@ -421,7 +422,7 @@ export default class EventMonitorAgent extends BaseAgent {
       gap: 1rem;
       margin-bottom: 1.5rem;
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .stat-item {
@@ -446,15 +447,15 @@ export default class EventMonitorAgent extends BaseAgent {
     }
 
     .event {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
       padding: 1rem;
       transition: all 0.2s;
     }
 
     .event:hover {
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${dramTheme.colors.borderHover};
     }
 
     .event-new {
@@ -482,19 +483,19 @@ export default class EventMonitorAgent extends BaseAgent {
     .event-timestamp {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
     }
 
     .event-type {
       font-weight: 600;
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${dramTheme.colors.textPrimary};
     }
 
     .event-source {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
-      background: ${roninTheme.colors.backgroundTertiary};
+      color: ${dramTheme.colors.textSecondary};
+      background: ${dramTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
       border-radius: 3px;
     }
@@ -511,12 +512,12 @@ export default class EventMonitorAgent extends BaseAgent {
     .event-payload {
       margin-top: 0.5rem;
       padding: 0.75rem;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.sm};
+      background: ${dramTheme.colors.background};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.sm};
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
       white-space: pre-wrap;
       word-break: break-all;
       max-height: 150px;
@@ -529,13 +530,13 @@ export default class EventMonitorAgent extends BaseAgent {
 
     .payload-toggle {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.accent};
+      color: ${dramTheme.colors.accent};
       cursor: pointer;
       margin-top: 0.5rem;
     }
 
     .payload-toggle:hover {
-      color: ${roninTheme.colors.accentHover};
+      color: ${dramTheme.colors.accentHover};
     }
 
     .pagination {
@@ -545,21 +546,21 @@ export default class EventMonitorAgent extends BaseAgent {
       gap: 1rem;
       margin-top: 2rem;
       padding-top: 1rem;
-      border-top: 1px solid ${roninTheme.colors.border};
+      border-top: 1px solid ${dramTheme.colors.border};
     }
 
     .pagination button {
       background: transparent;
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textSecondary};
       padding: 0.5rem 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${dramTheme.borderRadius.md};
       cursor: pointer;
     }
 
     .pagination button:hover:not(:disabled) {
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${dramTheme.colors.backgroundSecondary};
+      color: ${dramTheme.colors.textPrimary};
     }
 
     .pagination button:disabled {
@@ -569,13 +570,13 @@ export default class EventMonitorAgent extends BaseAgent {
 
     .page-info {
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${dramTheme.colors.textSecondary};
     }
 
     .loading {
       text-align: center;
       padding: 2rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${dramTheme.colors.textTertiary};
     }
 
     .error {
@@ -583,7 +584,7 @@ export default class EventMonitorAgent extends BaseAgent {
       border: 1px solid rgba(220, 53, 69, 0.3);
       color: #dc3545;
       padding: 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${dramTheme.borderRadius.md};
       margin-bottom: 1rem;
     }
   </style>

@@ -15,6 +15,7 @@ A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript 
 - **Hybrid Intelligence**: Tool orchestration system with local + cloud AI support
 - **MCP Client**: Connect to external MCP servers for filesystem, GitHub, web search, and database tools
 - **Desktop Mode**: macOS integration with Quick Actions, menubar, and notifications
+- **Optional Desktop Client**: ElectronBun shell with built-in Home/Dashboard view
 - **CLI Management**: Simple CLI to start, run, list, and check status of agents
 
 ## Quick Start
@@ -86,6 +87,11 @@ bun run ronin create skill "monitor logs and alert on errors"  # Create new skil
 
 # Start all agents (schedules them and keeps running)
 bun run ronin start
+
+# Launch optional ElectronBun desktop client
+bun run ronin client
+bun run ronin client install
+bun run ronin client build --platform mac
 
 # Or use the npm script
 bun start

@@ -3,6 +3,7 @@ import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { getConfigService } from "../src/config/ConfigService.js";
+import { promises as dns } from "node:dns";
 
 /**
  * Email account configuration
@@ -23,6 +24,12 @@ interface EmailAccountConfig {
     auth: { user: string; pass: string };
   };
 }
+
+type EmailAccountInput = Partial<EmailAccountConfig> & {
+  email: string;
+  password?: string;
+  login?: string;
+};
 
 /**
  * Stored account with internal IDs
@@ -204,6 +211,123 @@ const convertMessage = async (
   };
 };
 
+type ServerPreset = {
+  imap: { host: string; port: number; secure: boolean };
+  smtp: { host: string; port: number; secure: boolean };
+};
+
+const EMAIL_PROVIDER_PRESETS: Record<string, ServerPreset> = {
+  "gmail.com": {
+    imap: { host: "imap.gmail.com", port: 993, secure: true },
+    smtp: { host: "smtp.gmail.com", port: 587, secure: false },
+  },
+  "outlook.com": {
+    imap: { host: "outlook.office365.com", port: 993, secure: true },
+    smtp: { host: "smtp.office365.com", port: 587, secure: false },
+  },
+  "hotmail.com": {
+    imap: { host: "outlook.office365.com", port: 993, secure: true },
+    smtp: { host: "smtp.office365.com", port: 587, secure: false },
+  },
+  "live.com": {
+    imap: { host: "outlook.office365.com", port: 993, secure: true },
+    smtp: { host: "smtp.office365.com", port: 587, secure: false },
+  },
+  "yahoo.com": {
+    imap: { host: "imap.mail.yahoo.com", port: 993, secure: true },
+    smtp: { host: "smtp.mail.yahoo.com", port: 587, secure: false },
+  },
+  "icloud.com": {
+    imap: { host: "imap.mail.me.com", port: 993, secure: true },
+    smtp: { host: "smtp.mail.me.com", port: 587, secure: false },
+  },
+  "me.com": {
+    imap: { host: "imap.mail.me.com", port: 993, secure: true },
+    smtp: { host: "smtp.mail.me.com", port: 587, secure: false },
+  },
+  "mac.com": {
+    imap: { host: "imap.mail.me.com", port: 993, secure: true },
+    smtp: { host: "smtp.mail.me.com", port: 587, secure: false },
+  },
+};
+
+const getDomainFromEmail = (email: string): string => {
+  const at = email.lastIndexOf("@");
+  return at > 0 ? email.slice(at + 1).trim().toLowerCase() : "";
+};
+
+const findPresetByDomain = (domain: string): ServerPreset | null => {
+  if (!domain) return null;
+  if (EMAIL_PROVIDER_PRESETS[domain]) return EMAIL_PROVIDER_PRESETS[domain];
+  if (domain.endsWith(".googlemail.com") || domain.endsWith(".gmail.com")) return EMAIL_PROVIDER_PRESETS["gmail.com"];
+  if (domain.includes("outlook") || domain.includes("office365")) return EMAIL_PROVIDER_PRESETS["outlook.com"];
+  if (domain.includes("yahoo")) return EMAIL_PROVIDER_PRESETS["yahoo.com"];
+  if (domain.endsWith(".icloud.com") || domain.endsWith(".me.com") || domain.endsWith(".mac.com")) return EMAIL_PROVIDER_PRESETS["icloud.com"];
+  return null;
+};
+
+const detectPresetFromMx = async (domain: string): Promise<ServerPreset | null> => {
+  try {
+    const records = await dns.resolveMx(domain);
+    const mx = records
+      .sort((a, b) => a.priority - b.priority)
+      .map((r) => r.exchange.toLowerCase())
+      .join(" ");
+    if (/google|googlemail|aspmx/.test(mx)) return EMAIL_PROVIDER_PRESETS["gmail.com"];
+    if (/outlook|office365|protection\.outlook/.test(mx)) return EMAIL_PROVIDER_PRESETS["outlook.com"];
+    if (/yahoodns|yahoodns\.net|yahoo/.test(mx)) return EMAIL_PROVIDER_PRESETS["yahoo.com"];
+    if (/icloud|me\.com|mail\.me\.com/.test(mx)) return EMAIL_PROVIDER_PRESETS["icloud.com"];
+  } catch {
+    // ignore DNS resolution issues
+  }
+  return null;
+};
+
+const genericDomainPreset = (domain: string): ServerPreset => ({
+  imap: { host: `imap.${domain}`, port: 993, secure: true },
+  smtp: { host: `smtp.${domain}`, port: 587, secure: false },
+});
+
+const resolveEmailSettings = async (input: EmailAccountInput): Promise<EmailAccountConfig> => {
+  const domain = getDomainFromEmail(input.email);
+  if (!domain) throw new Error("Invalid email address");
+
+  const existingImap = input.imap ?? ({} as EmailAccountConfig["imap"]);
+  const existingSmtp = input.smtp ?? ({} as EmailAccountConfig["smtp"]);
+  const hasManualServers = Boolean(existingImap.host && existingSmtp.host);
+  const preset =
+    hasManualServers
+      ? null
+      : findPresetByDomain(domain) ?? (await detectPresetFromMx(domain)) ?? genericDomainPreset(domain);
+
+  const authUser = existingImap.auth?.user || existingSmtp.auth?.user || input.login || input.email;
+  const authPass = existingImap.auth?.pass || existingSmtp.auth?.pass || input.password || "";
+  if (!authPass) throw new Error("Password is required for email account setup");
+
+  return {
+    name: input.name?.trim() || input.email,
+    email: input.email,
+    imap: {
+      host: existingImap.host || preset?.imap.host || "",
+      port: existingImap.port || preset?.imap.port || 993,
+      secure: typeof existingImap.secure === "boolean" ? existingImap.secure : (preset?.imap.secure ?? true),
+      auth: {
+        user: authUser,
+        pass: authPass,
+      },
+    },
+    smtp: {
+      host: existingSmtp.host || preset?.smtp.host || "",
+      port: existingSmtp.port || preset?.smtp.port || 587,
+      secure: typeof existingSmtp.secure === "boolean" ? existingSmtp.secure : (preset?.smtp.secure ?? false),
+      auth: {
+        user: existingSmtp.auth?.user || authUser,
+        pass: existingSmtp.auth?.pass || authPass,
+      },
+    },
+  };
+};
+
 /**
  * Email plugin for managing multiple email accounts
  */
@@ -214,42 +338,101 @@ const emailPlugin: Plugin = {
     /**
      * Add a new email account
      */
-    addAccount: async (config: EmailAccountConfig): Promise<{
+    autodetectSettings: async (input: EmailAccountInput): Promise<EmailAccountConfig> => {
+      if (!input?.email) throw new Error("email is required");
+      return resolveEmailSettings(input);
+    },
+
+    addAccount: async (config: EmailAccountInput): Promise<{
       id: string;
       email: string;
       name: string;
     }> => {
-      if (!config.email || !config.imap || !config.smtp) {
-        throw new Error("Invalid account configuration: email, imap, and smtp are required");
+      if (!config?.email) {
+        throw new Error("Invalid account configuration: email is required");
+      }
+      const resolvedConfig = await resolveEmailSettings(config);
+      if (!resolvedConfig.imap.host || !resolvedConfig.smtp.host) {
+        throw new Error("Could not determine IMAP/SMTP settings. Please enter server settings manually.");
       }
 
       const id = `email_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const errMsg = (error: unknown): string => {
+        if (error instanceof Error && error.message) return error.message;
+        try {
+          return JSON.stringify(error);
+        } catch {
+          return String(error);
+        }
+      };
 
-      // Test IMAP connection
-      const testClient = createImapClient({ ...config, id, createdAt: Date.now() });
-      try {
-        await testClient.connect();
-        await testClient.logout();
-        console.log(`[email] IMAP connection verified for ${config.email}`);
-      } catch (error) {
-        throw new Error(
-          `IMAP connection failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+      // Test IMAP connection (with common fallback permutations)
+      const imapCandidates = [
+        { ...resolvedConfig.imap },
+        { ...resolvedConfig.imap, port: 993, secure: true },
+        { ...resolvedConfig.imap, port: 143, secure: false },
+      ];
+      let imapError = "";
+      let imapVerified = false;
+      for (const c of imapCandidates) {
+        const testClient = createImapClient({
+          ...resolvedConfig,
+          id,
+          createdAt: Date.now(),
+          imap: c,
+        });
+        try {
+          await testClient.connect();
+          await testClient.logout();
+          resolvedConfig.imap = c;
+          imapVerified = true;
+          console.log(`[email] IMAP connection verified for ${resolvedConfig.email} (${c.host}:${c.port}, secure=${c.secure})`);
+          break;
+        } catch (error) {
+          imapError = errMsg(error);
+          try {
+            await testClient.logout();
+          } catch {
+            // ignore
+          }
+        }
+      }
+      if (!imapVerified) {
+        throw new Error(`IMAP connection failed: ${imapError}`);
       }
 
-      // Test SMTP connection
-      const testTransport = createSmtpTransport({ ...config, id, createdAt: Date.now() });
-      try {
-        await testTransport.verify();
-        console.log(`[email] SMTP connection verified for ${config.email}`);
-      } catch (error) {
-        throw new Error(
-          `SMTP connection failed: ${error instanceof Error ? error.message : String(error)}`
-        );
+      // Test SMTP connection (with common fallback permutations)
+      const smtpCandidates = [
+        { ...resolvedConfig.smtp },
+        { ...resolvedConfig.smtp, port: 587, secure: false },
+        { ...resolvedConfig.smtp, port: 465, secure: true },
+        { ...resolvedConfig.smtp, port: 25, secure: false },
+      ];
+      let smtpError = "";
+      let smtpVerified = false;
+      for (const c of smtpCandidates) {
+        const testTransport = createSmtpTransport({
+          ...resolvedConfig,
+          id,
+          createdAt: Date.now(),
+          smtp: c,
+        });
+        try {
+          await testTransport.verify();
+          resolvedConfig.smtp = c;
+          smtpVerified = true;
+          console.log(`[email] SMTP connection verified for ${resolvedConfig.email} (${c.host}:${c.port}, secure=${c.secure})`);
+          break;
+        } catch (error) {
+          smtpError = errMsg(error);
+        }
+      }
+      if (!smtpVerified) {
+        throw new Error(`SMTP connection failed: ${smtpError}`);
       }
 
       const storedAccount: StoredAccount = {
-        ...config,
+        ...resolvedConfig,
         id,
         createdAt: Date.now(),
       };
@@ -262,12 +445,12 @@ const emailPlugin: Plugin = {
 
       await saveAccounts();
 
-      console.log(`[email] Account added: ${config.name} (${config.email})`);
+      console.log(`[email] Account added: ${resolvedConfig.name} (${resolvedConfig.email})`);
 
       return {
         id,
-        email: config.email,
-        name: config.name,
+        email: resolvedConfig.email,
+        name: resolvedConfig.name,
       };
     },
 

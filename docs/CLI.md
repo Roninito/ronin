@@ -339,15 +339,21 @@ ronin skills list
 
 #### `skills discover <query>`
 
-Discover skills matching a query (searches name and description).
+Discover skills matching a query (searches local skills and optionally remote providers).
+
+**Options:**
+- `--remote` - Force include configured remote providers for this run
+- `--no-remote` - Force local-only discovery for this run
+- `--providers=<skills.sh,playbooks.com>` - Limit remote provider list for this run
 
 **Examples:**
 ```bash
 ronin skills discover "log monitor"
 ronin skills discover "weather"
+ronin skills discover "react" --remote --providers=playbooks.com
 ```
 
-**Output:** JSON array of matching skills with `name` and `description`.
+**Output:** JSON array with at least `name` and `description` (may also include provider metadata for remote results).
 
 #### `skills explore <name> [--scripts]`
 
@@ -393,6 +399,8 @@ Install a skill from a git repository.
 ```bash
 ronin skills install https://github.com/user/skill-repo.git
 ronin skills install https://github.com/user/skill-repo.git --name my-skill
+ronin skills install skills.sh:owner/repo/skill-slug
+ronin skills install playbooks.com:owner/repo/skill-slug
 ```
 
 **Note:** Requires git plugin to be loaded.
@@ -443,13 +451,14 @@ ronin mcp list
 **Output:**
 Shows server name, enabled/disabled status, and command with arguments for each configured MCP server.
 
-#### `mcp discover`
+#### `mcp discover [query]`
 
-Show all known MCP servers available for installation.
+Show known MCP servers available for installation and, when enabled, include remote playbooks MCP listings.
 
 **Examples:**
 ```bash
 ronin mcp discover
+ronin mcp discover github --remote
 ```
 
 **Output:**
@@ -1052,4 +1061,3 @@ ollama list
 - [docs/PLUGINS.md](./PLUGINS.md) - Plugin development
 - [docs/TOOL_CALLING.md](./TOOL_CALLING.md) - Function calling guide
 - [docs/DESKTOP_MODE.md](./DESKTOP_MODE.md) - Desktop Mode guide
-

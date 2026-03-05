@@ -74,7 +74,7 @@ export const DEFAULT_CONFIG: FullConfig = {
       anthropic: {
         enabled: false,
         apiKey: "", // Set via ANTHROPIC_API_KEY env var
-        model: "claude-3-5-sonnet-20241022",
+        model: "claude-3-5-sonnet-latest",
         timeout: 30000,
       },
       lmstudio: {
@@ -119,6 +119,8 @@ export const DEFAULT_CONFIG: FullConfig = {
       "git", "find", "grep", "wc", "curl", "bun", "osascript",
     ],
     skillsDir: join(homedir(), ".ronin", "skills"),
+    skillProviders: ["skills.sh", "playbooks.com"],
+    includeRemoteSkillsOnDiscover: true,
     logRetentionRuns: 2,
     logToFile: true,
   },

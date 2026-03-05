@@ -3,7 +3,7 @@ import type { AgentAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface BlogPost {
   id: string;
@@ -281,13 +281,16 @@ export default class BlogsAgent extends BaseAgent {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog - Ronin</title>
+  <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;
@@ -302,10 +305,11 @@ export default class BlogsAgent extends BaseAgent {
     }
 
     .posts-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: ${roninTheme.spacing.lg};
       margin-top: ${roninTheme.spacing.lg};
+    }
+
+    .posts-grid .grid-stack-item-content {
+      inset: ${roninTheme.spacing.xs};
     }
 
     .post-card {
@@ -363,14 +367,16 @@ export default class BlogsAgent extends BaseAgent {
     ${posts.length === 0 
       ? '<div class="empty-state">No posts yet. Check back soon!</div>'
       : posts.map(post => `
-        <a href="/blog/${post.slug}" class="post-card">
-          <h2>${this.escapeHtml(post.title)}</h2>
-          ${post.excerpt ? `<div class="excerpt">${this.escapeHtml(post.excerpt)}</div>` : ''}
-          <div class="meta">
-            ${new Date(post.published_at || post.created_at).toLocaleDateString()}
-            ${post.author ? ` • ${this.escapeHtml(post.author)}` : ''}
-          </div>
-        </a>
+        <div class="grid-stack-item" gs-w="4" gs-h="2">
+          <a href="/blog/${post.slug}" class="post-card grid-stack-item-content">
+            <h2>${this.escapeHtml(post.title)}</h2>
+            ${post.excerpt ? `<div class="excerpt">${this.escapeHtml(post.excerpt)}</div>` : ''}
+            <div class="meta">
+              ${new Date(post.published_at || post.created_at).toLocaleDateString()}
+              ${post.author ? ` • ${this.escapeHtml(post.author)}` : ''}
+            </div>
+          </a>
+        </div>
       `).join('')
     }
   </div>
@@ -380,6 +386,12 @@ export default class BlogsAgent extends BaseAgent {
     // Auto-highlight code blocks when page loads
     if (typeof hljs !== 'undefined') {
       hljs.highlightAll();
+    }
+    if (typeof GridStack !== 'undefined') {
+      const el = document.getElementById('posts-grid');
+      if (el) {
+        GridStack.init({ staticGrid: true, disableDrag: true, disableResize: true, margin: 12, cellHeight: 'auto' }, el);
+      }
     }
   </script>
 </body>
@@ -421,7 +433,8 @@ export default class BlogsAgent extends BaseAgent {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       min-height: 100vh;
@@ -708,8 +721,9 @@ export default class BlogsAgent extends BaseAgent {
   <title>Blog Admin - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
 
     body {
       min-height: 100vh;
@@ -1032,7 +1046,8 @@ export default class BlogsAgent extends BaseAgent {
   <title>Blog Admin Login - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       min-height: 100vh;
@@ -1581,7 +1596,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
     
     body {
       height: 100vh;

@@ -39,7 +39,7 @@ Providers are configured in your Ronin config file under the `ai.providers` sect
       "anthropic": {
         "enabled": false,
         "apiKey": "${ANTHROPIC_API_KEY}",
-        "model": "claude-3-5-sonnet-20241022",
+        "model": "claude-3-5-sonnet-latest",
         "timeout": 30000
       },
       "lmstudio": {
@@ -252,7 +252,7 @@ Ronin maintains full backward compatibility with existing Ollama configurations.
     "providers": {
       "anthropic": {
         "enabled": true,
-        "model": "claude-3-5-sonnet-20241022"
+        "model": "claude-3-5-sonnet-latest"
       }
     }
   }

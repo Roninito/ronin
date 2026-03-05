@@ -14,6 +14,8 @@ import {
 import { resolve, basename } from "path";
 import {
   roninTheme,
+  dramTheme,
+  getSharedUIPrimitivesCSS,
   getAdobeCleanFontFaceCSS,
   getThemeCSS,
   getHeaderBarCSS,
@@ -944,8 +946,9 @@ Respond with a JSON object containing:
   <title>Schedule Manager - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(roninTheme)}
-    ${getHeaderBarCSS(roninTheme)}
+    ${getThemeCSS(dramTheme)}
+    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getHeaderBarCSS(dramTheme)}
     
     body {
       padding: 0;

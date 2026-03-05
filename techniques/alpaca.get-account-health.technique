@@ -1,0 +1,44 @@
+technique alpaca.get-account-health v1
+  description Fetch Alpaca account health and recent equity curve
+  category finance
+  tags ["alpaca", "portfolio", "health"]
+  type composite
+  requires tool alpaca_getAccount
+  requires tool alpaca_getPortfolioHistory
+
+  input {
+    period: string
+      description Portfolio history period (1D, 1W, 1M, 3M, 6M, 1A)
+      required false
+      default "1M"
+    timeframe: string
+      description Portfolio history timeframe (1D, 1H)
+      required false
+      default "1D"
+  }
+
+  output {
+    account: object
+      description Account status and balances
+    history: object
+      description Equity and profit/loss timeseries
+  }
+
+  step fetch-account
+    description Get account summary from Alpaca
+    run tool alpaca_getAccount
+    output account
+
+  step fetch-history
+    description Get portfolio equity history
+    run tool alpaca_getPortfolioHistory
+    with {
+      period: input.period,
+      timeframe: input.timeframe
+    }
+    output history
+
+  return {
+    account: account,
+    history: history
+  }

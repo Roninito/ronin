@@ -10,8 +10,58 @@ import type { MCPConfig, MCPServerConfig } from "../../config/types.js";
 import { homedir } from "os";
 import { join } from "path";
 
+type RemoteMCPProvider = "playbooks.com";
+
 function getConfigPath(): string {
   return join(homedir(), ".ronin", "config.json");
+}
+
+function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+function parsePlaybooksMcpLinks(markdown: string): Array<{ owner: string; repo: string }> {
+  const out: Array<{ owner: string; repo: string }> = [];
+  const re = /\]\(\/mcp\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(markdown)) !== null) {
+    out.push({ owner: m[1], repo: m[2] });
+  }
+  return out;
+}
+
+function getRemoteMcpProviders(system: { skillProviders?: string[] }): RemoteMCPProvider[] {
+  const providers = Array.isArray(system?.skillProviders) ? system.skillProviders : [];
+  const normalized = providers.map((v) => String(v).toLowerCase());
+  return normalized.includes("playbooks.com") || normalized.includes("playbooks")
+    ? ["playbooks.com"]
+    : [];
+}
+
+async function discoverPlaybooksMcp(query: string): Promise<Array<{ name: string; repo: string; source: string }>> {
+  const url = `https://playbooks.com/mcp?search=${encodeURIComponent(query)}`;
+  try {
+    const res = await fetchWithTimeout(url, 10000);
+    if (!res.ok) return [];
+    const text = await res.text();
+    const unique = new Set<string>();
+    const out: Array<{ name: string; repo: string; source: string }> = [];
+    for (const item of parsePlaybooksMcpLinks(text)) {
+      const key = `${item.owner}/${item.repo}`.toLowerCase();
+      if (unique.has(key)) continue;
+      unique.add(key);
+      out.push({
+        name: item.repo,
+        repo: `${item.owner}/${item.repo}`,
+        source: "playbooks.com",
+      });
+    }
+    return out.slice(0, 40);
+  } catch {
+    return [];
+  }
 }
 
 async function loadFullConfig(): Promise<Record<string, unknown>> {
@@ -65,7 +115,8 @@ export async function mcpListCommand(): Promise<void> {
   }
 }
 
-export async function mcpDiscoverCommand(): Promise<void> {
+export async function mcpDiscoverCommand(options?: { query?: string; forceRemote?: boolean }): Promise<void> {
+  const query = options?.query?.trim() ?? "";
   console.log("\n📋 Known MCP Servers (add with: ronin mcp add <name> [options])\n");
   console.log("   Name          | Package                                 | Description");
   console.log("   --------------|-----------------------------------------|---------------------------");
@@ -82,6 +133,25 @@ export async function mcpDiscoverCommand(): Promise<void> {
   console.log("     ronin mcp add brave-search  # requires BRAVE_API_KEY in env");
   console.log("     ronin mcp add sqlite --path /path/to/db.sqlite");
   console.log("     ronin mcp add custom --command npx --args '[\"-y\",\"@org/my-server\"]'");
+
+  const configService = getConfigService();
+  await configService.load();
+  const system = configService.getSystem();
+  const includeRemote = options?.forceRemote ?? (system.includeRemoteSkillsOnDiscover !== false);
+  const remoteProviders = includeRemote ? getRemoteMcpProviders(system) : [];
+  if (remoteProviders.includes("playbooks.com")) {
+    const remoteResults = await discoverPlaybooksMcp(query);
+    if (remoteResults.length > 0) {
+      console.log("\n🌐 Remote MCP (playbooks.com)\n");
+      for (const item of remoteResults.slice(0, 20)) {
+        console.log(`   ${item.name}`);
+        console.log(`      Repo: ${item.repo}`);
+        console.log(`      Source: ${item.source}`);
+      }
+      console.log("\n   Install hint:");
+      console.log("     ronin mcp add custom --command npx --args '[\"-y\",\"<mcp-package>\"]'");
+    }
+  }
 }
 
 export async function mcpAddCommand(
@@ -98,13 +168,21 @@ export async function mcpAddCommand(
 
   if (known) {
     if (name === "filesystem") {
-      const dir = options.path ?? homedir();
+      const defaultDirs = [
+        join(homedir(), ".ronin"),
+        join(homedir(), ".ronin", "logs"),
+        process.cwd(),
+      ];
+      const dirs = options.path
+        ? [options.path, ...defaultDirs]
+        : defaultDirs;
+      const uniqueDirs = Array.from(new Set(dirs));
       servers[name] = {
         command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-filesystem", dir],
+        args: ["-y", "@modelcontextprotocol/server-filesystem", ...uniqueDirs],
         enabled: true,
       };
-      console.log(`✅ Added filesystem server (path: ${dir})`);
+      console.log(`✅ Added filesystem server (paths: ${uniqueDirs.join(", ")})`);
     } else if (name === "github") {
       servers[name] = {
         command: "npx",
@@ -251,7 +329,10 @@ export async function mcpCommand(args: string[]): Promise<void> {
       await mcpListCommand();
       break;
     case "discover":
-      await mcpDiscoverCommand();
+      await mcpDiscoverCommand({
+        query: rest.filter((a) => !a.startsWith("--")).join(" ").trim(),
+        forceRemote: rest.includes("--remote") ? true : (rest.includes("--no-remote") ? false : undefined),
+      });
       break;
     case "add": {
       const name = rest[0];
@@ -312,7 +393,7 @@ Usage: ronin mcp <command> [options]
 
 Commands:
   list                  List configured servers with status (enabled/disabled)
-  discover              Show built-in known servers you can add
+  discover [query]      Show built-in known servers; includes remote playbooks MCP listings when enabled
   add <name> [options]  Add server from known list or custom
   enable <name>         Set enabled: true
   disable <name>        Set enabled: false
@@ -328,6 +409,7 @@ Add options (for custom):
 
 Examples:
   ronin mcp discover
+  ronin mcp discover github --remote
   ronin mcp add filesystem --path /Users/me/Documents
   ronin mcp add github
   ronin mcp add custom --command npx --args '["-y","@org/my-mcp-server"]'

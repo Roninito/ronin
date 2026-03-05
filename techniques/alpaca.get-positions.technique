@@ -3,7 +3,7 @@ technique alpaca.get-positions v1
   category finance
   tags ["alpaca", "portfolio", "positions", "trading"]
   type composite
-  requires plugin alpaca
+  requires tool alpaca
 
   input {
     mode: string
@@ -23,12 +23,12 @@ technique alpaca.get-positions v1
 
   step fetch
     description Fetch open positions from Alpaca API
-    run plugin alpaca.getPositions
+    run tool alpaca.getPositions
     output raw
 
   step check
     description Get account status to confirm connection
-    run plugin alpaca.getConfig
+    run tool alpaca.getConfig
     output status
 
   return {

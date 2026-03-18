@@ -57,6 +57,7 @@ export default class EventMonitorAgent extends BaseAgent {
 
   // Sampling counters per event type
   private eventCounters: Map<string, { count: number; lastReset: number }> = new Map();
+  private lastHomeFeedEmitAt = 0;
 
   // Schedule: Run cleanup every hour
   static schedule = "0 * * * *";
@@ -67,6 +68,25 @@ export default class EventMonitorAgent extends BaseAgent {
     this.registerEventHandlers();
     this.registerRoutes();
     console.log("📊 Event Monitor ready. Timeline available at /timeline");
+    this.emitHomeFeed("Ready", "Timeline monitor online");
+    setTimeout(() => this.emitHomeFeed("Ready", "Timeline monitor online"), 3000);
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 84): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 10_000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "event-monitor",
+        title: "Event Monitor",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Event Monitor</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "event-monitor"
+    );
   }
 
   /**
@@ -236,6 +256,14 @@ export default class EventMonitorAgent extends BaseAgent {
    */
   async execute(): Promise<void> {
     await this.cleanupOldEvents();
+    const meta = (await this.api.memory.retrieve("event_monitor_meta")) as {
+      totalCount?: number;
+      samplingActive?: string[];
+    } || {};
+    this.emitHomeFeed(
+      "Running",
+      `Events: ${meta.totalCount ?? 0} · sampled types: ${(meta.samplingActive || []).length}`
+    );
   }
 
   /**
@@ -481,7 +509,7 @@ export default class EventMonitorAgent extends BaseAgent {
     }
 
     .event-timestamp {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.75rem;
       color: ${dramTheme.colors.textTertiary};
     }
@@ -515,7 +543,7 @@ export default class EventMonitorAgent extends BaseAgent {
       background: ${dramTheme.colors.background};
       border: 1px solid ${dramTheme.colors.border};
       border-radius: ${dramTheme.borderRadius.sm};
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.75rem;
       color: ${dramTheme.colors.textSecondary};
       white-space: pre-wrap;

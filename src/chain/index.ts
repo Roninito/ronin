@@ -1,14 +1,2 @@
-export { Chain } from "./Chain.js";
-export type {
-  ChainContext,
-  ChainMessage,
-  TokenBudget,
-  OntologyState,
-} from "./types.js";
-export {
-  serialize,
-  rehydrate,
-  persistChain,
-  loadChain,
-} from "./persistence.js";
-export type { SerializedChainState } from "./persistence.js";
+// Moved to @ronin/sar — re-exported for backward compatibility
+export * from "@ronin/sar/chain";

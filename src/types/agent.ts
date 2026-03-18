@@ -32,12 +32,12 @@ export interface AgentConstructor {
   description?: string;
   
   /**
-   * Optional: Cron schedule expression (e.g., "0 */6 * * *")
+   * Optional: Cron schedule expression, for example one that runs every 6 hours.
    */
   schedule?: string;
   
   /**
-   * Optional: File patterns to watch (e.g., ["**/*.log", "data/**/*.json"])
+   * Optional: File patterns to watch, for example log files or JSON data files.
    */
   watch?: string[];
   
@@ -59,4 +59,3 @@ export interface AgentMetadata {
   webhook?: string;
   instance: Agent;
 }
-

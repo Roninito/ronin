@@ -411,6 +411,20 @@ function fmtDuration(ms?: number): string {
   return `${(ms / 60000).toFixed(1)}m`;
 }
 
+function buildSparklinePath(values: number[], width = 260, height = 70): string {
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * width;
+      const y = height - ((v - min) / range) * height;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
 // ─── Agent ──────────────────────────────────────────────────────────────────
 
 /**
@@ -428,14 +442,68 @@ function fmtDuration(ms?: number): string {
  * Data is read from portfolio-vault/ when present; otherwise demo data is used.
  */
 export default class PortfolioAgent extends BaseAgent {
+  static schedule = "*/5 * * * *";
+  private lastHomeFeedEmitAt = 0;
+
   constructor(api: AgentAPI) {
     super(api);
     this.registerRoutes();
     console.log("📊 Portfolio dashboard agent ready");
+    this.emitHomeFeed("Ready", "Portfolio routes online");
+    setTimeout(() => this.emitHomeFeed("Ready", "Portfolio routes online"), 3000);
   }
 
   async execute(): Promise<void> {
-    // no-op: this agent is purely HTTP-driven
+    const status = await alpacaStatus(this.api);
+    const [stats, positions] = await Promise.all([this.loadStats(), this.loadPositions()]);
+    this.emitPortfolioTotalsFeed(status, stats, positions);
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 82, htmlOverride?: string): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 5000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "portfolio",
+        title: "Portfolio",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: htmlOverride ?? `<div><strong>Portfolio</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "portfolio"
+    );
+  }
+
+  private emitPortfolioTotalsFeed(
+    status: { connected: boolean; mode: string },
+    stats: PortfolioStats | null,
+    positions: Position[]
+  ): void {
+    const totalExposure = positions.reduce((sum, p) => sum + p.value, 0);
+    const totalUnrealizedPnl = positions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+    const totalShares = positions.reduce((sum, p) => sum + p.qty, 0);
+    const mode = (status.mode || "paper").toUpperCase();
+    const dayChange = stats?.dayChange ?? 0;
+    const daySign = dayChange >= 0 ? "+" : "";
+    const dayColor = dayChange >= 0 ? roninTheme.colors.success : roninTheme.colors.error;
+    const pnlColor = totalUnrealizedPnl >= 0 ? roninTheme.colors.success : roninTheme.colors.error;
+    const card = `<div style="font-size:12px;line-height:1.35;color:${roninTheme.colors.textSecondary}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <strong style="font-size:13px;color:${roninTheme.colors.textPrimary}">Portfolio</strong>
+        <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:${status.connected ? "rgba(40,167,69,0.18)" : "rgba(220,53,69,0.18)"};color:${status.connected ? roninTheme.colors.success : roninTheme.colors.error};border:1px solid ${status.connected ? "rgba(40,167,69,0.35)" : "rgba(220,53,69,0.35)"}">${status.connected ? "Connected" : "Disconnected"}</span>
+      </div>
+      <div style="color:${roninTheme.colors.textTertiary};font-size:10px;margin-top:2px">${mode}</div>
+      <div style="margin-top:6px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px">
+        <span style="color:${roninTheme.colors.textTertiary}">Total</span><span style="color:${roninTheme.colors.textPrimary}">${fmtCurrency(stats?.totalValue ?? 0)}</span>
+        <span style="color:${roninTheme.colors.textTertiary}">Day</span><span style="color:${dayColor}">${daySign}${fmtCurrency(dayChange)}</span>
+        <span style="color:${roninTheme.colors.textTertiary}">Exposure</span><span>${fmtCurrency(totalExposure)}</span>
+        <span style="color:${roninTheme.colors.textTertiary}">UPNL</span><span style="color:${pnlColor}">${totalUnrealizedPnl >= 0 ? "+" : ""}${fmtCurrency(totalUnrealizedPnl)}</span>
+        <span style="color:${roninTheme.colors.textTertiary}">Shares</span><span>${totalShares.toFixed(2)}</span>
+      </div>
+    </div>`;
+    this.emitHomeFeed(status.connected ? "Connected" : "Disconnected", `Mode: ${mode}`, 82, card);
   }
 
   // ── Route registration ────────────────────────────────────────────────────
@@ -840,6 +908,7 @@ export default class PortfolioAgent extends BaseAgent {
         { approved: true, source: "portfolio-ui", approvedAt: new Date().toISOString(), ...payload },
         "portfolio"
       );
+      this.emitHomeFeed("Approval emitted", "portfolio.trading.approved event sent", 86);
       return Response.json({ ok: true, event: "portfolio.trading.approved" });
     } catch (e) {
       return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
@@ -855,6 +924,7 @@ export default class PortfolioAgent extends BaseAgent {
       this.loadPositions(),
       this.loadTrades(),
     ]);
+    this.emitPortfolioTotalsFeed(status, stats, positions);
 
     const modeBadge = status.connected
       ? status.mode === "live"
@@ -906,6 +976,19 @@ export default class PortfolioAgent extends BaseAgent {
     const daySign = dayChange >= 0 ? "+" : "";
     const winRate = stats?.winRate ?? 0;
     const totalTrades = stats?.totalTrades ?? 0;
+    const totalExposure = positions.reduce((sum, p) => sum + p.value, 0);
+    const totalUnrealizedPnl = positions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+    const totalShares = positions.reduce((sum, p) => sum + p.qty, 0);
+    const avgPositionSize = positions.length > 0 ? totalExposure / positions.length : 0;
+    const recentTradePrices = trades
+      .slice(0, 12)
+      .map((t) => t.price)
+      .filter((p) => Number.isFinite(p) && p > 0)
+      .reverse();
+    const sparklinePath = buildSparklinePath(recentTradePrices);
+    const recentLow = recentTradePrices.length > 0 ? Math.min(...recentTradePrices) : 0;
+    const recentHigh = recentTradePrices.length > 0 ? Math.max(...recentTradePrices) : 0;
+    const pnlSign = totalUnrealizedPnl >= 0 ? "+" : "";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -949,6 +1032,33 @@ export default class PortfolioAgent extends BaseAgent {
       <div class="stat-card">
         <div class="label">Total Trades</div>
         <div class="value">${stats ? totalTrades : "—"}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Portfolio Snapshot</div>
+      <div class="charts-grid">
+        <div class="chart-box">
+          <h3>Recent Trade Price Trend</h3>
+          ${sparklinePath
+            ? `<svg viewBox="0 0 260 70" width="100%" height="90" style="display:block">
+                 <path d="${sparklinePath}" fill="none" stroke="${roninTheme.colors.link}" stroke-width="2.5" />
+               </svg>
+               <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:${roninTheme.colors.textTertiary}">
+                 <span>Low ${fmtCurrency(recentLow, 2)}</span>
+                 <span>High ${fmtCurrency(recentHigh, 2)}</span>
+               </div>`
+            : `<div class="empty-state" style="padding:1rem 0">Not enough trade data to chart</div>`}
+        </div>
+        <div class="chart-box">
+          <h3>Totals</h3>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:0.45rem 1rem;font-size:0.8125rem;color:${roninTheme.colors.textSecondary}">
+            <div>Position Exposure</div><div>${fmtCurrency(totalExposure)}</div>
+            <div>Unrealized P&amp;L</div><div class="${totalUnrealizedPnl >= 0 ? "positive" : "negative"}">${pnlSign}${fmtCurrency(totalUnrealizedPnl)}</div>
+            <div>Average Position Size</div><div>${fmtCurrency(avgPositionSize)}</div>
+            <div>Total Shares</div><div>${totalShares.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
     </div>
 

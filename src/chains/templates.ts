@@ -1,17 +1,20 @@
 /**
- * Middleware Templates
+ * Middleware Templates (Ronin-enhanced)
  *
- * Pre-configured middleware stacks for common SAR patterns.
- * Use these instead of manually building middleware stacks.
+ * These templates extend the @ronin/sar base templates with Ronin-specific middleware:
+ * - modelResolution (Ronin model registry)
+ * - ontologyResolve (Ronin ontology resolution)
+ *
+ * For portable templates without Ronin-specific deps, use @ronin/sar directly.
  *
  * Three templates:
- * - quickSAR: Fast, minimal overhead (logging + trim + tokens + tools)
- * - standardSAR: Recommended for most agents (+ ontology)
- * - smartSAR: Full-featured for complex workflows (+ persist, phase reset)
+ * - quickSAR: Fast, minimal overhead (logging + modelResolution + trim + tokens + tools)
+ * - standardSAR: Recommended (+ ontologyResolve + ontologyInject)
+ * - smartSAR: Full-featured (+ persist + phaseReset)
  */
 
-import type { Middleware } from "../middleware/MiddlewareStack.js";
 import { MiddlewareStack } from "../middleware/MiddlewareStack.js";
+import type { Middleware } from "../middleware/MiddlewareStack.js";
 import {
   createChainLoggingMiddleware,
   createSmartTrimMiddleware,
@@ -29,12 +32,12 @@ import { Executor } from "../executor/Executor.js";
 import type { AgentAPI } from "../types/index.js";
 import type { ChainContext } from "../chain/types.js";
 
-/**
- * Template configuration options
- */
+// Re-export package types + utilities
+export type { TemplateOptions } from "@ronin/sar";
+export { CustomSARBuilder, createSARChain } from "@ronin/sar";
+
 export interface TemplateOptions {
   maxTokens?: number;
-  tokenBudget?: number;
   logLevel?: "debug" | "info" | "warn" | "error";
   ontologyMaxNodes?: number;
   enablePersistence?: boolean;
@@ -42,412 +45,94 @@ export interface TemplateOptions {
 }
 
 /**
- * Quick SAR Template
- * 
- * Fast, minimal overhead for simple tool calls
- * Stack: logging → trim → tokens → tools
- * 
- * Use when:
- * - Simple single-step tool calls
- * - Performance is critical
- * - Ontology not needed
- * - Single-turn interactions
- * 
- * Performance: ~0.5s latency, 50MB memory
+ * Quick SAR — fast, minimal overhead.
+ * Stack: logging → modelResolution → trim → tokenGuard → tools
  */
-export function quickSAR(options: TemplateOptions = {}): MiddlewareStack {
-  const stack = new MiddlewareStack();
+export function quickSAR(options: TemplateOptions = {}): MiddlewareStack<ChainContext> {
+  const stack = new MiddlewareStack<ChainContext>();
 
-  stack.use(
-    createChainLoggingMiddleware({
-      level: options.logLevel || "info",
-    })
-  );
-
-  // Resolve model selection
+  stack.use(createChainLoggingMiddleware({ level: options.logLevel ?? "info" }));
   stack.use(modelResolution);
-
-  stack.use(
-    createSmartTrimMiddleware({
-      maxLines: 30,
-    })
-  );
-
-  stack.use(
-    createTokenGuardMiddleware({
-      maxTokens: options.maxTokens || 8000,
-    })
-  );
-
-  stack.use(
-    createAiToolMiddleware({
-      maxIterations: 3,
-    })
-  );
+  stack.use(createSmartTrimMiddleware({ recentCount: 30 }));
+  stack.use(createTokenGuardMiddleware({ maxTokens: options.maxTokens ?? 8000 }));
+  stack.use(createAiToolMiddleware({ maxIterations: 3 }));
 
   return stack;
 }
 
 /**
- * Standard SAR Template (RECOMMENDED)
- * 
- * Balanced approach for most agents
- * Stack: logging → ontology resolve → ontology inject → trim → tokens → tools
- * 
- * Use when:
- * - Most agents should use this
- * - Need ontology context
- * - Balanced performance/features
- * - Want structured knowledge integration
- * - Multi-turn conversations
- * 
- * Performance: ~1.2s latency, 80MB memory
+ * Standard SAR — recommended for most Ronin agents.
+ * Stack: logging → modelResolution → ontologyResolve → ontologyInject → trim → tokenGuard → executionTracking → tools
  */
-export function standardSAR(options: TemplateOptions = {}): MiddlewareStack {
-  const stack = new MiddlewareStack();
+export function standardSAR(options: TemplateOptions = {}): MiddlewareStack<ChainContext> {
+  const stack = new MiddlewareStack<ChainContext>();
 
-  stack.use(
-    createChainLoggingMiddleware({
-      level: options.logLevel || "info",
-    })
-  );
-
-  // Resolve model selection
+  stack.use(createChainLoggingMiddleware({ level: options.logLevel ?? "info" }));
   stack.use(modelResolution);
-
-  // Resolve ontology references first
-  stack.use(
-    createOntologyResolveMiddleware({
-      maxDepth: 2,
-    })
-  );
-
-  // Then inject ontology context
-  stack.use(
-    createOntologyInjectMiddleware({
-      maxNodes: options.ontologyMaxNodes || 10,
-    })
-  );
-
-  // Smart trimming for context management
-  stack.use(
-    createSmartTrimMiddleware({
-      maxLines: 50,
-      keepRecentMessages: 5,
-    })
-  );
-
-  // Enforce token budget
-  stack.use(
-    createTokenGuardMiddleware({
-      maxTokens: options.maxTokens || 12000,
-    })
-  );
-
-  // Track execution visibility (shell commands, skills, tools)
+  stack.use(createOntologyResolveMiddleware());
+  stack.use(createOntologyInjectMiddleware());
+  stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
+  stack.use(createTokenGuardMiddleware({ maxTokens: options.maxTokens ?? 12000 }));
   stack.use(createExecutionTrackingMiddleware());
-
-  // Execute tools via AI
-  stack.use(
-    createAiToolMiddleware({
-      maxIterations: 5,
-    })
-  );
+  stack.use(createAiToolMiddleware({ maxIterations: 5 }));
 
   return stack;
 }
 
 /**
- * Smart SAR Template
- * 
- * Full-featured for complex workflows
- * Stack: logging → ontology resolve → ontology inject → trim → tokens → tools → persist → phase reset
- * 
- * Use when:
- * - Complex multi-turn conversations
- * - Need state persistence
- * - Long-running agents
- * - Complex decision making needed
- * - Need to reset between phases
- * 
- * Performance: ~2.5s latency, 150MB memory
+ * Smart SAR — full-featured for complex workflows.
+ * Stack: logging → modelResolution → ontologyResolve → ontologyInject → trim → tokenGuard → tools
+ *        → executionTracking → [persist] → [phaseReset]
  */
-export function smartSAR(options: TemplateOptions = {}): MiddlewareStack {
-  const stack = new MiddlewareStack();
+export function smartSAR(
+  options: TemplateOptions & {
+    persistence?: { api: AgentAPI; chainId: string | ((ctx: ChainContext) => string) };
+  } = {}
+): MiddlewareStack<ChainContext> {
+  const stack = new MiddlewareStack<ChainContext>();
 
-  stack.use(
-    createChainLoggingMiddleware({
-      level: options.logLevel || "debug",
-    })
-  );
-
-  // Resolve model selection
+  stack.use(createChainLoggingMiddleware({ level: options.logLevel ?? "debug" }));
   stack.use(modelResolution);
-
-  // Resolve ontology references
-  stack.use(
-    createOntologyResolveMiddleware({
-      maxDepth: 3,
-    })
-  );
-
-  // Inject rich ontology context
-  stack.use(
-    createOntologyInjectMiddleware({
-      maxNodes: options.ontologyMaxNodes || 20,
-    })
-  );
-
-  // Intelligent context trimming
-  stack.use(
-    createSmartTrimMiddleware({
-      maxLines: 100,
-      keepRecentMessages: 10,
-    })
-  );
-
-  // Strict token budget enforcement
-  stack.use(
-    createTokenGuardMiddleware({
-      maxTokens: options.maxTokens || 16000,
-    })
-  );
-
-  // Tool execution with higher iteration limit
-  stack.use(
-    createAiToolMiddleware({
-      maxIterations: 10,
-    })
-  );
-
-  // Track execution visibility (shell commands, skills, tools)
+  stack.use(createOntologyResolveMiddleware());
+  stack.use(createOntologyInjectMiddleware());
+  stack.use(createSmartTrimMiddleware({ recentCount: 100 }));
+  stack.use(createTokenGuardMiddleware({ maxTokens: options.maxTokens ?? 16000 }));
+  stack.use(createAiToolMiddleware({ maxIterations: 10 }));
   stack.use(createExecutionTrackingMiddleware());
 
-  // Persist chain state
-  if (options.enablePersistence !== false) {
-    stack.use(
-      createPersistChainMiddleware({
-        storageKey: "chain-state",
-      })
-    );
+  if (options.enablePersistence !== false && options.persistence) {
+    stack.use(createPersistChainMiddleware(options.persistence));
   }
 
-  // Reset between phases if enabled
   if (options.enablePhaseReset) {
-    stack.use(
-      createPhaseResetMiddleware({
-        resetOnPhaseChange: true,
-      })
-    );
+    stack.use(createPhaseResetMiddleware());
   }
 
   return stack;
 }
 
 /**
- * Custom SAR Template Builder
- * 
- * For advanced use cases where you need custom middleware composition
- */
-export class CustomSARBuilder {
-  private middlewares: Array<() => Middleware> = [];
-
-  /**
-   * Add logging middleware
-   */
-  withLogging(level: "debug" | "info" | "warn" | "error" = "info"): this {
-    this.middlewares.push(() =>
-      createChainLoggingMiddleware({ level })
-    );
-    return this;
-  }
-
-  /**
-   * Add ontology resolution
-   */
-  withOntologyResolve(maxDepth: number = 2): this {
-    this.middlewares.push(() =>
-      createOntologyResolveMiddleware({ maxDepth })
-    );
-    return this;
-  }
-
-  /**
-   * Add ontology injection
-   */
-  withOntologyInject(maxNodes: number = 10): this {
-    this.middlewares.push(() =>
-      createOntologyInjectMiddleware({ maxNodes })
-    );
-    return this;
-  }
-
-  /**
-   * Add smart trimming
-   */
-  withSmartTrim(maxLines: number = 50, keepRecent: number = 5): this {
-    this.middlewares.push(() =>
-      createSmartTrimMiddleware({
-        maxLines,
-        keepRecentMessages: keepRecent,
-      })
-    );
-    return this;
-  }
-
-  /**
-   * Add token guard
-   */
-  withTokenGuard(maxTokens: number = 12000): this {
-    this.middlewares.push(() =>
-      createTokenGuardMiddleware({ maxTokens })
-    );
-    return this;
-  }
-
-  /**
-   * Add AI tool middleware
-   */
-  withToolExecution(maxIterations: number = 5): this {
-    this.middlewares.push(() =>
-      createAiToolMiddleware({ maxIterations })
-    );
-    return this;
-  }
-
-  /**
-   * Add persistence
-   */
-  withPersistence(storageKey: string = "chain-state"): this {
-    this.middlewares.push(() =>
-      createPersistChainMiddleware({ storageKey })
-    );
-    return this;
-  }
-
-  /**
-   * Add phase reset
-   */
-  withPhaseReset(): this {
-    this.middlewares.push(() =>
-      createPhaseResetMiddleware({ resetOnPhaseChange: true })
-    );
-    return this;
-  }
-
-  /**
-   * Build the middleware stack
-   */
-  build(): MiddlewareStack {
-    const stack = new MiddlewareStack();
-    for (const middlewareFactory of this.middlewares) {
-      stack.use(middlewareFactory());
-    }
-    return stack;
-  }
-}
-
-/**
- * Helper to get template by name
- */
-export function getTemplate(
-  name: "quick" | "standard" | "smart",
-  options?: TemplateOptions
-): MiddlewareStack {
-  switch (name) {
-    case "quick":
-      return quickSAR(options);
-    case "standard":
-      return standardSAR(options);
-    case "smart":
-      return smartSAR(options);
-    default:
-      throw new Error(`Unknown template: ${name}`);
-  }
-}
-
-/**
- * Creates a Chain with a middleware template applied.
- *
- * This is a helper function that:
- * 1. Creates an Executor
- * 2. Gets the middleware stack from a template (or uses provided stack)
- * 3. Creates a Chain with both
- * 4. Optionally attaches context
- *
- * @param template - Template name ("quick" | "standard" | "smart") or a MiddlewareStack instance
- * @param api - AgentAPI instance for creating the Executor
- * @param ctx - Optional ChainContext to attach to the chain
- * @param options - Template options (only used if template is a string)
- * @returns A Chain ready to run
- *
- * @example
- * // Using a template name (recommended)
- * const chain = useMiddlewareStack("standard", api, ctx, { maxTokens: 8192 });
- * await chain.run();
- *
- * @example
- * // Using a MiddlewareStack instance
- * const stack = standardSAR({ maxTokens: 8192 });
- * const chain = useMiddlewareStack(stack, api, ctx);
- * await chain.run();
+ * Helper: create a Chain with a template or stack already wired up.
  */
 export function useMiddlewareStack(
-  template: "quick" | "standard" | "smart" | MiddlewareStack,
+  template: "quick" | "standard" | "smart" | MiddlewareStack<ChainContext>,
   api: AgentAPI,
   ctx?: ChainContext,
   options?: TemplateOptions
 ): Chain {
   const executor = new Executor(api);
-  const stack = typeof template === "string"
-    ? getTemplate(template, options)
-    : template;
-  const chain = new Chain(executor, stack);
-  if (ctx) {
-    chain.withContext(ctx);
+  let stack: MiddlewareStack<ChainContext>;
+  if (typeof template === "string") {
+    switch (template) {
+      case "quick":    stack = quickSAR(options); break;
+      case "standard": stack = standardSAR(options); break;
+      case "smart":    stack = smartSAR(options); break;
+      default:         throw new Error(`Unknown template: ${template}`);
+    }
+  } else {
+    stack = template;
   }
+  const chain = new Chain(executor, stack);
+  if (ctx) chain.withContext(ctx);
   return chain;
 }
-
-/**
- * Recommended defaults
- */
-export const TemplateDefaults = {
-  quick: {
-    maxTokens: 8000,
-    logLevel: "info" as const,
-  },
-  standard: {
-    maxTokens: 12000,
-    logLevel: "info" as const,
-    ontologyMaxNodes: 10,
-  },
-  smart: {
-    maxTokens: 16000,
-    logLevel: "debug" as const,
-    ontologyMaxNodes: 20,
-    enablePersistence: true,
-  },
-};
-
-/**
- * Example usage:
- * 
- * // Use standard template (recommended for most agents)
- * const stack = standardSAR({ maxTokens: 12000 });
- * 
- * // Use quick template for performance-critical code
- * const stack = quickSAR();
- * 
- * // Use smart template for complex workflows
- * const stack = smartSAR({ enablePersistence: true });
- * 
- * // Custom template
- * const stack = new CustomSARBuilder()
- *   .withLogging("debug")
- *   .withOntologyInject(15)
- *   .withSmartTrim(75, 8)
- *   .withTokenGuard(14000)
- *   .withToolExecution(7)
- *   .build();
- */

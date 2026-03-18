@@ -26,6 +26,7 @@ await this.api.git?.status();
 - `api.langchain.*` - LangChain integration (runChain, runAgent, buildAgentCreationGraph, runAnalysisChain, buildResearchGraph)
 - `api.rag.*` - RAG (Retrieval-Augmented Generation) for document storage, embedding, and semantic search
 - `api.email.*` - Email management (addAccount, sendEmail, getInbox, replyToEmail, forwardEmail, deleteEmail, startMonitoring, etc.)
+- `api.oauth.*` - Web OAuth flows for Google/GitHub/Apple with persisted sessions
 
 **Benefits:**
 - ✅ Full TypeScript autocomplete and type checking
@@ -182,7 +183,7 @@ export default class MyAgent extends BaseAgent {
 
 ## Built-in Plugins
 
-Ronin includes 14 built-in plugins:
+Ronin includes 15 built-in plugins:
 
 1. **git** - Git operations
 2. **shell** - Shell command execution
@@ -198,6 +199,7 @@ Ronin includes 14 built-in plugins:
 12. **hyprland** - Hyprland window manager configuration
 13. **web-scraper** - Advanced web scraping (alias for scrape)
 14. **email** - Email management with IMAP/SMTP support
+15. **oauth** - Web OAuth sign-in flows and session persistence
 
 ### Torrent Plugin
 
@@ -757,4 +759,3 @@ export default hyprlandPlugin;
 - Ensure Ollama supports function calling
 - Check tool definitions are generated correctly
 - Verify plugin methods are callable
-

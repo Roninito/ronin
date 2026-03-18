@@ -159,6 +159,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const ontologyAPI = bindPluginAPI<"ontology">("ontology");
   const skillsAPI = bindPluginAPI<"skills">("skills");
   const emailAPI = bindPluginAPI<"email">("email");
+  const oauthAPI = bindPluginAPI<"oauth">("oauth");
   const pythonAPI = bindPluginAPI<"python">("python");
   const reticulumAPI = bindPluginAPI<"reticulum">("reticulum");
 
@@ -471,6 +472,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(ontologyAPI && { ontology: ontologyAPI }),
     ...(skillsAPI && { skills: skillsAPI }),
     ...(emailAPI && { email: emailAPI }),
+    ...(oauthAPI && { oauth: oauthAPI }),
     tools: {} as AgentAPI["tools"],
   };
 
@@ -487,10 +489,11 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   // (pluginTools are already passed to the AI in callTools; without this, execute would fail)
   registerPluginToolsWithRouter(api, pluginTools, toolsAPI);
 
-  // Skills plugin needs API reference for files, shell, config, events
-  const skillsPlugin = plugins.find(p => p.name === "skills");
-  if (skillsPlugin?.plugin?.methods?.setAPI) {
-    (skillsPlugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
+  // Give plugins that expose setAPI(api) access to full runtime API.
+  for (const plugin of plugins) {
+    if (plugin?.plugin?.methods?.setAPI) {
+      (plugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
+    }
   }
 
   return api;

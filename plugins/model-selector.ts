@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import type {
   ModelConfig,
   ModelRegistry,
@@ -27,6 +27,15 @@ function loadRegistryFromFile(path: string): ModelRegistry | null {
   } catch {
     return null;
   }
+}
+
+function getRepoRegistryPath(): string {
+  const projectRoot = process.env.RONIN_PROJECT_ROOT || process.cwd();
+  return join(projectRoot, ".ronin", "ai-models.json");
+}
+
+function getUserRegistryPath(): string {
+  return process.env.RONIN_AI_MODELS_PATH || join(homedir(), ".ronin", "ai-models.json");
 }
 
 /**
@@ -58,12 +67,11 @@ class ModelSelectorPlugin {
     }
 
     // Load repo defaults (if present)
-    const projectRoot = process.env.RONIN_PROJECT_ROOT || process.cwd();
-    const repoPath = join(projectRoot, ".ronin", "ai-models.json");
+    const repoPath = getRepoRegistryPath();
     const repoDefaults = loadRegistryFromFile(repoPath);
 
     // Load user overrides
-    const userPath = join(homedir(), ".ronin", "ai-models.json");
+    const userPath = getUserRegistryPath();
     const userOverrides = loadRegistryFromFile(userPath);
     if (userOverrides && (userOverrides as any).__fullOverride === true) {
       this.registryCache = userOverrides as ModelRegistry;
@@ -90,17 +98,23 @@ class ModelSelectorPlugin {
    * Save the model registry (to user config only)
    */
   async saveRegistry(registry: ModelRegistry): Promise<void> {
-    const userDir = join(homedir(), ".ronin");
+    const userPath = getUserRegistryPath();
+    const userDir = dirname(userPath);
     if (!existsSync(userDir)) {
       mkdirSync(userDir, { recursive: true });
     }
 
-    const userPath = join(userDir, "ai-models.json");
     const toSave = { ...registry, __fullOverride: true } as ModelRegistry & { __fullOverride: boolean };
     writeFileSync(userPath, JSON.stringify(toSave, null, 2));
 
     // Invalidate cache
     this.registryCache = null;
+    this.cacheTime = 0;
+  }
+
+  clearCache(): void {
+    this.registryCache = null;
+    this.cacheTime = 0;
   }
 
   /**
@@ -374,6 +388,7 @@ const modelSelectorPlugin = {
     getUsageStats: (nametag: string) => modelSelector.getUsageStats(nametag),
     selectBestModel: (options: ModelSelectionOptions) =>
       modelSelector.selectBestModel(options),
+    clearCache: () => modelSelector.clearCache(),
   },
 };
 

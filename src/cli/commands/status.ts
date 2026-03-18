@@ -1,5 +1,4 @@
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
-import { formatCronTable } from "../../utils/cron.js";
 
 export interface StatusOptions {
   agentDir?: string;
@@ -73,8 +72,6 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
         console.log(`   ${agent.name}`);
         if (agent.schedule) {
           console.log(`      ⏰ ${agent.schedule}`);
-          const table = formatCronTable(agent.schedule);
-          console.log(table.split('\n').map(line => `      ${line}`).join('\n'));
         }
         if (agent.watch && agent.watch.length > 0) {
           console.log(`      👁️  ${agent.watch.join(", ")}`);
@@ -101,4 +98,3 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
     process.exit(1);
   }
 }
-

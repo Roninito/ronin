@@ -990,7 +990,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       min-height: 100vh;
       background: ${roninTheme.colors.background};
       color: ${roninTheme.colors.textPrimary};
-      font-family: 'Inter', sans-serif;
+      font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif;
     }
 
     .login-container {
@@ -1165,7 +1165,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       margin: 0;
       background: ${roninTheme.colors.background};
       color: ${roninTheme.colors.textPrimary};
-      font-family: 'Inter', sans-serif;
+      font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif;
     }
 
     .container {
@@ -1223,29 +1223,55 @@ export default class ConfigEditorAgent extends BaseAgent {
     }
 
     .btn {
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      padding: 0.5rem 1rem;
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      min-height: 30px;
+      padding: 0.35rem 0.8rem;
       border-radius: ${roninTheme.borderRadius.md};
+      border: 1px solid #7c3aed;
+      background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
+      color: #f7f3ff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
       text-decoration: none;
-      display: inline-block;
+      transition: background 0.18s ease, border-color 0.18s ease;
     }
 
     .btn:hover {
-      background: ${roninTheme.colors.accentHover};
+      border-color: #9f67ff;
+      background: linear-gradient(180deg, #9d6dff 0%, #8950ff 100%);
     }
 
     .btn-secondary {
-      background: transparent;
+      border-color: ${roninTheme.colors.border};
+      background: linear-gradient(180deg, #171717 0%, #101010 100%);
       color: ${roninTheme.colors.textSecondary};
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     .btn-secondary:hover {
-      background: ${roninTheme.colors.backgroundSecondary};
+      border-color: ${roninTheme.colors.borderHover};
+      background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
       color: ${roninTheme.colors.textPrimary};
+    }
+
+    .btn-save {
+      border-color: #84cc16;
+      background: linear-gradient(180deg, #a3e635 0%, #84cc16 100%);
+      color: #061100;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 12px rgba(132, 204, 22, 0.28);
+    }
+
+    .btn-save:hover {
+      border-color: #bef264;
+      background: linear-gradient(180deg, #bef264 0%, #9bd92a 100%);
+      color: #051000;
     }
 
     .tabs {
@@ -1253,22 +1279,36 @@ export default class ConfigEditorAgent extends BaseAgent {
       gap: 0.5rem;
       margin-bottom: 0.75rem;
       border-bottom: 1px solid ${roninTheme.colors.border};
+      padding-bottom: 0.55rem;
+      flex-wrap: wrap;
     }
 
     .tab {
-      padding: 0.75rem 1.5rem;
-      background: transparent;
-      border: none;
+      min-height: 30px;
+      padding: 0.35rem 0.8rem;
+      background: linear-gradient(180deg, #171717 0%, #101010 100%);
+      border: 1px solid ${roninTheme.colors.border};
+      border-radius: ${roninTheme.borderRadius.md};
       color: ${roninTheme.colors.textSecondary};
       cursor: pointer;
-      font-size: 0.875rem;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      transition: background 0.18s ease, border-color 0.18s ease;
+    }
+
+    .tab:hover {
+      border-color: ${roninTheme.colors.borderHover};
+      color: ${roninTheme.colors.textPrimary};
+      background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
     }
 
     .tab.active {
-      color: ${roninTheme.colors.textPrimary};
-      border-bottom-color: ${roninTheme.colors.accent};
+      color: #f7f3ff;
+      border-color: #7c3aed;
+      background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
 
     .editor-container {
@@ -1408,7 +1448,7 @@ export default class ConfigEditorAgent extends BaseAgent {
       color: ${roninTheme.colors.textPrimary};
       padding: 0.75rem;
       border-radius: ${roninTheme.borderRadius.md};
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.875rem;
       resize: vertical;
       box-sizing: border-box;
@@ -1426,8 +1466,8 @@ export default class ConfigEditorAgent extends BaseAgent {
     <h1>⚙️ Config Editor</h1>
     <div class="header-actions">
       <button class="btn btn-secondary reset-all-btn" onclick="resetAll()">Reset all to default</button>
-      <button class="btn" onclick="saveConfig()">💾 Save Changes</button>
-      <button class="btn btn-secondary" onclick="showBackups()">📜 Backups</button>
+      <button class="btn btn-save" onclick="saveConfig()">⌁ Save Changes</button>
+      <button class="btn btn-secondary" onclick="showBackups()">≣ Backups</button>
       <button class="btn btn-secondary" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -1439,11 +1479,11 @@ export default class ConfigEditorAgent extends BaseAgent {
       </aside>
       <div class="editor-main">
         <div class="tabs">
-          <button class="tab active" onclick="switchTab('form', this)">📋 Form Mode</button>
-          <button class="tab" onclick="switchTab('shell', this)">🛡️ Shell Safe List</button>
-          <button class="tab" onclick="switchTab('dashnav', this)">🧭 DashNav</button>
-          <button class="tab" onclick="switchTab('providers', this)">🧩 Skill Providers</button>
-          <button class="tab" onclick="switchTab('json', this)">📝 JSON Mode</button>
+          <button class="tab active" onclick="switchTab('form', this)">☰ Form Mode</button>
+          <button class="tab" onclick="switchTab('shell', this)">⌇ Shell Safe List</button>
+          <button class="tab" onclick="switchTab('dashnav', this)">▦ DashNav</button>
+          <button class="tab" onclick="switchTab('providers', this)">◫ Skill Providers</button>
+          <button class="tab" onclick="switchTab('json', this)">{ } JSON Mode</button>
         </div>
     
         <div id="validationStatus"></div>

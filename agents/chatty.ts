@@ -40,6 +40,7 @@ export default class ChattyAgent extends BaseAgent {
   private chatCount = 0;
   private readonly maxToolIterations = 4;
   private readonly maxToolsPerIteration = 6;
+  private lastHomeFeedEmitAt = 0;
 
   private normalizeRequestedModel(model?: string): string | undefined {
     if (!model) return undefined;
@@ -71,6 +72,8 @@ export default class ChattyAgent extends BaseAgent {
     this.api.events.emit("agent.lifecycle", {
       agent: "chatty", status: "started", timestamp: Date.now(),
     }, "chatty");
+    this.emitHomeFeed("Ready", "Chat UI online");
+    setTimeout(() => this.emitHomeFeed("Ready", "Chat UI online"), 3000);
 
     console.log(`💬 Chatty agent ready. Local model: ${this.localModel}, Tool model: ${this.toolModel}`);
   }
@@ -230,6 +233,23 @@ export default class ChattyAgent extends BaseAgent {
     } catch (error) {
       console.warn("Could not verify model availability:", error);
     }
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 90): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 2000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "chatty",
+        title: "Chatty",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Chatty</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "chatty"
+    );
   }
 
   /**
@@ -790,6 +810,13 @@ export default class ChattyAgent extends BaseAgent {
       border-radius: ${dramTheme.borderRadius.sm};
       font-size: 0.78rem;
       padding: 0.8rem 0.9rem;
+      min-height: 2.6rem;
+      max-height: 12rem;
+      resize: none;
+      overflow-y: auto;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
     #send-button {
       font-size: 0.72rem;
@@ -827,7 +854,7 @@ export default class ChattyAgent extends BaseAgent {
       <div id="chat-history"></div>
       <div id="drop-zone">Drop files here to analyze</div>
       <div class="input-area">
-        <input type="text" id="message-input" placeholder="Ask Ronin..." />
+        <textarea id="message-input" rows="1" placeholder="Ask Ronin..."></textarea>
         <button id="send-button">Send</button>
       </div>
     </div>
@@ -1064,6 +1091,7 @@ export default class ChattyAgent extends BaseAgent {
       }
       
       input.value = '';
+      autoResizeInput();
       button.disabled = true;
       button.innerHTML = '<span class="loading"></span>';
       
@@ -1156,8 +1184,19 @@ export default class ChattyAgent extends BaseAgent {
     // Event listeners
     document.getElementById('new-chat-button').addEventListener('click', createNewChat);
     document.getElementById('send-button').addEventListener('click', sendMessage);
-    document.getElementById('message-input').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
+    const messageInput = document.getElementById('message-input');
+    function autoResizeInput() {
+      messageInput.style.height = 'auto';
+      const nextHeight = Math.min(messageInput.scrollHeight, 192);
+      messageInput.style.height = nextHeight + 'px';
+    }
+    messageInput.addEventListener('input', autoResizeInput);
+    autoResizeInput();
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
     
     // Keyboard shortcut for new chat
@@ -1358,6 +1397,7 @@ export default class ChattyAgent extends BaseAgent {
             assistantReply: assistantResponse.slice(0, 200),
             timestamp: Date.now(),
           }, "chatty");
+          chattyAgent.emitHomeFeed("Active", `Messages processed: ${chattyAgent.chatCount}`);
         },
       });
       
@@ -1396,6 +1436,7 @@ export default class ChattyAgent extends BaseAgent {
         request: "chat",
         description: "Chat completion",
       }, "chatty");
+      this.emitHomeFeed("Error", (error as Error).message.slice(0, 120), 92);
       console.error("Chat API error:", error);
       return Response.json(
         { error: (error as Error).message },

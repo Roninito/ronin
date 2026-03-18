@@ -69,8 +69,8 @@ export const roninTheme: RoninTheme = {
     warning: "#f59e0b",
   },
   fonts: {
-    primary: "'Adobe Clean', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    mono: "'JetBrains Mono', 'Courier New', monospace",
+    primary: "'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    mono: "'Agave', 'SFMono-Regular', Menlo, monospace",
   },
   spacing: {
     xs: "0.25rem",
@@ -114,8 +114,8 @@ export const dramVisualTokens = {
     error: "#ef4444",
   },
   fonts: {
-    sans: "'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace",
+    sans: "'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    mono: "'Agave', 'SFMono-Regular', Menlo, monospace",
   },
   spacing: {
     space1: "4px",
@@ -184,6 +184,38 @@ export function getThemeVariant(variant: ThemeVariant = "ronin"): RoninTheme {
 export function getAdobeCleanFontFaceCSS(): string {
   return `
 @font-face {
+  font-family: 'Adobe Clean UI';
+  src: url('/fonts/AdobeCleanRegular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Adobe Clean UI';
+  src: url('/fonts/AdobeCleanIt.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Adobe Clean UI';
+  src: url('/fonts/AdobeCleanBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Adobe Clean UI';
+  src: url('/fonts/AdobeCleanBoldIt.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Adobe Clean';
   src: url('/fonts/AdobeCleanRegular.otf') format('opentype');
   font-weight: 400;
@@ -222,6 +254,22 @@ export function getAdobeCleanFontFaceCSS(): string {
   font-style: italic;
   font-display: swap;
 }
+
+@font-face {
+  font-family: 'Agave';
+  src: url('/fonts/Agave-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Agave';
+  src: url('/fonts/Agave-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 `;
 }
 
@@ -245,9 +293,23 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
   font-weight: 300;
   letter-spacing: -0.02em;
   color: ${theme.colors.textPrimary};
+}
+
+.title,
+.section-title,
+.panel-title,
+.route-title,
+.category-title {
+  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
+}
+
+b, strong {
+  font-family: ${theme.fonts.mono};
+  font-weight: 700;
 }
 
 h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
@@ -284,6 +346,72 @@ button {
 button:hover:not(:disabled) {
   background: ${theme.colors.backgroundTertiary};
   border-color: ${theme.colors.borderHover};
+  color: ${theme.colors.textPrimary};
+}
+
+.ronin-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${theme.spacing.xs};
+  min-height: 30px;
+  padding: 0.35rem 0.8rem;
+  border-radius: ${theme.borderRadius.md};
+  border: 1px solid ${theme.colors.border};
+  background: linear-gradient(180deg, #171717 0%, #101010 100%);
+  color: ${theme.colors.textPrimary};
+  font-family: ${theme.fonts.primary};
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.ronin-btn:hover:not(:disabled) {
+  border-color: ${theme.colors.borderHover};
+  background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+  color: ${theme.colors.textPrimary};
+}
+
+.ronin-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ronin-btn--accent {
+  border-color: #7c3aed;
+  background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #f7f3ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.ronin-btn--accent:hover:not(:disabled) {
+  border-color: #9f67ff;
+  background: linear-gradient(180deg, #9d6dff 0%, #8950ff 100%);
+}
+
+.ronin-btn--success {
+  border-color: #84cc16;
+  background: linear-gradient(180deg, #a3e635 0%, #84cc16 100%);
+  color: #061100;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 12px rgba(132, 204, 22, 0.28);
+}
+
+.ronin-btn--success:hover:not(:disabled) {
+  border-color: #bef264;
+  background: linear-gradient(180deg, #bef264 0%, #9bd92a 100%);
+  color: #051000;
+}
+
+.ronin-btn--ghost {
+  background: linear-gradient(180deg, #141414 0%, #0f0f0f 100%);
+  color: ${theme.colors.textSecondary};
+}
+
+.ronin-btn--ghost:hover:not(:disabled) {
   color: ${theme.colors.textPrimary};
 }
 
@@ -454,6 +582,7 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
 }
 
 .header h1 {
+  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
   font-size: 1rem;
   font-weight: 300;
   margin: 0;

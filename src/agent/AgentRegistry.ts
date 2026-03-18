@@ -6,6 +6,8 @@ import { CronScheduler } from "./CronScheduler.js";
 import { logger } from "../utils/logger.js";
 import { join } from "path";
 import { networkInterfaces } from "os";
+import { existsSync, rmSync } from "fs";
+import { spawn, spawnSync } from "child_process";
 import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG } from "../utils/theme.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
@@ -33,6 +35,22 @@ export interface RegistryOptions {
   webhookHost?: string;
 }
 
+type HomeFeedPayload = {
+  agent?: unknown;
+  html?: unknown;
+  title?: unknown;
+  priority?: unknown;
+  updatedAt?: unknown;
+};
+
+type HomeFeedItem = {
+  agent: string;
+  html: string;
+  title?: string;
+  priority: number;
+  updatedAt: number;
+};
+
 /**
  * Manages agent registration, scheduling, and event handling
  */
@@ -47,6 +65,8 @@ export class AgentRegistry {
   private events?: EventsAPI;
   private scheduler: CronScheduler;
   private webhookHost?: string;
+  private dependenciesInstalling = false;
+  private homeFeeds: Map<string, HomeFeedItem> = new Map();
 
   constructor(options: RegistryOptions) {
     this.files = options.files;
@@ -54,6 +74,41 @@ export class AgentRegistry {
     this.events = options.events;
     this.webhookHost = options.webhookHost;
     this.scheduler = new CronScheduler();
+    this.registerHomeFeedListener();
+  }
+
+  private registerHomeFeedListener(): void {
+    if (!this.events) return;
+    this.events.on("home-feed", (payload: unknown) => {
+      this.upsertHomeFeed(payload as HomeFeedPayload);
+    });
+  }
+
+  private upsertHomeFeed(payload: HomeFeedPayload): void {
+    const agent = String(payload?.agent ?? "").trim();
+    const html = String(payload?.html ?? "");
+    if (!agent || !html) return;
+    const title = payload?.title == null ? undefined : String(payload.title);
+    const parsedPriority = Number(payload?.priority);
+    const priority = Number.isFinite(parsedPriority) ? parsedPriority : 0;
+    const parsedUpdatedAt = Number(payload?.updatedAt);
+    const updatedAt = Number.isFinite(parsedUpdatedAt) ? parsedUpdatedAt : Date.now();
+    const cappedHtml = html.length > 32768 ? html.slice(0, 32768) : html;
+    this.homeFeeds.set(agent.toLowerCase(), {
+      agent,
+      html: cappedHtml,
+      title,
+      priority,
+      updatedAt,
+    });
+  }
+
+  private getHomeFeedItems(): HomeFeedItem[] {
+    return Array.from(this.homeFeeds.values())
+      .sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return b.updatedAt - a.updatedAt;
+      });
   }
 
   /**
@@ -225,6 +280,12 @@ export class AgentRegistry {
           });
         }
 
+        if (path === "/skills" || path === "/skills/") {
+          return new Response(await this.getSkillsHTML(port), {
+            headers: { "Content-Type": "text/html" },
+          });
+        }
+
         // Status endpoint - API (JSON)
         if (path === "/api/status") {
           const status = this.getStatus();
@@ -251,6 +312,87 @@ export class AgentRegistry {
           });
         }
 
+        if (path === "/api/home-feed" && req.method === "GET") {
+          return Response.json(this.getHomeFeedItems(), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path.startsWith("/api/home-feed/") && req.method === "DELETE") {
+          const agentKey = decodeURIComponent(path.slice("/api/home-feed/".length)).trim().toLowerCase();
+          if (!agentKey) {
+            return Response.json({ success: false, error: "agent key required" }, { status: 400 });
+          }
+          const existed = this.homeFeeds.delete(agentKey);
+          return Response.json({ success: existed, removed: agentKey }, {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/api/skills/list" && req.method === "GET") {
+          return Response.json(await this.getLocalSkillsList(), {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/api/skills/install" && req.method === "POST") {
+          try {
+            const body = await req.json() as { repo?: string; name?: string };
+            const repo = String(body.repo ?? "").trim();
+            const name = String(body.name ?? "").trim();
+            if (!repo) return Response.json({ success: false, error: "repo is required" }, { status: 400 });
+            const args = ["skills", "install", repo];
+            if (name) args.push("--name", name);
+            const result = this.runRoninCommand(args);
+            return Response.json({
+              success: result.ok,
+              output: result.stdout || result.stderr,
+            }, {
+              status: result.ok ? 200 : 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch {
+            return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+          }
+        }
+
+        if (path === "/api/skills/update" && req.method === "POST") {
+          try {
+            const body = await req.json() as { name?: string };
+            const name = String(body.name ?? "").trim();
+            if (!name) return Response.json({ success: false, error: "name is required" }, { status: 400 });
+            const result = this.runRoninCommand(["skills", "update", name]);
+            return Response.json({
+              success: result.ok,
+              output: result.stdout || result.stderr,
+            }, {
+              status: result.ok ? 200 : 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch {
+            return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+          }
+        }
+
+        if (path === "/api/skills/remove" && req.method === "POST") {
+          try {
+            const body = await req.json() as { name?: string };
+            const name = String(body.name ?? "").trim();
+            if (!name) return Response.json({ success: false, error: "name is required" }, { status: 400 });
+            const skillsDir = join(process.env.HOME || "", ".ronin", "skills", name);
+            if (!existsSync(skillsDir)) {
+              return Response.json({ success: false, error: `Skill folder not found: ${skillsDir}` }, { status: 404 });
+            }
+            rmSync(skillsDir, { recursive: true, force: true });
+            return Response.json({ success: true });
+          } catch (error) {
+            return Response.json({
+              success: false,
+              error: `Failed to remove skill: ${error instanceof Error ? error.message : String(error)}`,
+            }, { status: 500 });
+          }
+        }
+
         // Status endpoint - Web UI (HTML)
         if (path === "/status") {
           const status = this.getStatus();
@@ -271,6 +413,53 @@ export class AgentRegistry {
           return Response.json({ status: "ok", running: true }, {
             headers: { "Content-Type": "application/json" },
           });
+        }
+
+        if (path === "/api/bootstrap/dependencies" && req.method === "GET") {
+          const dependencyStatus = await this.getDependencyBootstrapStatus();
+          const onboardingComplete = await this.isOnboardingComplete();
+          return Response.json({
+            ...dependencyStatus,
+            onboardingComplete,
+          }, {
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (path === "/api/bootstrap/install" && req.method === "POST") {
+          if (this.dependenciesInstalling) {
+            return Response.json({ success: false, error: "Dependency installation already in progress." }, { status: 409 });
+          }
+          this.dependenciesInstalling = true;
+          try {
+            const installResult = await this.installMissingDependencies();
+            return Response.json(installResult, {
+              headers: { "Content-Type": "application/json" },
+            });
+          } finally {
+            this.dependenciesInstalling = false;
+          }
+        }
+
+        if (path === "/api/system/restart" && req.method === "POST") {
+          try {
+            const child = spawn("bun", ["run", "ronin", "restart"], {
+              cwd: process.cwd(),
+              detached: true,
+              stdio: "ignore",
+              env: process.env,
+            });
+            child.unref();
+            setTimeout(() => process.exit(0), 1200);
+            return Response.json({ success: true, restarting: true }, {
+              headers: { "Content-Type": "application/json" },
+            });
+          } catch (error) {
+            return Response.json({
+              success: false,
+              error: `Failed to trigger restart: ${error instanceof Error ? error.message : String(error)}`,
+            }, { status: 500 });
+          }
         }
 
         // Serve font files
@@ -306,6 +495,9 @@ export class AgentRegistry {
             }
             const payload = data ?? {};
             const eventSource = typeof source === "string" && source ? source : "http";
+            if (event === "home-feed" && payload && typeof payload === "object" && !("agent" in (payload as Record<string, unknown>))) {
+              (payload as Record<string, unknown>).agent = eventSource;
+            }
             this.events.emit(event, payload, eventSource);
             return Response.json({ success: true, event, data: payload });
           } catch (error) {
@@ -615,11 +807,16 @@ export class AgentRegistry {
     // System routes
     addRoute("/", "system", "Home dashboard");
     addRoute("/routes", "system", "Routes dashboard");
+    addRoute("/skills", "system", "Skills management");
     addRoute("/status", "system", "Status UI");
     addRoute("/api/status", "system", "Status JSON");
     addRoute("/health", "system", "Health check");
     addRoute("/api/health", "system", "Health check JSON");
     addRoute("/api/routes", "system", "List registered routes");
+    addRoute("/api/skills/list", "system", "List local skills");
+    addRoute("/api/skills/install", "system", "Install skill");
+    addRoute("/api/skills/update", "system", "Update skill");
+    addRoute("/api/skills/remove", "system", "Remove skill");
 
     // HTTP API routes (agent-registered)
     for (const path of this.http.getAllRoutes().keys()) {
@@ -674,7 +871,7 @@ export class AgentRegistry {
   }
 
   private async getDashboardNavRoutes(allRoutes: Array<{ path: string }>): Promise<string[]> {
-    const defaults = ["/chat", "/analytics", "/config", "/routes"];
+    const defaults = ["/chat", "/analytics", "/config", "/skills", "/routes"];
     const validSet = new Set(allRoutes.map((r) => r.path));
     const path = this.getDashboardNavConfigPath();
     try {
@@ -694,6 +891,167 @@ export class AgentRegistry {
     }
   }
 
+  private runRoninCommand(args: string[]): { ok: boolean; stdout: string; stderr: string } {
+    const result = spawnSync("bun", ["run", "ronin", ...args], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    });
+    return {
+      ok: result.status === 0,
+      stdout: result.stdout || "",
+      stderr: result.stderr || "",
+    };
+  }
+
+  private async getLocalSkillsList(): Promise<Array<{ name: string; description: string }>> {
+    const command = this.runRoninCommand(["skills", "discover", "*", "--no-remote"]);
+    if (!command.ok) return [];
+    try {
+      const parsed = JSON.parse(command.stdout) as Array<{ name?: unknown; description?: unknown }>;
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((s) => ({
+          name: String(s.name ?? "").trim(),
+          description: String(s.description ?? "").trim(),
+        }))
+        .filter((s) => s.name.length > 0)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch {
+      return [];
+    }
+  }
+
+  private async getSkillsHTML(port: number): Promise<string> {
+    const skills = await this.getLocalSkillsList();
+    const rows = skills.map((skill) => `
+      <tr>
+        <td>${this.escapeHtml(skill.name)}</td>
+        <td>${this.escapeHtml(skill.description || "(no description)")}</td>
+        <td style="display:flex;gap:.35rem;">
+          <button class="btn btn-secondary" onclick="updateSkill(decodeURIComponent('${encodeURIComponent(skill.name)}'))">Update</button>
+          <button class="btn btn-danger" onclick="removeSkill(decodeURIComponent('${encodeURIComponent(skill.name)}'))">Remove</button>
+        </td>
+      </tr>
+    `).join("");
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ronin Skills</title>
+  <style>
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS()}
+    ${getHeaderBarCSS()}
+    body { margin:0; background:#0a0a0a; color:#fff; font-family:'AudioLink Console Demi','Adobe Clean UI','Adobe Clean',sans-serif; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+    .card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: .85rem; margin-bottom: .75rem; }
+    .toolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+    .toolbar input { background:#111; color:#fff; border:1px solid rgba(255,255,255,.2); padding:.45rem .55rem; border-radius:4px; min-width:280px; }
+    .btn { background:#2c2c2c; color:#fff; border:1px solid rgba(255,255,255,.2); padding:.45rem .65rem; border-radius:4px; cursor:pointer; }
+    .btn:hover { background:#393939; }
+    .btn-secondary { background:#1e1e1e; }
+    .btn-danger { background:#4a1f1f; border-color:#703030; }
+    table { width:100%; border-collapse: collapse; font-size:.86rem; }
+    th, td { text-align:left; border-bottom:1px solid rgba(255,255,255,.12); padding:.55rem .45rem; vertical-align:top; }
+    th { color: rgba(255,255,255,.68); text-transform: uppercase; letter-spacing:.06em; font-size:.72rem; }
+    .muted { color: rgba(255,255,255,.65); font-size:.78rem; }
+    .status { margin-top:.5rem; font-size:.78rem; color:#b5e48c; min-height:1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="header">${getHeaderHomeIconHTML()}<h1>Skills</h1><div class="header-meta"><span>${skills.length} local skills</span><span>Port ${port}</span></div></div>
+  <div class="container">
+    <div class="card">
+      <div class="toolbar">
+        <input id="repoInput" type="text" placeholder="Git repo URL or skills.sh:owner/repo/skill" />
+        <input id="nameInput" type="text" placeholder="Optional local name" />
+        <button class="btn" onclick="installSkill()">Install</button>
+        <button class="btn btn-secondary" onclick="refreshSkills()">Refresh</button>
+      </div>
+      <div class="status" id="statusText"></div>
+      <div class="muted">Uses Ronin CLI skill commands for list/install/update/remove.</div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Description</th><th>Manage</th></tr></thead>
+        <tbody id="skillsTbody">${rows || `<tr><td colspan="3" class="muted">No local skills found.</td></tr>`}</tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const statusEl = document.getElementById('statusText');
+    function esc(v){return String(v||'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function setStatus(msg, isError = false) {
+      if (!statusEl) return;
+      statusEl.style.color = isError ? '#ff9e9e' : '#b5e48c';
+      statusEl.textContent = msg || '';
+    }
+    async function refreshSkills() {
+      const res = await fetch('/api/skills/list');
+      const list = await res.json();
+      const tbody = document.getElementById('skillsTbody');
+      if (!tbody) return;
+      if (!Array.isArray(list) || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="muted">No local skills found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map((s) => \`
+        <tr>
+          <td>\${esc(s.name)}</td>
+          <td>\${esc(s.description || '(no description)')}</td>
+          <td style="display:flex;gap:.35rem;">
+            <button class="btn btn-secondary" onclick="updateSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">Update</button>
+            <button class="btn btn-danger" onclick="removeSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">Remove</button>
+          </td>
+        </tr>\`).join('');
+    }
+    async function installSkill() {
+      const repo = document.getElementById('repoInput')?.value?.trim();
+      const name = document.getElementById('nameInput')?.value?.trim();
+      if (!repo) return setStatus('Repo is required.', true);
+      setStatus('Installing skill...');
+      const res = await fetch('/api/skills/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo, name })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) return setStatus(data.error || data.output || 'Install failed', true);
+      setStatus('Skill installed.');
+      await refreshSkills();
+    }
+    async function updateSkill(name) {
+      setStatus('Updating ' + name + '...');
+      const res = await fetch('/api/skills/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) return setStatus(data.error || data.output || 'Update failed', true);
+      setStatus('Skill updated: ' + name);
+      await refreshSkills();
+    }
+    async function removeSkill(name) {
+      if (!confirm('Remove skill "' + name + '"?')) return;
+      setStatus('Removing ' + name + '...');
+      const res = await fetch('/api/skills/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) return setStatus(data.error || 'Remove failed', true);
+      setStatus('Skill removed: ' + name);
+      await refreshSkills();
+    }
+  </script>
+</body>
+</html>`;
+  }
+
   private async getDashboardHTML(port: number): Promise<string> {
     const status = this.getStatus();
     const allRoutes = this.getRoutesList(port);
@@ -704,6 +1062,8 @@ export class AgentRegistry {
     const webhookRoutes = allRoutes.filter((r) => r.type === "webhook").length;
     const logPreview = await this.getRecentLogPreview();
     const uptime = Math.floor(process.uptime());
+    const onboardingComplete = await this.isOnboardingComplete();
+    const homeFeedItems = this.getHomeFeedItems();
 
     return `<!doctype html>
 <html lang="en">
@@ -715,7 +1075,7 @@ export class AgentRegistry {
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
     ${getHeaderBarCSS()}
-    body { margin: 0; background: #000; color: #fff; font-family: 'Adobe Clean', 'Inter', sans-serif; }
+    body { margin: 0; background: #000; color: #fff; font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif; }
     .shell { max-width: 1320px; margin: 0 auto; padding: 1rem; display: grid; grid-template-columns: 220px minmax(0,1fr); gap: .75rem; }
     .dashboard-nav { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: .65rem; position: sticky; top: 8px; margin-top: 11px; z-index: 1100; height: fit-content; }
     .dashboard-nav h2 { margin: 0 0 .55rem; font-size: .7rem; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .1em; }
@@ -732,14 +1092,21 @@ export class AgentRegistry {
     .label { color: rgba(255,255,255,.6); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
     .value { font-size: 1.35rem; margin-top: .3rem; }
     .content { display: grid; grid-template-columns: 2fr 1fr; gap: .35rem; }
+    .home-feed { margin-top: .55rem; }
+    .home-feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: .35rem; }
+    .home-feed-card { background: #000; border: 0.5px solid rgba(255,255,255,0.22); border-radius: 0; padding: .8rem; min-height: 120px; overflow: hidden; }
+    .home-feed-meta { display:flex; gap:.45rem; align-items:center; margin-bottom:.5rem; color: rgba(255,255,255,.58); font-size:.7rem; text-transform: uppercase; letter-spacing:.07em; }
     .panel-title { margin: 0 0 .45rem; font-size: .9rem; }
     .panel-actions a { color: #84cc16; text-decoration: none; font-size: .8rem; margin-right: .8rem; }
-    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: #d4d4d8; }
+    .loading-subtitle { color: rgba(255,255,255,.7); font-size: .78rem; max-width: 460px; text-align: center; line-height: 1.35; min-height: 2rem; }
+    .onboarding-banner { border: 1px solid rgba(255,215,0,0.45); background: rgba(255,215,0,0.09); color: #ffe082; padding: .65rem .8rem; margin-bottom: .55rem; font-size: .84rem; }
+    .onboarding-banner a { color: #fff176; text-decoration: underline; font-weight: 700; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: 'Agave', monospace; font-size: .74rem; color: #d4d4d8; }
     @media (max-width: 980px){ .shell{grid-template-columns:1fr;} .dashboard-nav{position:static;} .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .content{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
-  <div id="loadingScreen" class="loading-screen"><div class="spinner"></div><div class="loading-title">Initializing Ronin Dashboard</div></div>
+  <div id="loadingScreen" class="loading-screen"><div class="spinner"></div><div class="loading-title">Initializing Ronin Dashboard</div><div id="loadingSubtitle" class="loading-subtitle">Checking required dependencies...</div></div>
   <div class="header">${getHeaderHomeIconHTML()}<h1>DASH</h1><div class="header-meta"><span>Runtime overview</span></div></div>
   <div class="shell">
     <aside class="dashboard-nav">
@@ -747,6 +1114,7 @@ export class AgentRegistry {
       ${dashboardNavRoutes.map((route) => `<a href="${route}">${this.escapeHtml(formatDashNavRoute(route))}</a>`).join("")}
     </aside>
     <div class="page">
+    ${!onboardingComplete ? `<div class="onboarding-banner">Onboarding is not complete. Please finish setup at <a href="/onboarding">/onboarding</a> to unlock all features.</div>` : ""}
     <div class="grid">
       <div class="card"><div class="label">Agents</div><div class="value">${status.totalAgents}</div></div>
       <div class="card"><div class="label">Scheduled</div><div class="value">${status.scheduledAgents}</div></div>
@@ -770,16 +1138,157 @@ export class AgentRegistry {
         </div>
       </div>
     </div>
+    <div class="home-feed card">
+      <h2 class="panel-title">Agent Feed</h2>
+      ${homeFeedItems.length > 0 ? `
+      <div class="home-feed-grid">
+        ${homeFeedItems.map((item) => `
+        <div class="home-feed-card">
+          <div class="home-feed-meta"><span>${this.escapeHtml(item.agent)}</span><span>${new Date(item.updatedAt).toLocaleTimeString()}</span></div>
+          ${item.html}
+        </div>`).join("")}
+      </div>` : `<div class="label">No agent feed items yet. Emit <code>home-feed</code> events to populate this section.</div>`}
+    </div>
     </div>
   </div>
   <script>
-    window.setTimeout(() => {
-      const el = document.getElementById('loadingScreen');
-      if (el) el.classList.add('hidden');
-    }, 1500);
+    const subtitle = document.getElementById('loadingSubtitle');
+    const loadingEl = document.getElementById('loadingScreen');
+    async function runBootstrapChecks() {
+      try {
+        if (subtitle) subtitle.textContent = 'Checking required dependencies...';
+        const statusRes = await fetch('/api/bootstrap/dependencies');
+        const status = await statusRes.json();
+        if (Array.isArray(status.missing) && status.missing.length > 0) {
+          if (subtitle) subtitle.textContent = 'Installing missing dependencies: ' + status.missing.join(', ');
+          const installRes = await fetch('/api/bootstrap/install', { method: 'POST' });
+          const install = await installRes.json();
+          if (install && install.success && install.restartRequired) {
+            if (subtitle) subtitle.textContent = 'Dependencies installed. Restarting Ronin...';
+            await fetch('/api/system/restart', { method: 'POST' });
+            return;
+          }
+          if (subtitle && install && install.success) {
+            subtitle.textContent = 'Dependency check complete.';
+          } else if (subtitle) {
+            subtitle.textContent = 'Some dependencies failed to install automatically. Check logs.';
+          }
+        } else {
+          if (subtitle) subtitle.textContent = 'Dependencies OK.';
+        }
+      } catch (e) {
+        if (subtitle) subtitle.textContent = 'Dependency check failed; continuing startup.';
+      } finally {
+        window.setTimeout(() => {
+          if (loadingEl) loadingEl.classList.add('hidden');
+        }, 900);
+      }
+    }
+    runBootstrapChecks();
   </script>
 </body>
 </html>`;
+  }
+
+  private async isOnboardingComplete(): Promise<boolean> {
+    try {
+      const setupPath = join(process.env.HOME || "", ".ronin", "setup.json");
+      if (!existsSync(setupPath)) return false;
+      const parsed = JSON.parse(await Bun.file(setupPath).text()) as { completed?: unknown };
+      return parsed.completed === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private getDependencyChecks(): Array<{
+    id: string;
+    label: string;
+    isInstalled: () => boolean;
+    install: () => { ok: boolean; output: string };
+  }> {
+    const hasCommand = (cmd: string): boolean =>
+      spawnSync("bash", ["-lc", `command -v ${cmd}`], { stdio: "ignore" }).status === 0;
+
+    return [
+      {
+        id: "piper",
+        label: "piper",
+        isInstalled: () => hasCommand("piper"),
+        install: () => {
+          if (!hasCommand("brew")) return { ok: false, output: "Homebrew not found for installing piper." };
+          const res = spawnSync("bash", ["-lc", "brew install piper"], { encoding: "utf8" });
+          return { ok: res.status === 0, output: `${res.stdout || ""}\n${res.stderr || ""}`.trim() };
+        },
+      },
+      {
+        id: "whisper",
+        label: "whisper-cli",
+        isInstalled: () => hasCommand("whisper-cli"),
+        install: () => {
+          if (!hasCommand("brew")) return { ok: false, output: "Homebrew not found for installing whisper-cpp." };
+          const res = spawnSync("bash", ["-lc", "brew install whisper-cpp"], { encoding: "utf8" });
+          return { ok: res.status === 0, output: `${res.stdout || ""}\n${res.stderr || ""}`.trim() };
+        },
+      },
+      {
+        id: "agent-browser",
+        label: "agent-browser skill",
+        isInstalled: () => existsSync(join(process.cwd(), "skills", "agent-browser", "SKILL.md"))
+          || existsSync(join(process.cwd(), "skills", "agent-browser", "skill.md")),
+        install: () => {
+          const res = spawnSync("bash", ["-lc", "npx -y skills add vercel-labs/agent-browser"], { encoding: "utf8" });
+          return { ok: res.status === 0, output: `${res.stdout || ""}\n${res.stderr || ""}`.trim() };
+        },
+      },
+    ];
+  }
+
+  private async getDependencyBootstrapStatus(): Promise<{
+    missing: string[];
+    checks: Array<{ id: string; label: string; installed: boolean }>;
+  }> {
+    const checks = this.getDependencyChecks().map((check) => ({
+      id: check.id,
+      label: check.label,
+      installed: check.isInstalled(),
+    }));
+    return {
+      missing: checks.filter((c) => !c.installed).map((c) => c.id),
+      checks,
+    };
+  }
+
+  private async installMissingDependencies(): Promise<{
+    success: boolean;
+    installed: string[];
+    failed: string[];
+    restartRequired: boolean;
+    logs: Array<{ id: string; ok: boolean; output: string }>;
+  }> {
+    const checks = this.getDependencyChecks();
+    const missing = checks.filter((check) => !check.isInstalled());
+    const logs: Array<{ id: string; ok: boolean; output: string }> = [];
+    const installed: string[] = [];
+    const failed: string[] = [];
+
+    for (const check of missing) {
+      const result = check.install();
+      logs.push({ id: check.id, ok: result.ok, output: result.output });
+      if (result.ok && check.isInstalled()) {
+        installed.push(check.id);
+      } else {
+        failed.push(check.id);
+      }
+    }
+
+    return {
+      success: failed.length === 0,
+      installed,
+      failed,
+      restartRequired: installed.length > 0,
+      logs,
+    };
   }
 
   /**
@@ -812,6 +1321,7 @@ export class AgentRegistry {
         }
         if (description.includes("Home dashboard")) return "Home Dashboard";
         if (description.includes("Routes dashboard")) return "Routes Dashboard";
+        if (description.includes("Skills management")) return "Skills Manager";
         if (description.includes("Status UI")) return "Status Dashboard";
         if (description.includes("Status JSON")) return "Status API";
         if (description.includes("Health check")) return "Health Check";
@@ -821,6 +1331,7 @@ export class AgentRegistry {
       // Generate title from path
       if (path === "/") return "Home Dashboard";
       if (path === "/routes") return "Routes Dashboard";
+      if (path === "/skills") return "Skills Manager";
       if (path === "/status") return "Status Dashboard";
       if (path.startsWith("/api/")) {
         const apiName = path.replace("/api/", "").split("/")[0];
@@ -856,6 +1367,7 @@ export class AgentRegistry {
       if (type === "system") {
         if (path === "/") return "Main dashboard with runtime stats, logs, and analytics";
         if (path === "/routes") return "Routes dashboard";
+        if (path === "/skills") return "Manage local and remote skills";
         if (path === "/status") return "View system status, agents, and runtime information";
         if (path === "/api/status") return "Get system status as JSON";
         if (path === "/api/health" || path === "/health") return "Simple health check endpoint";
@@ -1027,7 +1539,7 @@ export class AgentRegistry {
     }
     
     .route-path {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.75rem;
       color: rgba(255, 255, 255, 0.5);
       background: rgba(255, 255, 255, 0.05);
@@ -1233,7 +1745,7 @@ export class AgentRegistry {
       font-weight: 300;
       color: #ffffff;
       margin-bottom: 0.5rem;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
     }
     
     .stat-label {
@@ -1319,7 +1831,7 @@ export class AgentRegistry {
     .detail-value {
       color: rgba(255, 255, 255, 0.7);
       font-size: 0.875rem;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
     }
     
     .badge {
@@ -1415,7 +1927,7 @@ export class AgentRegistry {
       font-size: 1.1rem;
       color: #ffffff;
       font-weight: 400;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
     }
     
     @media (max-width: 768px) {

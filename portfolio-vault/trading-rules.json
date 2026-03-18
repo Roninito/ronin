@@ -1,7 +1,7 @@
 {
   "version": 1,
   "mode": "paper",
-  "dryRun": true,
+  "dryRun": false,
   "approval": {
     "required": true,
     "eventName": "portfolio.trading.approved"

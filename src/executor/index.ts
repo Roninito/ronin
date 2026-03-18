@@ -1,2 +1,2 @@
-export { Executor } from "./Executor.js";
-export type { ToolFilter, ExecutorContext } from "./types.js";
+// Moved to @ronin/sar — re-exported for backward compatibility
+export * from "@ronin/sar/executor";

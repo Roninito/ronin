@@ -9,6 +9,7 @@
         "@langchain/core": "^0.3.0",
         "@langchain/langgraph": "^0.2.0",
         "@modelcontextprotocol/sdk": "^1.0.0",
+        "@ronin/sar": "workspace:*",
         "cheerio": "^1.1.2",
         "discord.js": "^14.15.3",
         "grammy": "^1.23.1",
@@ -28,6 +29,13 @@
       },
       "peerDependencies": {
         "typescript": "^5",
+      },
+    },
+    "packages/sar": {
+      "name": "@ronin/sar",
+      "version": "1.0.0",
+      "peerDependencies": {
+        "typescript": ">=5.0.0",
       },
     },
   },
@@ -111,6 +119,8 @@
     "@protobufjs/pool": ["@protobufjs/pool@1.1.0", "", {}, "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw=="],
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.0", "", {}, "sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw=="],
+
+    "@ronin/sar": ["@ronin/sar@workspace:packages/sar"],
 
     "@sapphire/async-queue": ["@sapphire/async-queue@1.5.5", "", {}, "sha512-cvGzxbba6sav2zZkH8GPf2oGk9yYoD5qrNWdu9fRehifgnFZJMV+nuy2nON2roRO4yQQ+v7MK/Pktl/HgfsUXg=="],
 

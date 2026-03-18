@@ -2,7 +2,7 @@
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
-    "types": ["bun-types", "node"],
+    "types": ["bun", "node"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
@@ -18,7 +18,9 @@
     // Path mappings
     "baseUrl": ".",
     "paths": {
-      "@ronin/*": ["src/*"]
+      "@ronin/*": ["src/*"],
+      "@ronin/sar": ["packages/sar/src/index.ts"],
+      "@ronin/sar/*": ["packages/sar/src/*"]
     },
 
     // Best practices

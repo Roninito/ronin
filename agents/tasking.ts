@@ -2276,7 +2276,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
       background: ${roninTheme.colors.background};
       color: ${roninTheme.colors.textPrimary};
       padding: 0.45rem;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.72rem;
     }
 
@@ -2470,7 +2470,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .badge-app {
       background: ${roninTheme.colors.backgroundTertiary};
       color: ${roninTheme.colors.textSecondary};
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Agave', monospace;
       font-size: 0.625rem;
     }
 

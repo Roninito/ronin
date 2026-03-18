@@ -36,6 +36,7 @@ function getScheduleSSEClients(api: AgentAPI): Set<(data: string) => void> {
 
 export default class ScheduleManagerAgent extends BaseAgent {
   private loader: AgentLoader;
+  private lastHomeFeedEmitAt = 0;
 
   constructor(api: AgentAPI) {
     super(api);
@@ -47,6 +48,25 @@ export default class ScheduleManagerAgent extends BaseAgent {
     this.api.events.on("schedule_updated", () => this.broadcastScheduleUpdated({}));
     this.api.events.on("agent_reloaded", () => this.broadcastScheduleUpdated({}));
     console.log("✅ Schedule Manager agent ready. UI available at /schedule");
+    this.emitHomeFeed("Ready", "Schedule UI and tooling online");
+    setTimeout(() => this.emitHomeFeed("Ready", "Schedule UI and tooling online"), 3000);
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 85): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 2000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "schedule-manager",
+        title: "Schedule Manager",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Schedule Manager</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "schedule-manager"
+    );
   }
 
   /** Notify connected SSE clients so the schedule UI can refresh (uses shared set so it survives hot reload). */
@@ -517,9 +537,15 @@ export default class ScheduleManagerAgent extends BaseAgent {
 
       // Trigger hot reload for this file only (so we don't rely on fs watch)
       this.api.events.emit("agent_file_updated", { filePath }, "schedule-manager");
+      this.emitHomeFeed("Updated", `${agentName}: ${schedule}`);
 
       return { success: true };
     } catch (error) {
+      this.emitHomeFeed(
+        "Error",
+        error instanceof Error ? error.message.slice(0, 120) : "Schedule update failed",
+        88
+      );
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

@@ -12,13 +12,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { existsSync, unlinkSync, mkdirSync, rmSync } from "fs";
-import { homedir } from "os";
+import { existsSync, mkdirSync, rmSync } from "fs";
 import { modelSelector } from "../plugins/model-selector.js";
 import type { ModelConfig } from "../src/types/model.js";
+import { clearTestModelRegistryEnv, setupTestModelRegistry } from "./helpers/modelRegistry.js";
 
 const TEST_HOME = join(process.cwd(), ".test-ronin");
-const TEST_CONFIG_PATH = join(TEST_HOME, "ai-models.json");
 
 describe("Model Selector Plugin", () => {
   beforeEach(() => {
@@ -27,9 +26,14 @@ describe("Model Selector Plugin", () => {
       rmSync(TEST_HOME, { recursive: true });
     }
     mkdirSync(TEST_HOME, { recursive: true });
+    setupTestModelRegistry(TEST_HOME);
+    modelSelector.clearCache();
   });
 
   afterEach(() => {
+    modelSelector.clearCache();
+    clearTestModelRegistryEnv();
+
     // Clean up
     if (existsSync(TEST_HOME)) {
       rmSync(TEST_HOME, { recursive: true });

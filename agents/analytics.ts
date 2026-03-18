@@ -160,6 +160,7 @@ export default class AnalyticsAgent extends BaseAgent {
   private totalEvents = 0;
 
   private persistIntervalId: ReturnType<typeof setInterval> | null = null;
+  private lastHomeFeedEmitAt = 0;
 
   constructor(api: AgentAPI) {
     super(api);
@@ -179,6 +180,25 @@ export default class AnalyticsAgent extends BaseAgent {
     }, ANALYTICS_PERSIST_INTERVAL_MS);
 
     console.log("[analytics] Analytics Agent initialized. Dashboard at /analytics");
+    this.emitHomeFeed("Ready", "Analytics dashboard online");
+    setTimeout(() => this.emitHomeFeed("Ready", "Analytics dashboard online"), 3000);
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 80): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 10_000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "analytics",
+        title: "Analytics",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Analytics</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "analytics"
+    );
   }
 
   // ──────────────────────────────────────────────
@@ -1361,5 +1381,6 @@ export default class AnalyticsAgent extends BaseAgent {
 
     await this.api.memory.store(summaryKey, JSON.stringify(summary));
     console.log("[analytics] Summary persisted for", dayKey);
+    this.emitHomeFeed("Summary persisted", `Agents: ${summary.totalAgents} · Events: ${summary.totalEvents}`);
   }
 }

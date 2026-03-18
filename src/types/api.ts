@@ -706,6 +706,38 @@ export interface AgentAPI {
   };
 
   /**
+   * OAuth operations (if oauth plugin is loaded)
+   */
+  oauth?: {
+    get_auth_url(
+      provider: "google" | "github" | "apple",
+      options?: { redirectUri?: string; state?: string }
+    ): Promise<{ url: string; state: string; provider: string }>;
+    list_sessions(provider?: "google" | "github" | "apple"): Promise<Array<{
+      id: string;
+      provider: string;
+      userId: string;
+      email?: string;
+      name?: string;
+      createdAt: number;
+      updatedAt: number;
+      expiresAt?: number;
+    }>>;
+    get_session(provider: "google" | "github" | "apple", userId: string): Promise<{
+      id: string;
+      provider: string;
+      userId: string;
+      email?: string;
+      name?: string;
+      createdAt: number;
+      updatedAt: number;
+      expiresAt?: number;
+    } | null>;
+    clear_session(provider: "google" | "github" | "apple", userId: string): Promise<{ success: boolean }>;
+    register_routes(basePath?: string): Promise<{ success: boolean; basePath: string }>;
+  };
+
+  /**
    * Speech operations (if piper and/or stt plugins are loaded)
    * Provides text-to-speech and speech-to-text capabilities
    */
@@ -773,4 +805,3 @@ export interface AgentAPI {
     getCostStats(): { daily: number; monthly: number };
   };
 }
-

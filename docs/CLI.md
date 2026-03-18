@@ -13,6 +13,28 @@ Complete reference guide for the Ronin command-line interface.
 
 Ronin provides a comprehensive CLI for managing AI agents, plugins, and system configuration. All commands are accessed via `bun run ronin <command>` or `ronin <command>` if installed globally.
 
+### Homepage agent feed events
+
+The `/` dashboard supports agent-published feed cards via the `home-feed` event.
+Use `POST /api/events/emit` with payload like:
+
+```json
+{
+  "event": "home-feed",
+  "source": "my-agent",
+  "data": {
+    "agent": "my-agent",
+    "html": "<div>Latest status card</div>",
+    "priority": 5
+  }
+}
+```
+
+- Latest-per-agent is enforced (new payload replaces old entry for that agent).
+- Feed entries can be listed at `GET /api/home-feed`.
+- Feed entries can be removed at `DELETE /api/home-feed/:agent`.
+- Wave-1 publishers: `messenger`, `chatty`, `schedule-manager`, `event-monitor`, `tool-analytics`, `portfolio`, `telegram_subscription`, `rss-feed`, `gvec`, `analytics`.
+
 ## Commands
 
 ### `start`
@@ -153,6 +175,30 @@ Some agents are intentionally kept out of the repo and live in `~/.ronin/agents`
 ### GVEC Agent
 
 - **Purpose**: Turn RSS items into geolocated vectors and render them on a globe.\n+- **Data**: `~/.ronin/data/gvec.db`\n+- **Routes**:\n+  - `GET /gvec/data`\n+  - `GET /gvec/globe`\n+
+### Telegram Subscription Agent
+
+- **Purpose**: Poll Telegram updates and store/emit inbound messages for other agents.
+- **Routes**:
+  - `GET/POST /telegram-subscription` (settings UI)
+  - `GET/POST /api/telegram-subscription/config` (JSON config API)
+- **Config fields**:
+  - `enabled` (toggle polling)
+  - `processPrivate` (allow private chats)
+  - `pollLimit` (1-100 updates per poll)
+  - `defaultChatId`, `defaultParseMode` (outbound defaults)
+
+### Telegram Watcher Agent
+
+- **Purpose**: Watch configured source chats/channels and repost rewritten content to a target channel.
+- **Routes**:
+  - `GET/POST /telegram-watcher` (watch config UI)
+  - `GET/POST /telegram-watcher/persona` (edit `telegram-watcher.persona.md`)
+  - `GET/POST /api/telegram-watcher/config` (JSON config API)
+  - `GET /api/telegram-watcher/posts` (recent ingested/reposted items)
+- **Config fields**:
+  - `enabled`, `sourceChats[]`, `targetChat`
+  - `rewriteModel`, `parseMode`, `maxContextItems`
+
 ### NOAA News Agent
 
 - **Purpose**: Scrape NOAA news page, generate short articles, store results.\n+- **Data**: `~/.ronin/data/noaa.news.db`\n+

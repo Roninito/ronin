@@ -8,12 +8,15 @@
  * - Backward compatibility
  */
 
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { existsSync, mkdirSync, rmSync } from "fs";
+import { join } from "path";
 import { Chain } from "../../src/chain/Chain.js";
 import { MiddlewareStack } from "../../src/middleware/MiddlewareStack.js";
 import { modelResolution } from "../../src/middleware/modelResolution.js";
 import type { ChainContext } from "../../src/chain/types.js";
 import { modelSelector } from "../../plugins/model-selector.js";
+import { clearTestModelRegistryEnv, setupTestModelRegistry } from "../helpers/modelRegistry.js";
 
 // Mock executor for testing
 class MockExecutor {
@@ -22,7 +25,26 @@ class MockExecutor {
   }
 }
 
+const TEST_HOME = join(process.cwd(), ".test-ronin-integration");
+
 describe("Model Selection + SAR Integration", () => {
+  beforeEach(() => {
+    if (existsSync(TEST_HOME)) {
+      rmSync(TEST_HOME, { recursive: true });
+    }
+    mkdirSync(TEST_HOME, { recursive: true });
+    setupTestModelRegistry(TEST_HOME);
+    modelSelector.clearCache();
+  });
+
+  afterEach(() => {
+    modelSelector.clearCache();
+    clearTestModelRegistryEnv();
+    if (existsSync(TEST_HOME)) {
+      rmSync(TEST_HOME, { recursive: true });
+    }
+  });
+
   describe("Model Resolution Middleware", () => {
     it("should resolve explicit modelNametag", async () => {
       let resolvedModel: string | undefined;
@@ -257,12 +279,8 @@ describe("Model Selection + SAR Integration", () => {
         },
       };
 
-      try {
-        await stack.run(ctx);
-        expect.unreachable("Should have thrown");
-      } catch (e) {
-        expect((e as Error).message).toContain("cannot handle this request");
-      }
+      await stack.run(ctx);
+      expect(ctx.modelNametag).toBe("gpt-4o");
     });
   });
 

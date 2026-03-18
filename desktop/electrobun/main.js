@@ -16,6 +16,83 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
+function goBackInMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const wc = mainWindow.webContents;
+  if (wc && wc.canGoBack()) wc.goBack();
+}
+
+function setApplicationMenu() {
+  const viewSubmenu = [
+    {
+      label: "Go Back",
+      accelerator: "CmdOrCtrl+[",
+      click: () => goBackInMainWindow(),
+    },
+    { type: "separator" },
+    { role: "reload" },
+    { role: "forceReload" },
+    { role: "toggleDevTools" },
+    { type: "separator" },
+    { role: "resetZoom" },
+    { role: "zoomIn" },
+    { role: "zoomOut" },
+    { type: "separator" },
+    { role: "togglefullscreen" },
+  ];
+
+  const template = process.platform === "darwin"
+    ? [
+        {
+          role: "appMenu",
+        },
+        {
+          role: "fileMenu",
+        },
+        {
+          role: "editMenu",
+        },
+        {
+          label: "View",
+          submenu: viewSubmenu,
+        },
+        {
+          role: "windowMenu",
+        },
+        {
+          role: "help",
+          submenu: [
+            {
+              label: "Ronin Dashboard",
+              click: () => shell.openExternal(DEFAULT_URL),
+            },
+          ],
+        },
+      ]
+    : [
+        {
+          role: "fileMenu",
+        },
+        {
+          role: "editMenu",
+        },
+        {
+          label: "View",
+          submenu: viewSubmenu,
+        },
+        {
+          role: "help",
+          submenu: [
+            {
+              label: "Ronin Dashboard",
+              click: () => shell.openExternal(DEFAULT_URL),
+            },
+          ],
+        },
+      ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function buildHealthUrl(targetUrl) {
   try {
     return new URL("/api/health", targetUrl).toString();
@@ -201,7 +278,7 @@ async function createWindow() {
     height: 840,
     minWidth: 980,
     minHeight: 640,
-    title: "Ronin Desktop Client",
+    title: "Ronin",
     autoHideMenuBar: true,
     ...(process.platform === "darwin" ? { titleBarStyle: "hiddenInset" } : {}),
     webPreferences: {
@@ -223,6 +300,17 @@ async function createWindow() {
     startHealthMonitor(win);
   }
 
+  win.webContents.on("context-menu", (_event, params) => {
+    const template = [];
+    if (params.editFlags?.canCut) template.push({ role: "cut" });
+    if (params.editFlags?.canCopy || params.selectionText) template.push({ role: "copy" });
+    if (params.editFlags?.canPaste) template.push({ role: "paste" });
+    if (params.editFlags?.canSelectAll) template.push({ role: "selectAll" });
+    if (template.length === 0) return;
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({ window: win });
+  });
+
   win.on("close", (event) => {
     if (isQuitting || process.platform === "darwin" && !tray) return;
     event.preventDefault();
@@ -240,7 +328,7 @@ function createTray() {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP+6dY4WQAAAABJRU5ErkJggg=="
   );
   tray = new Tray(icon);
-  tray.setToolTip("Ronin Desktop Client");
+  tray.setToolTip("Ronin");
 
   const rebuildMenu = () => {
     const contextMenu = Menu.buildFromTemplate([
@@ -312,6 +400,11 @@ function registerIpc() {
 }
 
 app.whenReady().then(async () => {
+  app.setName("Ronin");
+  if (process.platform === "win32") {
+    app.setAppUserModelId("Ronin");
+  }
+  setApplicationMenu();
   registerIpc();
   mainWindow = await createWindow();
   createTray();

@@ -279,6 +279,7 @@ export default class MessengerAgent extends BaseAgent {
   private model: string;
   private localModel: string;
   private readonly maxConversationHistory = 10;
+  private lastHomeFeedEmitAt = 0;
 
   constructor(api: AgentAPI) {
     super(api);
@@ -299,10 +300,29 @@ export default class MessengerAgent extends BaseAgent {
     });
 
     console.log("[messenger] Ready - using enhanced SAR chains with conversation history");
+    this.emitHomeFeed("Ready", "Listening for Telegram/Discord messages");
+    setTimeout(() => this.emitHomeFeed("Ready", "Listening for Telegram/Discord messages"), 3000);
   }
 
   async execute(): Promise<void> {
     // Event-driven - handlers registered in constructor
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 95): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 2000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "messenger",
+        title: "Messenger",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Messenger</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "messenger"
+    );
   }
 
   /**
@@ -656,24 +676,29 @@ export default class MessengerAgent extends BaseAgent {
       if (finalResponse && message.replyCallback) {
         this.addToConversation(conversationKey, "assistant", finalResponse);
         await message.replyCallback(this.formatResponse(finalResponse));
+        this.emitHomeFeed("Responded", `${message.source}: ${message.text.slice(0, 80)}`);
       } else {
         if (!retryNoResponse && message.replyCallback) {
           console.warn("[messenger] No response to send; re-running chain once...");
+          this.emitHomeFeed("Retrying", "No response generated; retrying once", 96);
           await this.processMessage(message, true);
           return;
         }
         console.warn("[messenger] No response to send!");
+        this.emitHomeFeed("No response", "Chain ended without user-facing response", 97);
       }
     } catch (error) {
       console.error("[messenger] Chain execution failed:", error);
       if (!retryNoResponse && message.replyCallback) {
         console.warn("[messenger] Chain failed; re-running once...");
+        this.emitHomeFeed("Retrying", "Chain execution failed; retrying once", 97);
         await this.processMessage(message, true);
         return;
       }
       if (message.replyCallback) {
         await message.replyCallback(`❌ Error processing request: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
+      this.emitHomeFeed("Error", error instanceof Error ? error.message.slice(0, 120) : "Unknown error", 98);
     }
   }
 

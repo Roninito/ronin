@@ -9,11 +9,31 @@ import type { ToolCompletedEvent, ToolPolicyViolationEvent } from "../types.js";
  */
 export default class ToolAnalyticsAgent extends BaseAgent {
   static schedule = "0 */6 * * *"; // Every 6 hours
+  private lastHomeFeedEmitAt = 0;
 
   constructor(api: AgentAPI) {
     super(api);
     console.log("[tool-analytics] Analytics Agent initialized");
     this.registerEventListeners();
+    this.emitHomeFeed("Ready", "Tracking tool usage and costs");
+    setTimeout(() => this.emitHomeFeed("Ready", "Tracking tool usage and costs"), 3000);
+  }
+
+  private emitHomeFeed(status: string, detail: string, priority = 83): void {
+    const now = Date.now();
+    if (now - this.lastHomeFeedEmitAt < 10_000) return;
+    this.lastHomeFeedEmitAt = now;
+    this.api.events.emit(
+      "home-feed",
+      {
+        agent: "tool-analytics",
+        title: "Tool Analytics",
+        priority,
+        updatedAt: new Date(now).toISOString(),
+        html: `<div><strong>Tool Analytics</strong><div>${status}</div><small>${detail}</small></div>`,
+      },
+      "tool-analytics"
+    );
   }
 
   /**
@@ -311,5 +331,8 @@ export default class ToolAnalyticsAgent extends BaseAgent {
     
     console.log("[tool-analytics] Report generated and stored");
     console.log(report);
+    const violationsRaw = await this.api.memory.retrieve("analytics.policy.violations");
+    const violations = violationsRaw ? JSON.parse(violationsRaw as string) as unknown[] : [];
+    this.emitHomeFeed("Report ready", `Policy violations tracked: ${violations.length}`);
   }
 }

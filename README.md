@@ -807,4 +807,4 @@ curl http://localhost:3000/fishy/api/fish
 
 ## License
 
-Private project
+MIT License - see [LICENSE](LICENSE) for details.

@@ -5,6 +5,7 @@
     "packages/*"
   ],
   "description": "Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files",
+  "license": "MIT",
   "module": "src/index.ts",
   "type": "module",
   "bin": {

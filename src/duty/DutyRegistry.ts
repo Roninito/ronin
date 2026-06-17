@@ -22,6 +22,7 @@ import {
   createExecutionTrackingMiddleware,
   createModelResolutionMiddleware,
 } from "../middleware/index.js";
+import { modelSelector } from "../plugins/model-selector.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {
@@ -203,14 +204,8 @@ export class DutyRegistry {
         // Add logging for observability
         stack.use(createChainLoggingMiddleware({ level: "info" }));
         
-        // Add model resolution if model registry available
-        const modelRegistry = aiConfig.models ? {
-          default: aiConfig.ollamaModel || "llama3.2",
-          models: aiConfig.models,
-        } : undefined;
-        if (modelRegistry) {
-          stack.use(createModelResolutionMiddleware(modelRegistry));
-        }
+        // Add model resolution using model-selector plugin
+        stack.use(createModelResolutionMiddleware(modelSelector as any));
         
         // Add context trimming (keep last 50 messages)
         stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
@@ -871,14 +866,8 @@ export class DutyRegistry {
       // Add logging
       stack.use(createChainLoggingMiddleware({ level: "info" }));
       
-      // Add model resolution if model registry available
-      const modelRegistry = aiConfig.models ? {
-        default: aiConfig.ollamaModel || "llama3.2",
-        models: aiConfig.models,
-      } : undefined;
-      if (modelRegistry) {
-        stack.use(createModelResolutionMiddleware(modelRegistry));
-      }
+      // Add model resolution using model-selector plugin
+      stack.use(createModelResolutionMiddleware(modelSelector as any));
       
       // Add context trimming (keep last 50 messages)
       stack.use(createSmartTrimMiddleware({ recentCount: 50 }));

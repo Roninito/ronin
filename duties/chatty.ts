@@ -1300,7 +1300,7 @@ export default class ChattyAgent extends BaseDuty {
       });
 
       // Log context for debugging
-      console.log(`[Chatty] Context: ${context.agents.length} agents, ${context.plugins.length} plugins, ${context.routes.length} routes`);
+      console.log(`[Chatty] Context: ${context.duties.length} duties, ${context.plugins.length} plugins, ${context.routes.length} routes`);
 
       const userMessage = isFirstMessage
         ? `${systemPrompt}\n\nUser question: ${message}`
@@ -1567,7 +1567,7 @@ export default class ChattyAgent extends BaseDuty {
 
     if (cmd === "list" && parts[2] === "agents") {
       const context = await getRoninContext(this.api);
-      const agentList = context.agents.map((a) => `- ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`).join("\n");
+      const agentList = context.duties.map((a) => `- ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`).join("\n");
       return new Response(
         `Available agents:\n${agentList}`,
         { headers: { "Content-Type": "text/plain" } }

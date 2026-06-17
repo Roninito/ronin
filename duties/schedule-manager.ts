@@ -470,12 +470,9 @@ export default class ScheduleManagerDuty extends BaseDuty {
     };
     return dutyFiles.find(byBase) || null;
   }
-    const duties = await this.loader.loadAllDuties(this.api);
-    return agents.find(byName) ?? agents.find(byFileBasename) ?? null;
-  }
 
   /**
-   * Update agent schedule in file
+   * Update duty schedule in file
    */
   private async updateDutySchedule(
     dutyName: string,
@@ -483,7 +480,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
     duty: DutyMetadata
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const filePath = resolve(process.cwd(), agentMetadata.filePath);
+      const filePath = resolve(process.cwd(), duty.filePath);
       const content = await this.api.files.read(filePath);
 
       // Pattern to match: static schedule = "...";
@@ -513,7 +510,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
         } else {
           return {
             success: false,
-            error: "Could not find class declaration in agent file",
+            error: "Could not find class declaration in duty file",
           };
         }
       }

@@ -373,7 +373,7 @@ export default class AnalyticsAgent extends BaseDuty {
   private handleTaskProgress(event: DutyTaskProgressEvent): void {
     this.totalEvents++;
     const duty = this.ensureDuty(event.agent);
-    agent.lastSeen = event.timestamp;
+    duty.lastSeen = event.timestamp;
 
     const active = this.activeTasks.get(event.taskId);
     if (active) {
@@ -386,11 +386,11 @@ export default class AnalyticsAgent extends BaseDuty {
   private handleTaskCompleted(event: DutyTaskCompletedEvent): void {
     this.totalEvents++;
     const duty = this.ensureDuty(event.agent);
-    agent.lastSeen = event.timestamp;
-    agent.tasksCompleted++;
-    agent.totalDuration += event.duration;
-    agent.durations.push(event.duration);
-    if (agent.durations.length > 200) agent.durations.shift();
+    duty.lastSeen = event.timestamp;
+    duty.tasksCompleted++;
+    duty.totalDuration += event.duration;
+    duty.durations.push(event.duration);
+    if (duty.durations.length > 200) duty.durations.shift();
 
     const active = this.activeTasks.get(event.taskId);
     if (active) {
@@ -412,21 +412,19 @@ export default class AnalyticsAgent extends BaseDuty {
       });
     }
 
-    if (agent.tasksStarted === agent.tasksCompleted + agent.tasksFailed) {
-      agent.status = "idle";
+    if (duty.tasksStarted === duty.tasksCompleted + duty.tasksFailed) {
+      duty.status = "idle";
     }
-
-    this.currentHourBucket.completed++;
     this.currentHourBucket.events++;
   }
 
   private handleTaskFailed(event: DutyTaskFailedEvent): void {
     this.totalEvents++;
     const duty = this.ensureDuty(event.agent);
-    agent.lastSeen = event.timestamp;
-    agent.tasksFailed++;
-    agent.totalDuration += event.duration;
-    agent.status = "error";
+    duty.lastSeen = event.timestamp;
+    duty.tasksFailed++;
+    duty.totalDuration += event.duration;
+    duty.status = "error";
 
     const active = this.activeTasks.get(event.taskId);
     const taskName = active?.taskName || "unknown";
@@ -1365,12 +1363,12 @@ export default class AnalyticsAgent extends BaseDuty {
     const duties = Array.from(this.dutyStatuses.values());
     const summary = {
       timestamp: Date.now(),
-      totalAgents: agents.length,
-      totalTasks: agents.reduce((s, a) => s + a.tasksStarted, 0),
-      totalCompleted: agents.reduce((s, a) => s + a.tasksCompleted, 0),
-      totalFailed: agents.reduce((s, a) => s + a.tasksFailed, 0),
+      totalDuties: duties.length,
+      totalTasks: duties.reduce((s, a) => s + a.tasksStarted, 0),
+      totalCompleted: duties.reduce((s, a) => s + a.tasksCompleted, 0),
+      totalFailed: duties.reduce((s, a) => s + a.tasksFailed, 0),
       totalEvents: this.totalEvents,
-      agents: agents.map(a => ({
+      duties: duties.map(a => ({
         name: a.name,
         status: a.status,
         tasksStarted: a.tasksStarted,
@@ -1381,6 +1379,6 @@ export default class AnalyticsAgent extends BaseDuty {
 
     await this.api.memory.store(summaryKey, JSON.stringify(summary));
     console.log("[analytics] Summary persisted for", dayKey);
-    this.emitHomeFeed("Summary persisted", `Agents: ${summary.totalAgents} · Events: ${summary.totalEvents}`);
+    this.emitHomeFeed("Summary persisted", `Duties: ${summary.totalDuties} · Events: ${summary.totalEvents}`);
   }
 }

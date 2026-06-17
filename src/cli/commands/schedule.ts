@@ -95,21 +95,21 @@ async function listScheduleCommand(options: ScheduleOptions): Promise<void> {
   const externalDutyDir =
     process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
+  const duties = await loadDutyFileMetadata(dutyDir, externalDutyDir);
 
-  const agentsWithSchedules = agents.filter((agent) => agent.schedule);
+  const dutiesWithSchedules = duties.filter((duty) => duty.schedule);
 
-  if (agentsWithSchedules.length === 0) {
-    logger.info("No agents with schedules found.");
+  if (dutiesWithSchedules.length === 0) {
+    logger.info("No duties with schedules found.");
     return;
   }
 
-  logger.info(`\n📋 Agent Schedules\n`);
+  logger.info(`\n📋 Duty Schedules\n`);
 
-  for (const agent of agentsWithSchedules) {
-    logger.info(`🤖 ${agent.name}`);
-    logger.info(`   Schedule: ${agent.schedule}`);
-    const table = formatCronTable(agent.schedule!);
+  for (const duty of dutiesWithSchedules) {
+    logger.info(`🤖 ${duty.name}`);
+    logger.info(`   Schedule: ${duty.schedule}`);
+    const table = formatCronTable(duty.schedule!);
     console.log(table);
     logger.info("");
   }

@@ -69,35 +69,35 @@ async function getPluginInfo(pluginDir: string = "./plugins"): Promise<string> {
 }
 
 /**
- * Get agent information
+ * Get duty information
  */
-async function getAgentInfo(
-  dutyDir: string = "./agents",
+async function getDutyInfo(
+  dutyDir: string = "./duties",
   api: DutyAPI
 ): Promise<string> {
   try {
     const loader = new DutyLoader(dutyDir);
-    const agents = await loader.loadAllAgents(api);
+    const duties = await loader.loadAllDuties(api);
 
-    if (agents.length === 0) {
-      return "No agents found.";
+    if (duties.length === 0) {
+      return "No duties found.";
     }
 
-    const info = agents.map(a => {
-      const parts = [`${a.name}: ${a.filePath}`];
-      if (a.schedule) {
-        parts.push(`  Schedule: ${a.schedule}`);
-        const table = formatCronTable(a.schedule);
+    const info = duties.map(d => {
+      const parts = [`${d.name}: ${d.filePath}`];
+      if (d.schedule) {
+        parts.push(`  Schedule: ${d.schedule}`);
+        const table = formatCronTable(d.schedule);
         parts.push(table.split('\n').map(line => `  ${line}`).join('\n'));
       }
-      if (a.watch && a.watch.length > 0) parts.push(`  Watch: ${a.watch.join(", ")}`);
-      if (a.webhook) parts.push(`  Webhook: ${a.webhook}`);
+      if (d.watch && d.watch.length > 0) parts.push(`  Watch: ${d.watch.join(", ")}`);
+      if (d.webhook) parts.push(`  Webhook: ${d.webhook}`);
       return parts.join("\n");
     });
 
-    return `Agents (${agents.length}):\n${info.join("\n\n")}`;
+    return `Duties (${duties.length}):\n${info.join("\n\n")}`;
   } catch (error) {
-    return `Error loading agents: ${error}`;
+    return `Error loading duties: ${error}`;
   }
 }
 
@@ -128,7 +128,7 @@ export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   api: DutyAPI,
-  dutyDir: string = "./agents",
+  dutyDir: string = "./duties",
   pluginDir: string = "./plugins"
 ): Promise<unknown> {
   switch (toolName) {
@@ -141,14 +141,14 @@ export async function executeTool(
     case "list_plugins":
       return await getPluginInfo(pluginDir);
 
-    case "list_agents":
-      return await getAgentInfo(dutyDir, api);
+    case "list_duties":
+      return await getDutyInfo(dutyDir, api);
 
     case "get_system_info":
       return await getSystemInfo();
 
     default: {
-      const availableTools = ["list_files", "read_file", "list_plugins", "list_agents", "get_system_info"];
+      const availableTools = ["list_files", "read_file", "list_plugins", "list_duties", "get_system_info"];
       const suggestions = availableTools.filter(t => 
         t.includes(toolName) || (toolName.includes("list") && t.includes("list"))
       );
@@ -176,7 +176,7 @@ export function getSystemTools(): Tool[] {
           properties: {
             directory: {
               type: "string",
-              description: "Directory path to list files from (e.g., 'plugins', './agents', 'src/cli')",
+              description: "Directory path to list files from (e.g., 'plugins', './duties', 'src/cli')",
             },
             pattern: {
               type: "string",
@@ -219,8 +219,8 @@ export function getSystemTools(): Tool[] {
     {
       type: "function",
       function: {
-        name: "list_agents",
-        description: "Get information about all loaded agents including their names, schedules, file watchers, and webhooks.",
+        name: "list_duties",
+        description: "Get information about all loaded duties including their names, schedules, file watchers, and webhooks.",
         parameters: {
           type: "object",
           properties: {},

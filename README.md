@@ -1,5 +1,7 @@
 # Ronin - Bun AI Agent Library
 
+> **Canonical architecture:** see [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+
 A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features (cron, file watching, HTTP) and integrating with Ollama (qwen3:1.7b) for local AI capabilities.
 
 ## Features

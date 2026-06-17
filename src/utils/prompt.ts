@@ -8,13 +8,13 @@ import { readdir, readFile } from "fs/promises";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { homedir } from "os";
-import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../cli/commands/config.js";
+import { ensureDefaultExternalDutyDir, ensureDefaultDutyDir } from "../cli/commands/config.js";
 import { getDefaultCache } from "./cache.js";
 import type { DutyAPI } from "../types/index.js";
 import type { OpenAIFunctionSchema } from "../tools/types.js";
 
 export interface RoninContext {
-  agents: Array<{ name: string; description?: string }>;
+  duties: Array<{ name: string; description?: string }>;
   plugins: string[];
   routes: Array<{ path: string; type: string }>;
   architecture: string;
@@ -24,7 +24,7 @@ export interface RoninContext {
 export interface PromptOptions {
   role?: string;
   includeArchitecture?: boolean;
-  includeAgentList?: boolean;
+  includeDutyList?: boolean;
   includePluginList?: boolean;
   includeRouteList?: boolean;
   sections?: string[];
@@ -101,7 +101,7 @@ When users ask about previous work, conversations, logs, configs, or project fil
 
 Project workspace tree:
 ${projectRoot}/
-├── agents/              # Project agents (repo-local)
+├── duties/             # Project duties (repo-local)
 ├── skills/              # Project skills (repo-local)
 ├── docs/                # Project docs/reference
 ├── src/                 # Core framework/runtime code
@@ -116,14 +116,14 @@ Local Ronin home tree:
 ├── logs/
 │   └── runs/            # Per-run logs
 ├── skills/              # User-installed skills
-├── agents/              # User-installed agents
+├── duties/             # User-installed duties
 ├── plugins/             # User plugins
 └── data/                # Runtime data files
 
 Search guidance:
 - For "what did we discuss / do before": query memory + ontology first, then recall skill.
 - For config/runtime issues: inspect ~/.ronin/config.json and ~/.ronin/*.log.
-- For implementation/code questions: inspect ${projectRoot}/src, agents, skills, docs.
+- For implementation/code questions: inspect ${projectRoot}/src, duties, skills, docs.
 - Prefer evidence from tool results over guessing.`;
 }
 
@@ -143,7 +143,7 @@ function getPersonaSection(): string {
 }
 
 /**
- * Single source of truth for discovering agents, plugins, routes.
+ * Single source of truth for discovering duties, plugins, routes.
  * Memoized with use-count decay (maxUses: 10, maxAgeMs: 60s).
  */
 export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
@@ -151,19 +151,19 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
   const cached = cache.get<RoninContext>(RONIN_CONTEXT_KEY);
   if (cached) return cached;
 
-  const agents: Array<{ name: string; description?: string }> = [];
+  const duties: Array<{ name: string; description?: string }> = [];
   try {
-    const externalAgentDir = ensureDefaultExternalAgentDir();
-    const localAgentDir = ensureDefaultAgentDir();
+    const externalDutyDir = ensureDefaultExternalDutyDir();
+    const localDutyDir = ensureDefaultDutyDir();
 
     try {
-      const externalFiles = await readdir(externalAgentDir);
+      const externalFiles = await readdir(externalDutyDir);
       for (const file of externalFiles) {
         if (file.endsWith(".ts") || file.endsWith(".js")) {
           const name = file.replace(/\.(ts|js)$/, "");
           let description: string | undefined;
           try {
-            const content = await readFile(join(externalAgentDir, file), "utf-8");
+            const content = await readFile(join(externalDutyDir, file), "utf-8");
             const descMatch =
               content.match(/\/\*\*[\s\S]*?\*\//) ||
               content.match(/\/\/.*description.*/i) ||
@@ -174,7 +174,7 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
           } catch {
             // ignore
           }
-          agents.push({ name, description });
+          duties.push({ name, description });
         }
       }
     } catch {
@@ -182,18 +182,18 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
     }
 
     try {
-      const localFiles = await readdir(localAgentDir);
+      const localFiles = await readdir(localDutyDir);
       for (const file of localFiles) {
         if (file.endsWith(".ts") || file.endsWith(".js")) {
           const name = file.replace(/\.(ts|js)$/, "");
-          if (!agents.find((a) => a.name === name)) agents.push({ name });
+          if (!duties.find((d) => d.name === name)) duties.push({ name });
         }
       }
     } catch {
       // local dir may not exist
     }
   } catch (error) {
-    console.warn("[prompt] Error discovering agents:", error);
+    console.warn("[prompt] Error discovering duties:", error);
   }
 
   const plugins = api.plugins.list();
@@ -206,7 +206,7 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
   const architecture = getArchitectureDescription();
   const hasOntology = api.plugins.has("ontology");
   const context: RoninContext = {
-    agents,
+    duties,
     plugins,
     routes,
     architecture,
@@ -231,15 +231,15 @@ export function getArchitectureDescription(): string {
   const text = `Ronin is a Bun-based AI agent framework for TypeScript/JavaScript.
 
 Key Components:
-- Agents: Extend BaseDuty, implement execute(), auto-loaded from ~/.ronin/agents/
+- Duties: Extend BaseDuty, implement execute(), auto-loaded from ~/.ronin/duties/
 - Plugins: Tools in ~/.ronin/plugins/, accessed via api.plugins.call()
-- Routes: Agents register HTTP routes via api.http.registerRoute()
-- Events: Inter-agent communication via api.events.emit/on()
+- Routes: Duties register HTTP routes via api.http.registerRoute()
+- Events: Inter-duty communication via api.events.emit/on()
 - Memory: Persistent storage via api.memory
 - AI: Ollama integration via api.ai (complete, chat, callTools)
 - LangChain: Advanced chains/graphs via api.langchain (if plugin loaded)
 
-Agent Structure:
+Duty Structure:
 - Static schedule (cron) for scheduled execution
 - Static watch (file patterns) for file watching
 - Static webhook (path) for HTTP webhooks
@@ -263,7 +263,7 @@ export function buildSystemPrompt(
   const {
     role = DEFAULT_ROLE,
     includeArchitecture = true,
-    includeAgentList = true,
+    includeDutyList = true,
     includePluginList = true,
     includeRouteList = false,
     sections = [],
@@ -279,17 +279,17 @@ export function buildSystemPrompt(
     parts.push(context.architecture);
   }
 
-  if (includeAgentList) {
-    const agentList =
-      context.agents.length > 0
-        ? context.agents
+  if (includeDutyList) {
+    const dutyList =
+      context.duties.length > 0
+        ? context.duties
             .map(
-              (a) =>
-                `  - ${a.name}${a.description ? `: ${a.description.substring(0, 100)}` : ""}`
+              (d) =>
+                `  - ${d.name}${d.description ? `: ${d.description.substring(0, 100)}` : ""}`
             )
             .join("\n")
-        : "  (No agents found)";
-    parts.push(`CURRENT RONIN SETUP:\n\nAvailable Agents:\n${agentList}`);
+        : "  (No duties found)";
+    parts.push(`CURRENT RONIN SETUP:\n\nAvailable Duties:\n${dutyList}`);
   }
 
   if (includePluginList) {
@@ -309,7 +309,7 @@ export function buildSystemPrompt(
   }
 
   parts.push(
-    "Your role:\n- Do the work yourself using the tools you have. Call the tools and return the result. Only tell the user how to do something in bash or with tools if they explicitly ask (e.g. \"how do I run X\", \"what command\", \"show me the steps\").\n- Answer questions about the Ronin AI agent framework architecture\n- Explain how agents, plugins, and routes work\n- Help users understand their current Ronin setup\n- Discuss agent creation, plugin usage, and route registration\n- Analyze agent outputs (e.g., RSS feeds) when requested\n\nIMPORTANT: Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript."
+    "Your role:\n- Do the work yourself using the tools you have. Call the tools and return the result. Only tell the user how to do something in bash or with tools if they explicitly ask (e.g. \"how do I run X\", \"what command\", \"show me the steps\").\n- Answer questions about the Ronin AI agent framework architecture\n- Explain how duties, plugins, and routes work\n- Help users understand their current Ronin setup\n- Discuss duty creation, plugin usage, and route registration\n- Analyze duty outputs (e.g., RSS feeds) when requested\n\nIMPORTANT: Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript."
   );
 
   if (ontologyHint) {
@@ -476,11 +476,11 @@ export function filterToolSchemas(
   const isToolQuery = /\b(skills?|notes?|weather|email|mail|messages?|discord|telegram|search|run|execute|list|get|find|read|write|create|delete|update|discuss|explain|tell me about|about|tables?|database|schema|ronin\.db|diagram|mermaid|flowchart|flow chart|chart|draw|recall|remember|memory|history|conversation|context)\b/.test(msg);
   const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
   const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
-  // Include tools when user asks about agents/architecture (so memory + ontology can be used)
-  const isAboutAgents = /\b(agent|agents|intent-ingress|chatty|ronin)\b/.test(msg);
+  // Include tools when user asks about duties/architecture (so memory + ontology can be used)
+  const isAboutDuties = /\b(duty|duties|intent-ingress|chatty|ronin)\b/.test(msg);
 
   // Only include tools for actual tool queries, not simple chat/greetings
-  if ((!isToolQuery && !isAboutAgents) || (isGreeting && !isToolQuery && !isAboutAgents)) {
+  if ((!isToolQuery && !isAboutDuties) || (isGreeting && !isToolQuery && !isAboutDuties)) {
     return []; // Return empty for simple chat - let local model handle it
   }
 

@@ -96,8 +96,8 @@ export class EventsAPI {
   }
 
   /**
-   * Send a targeted event to specific agent(s)
-   * @param targets Agent name(s) to target (e.g., 'rss-feed' or ['rss-feed', 'gvec'])
+   * Send a targeted event to specific duty/duties
+   * @param targets Duty name(s) to target (e.g., 'rss-feed' or ['rss-feed', 'gvec'])
    * @param eventType Event type name (e.g., 'get-new-items')
    * @param payload Event payload data
    */
@@ -119,8 +119,8 @@ export class EventsAPI {
   }
 
   /**
-   * Query an agent(s) and wait for a response
-   * @param targets Agent name(s) to query
+   * Query a duty/duties and wait for a response
+   * @param targets Duty name(s) to query
    * @param queryType Query type name (e.g., 'get-new-items')
    * @param payload Query payload data
    * @param timeout Timeout in milliseconds (default: 5000)

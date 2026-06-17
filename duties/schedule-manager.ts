@@ -23,8 +23,8 @@ import {
 } from "../src/utils/theme.js";
 
 /**
- * Schedule Manager Agent
- * Provides Web UI and API for managing cron schedules for all agents
+ * Schedule Manager Duty
+ * Provides Web UI and API for managing cron schedules for all duties
  */
 const SSE_CLIENTS_KEY = "_scheduleSSEClients" as const;
 
@@ -34,20 +34,20 @@ function getScheduleSSEClients(api: DutyAPI): Set<(data: string) => void> {
   return a[SSE_CLIENTS_KEY] as Set<(data: string) => void>;
 }
 
-export default class ScheduleManagerAgent extends BaseDuty {
+export default class ScheduleManagerDuty extends BaseDuty {
   private loader: DutyLoader;
   private lastHomeFeedEmitAt = 0;
 
   constructor(api: DutyAPI) {
     super(api);
-    const agentDir = process.env.RONIN_AGENT_DIR || "./agents";
-    const externalAgentDir = process.env.RONIN_EXTERNAL_AGENT_DIR || null;
-    this.loader = new DutyLoader(agentDir, externalAgentDir);
+    const dutyDir = process.env.RONIN_DUTY_DIR || "./duties";
+    const externalDutyDir = process.env.RONIN_EXTERNAL_DUTY_DIR || null;
+    this.loader = new DutyLoader(dutyDir, externalDutyDir);
     this.registerRoutes();
     this.registerTool();
     this.api.events.on("schedule_updated", () => this.broadcastScheduleUpdated({}));
-    this.api.events.on("agent_reloaded", () => this.broadcastScheduleUpdated({}));
-    console.log("✅ Schedule Manager agent ready. UI available at /schedule");
+    this.api.events.on("duty_reloaded", () => this.broadcastScheduleUpdated({}));
+    console.log("✅ Schedule Manager duty ready. UI available at /schedule");
     this.emitHomeFeed("Ready", "Schedule UI and tooling online");
     setTimeout(() => this.emitHomeFeed("Ready", "Schedule UI and tooling online"), 3000);
   }
@@ -83,28 +83,28 @@ export default class ScheduleManagerAgent extends BaseDuty {
   }
 
   /**
-   * Register tool for AI to write schedules to agents
+   * Register tool for AI to write schedules to duties
    */
   private registerTool(): void {
     this.api.tools.register({
       name: "schedule.writeSchedule",
-      description: "Write or update a cron schedule for an agent. Updates the agent's static schedule property in its file and triggers hot reload.",
+      description: "Write or update a cron schedule for a duty. Updates the duty's static schedule property in its file and triggers hot reload.",
       parameters: {
         type: "object",
         properties: {
-          agentName: {
+          dutyName: {
             type: "string",
-            description: "The name of the agent to update (e.g., 'tool-analytics', 'rss-to-telegram')",
+            description: "The name of the duty to update (e.g., 'tool-analytics', 'rss-to-telegram')",
           },
           schedule: {
             type: "string",
             description: "Cron expression in format: minute hour day month weekday (e.g., '0 */6 * * *' for every 6 hours)",
           },
         },
-        required: ["agentName", "schedule"],
+        required: ["dutyName", "schedule"],
       },
       provider: "schedule-manager",
-      handler: async (args: { agentName: string; schedule: string }, context) => {
+      handler: async (args: { dutyName: string; schedule: string }, context) => {
         try {
           // Validate schedule
           const validation = validateCronExpression(args.schedule);

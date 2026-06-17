@@ -2,7 +2,7 @@
 
 > **Status:** Canonical (Post-Refactor, June 2026).
 > This document describes the current architecture after the Agent→Duty rename,
-> provider consolidation, and SAR envelope implementation.
+> provider consolidation, SAR envelope implementation, and technique removal.
 
 ---
 
@@ -50,6 +50,13 @@ fast, typed, in-runtime; **Skill** = portable, declarative, language-agnostic.
 
 **technique was dropped** because it was a third synonym for Skill that bought
 nothing and (unlike Skill) couldn't cross language boundaries.
+
+**Technique Removal (June 2026):** The `src/techniques/` module was deleted.
+- Kata/Contract/Task v2 types moved to `src/types/shared.ts`
+- Engine table migrations moved to `src/database/migrations.ts`
+- All 14 `.technique` data files converted to SKILL.md format in `skills/`
+- CLI `technique` command removed
+- TechniqueLoader removed from startup
 
 ### Supporting Structure (not capability concepts)
 
@@ -100,7 +107,7 @@ it skips the envelope (for duties that manage their own SAR).
 | `agents/` | **Duty** | ✅ Renamed to `duties/`. Agent → Duty hard rename complete. |
 | `plugins/` | **Tool Pack** | ✅ Kept as bundles. Each plugin method is a registered Tool. |
 | `skills/` | **Skill** | ✅ Kept. Language-agnostic markdown defs. |
-| `techniques/` | **— DROPPED —** | ⏳ Deferred (code exists, CLI removed in future pass). |
+| `techniques/` | **Skill** | ✅ Removed. Converted to SKILL.md format. Technique execution code deleted. |
 | `katas/` | **— DEFERRED —** | ⏳ Not a runtime concept; removal is separate project. |
 | `contracts/` | **Schema** | ⏳ Planned rename to `schema/` (deferred). |
 

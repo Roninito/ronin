@@ -4,7 +4,7 @@ import { join } from "path";
 import { createAPI } from "../../api/index.js";
 import { stdin, stdout } from "process";
 import { createInterface } from "readline";
-import { ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
 
 export interface CreateDutyOptions {
   description?: string;
@@ -115,9 +115,9 @@ export async function createDutyCommand(
   // Use local directory (~/.ronin/duties) if --local flag is set or no dutyDir specified
   let dutyDir: string;
   if (options.local) {
-    dutyDir = ensureDefaultExternalAgentDir();
+    dutyDir = ensureDefaultExternalDutyDir();
   } else {
-    dutyDir = options.dutyDir || ensureDefaultAgentDir();
+    dutyDir = options.dutyDir || ensureDefaultDutyDir();
   }
 
   // Check if Ollama is available

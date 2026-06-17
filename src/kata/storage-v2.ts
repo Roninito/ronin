@@ -4,8 +4,8 @@
  */
 
 import type { DutyAPI } from "../types/index.js";
-import type { KataRowV2, KataListFilters } from "../techniques/types.js";
-import { runTechniqueMigrations } from "../techniques/migrations.js";
+import type { KataRowV2, KataListFilters } from "../types/shared.js";
+import { runEngineMigrations } from "../database/migrations.js";
 
 export class KataStorageV2 {
   constructor(private api: DutyAPI) {}

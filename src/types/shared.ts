@@ -1,40 +1,9 @@
 /**
- * Types for Techniques, enhanced Katas, enhanced Contracts, and Tasks v2
+ * Shared types for Katas, Contracts, and Tasks
+ * Extracted from techniques/types.ts during architecture refactor
  */
 
-// ── Techniques ────────────────────────────────────────────────────────────────
-
-/** A step in a composite technique */
-export interface TechniqueStep {
-  name: string;
-  description?: string;
-  runType: "skill" | "tool";
-  runName: string;
-  /** Optional ability to invoke on the skill */
-  ability?: string;
-  /** Parameters — may include variable refs like "input.channelId" */
-  params: Record<string, unknown>;
-  /** Variable name to store this step's output */
-  output: string;
-}
-
-/** Return mapping for a composite technique */
-export type ReturnMapping = Record<string, unknown>;
-
-/** Parsed AST for a composite technique */
-export interface CompositeTechniqueAST {
-  type: "composite";
-  steps: TechniqueStep[];
-  returnMapping: ReturnMapping;
-}
-
-/** Parsed AST for a custom technique */
-export interface CustomTechniqueAST {
-  type: "custom";
-  handlerPath: string;
-}
-
-export type TechniqueAST = CompositeTechniqueAST | CustomTechniqueAST;
+// ── Schema Utilities ────────────────────────────────────────────────────────────
 
 /** Schema field definition */
 export interface SchemaField {
@@ -50,74 +19,11 @@ export interface SchemaField {
 
 export type SchemaDefinition = Record<string, SchemaField>;
 
-/** Dependency declaration */
-export interface TechniqueDependency {
-  kind: "skill" | "tool";
-  name: string;
-}
-
-/** Full parsed technique definition (from DSL) */
-export interface TechniqueDefinition {
-  name: string;
-  version: string;
-  description: string;
-  category?: string;
-  tags?: string[];
-  type: "composite" | "custom";
-  requires: TechniqueDependency[];
-  inputSchema: SchemaDefinition;
-  outputSchema: SchemaDefinition;
-  ast: TechniqueAST;
-  /** Raw DSL source */
-  source: string;
-  /** AI model selection */
-  aiModel?: {
-    /** Explicit model nametag (e.g., "claude-haiku") */
-    nametag?: string;
-    /** Tag-based selection (e.g., ["fast", "cheap"]) */
-    tags?: string[];
-    /** Fallback model if primary fails */
-    fallback?: string;
-  };
-}
-
-/** Database row for a technique */
-export interface TechniqueRow {
-  id: number;
-  name: string;
-  version: string;
-  description: string;
-  category: string | null;
-  tags: string | null; // JSON array
-  type: string;
-  definition: string; // DSL source
-  input_schema: string | null; // JSON
-  output_schema: string | null; // JSON
-  created_at: number;
-  updated_at: number;
-  author: string | null;
-  deprecated: number; // 0 or 1
-  replacement_technique: string | null;
-  usage_count: number;
-  last_used_at: number | null;
-  average_duration: number | null;
-}
-
-/** Filters for listing techniques */
-export interface TechniqueListFilters {
-  category?: string;
-  tag?: string;
-  type?: "composite" | "custom";
-  deprecated?: boolean;
-  sort?: "name" | "created" | "usage";
-  limit?: number;
-}
-
-// ── Katas v2 ──────────────────────────────────────────────────────────────────
+// ── Katas v2 ─────────────────────────────────────────────────────────────────────
 
 /** Dependency declaration for a kata */
 export interface KataDependency {
-  kind: "technique" | "skill" | "tool";
+  kind: "skill" | "tool";
   name: string;
 }
 
@@ -128,14 +34,14 @@ export interface KataRowV2 {
   version: string;
   description: string;
   category: string | null;
-  tags: string | null; // JSON array
-  definition: string; // DSL source
-  input_schema: string | null; // JSON
-  output_schema: string | null; // JSON
+  tags: string | null;
+  definition: string;
+  input_schema: string | null;
+  output_schema: string | null;
   created_at: number;
   updated_at: number;
   author: string | null;
-  deprecated: number; // 0 or 1
+  deprecated: number;
   replacement_kata: string | null;
   usage_count: number;
   last_used_at: number | null;
@@ -151,7 +57,7 @@ export interface KataListFilters {
   limit?: number;
 }
 
-// ── Contracts v2 ──────────────────────────────────────────────────────────────
+// ── Contracts v2 ─────────────────────────────────────────────────────────────────
 
 export type TriggerType = "cron" | "event" | "webhook" | "manual";
 export type FailureAction = "retry" | "alert" | "ignore";
@@ -191,8 +97,8 @@ export type TriggerConfig =
 export interface RetryConfig {
   maxAttempts: number;
   backoff: BackoffType;
-  initialDelay: number; // ms
-  maxDelay: number; // ms
+  initialDelay: number;
+  maxDelay: number;
   alertEmail?: string;
 }
 
@@ -226,12 +132,12 @@ export interface ContractV2Row {
   description: string | null;
   target_kata: string;
   target_kata_version: string;
-  parameters: string | null; // JSON
+  parameters: string | null;
   trigger_type: string;
-  trigger_config: string; // JSON
+  trigger_config: string;
   on_failure_action: string;
-  on_failure_config: string | null; // JSON
-  enabled: number; // 0 or 1
+  on_failure_config: string | null;
+  enabled: number;
   created_at: number;
   updated_at: number;
   author: string | null;
@@ -249,14 +155,14 @@ export interface ContractListFilters {
   limit?: number;
 }
 
-// ── Tasks v2 ──────────────────────────────────────────────────────────────────
+// ── Tasks v2 ─────────────────────────────────────────────────────────────────────
 
 export type TaskV2Status = "pending" | "running" | "completed" | "failed" | "canceled";
 
 /** Database row for tasks v2 */
 export interface TaskV2Row {
   id: number;
-  task_id: string; // tsk_abc123
+  task_id: string;
   source_contract: string | null;
   source_kata: string;
   source_kata_version: string;
@@ -264,7 +170,7 @@ export interface TaskV2Row {
   started_at: number | null;
   completed_at: number | null;
   duration: number | null;
-  output: string | null; // JSON
+  output: string | null;
   error: string | null;
   error_phase: string | null;
   created_at: number;
@@ -278,15 +184,14 @@ export interface TaskPhaseRow {
   id: number;
   task_id: string;
   phase_name: string;
-  phase_type: string | null; // 'sequential' | 'parallel'
+  phase_type: string | null;
   status: PhaseStatus;
   started_at: number | null;
   completed_at: number | null;
   duration: number | null;
-  technique_name: string | null;
   skill_name: string | null;
   tool_name: string | null;
-  output: string | null; // JSON
+  output: string | null;
   error: string | null;
 }
 

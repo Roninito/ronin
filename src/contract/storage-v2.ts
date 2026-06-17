@@ -8,8 +8,8 @@ import type {
   ContractV2Definition,
   ContractListFilters,
   TriggerType,
-} from "../techniques/types.js";
-import { runTechniqueMigrations } from "../techniques/migrations.js";
+} from "../types/shared.js";
+import { runEngineMigrations } from "../database/migrations.js";
 
 interface HistoryFilter {
   limit?: number;

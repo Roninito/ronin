@@ -22,7 +22,7 @@
  *     }
  */
 
-import type { ContractV2Definition, TriggerType, TriggerConfig, FailureAction } from "../techniques/types.js";
+import type { ContractV2Definition, TriggerType, TriggerConfig, FailureAction } from "../types/shared.js";
 
 export class ContractParseError extends Error {
   constructor(message: string, public line?: number) {

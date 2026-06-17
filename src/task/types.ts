@@ -8,7 +8,7 @@
  *                                   ↘ canceled
  */
 
-import type { CompiledKata, Phase } from "./kata/types.js";
+import type { CompiledKata, Phase } from "../kata/types.js";
 
 /**
  * Task State — deterministic state machine

@@ -1,7 +1,6 @@
 import { createAPI } from "../../api/index.js";
 import type { DutyAPI } from "../../types/api.js";
 import { DutyLoader, DutyRegistry, HotReloadService } from "../../duty/index.js";
-import { TechniqueLoader } from "../../techniques/loader.js";
 import { KataLoader } from "../../kata/loader.js";
 import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureDefaultUserPluginDir } from "./config.js";
@@ -114,13 +113,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
 
   logger.info("Loaded duties", { count: duties.length });
 
-  // Load techniques, katas, and contracts from filesystem
-  const techniqueLoader = new TechniqueLoader(process.cwd());
-  const techniqueResult = await techniqueLoader.loadAll(api);
-  if (techniqueResult.loaded > 0 || techniqueResult.errors.length > 0) {
-    logger.info("Loaded techniques from files", { loaded: techniqueResult.loaded, skipped: techniqueResult.skipped, errors: techniqueResult.errors.length });
-  }
-
+  // Load katas and contracts from filesystem
   const kataLoader = new KataLoader(process.cwd());
   const kataResult = await kataLoader.loadAll(api);
   if (kataResult.loaded > 0 || kataResult.errors.length > 0) {

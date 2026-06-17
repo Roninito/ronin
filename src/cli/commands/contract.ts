@@ -28,7 +28,7 @@ import { getConfigService } from "../../config/ConfigService.js";
 import { createAPI } from "../../api/index.js";
 import { ContractStorageV2 } from "../../contract/storage-v2.js";
 import { ContractParserV2, ContractParseError } from "../../contract/parser-v2.js";
-import type { ContractV2Row, ContractListFilters, TriggerType } from "../../techniques/types.js";
+import type { ContractV2Row, ContractListFilters, TriggerType } from "../../types/shared.js";
 import { getNextCronRun, cronToHuman } from "../../contract/cron.js";
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────

@@ -3,8 +3,8 @@
  */
 
 import type { DutyAPI } from "../types/index.js";
-import type { TaskV2Row, TaskPhaseRow, TaskV2Status, TaskListFilters, PhaseStatus } from "../techniques/types.js";
-import { runTechniqueMigrations } from "../techniques/migrations.js";
+import type { TaskV2Row, TaskPhaseRow, TaskV2Status, TaskListFilters, PhaseStatus } from "../types/shared.js";
+import { runEngineMigrations } from "../database/migrations.js";
 
 let _taskCounter = 0;
 

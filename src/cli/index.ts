@@ -30,7 +30,6 @@ import { clientCommand } from "./commands/client.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
 import { kataCommand } from "./commands/kata.js";
-import { techniqueCommand } from "./commands/technique.js";
 import { contractCommand } from "./commands/contract.js";
 import { taskCommand } from "./commands/task.js";
 import { handleVersionCommand } from "./commands/version.js";
@@ -656,39 +655,6 @@ async function main() {
       break;
     }
 
-    case "technique": {
-      const techniqueArgs = args.filter((a, i) => {
-        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--category", "--tag", "--type", "--sort", "--limit", "--params", "--timeout", "--replacement", "--reason"]);
-        if (flags.has(a)) return false;
-        if (i > 0 && flags.has(args[i - 1])) return false;
-        return true;
-      });
-      await techniqueCommand(techniqueArgs, {
-        dbPath: getArg("--db-path", args),
-        pluginDir: getArg("--plugin-dir", args),
-        userPluginDir: getArg("--user-plugin-dir", args),
-        ollamaUrl: getArg("--ollama-url", args),
-        ollamaModel: getArg("--ollama-model", args),
-        category: getArg("--category", args),
-        tag: getArg("--tag", args),
-        type: getArg("--type", args),
-        deprecated: args.includes("--deprecated"),
-        sort: getArg("--sort", args),
-        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
-        examples: args.includes("--examples"),
-        dependencies: args.includes("--dependencies"),
-        usedBy: args.includes("--used-by"),
-        stats: args.includes("--stats"),
-        params: getArg("--params", args),
-        verbose: args.includes("--verbose"),
-        timeout: getArg("--timeout", args) ? parseInt(getArg("--timeout", args)!) : undefined,
-        replacement: getArg("--replacement", args),
-        reason: getArg("--reason", args),
-        force: args.includes("--force"),
-      });
-      break;
-    }
-
     case "contract": {
       const contractArgs = args.filter((a, i) => {
         const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--kata", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
@@ -860,16 +826,6 @@ Advanced (Execution Engine):
   task show <id>          Show task details
   task cancel <id>        Cancel a task
   task retry <id>         Retry a failed task
-
-Deferred (Vestigial - Not Core Architecture):
-  technique list          List all techniques (deferred removal)
-  technique show <name>   Show technique details
-  technique create        Create a new technique
-  technique test <name>   Run technique tests
-  technique validate <f>  Validate a technique file
-  technique register <f>  Register a technique
-  technique deprecate <n> Deprecate a technique
-  technique delete <name> Delete a technique
 
 Global Options:
   --debug                 Enable debug logging

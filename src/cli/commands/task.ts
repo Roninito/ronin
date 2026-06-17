@@ -12,7 +12,7 @@ import { join } from "path";
 import { getConfigService } from "../../config/ConfigService.js";
 import { createAPI } from "../../api/index.js";
 import { TaskStorageV2 } from "../../task/storage-v2.js";
-import type { TaskV2Row, TaskPhaseRow, TaskV2Status } from "../../techniques/types.js";
+import type { TaskV2Row, TaskPhaseRow, TaskV2Status } from "../../types/shared.js";
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 
@@ -171,9 +171,7 @@ async function cmdShow(args: string[], options: TaskOptions): Promise<void> {
     for (const phase of phases) {
       const icon = formatPhaseStatus(phase.status);
       const dur = formatDuration(phase.duration);
-      const what = phase.technique_name
-        ? `technique ${c.cyan(phase.technique_name)}`
-        : phase.skill_name
+      const what = phase.skill_name
         ? `skill ${c.cyan(phase.skill_name)}`
         : phase.tool_name
         ? `tool ${c.cyan(phase.tool_name)}`

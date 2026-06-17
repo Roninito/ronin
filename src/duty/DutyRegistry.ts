@@ -11,6 +11,17 @@ import { spawn, spawnSync } from "child_process";
 import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG } from "../utils/theme.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
+import { Executor } from "../executor/Executor.js";
+import { Chain } from "../chain/Chain.js";
+import { MiddlewareStack } from "../middleware/MiddlewareStack.js";
+import type { ChainContext } from "../chain/types.js";
+import {
+  createChainLoggingMiddleware,
+  createSmartTrimMiddleware,
+  createTokenGuardMiddleware,
+  createExecutionTrackingMiddleware,
+  createModelResolutionMiddleware,
+} from "../middleware/index.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {
@@ -150,7 +161,112 @@ export class DutyRegistry {
   }
 
   /**
-   * Unregister an duty
+   * Execute a duty manually with SAR envelope
+   * 
+   * Every duty execution is wrapped in a SAR chain with:
+   * - Logging middleware (for observability)
+   * - Token guard (budget enforcement)
+   * - Execution tracking (metrics)
+   * - Smart trim (context management)
+   * 
+   * This ensures all duties have consistent governance without requiring
+   * each duty to implement SAR explicitly.
+   */
+  async executeDuty(dutyName: string): Promise<void> {
+    const duty = this.dutys.get(dutyName);
+    if (!duty) {
+      throw new Error(`Duty not found: ${dutyName}`);
+    }
+
+    const startTime = Date.now();
+    const dutyInstance = duty.instance;
+    
+    // Check if duty already uses SAR (has middleware attached)
+    const hasSAR = (dutyInstance as any).middleware && (dutyInstance as any).executor;
+    
+    if (hasSAR) {
+      // Duty already has SAR - execute directly
+      logger.info("Duty has SAR middleware, executing directly", { duty: dutyName });
+      await dutyInstance.execute();
+    } else {
+      // Wrap in SAR envelope
+      try {
+        const config = getConfigService();
+        const aiConfig = config.getAI();
+        
+        // Create executor with duty's API
+        const executor = new Executor(dutyInstance.api as any);
+        
+        // Build middleware stack (lightweight SAR envelope)
+        const stack = new MiddlewareStack<ChainContext>();
+        
+        // Add logging for observability
+        stack.use(createChainLoggingMiddleware({ level: "info" }));
+        
+        // Add model resolution if model registry available
+        const modelRegistry = aiConfig.models ? {
+          default: aiConfig.ollamaModel || "llama3.2",
+          models: aiConfig.models,
+        } : undefined;
+        if (modelRegistry) {
+          stack.use(createModelResolutionMiddleware(modelRegistry));
+        }
+        
+        // Add context trimming (keep last 50 messages)
+        stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
+        
+        // Add token budget (default 12000, configurable via duty.maxTokens)
+        const maxTokens = (dutyInstance as any).maxTokens ?? 12000;
+        stack.use(createTokenGuardMiddleware({ maxTokens }));
+        
+        // Add execution tracking for metrics
+        stack.use(createExecutionTrackingMiddleware());
+        
+        // Create chain for this duty execution
+        const chain = new Chain(executor, stack, `duty:${dutyName}`);
+        
+        // Initialize context with duty metadata
+        chain.withContext({
+          messages: [],
+          metadata: {
+            dutyName,
+            executionType: "manual",
+            startTime,
+          },
+        } as any);
+        
+        // The SAR chain wraps the execution:
+        // SENSE: Context setup via chain.withContext
+        // ANALYZE: Model resolution and trimming
+        // RESPOND: duty.execute()
+        
+        // Run the chain to completion (executes middleware)
+        await chain.run();
+        
+        // Now execute the actual duty logic
+        await dutyInstance.execute();
+        
+        const duration = Date.now() - startTime;
+        logger.info("Duty executed via SAR envelope", {
+          duty: dutyName,
+          duration,
+          sarWrapped: true,
+          maxTokens,
+        });
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logger.error("Duty execution failed", {
+          duty: dutyName,
+          error: error instanceof Error ? error.message : String(error),
+          duration,
+        });
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Unregister a duty by name
    */
   unregister(dutyName: string): boolean {
     const duty = this.dutys.get(dutyName);
@@ -722,7 +838,16 @@ export class DutyRegistry {
   }
 
   /**
-   * Execute an duty manually
+   * Execute a duty manually with SAR envelope
+   * 
+   * Every duty execution is wrapped in a SAR chain with:
+   * - Logging middleware (for observability)
+   * - Token guard (budget enforcement)
+   * - Execution tracking (metrics)
+   * - Smart trim (context management)
+   * 
+   * This ensures all duties have consistent governance without requiring
+   * each duty to implement SAR explicitly.
    */
   async executeDuty(dutyName: string): Promise<void> {
     const duty = this.dutys.get(dutyName);
@@ -730,7 +855,75 @@ export class DutyRegistry {
       throw new Error(`Duty not found: ${dutyName}`);
     }
 
-    await duty.instance.execute();
+    const startTime = Date.now();
+    
+    // Build SAR envelope around duty execution
+    try {
+      const config = getConfigService();
+      const aiConfig = config.getAI();
+      
+      // Create executor with duty's API
+      const executor = new Executor(duty.instance.api as any);
+      
+      // Build middleware stack (standard SAR template)
+      const stack = new MiddlewareStack<ChainContext>();
+      
+      // Add logging
+      stack.use(createChainLoggingMiddleware({ level: "info" }));
+      
+      // Add model resolution if model registry available
+      const modelRegistry = aiConfig.models ? {
+        default: aiConfig.ollamaModel || "llama3.2",
+        models: aiConfig.models,
+      } : undefined;
+      if (modelRegistry) {
+        stack.use(createModelResolutionMiddleware(modelRegistry));
+      }
+      
+      // Add context trimming (keep last 50 messages)
+      stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
+      
+      // Add token budget (default 12000, configurable per duty later)
+      const maxTokens = (duty.instance as any).maxTokens ?? 12000;
+      stack.use(createTokenGuardMiddleware({ maxTokens }));
+      
+      // Add execution tracking
+      stack.use(createExecutionTrackingMiddleware());
+      
+      // Create chain for this duty execution
+      const chain = new Chain(executor, stack, `duty:${dutyName}`);
+      
+      // Initialize context with duty name for logging
+      chain.withContext({
+        messages: [],
+        metadata: {
+          dutyName,
+          executionType: "manual",
+          startTime,
+        },
+      } as any);
+      
+      // Run SAR envelope: the duty's execute() becomes the "Respond" phase
+      await chain.run();
+      
+      // Execute the actual duty logic
+      await duty.instance.execute();
+      
+      const duration = Date.now() - startTime;
+      logger.info("Duty executed via SAR envelope", {
+        duty: dutyName,
+        duration,
+        sarWrapped: true,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error("Duty execution failed", {
+        duty: dutyName,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      throw error;
+    }
   }
 
   /**

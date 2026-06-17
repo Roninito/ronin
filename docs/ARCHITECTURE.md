@@ -1,293 +1,292 @@
-# Ronin Architecture Documentation
+# Ronin Architecture
 
-## Overview
+> **Status:** Canonical (Post-Refactor, June 2026).
+> This document describes the current architecture after the Agent→Duty rename,
+> provider consolidation, and SAR envelope implementation.
 
-Ronin is a Bun-based AI agent library that enables scheduling and execution of TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features and integrating with Ollama for local AI capabilities.
+---
 
-## System Architecture
+## 1. The One Idea
+
+Everything in Ronin is a **Duty running the SAR loop**.
+
+There is no separate "agent runtime," "plan engine," and "behavior tree" running
+in parallel. There is one execution model — **SAR** (Sense → Analyze → Respond)
+— and every unit of work is an instance of it. Coordination, scheduling, and
+planning are not other paradigms; they are Duties whose job happens to be
+coordinating, scheduling, or planning *other* Duties.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      CLI Interface                          │
-│    (start, run, list, status, create, plugins, mcp)        │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Agent Runtime                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │AgentLoader   │  │AgentRegistry │  │CronScheduler │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      API Layer                              │
-│  ┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────┐     │
-│  │  AI  │ │Memory  │ │Files │ │   DB   │ │ Plugins  │     │
-│  └──────┘ └────────┘ └──────┘ └────────┘ └──────────┘     │
-│                                                             │
-│  ┌──────────────────────────────────────────────────┐     │
-│  │              Tool System                         │     │
-│  │  ┌──────────────┐  ┌──────────────────────┐     │     │
-│  │  │ ToolRouter   │  │  MCP Client Manager  │     │     │
-│  │  └──────────────┘  └──────────────────────┘     │     │
-│  └──────────────────────────────────────────────────┘     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┬───────────────┐
-        ▼              ▼              ▼               ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐
-│   Ollama    │ │   SQLite    │ │   Plugins   │ │   MCP    │
-│ (qwen3:1.7b)│ │  (Memory)   │ │  Directory  │ │ Servers  │
-└─────────────┘ └─────────────┘ └─────────────┘ └──────────┘
-                                                    │
-                                    ┌───────────────┼────────────┐
-                                    ▼               ▼            ▼
-                                ┌──────────┐  ┌─────────┐  ┌────────┐
-                                │filesystem│  │ github  │  │ brave  │
-                                │  sqlite  │  │   ...   │  │  ...   │
-                                └──────────┘  └─────────┘  └────────┘
+            ┌──────────────────────── Duty ────────────────────────┐
+            │                                                       │
+  Sensors ──►  SENSE  ──►  ANALYZE  ──►  RESPOND  ──► (effects) ────┤
+            │    ▲                                        │         │
+            │    └──────────────── loop ──────────────────┘         │
+            └───────────────────────────────────────────────────────┘
+                         persona · tool allowlist · budget · memory
 ```
 
-## Core Components
+- **Sense** — pull signal from Sensors (events, schedules, files, channel msgs).
+- **Analyze** — reason over signal + memory, using the model router. Decide.
+- **Respond** — execute Tools, emit events, write memory.
 
-### 1. Agent System
+**MNGR** is just the Duty whose Respond actions assign work to other Duties.
 
-**AgentLoader** (`src/agent/AgentLoader.ts`)
-- Discovers agent files from `agents/` directory (recursively)
-- Loads TypeScript/JavaScript files using dynamic `import()`
-- Validates agent structure (must extend `BaseAgent`, have `execute()` method)
-- Extracts metadata (schedule, watch patterns, webhook paths)
+---
 
-**AgentRegistry** (`src/agent/AgentRegistry.ts`)
-- Manages agent lifecycle and registration
-- Registers cron schedules using `CronScheduler`
-- Sets up file watchers for agents with `watch` patterns
-- Manages HTTP webhook routes via `Bun.serve()`
-- Handles graceful shutdown
+## 2. The Three Concepts
 
-**CronScheduler** (`src/agent/CronScheduler.ts`)
-- Custom cron expression parser and scheduler
-- Uses `setInterval` to check cron expressions every minute
-- Supports standard cron format: `minute hour day month weekday`
-- Supports wildcards (`*`) and intervals (`*/N`)
+Ronin has **three first-class concepts.** Two are capabilities (the things a Duty
+can invoke); one is the decider. Everything else is packaging or typing.
 
-### 2. Memory System
+| Concept | Definition | Was called |
+|---------|------------|------------|
+| **Tool** | An atomic, typed, in-process capability (Bun/TS). Single typed input → typed output. MCP-exportable. Hot-path, model-callable via function-calling. | plugin methods |
+| **Skill** | A markdown-defined, declarative, **language-agnostic** capability. May be multi-step or out-of-process; can shell out to Python/shell, not just Bun. Discoverable via its manifest. | skills, techniques |
+| **Duty** | A SAR loop instance with a persona, an allowlist of Skills + Tools, a budget, and memory. The thing that *decides*. (Formerly "Agent.") | agents |
 
-**MemoryStore** (`src/memory/Memory.ts`)
-- SQLite-based persistent storage
-- Tables:
-  - `memories` - Key-value storage with metadata
-  - `conversations` - Conversation history
-  - `agent_state` - Agent execution state
-- Operations: store, retrieve, search, getRecent, getByMetadata
+The Tool/Skill split is the one capability boundary worth keeping: **Tool** =
+fast, typed, in-runtime; **Skill** = portable, declarative, language-agnostic.
 
-### 3. API Layer
+**technique was dropped** because it was a third synonym for Skill that bought
+nothing and (unlike Skill) couldn't cross language boundaries.
 
-**AIAPI** (`src/api/ai.ts`)
-- Ollama integration for qwen3:1.7b model
-- Methods:
-  - `complete()` - Basic text completion
-  - `stream()` - Streaming completions
-  - `chat()` - Chat with message history
-  - `callTools()` - Function calling with tool definitions
+### Supporting Structure (not capability concepts)
 
-**PluginsAPI** (`src/api/plugins.ts`)
-- Plugin registration and management
-- Methods:
-  - `call(pluginName, method, ...args)` - Execute plugin method
-  - `has(pluginName)` - Check if plugin exists
-  - `list()` - Get all plugin names
+| Concept | Definition |
+|---------|------------|
+| **Tool Pack** | A namespaced bundle of Tools plus the adapter code backing them. Auto-discovered. Formerly "plugin." |
+| **Duty Preset** | The markdown file that declares a Duty: persona + the Skills/Tools it may use + budget. |
+| **Schema** | The typed I/O contracts that Tools and Duties conform to. Cross-cutting. |
 
-**Other APIs**:
-- `FilesAPI` - File operations using Bun.file
-- `DatabaseAPI` - SQLite operations
-- `HTTPAPI` - HTTP client using fetch
-- `EventsAPI` - Event emitter for inter-agent communication
+---
 
-### 4. Plugin System
+## 3. The SAR Envelope (Runner-Applied)
 
-**Plugin Structure**:
-```typescript
-export default {
-  name: "plugin-name",
-  description: "Plugin description",
-  methods: {
-    methodName: async (args) => { /* ... */ }
-  }
-}
+**Every duty execution is wrapped in a SAR chain at the runner level.**
+
+```ts
+// DutyRegistry.executeDuty() wraps all duties:
+const executor = new Executor(api);
+const stack = new MiddlewareStack<ChainContext>();
+
+stack.use(createChainLoggingMiddleware({ level: "info" }));
+stack.use(createModelResolutionMiddleware(modelRegistry));
+stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
+stack.use(createTokenGuardMiddleware({ maxTokens: 12000 }));
+stack.use(createExecutionTrackingMiddleware());
+
+const chain = new Chain(executor, stack, `duty:${dutyName}`);
+chain.withContext({ messages: [], metadata: { dutyName, ... } });
+await chain.run();
+await dutyInstance.execute();  // Respond phase
 ```
 
-**PluginLoader** (`src/plugins/PluginLoader.ts`)
-- Auto-discovers plugins from `plugins/` directory
-- Loads and validates plugin structure
-- Returns plugin metadata
+This means:
+- Budget enforcement (token guard) applies to **every** duty
+- Model resolution is centralized
+- Execution tracking is universal
+- Duties can opt into richer Sense/Analyze phases via `createChain()`
 
-**Tool Generation** (`src/plugins/toolGenerator.ts`)
-- Converts plugins to Ollama tool definitions
-- Enables function calling integration
-- Auto-generates tool schemas from plugin methods
+**Opt-out:** If a duty already has `this.middleware` and `this.executor` attached,
+it skips the envelope (for duties that manage their own SAR).
 
-**Built-in Plugins**:
-- `git.ts` - Git operations (clone, commit, push, pull, status, etc.)
-- `shell.ts` - Shell command execution
+---
 
-### 5. Tool System
+## 4. Capability Migration (Complete)
 
-**ToolRouter** (`src/api/tools/ToolRouter.ts`)
-- Central tool registry for all tool types
-- Manages tool registration, discovery, and execution
-- Provides unified interface for local tools, plugins, and MCP tools
-- Methods:
-  - `register(tool)` - Register a tool
-  - `list()` - Get all registered tools
-  - `get(name)` - Get tool by name
-  - `execute(name, params)` - Execute a tool
+| Current | Reclassified as | Status |
+|---------|-----------------|--------|
+| `agents/` | **Duty** | ✅ Renamed to `duties/`. Agent → Duty hard rename complete. |
+| `plugins/` | **Tool Pack** | ✅ Kept as bundles. Each plugin method is a registered Tool. |
+| `skills/` | **Skill** | ✅ Kept. Language-agnostic markdown defs. |
+| `techniques/` | **— DROPPED —** | ⏳ Deferred (code exists, CLI removed in future pass). |
+| `katas/` | **— DEFERRED —** | ⏳ Not a runtime concept; removal is separate project. |
+| `contracts/` | **Schema** | ⏳ Planned rename to `schema/` (deferred). |
 
-**MCPClientManager** (`src/mcp/MCPClientManager.ts`)
-- Manages connections to external MCP servers
-- Implements MCP client protocol via `@modelcontextprotocol/sdk`
-- Translates MCP tools to Ronin's `ToolDefinition` format
-- Handles tool execution by proxying to MCP servers
-- Tool naming: `mcp_<server>_<tool>` (e.g., `mcp_filesystem_read_file`)
-- Methods:
-  - `connectEnabledServers(config)` - Connect to all enabled servers
-  - `connectServer(name, config)` - Connect to a specific server
-  - `disconnectServer(name)` - Disconnect a server
+**Provider plugins:**
+- `plugins/grok.ts` → ✅ Removed. Provider is now an adapter behind ToolRouter.
+- `plugins/gemini.ts` → ✅ Removed. Provider is now an adapter behind ToolRouter.
+- `plugins/langchain.ts` → ✅ Kept (used by agent-creator-orchestrator for graph workflows).
+- `plugins/gemini-cli.ts` → ✅ Kept (used by coder-bot for CLI tooling).
 
-**MCP Integration Flow**:
-1. **Configuration**: MCP servers defined in `~/.ronin/config.json` under `mcp.servers`
-2. **Startup**: `MCPClientManager` connects to enabled servers during API initialization
-3. **Tool Discovery**: Each MCP server's tools are discovered via `listTools` request
-4. **Registration**: Tools registered with `ToolRouter` with `mcp_<server>_<tool>` prefix
-5. **Execution**: When agent calls tool, `MCPClientManager` proxies request to MCP server
-6. **Response**: MCP server response translated to Ronin's `ToolResult` format
+---
 
-**Known MCP Servers**:
-- `filesystem` - File operations (`@modelcontextprotocol/server-filesystem`)
-- `github` - GitHub integration (`@modelcontextprotocol/server-github`)
-- `brave-search` - Web search (`@modelcontextprotocol/server-brave-search`)
-- `sqlite` - Database queries (`@modelcontextprotocol/server-sqlite`)
+## 5. Orchestration: One Spine, Many Sensors
 
-### 6. CLI Interface
+There is one event bus and one scheduler. The three things that previously felt
+like separate orchestration systems are reclassified:
 
-**Commands**:
-- `ronin start` - Start and schedule all agents
-- `ronin run <agent-name>` - Run agent manually
-- `ronin list` - List all agents
-- `ronin status` - Show runtime status
-- `ronin create plugin <name>` - Create new plugin template
-- `ronin plugins list` - List loaded plugins
-- `ronin mcp <command>` - Manage MCP server connections
+| Previously | Now |
+|------------|-----|
+| Reactive triggers (cron, file-watch, webhook) | **Sensors.** They emit events into the bus; they do not run logic. |
+| Behavior tree (SAR/MNGR, katas) | **MNGR**, a coordinating Duty. Its tree is its Respond strategy; leaves are Tools. |
+| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (Todo, Coder) plus Sensors, wired on the same bus. |
 
-## Data Flow
+```
+Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► effects ──► bus
+                                  ▲
+                                MNGR (coordinating Duty)
+```
 
-### Agent Execution Flow
+**Rules:**
+1. One scheduler. One bus. No Duty owns shared state except the designated
+   state-authority Duty for its domain.
+2. Sensors are dumb. Logic lives in Duties.
+3. Cross-Duty communication is events only. No direct calls into another Duty's internals.
 
-1. **Discovery**: `AgentLoader` scans `agents/` directory
-2. **Loading**: Dynamic import of agent files
-3. **Validation**: Check agent structure and methods
-4. **Registration**: `AgentRegistry` registers schedules/events
-5. **Execution**: Agent's `execute()` method called on trigger
-6. **API Access**: Agent receives `api` object with all capabilities
+---
 
-### Plugin Loading Flow
+## 6. Model Router
 
-1. **Discovery**: `PluginLoader` scans `plugins/` directory
-2. **Loading**: Dynamic import of plugin files
-3. **Validation**: Check plugin structure (name, description, methods)
-4. **Registration**: Plugins registered with `PluginsAPI`
-5. **Tool Generation**: Plugins converted to tool definitions
-6. **Integration**: Tools available via `api.ai.callTools()`
+A single router is the only path to a model. Two public entry points:
 
-### Function Calling Flow
+```ts
+api.ai.complete(prompt, opts)      // text in, text out
+api.ai.callTools(prompt, opts)     // tool-calling loop
+// ToolChat sits on top of these; it is not a third path.
+```
 
-1. **Agent Request**: Agent calls `api.ai.callTools(prompt, tools)` or `api.tools.execute(toolName, params)`
-2. **Tool Discovery**: Tools available from:
-   - Local tools (built-in capabilities)
-   - Plugin tools (user plugins + built-in plugins)
-   - MCP tools (external MCP servers)
-3. **Tool Merging**: All tool types merged into unified tool list
-4. **Ollama Request**: Request sent to Ollama `/api/chat` with `tools` parameter
-5. **Tool Calls**: Ollama returns tool calls in response
-6. **Execution**: Tool calls executed via:
-   - `api.plugins.call()` for plugin tools
-   - `MCPClientManager` for MCP tools
-   - Direct handlers for local tools
-7. **Response**: Results returned to agent
+- Providers (Ollama, Anthropic, Grok, Gemini, OpenAI) are **adapters** registered
+  with the router, selected by tier (`local` / `smart` / `cloud`) or explicit
+  `--model`.
+- Privacy-first default: `local` (Ollama) unless a Duty's policy opts into cloud.
 
-### MCP Tool Flow
+---
 
-1. **Tool Request**: Agent calls `api.tools.execute("mcp_filesystem_read_file", { path: "/tmp/file.txt" })`
-2. **Tool Lookup**: `ToolRouter` finds tool and identifies it as MCP tool
-3. **Server Proxy**: `MCPClientManager` proxies request to appropriate MCP server
-4. **MCP Protocol**: Request sent via stdio transport to MCP server process
-5. **Server Response**: MCP server returns result
-6. **Translation**: Response translated to Ronin's `ToolResult` format
-7. **Return**: Result returned to agent
+## 7. Safety Boundary
 
-## Configuration
+Ronin shares OpenClaw's attack surface: shell execution + file access + inbound
+channels. The `#ronin #plan` → Coder Bot path means **untrusted channel input
+can propose executable work.**
 
-### Environment Variables
+Hardening:
 
-- `OLLAMA_URL` - Ollama API URL (default: `http://localhost:11434`)
-- `OLLAMA_MODEL` - Ollama model name (default: `qwen3:1.7b`)
-- `WEBHOOK_PORT` - Webhook server port (default: `3000`)
+1. **Per-run budgets.** Every Duty run has a hard cap on steps and tokens (tokenGuard).
+2. **Tool trust tiers.** (Planned) Tag Tools `safe` / `guarded` / `dangerous`.
+3. **Provenance on events.** Every event carries its origin.
+4. **Approval is an event.** Model approval as a first-class event with trusted provenance.
 
-### CLI Options
+---
 
-- `--agent-dir <dir>` - Agent directory (default: `./agents`)
-- `--plugin-dir <dir>` - Plugin directory (default: `./plugins`)
-- `--ollama-url <url>` - Ollama API URL
-- `--ollama-model <name>` - Ollama model name
-- `--db-path <path>` - Database file path (default: `ronin.db`)
+## 8. Deferred Removals
 
-## File Structure
+The `technique / kata / contract / task` cluster is **not deleted** in this refactor.
+It shares a storage substrate (`storage-v2.ts`, `parser-v2.ts`), making removal a
+separate project. See `ARCHITECTURE_REMOVALS_PLAN.md` for the detailed extraction plan.
+
+**Current status:**
+- `technique` CLI exists but is vestigial (not executed at runtime). Planned removal: Phase R1.
+- `kata`, `task`, `contract` CLIs are **kept** — they are the execution engine.
+- `techniques/`, `katas/`, `contracts/` directories exist but are not part of the core architecture.
+
+---
+
+## 9. Target Tree (Current)
 
 ```
 ronin/
-├── agents/              # Agent files (user-created)
-├── plugins/             # Plugin files (user-created + built-in)
-├── docs/                # Documentation
 ├── src/
-│   ├── agent/           # Agent system
-│   ├── memory/           # Memory system
-│   ├── api/              # API implementations
-│   ├── plugins/          # Plugin system
-│   ├── cli/              # CLI commands
-│   └── types/            # TypeScript types
-└── ronin.db             # SQLite database (created at runtime)
+│   ├── duty/           # BaseDuty, DutyLoader, DutyRegistry (renamed from agent/)
+│   ├── tools/          # ToolRouter + adapters + LocalTools
+│   ├── api/            # DutyAPI, unified interface to all subsystems
+│   ├── chain/          # Chain, Executor — re-export from @ronin/sar
+│   ├── middleware/     # tokenGuard, modelResolution, executionTracking, etc.
+│   ├── memory/         # SQLite store (duty_state, conversations, memories)
+│   ├── technique/      # DEFERRED — coupled to kata/contract/task
+│   ├── kata/           # DEFERRED — used by src/task/engine.ts
+│   ├── contract/       # DEFERRED — shares storage-v2 with kata
+│   └── task/           # DEFERRED — runtime uses kata/contract
+├── duties/             # Your Duties (renamed from agents/)
+├── plugins/            # Capability plugins (langchain, gemini-cli, etc.)
+├── skills/             # Markdown Skill defs — language-agnostic
+├── techniques/         # DEFERRED — not referenced by architecture
+├── katas/              # DEFERRED — not referenced by architecture
+├── contracts/          # DEFERRED — planned rename to schema/
+├── packages/sar/       # @ronin/sar — Executor, Chain, MiddlewareStack
+└── docs/
+    ├── ARCHITECTURE.md   # This document
+    └── history/          # Archived PHASE*/SUMMARY/MODEL_SELECTION docs
 ```
 
-## Key Design Decisions
+---
 
-1. **Async API Creation**: `createAPI()` is async to load plugins
-2. **Direct Bun APIs**: Uses Bun.spawn, Bun.file, Bun.serve directly
-3. **Custom Cron**: Custom scheduler since Bun.cron not available
-4. **Plugin Auto-discovery**: Plugins loaded automatically from directory
-5. **Tool Integration**: Plugins automatically available as tools for function calling
-6. **SQLite Memory**: Persistent memory using Bun's native SQLite
+## 10. Key Files (Post-Refactor)
 
-## Extension Points
+| File | Purpose |
+|------|---------|
+| `src/duty/Duty.ts` | `BaseDuty` class with optional SAR (`use()`, `createChain()`) |
+| `src/duty/DutyRegistry.ts` | Duty registry + scheduler + webhook server + **SAR envelope in `executeDuty()`** |
+| `src/duty/DutyLoader.ts` | Discovers and loads duty files |
+| `src/types/duty.ts` | `interface Duty`, `DutyMetadata`, `DutyConstructor` |
+| `src/api/ai.ts` | AIAPI — single path to models via ToolRouter |
+| `src/tools/ToolRouter.ts` | Tool registration and execution with policy enforcement |
+| `src/memory/Memory.ts` | SQLite store with `duty_name` columns (migrated from `agent_name`) |
+| `packages/sar/` | Executor, Chain, MiddlewareStack — the shared SAR machinery |
 
-1. **Agents**: Add `.ts` files to `agents/` directory
-2. **Plugins**: Add `.ts` files to `plugins/` directory or use `ronin create plugin`
-3. **Custom APIs**: Extend `AgentAPI` interface and implement in `src/api/`
-4. **CLI Commands**: Add commands to `src/cli/commands/`
+---
 
-## Security Considerations
+## 11. CLI Commands (Current)
 
-1. **Shell Plugin**: Executes arbitrary commands - use with caution
-2. **File Operations**: Validates paths but agents have file system access
-3. **Webhooks**: HTTP server exposes endpoints - consider authentication
-4. **Plugin Loading**: Dynamic imports execute code - only load trusted plugins
+### Core
+```
+ronin start                 Start and schedule all duties
+ronin run <duty>            Run a specific duty manually
+ronin list                  List all available duties
+ronin status                Show runtime status
+ronin stop / restart / kill Manage running instances
+```
 
-## Future Enhancements
+### Creation
+```
+ronin create duty [desc]    AI-powered duty creation
+ronin create skill "desc"   AI-powered skill creation
+ronin create plugin <name>  Create a new plugin template
+```
 
-1. **Graph Workflows**: Support for `graph.json` workflow definitions
-2. **Plugin Schema**: Type-safe plugin parameter definitions
-3. **Plugin Marketplace**: Share and install plugins
-4. **Agent Dependencies**: Agents can depend on other agents
-5. **Realm/Sandboxing**: Isolated execution environments
+### Configuration
+```
+ronin config --show         Show current configuration
+ronin config --init        Initialize user directories
+ronin config --duty-dir    Set duty directory
+```
 
+### Deferred (Technique/Kata/Contract/Task)
+```
+ronin technique list        # DEFERRED — vestigial, planned removal
+ronin kata list             # KEPT — part of execution engine
+ronin task list             # KEPT — part of execution engine
+ronin contract list         # KEPT — part of execution engine
+```
+
+See `ronin --help` for full command list.
+
+---
+
+## 12. Migration Notes
+
+### Agent → Duty (Complete)
+- `BaseAgent` → `BaseDuty`
+- `AgentRegistry` → `DutyRegistry`
+- `AgentLoader` → `DutyLoader`
+- `agents/` → `duties/`
+- `--agent-dir` → `--duty-dir`
+- `setAgentState` → `setDutyState` (Memory)
+- Database: `agent_name` → `duty_name` columns
+
+### Provider Consolidation (Complete)
+- `plugins/grok.ts` → Removed
+- `plugins/gemini.ts` → Removed
+- `plugins/langchain.ts` → Kept (graph workflows)
+- `plugins/gemini-cli.ts` → Kept (CLI tooling)
+- All AI access through `AIAPI` → providers
+
+### SAR Envelope (Complete)
+- `DutyRegistry.executeDuty()` wraps all duties in SAR chain
+- Logging, model resolution, token guard, execution tracking middleware
+- Default budget: 12000 tokens, configurable per duty
+
+---
+
+**Last updated:** June 2026 (Post-Refactor)
+**Branch:** `refactor/duty-architecture`

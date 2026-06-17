@@ -470,7 +470,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
     };
     return dutyFiles.find(byBase) || null;
   }
-    const agents = await this.loader.loadAllAgents(this.api);
+    const duties = await this.loader.loadAllDuties(this.api);
     return agents.find(byName) ?? agents.find(byFileBasename) ?? null;
   }
 

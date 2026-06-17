@@ -814,16 +814,16 @@ Respond with a JSON object containing:
       } catch (e) { listEl.innerHTML = '<p class="error-message">Error loading tools</p>'; }
     }
 
-    async function aiPromptSchedule(agentName) {
-      const promptInput = document.getElementById('ai-prompt-' + agentName);
-      const resultEl = document.getElementById('ai-result-' + agentName);
+    async function aiPromptSchedule(dutyName) {
+      const promptInput = document.getElementById('ai-prompt-' + dutyName);
+      const resultEl = document.getElementById('ai-result-' + dutyName);
       const prompt = promptInput.value.trim();
       if (!prompt) { resultEl.style.display = 'block'; resultEl.className = 'ai-result error'; resultEl.textContent = 'Please enter a prompt'; return; }
       resultEl.style.display = 'block'; resultEl.className = 'ai-result'; resultEl.textContent = 'Processing...';
       try {
-        const res = await fetch('/api/schedule/ai-prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentName, prompt }) });
+        const res = await fetch('/api/schedule/ai-prompt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dutyName, prompt }) });
         const data = await res.json();
-        if (data.success) { resultEl.className = 'ai-result success'; resultEl.innerHTML = '<strong>✅ Success!</strong><br>' + data.message + '<br>' + (data.schedule ? 'Schedule: ' + data.schedule + '<br>' : '') + (data.nextRuns && data.nextRuns.length ? 'Next runs: ' + data.nextRuns.join(', ') : ''); promptInput.value = ''; loadAgents(); setTimeout(loadAgents, 600); }
+        if (data.success) { resultEl.className = 'ai-result success'; resultEl.innerHTML = '<strong>✅ Success!</strong><br>' + data.message + '<br>' + (data.schedule ? 'Schedule: ' + data.schedule + '<br>' : '') + (data.nextRuns && data.nextRuns.length ? 'Next runs: ' + data.nextRuns.join(', ') : ''); promptInput.value = ''; loadDuties(); setTimeout(loadDuties, 600); }
         else { resultEl.className = 'ai-result error'; resultEl.innerHTML = '<strong>❌ Failed</strong><br>' + (data.message || data.error || 'Unknown error'); }
       } catch (e) { resultEl.className = 'ai-result error'; resultEl.textContent = 'Error: ' + (e.message || 'Unknown error'); }
     }
@@ -891,17 +891,17 @@ Respond with a JSON object containing:
     function copyCode() { var t = document.getElementById('code-snippet').textContent; navigator.clipboard.writeText(t); var b = event.target; var o = b.textContent; b.textContent = 'Copied!'; setTimeout(function(){ b.textContent = o; }, 2000); }
 
     async function applySchedule() {
-      var agentName = document.getElementById('agent-selector').value;
+      var dutyName = document.getElementById('duty-selector').value;
       var expression = getCurrentExpression();
       var messageEl = document.getElementById('apply-message');
       var buttonEl = document.getElementById('apply-button');
-      if (!agentName) { messageEl.innerHTML = '<div class="error-message">Please select an agent</div>'; return; }
+      if (!dutyName) { messageEl.innerHTML = '<div class="error-message">Please select a duty</div>'; return; }
       if (!expression) { messageEl.innerHTML = '<div class="error-message">Invalid schedule expression</div>'; return; }
       buttonEl.disabled = true; buttonEl.textContent = 'Applying...'; messageEl.innerHTML = '';
       try {
-        var res = await fetch('/api/schedule/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agentName, schedule: expression }) });
+        var res = await fetch('/api/schedule/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dutyName, schedule: expression }) });
         var data = await res.json();
-        if (data.success) { messageEl.innerHTML = '<div class="success-message">' + data.message + '</div>'; loadAgents(); setTimeout(loadAgents, 600); }
+        if (data.success) { messageEl.innerHTML = '<div class="success-message">' + data.message + '</div>'; loadDuties(); setTimeout(loadDuties, 600); }
         else messageEl.innerHTML = '<div class="error-message">' + (data.error || 'Failed to apply schedule') + '</div>';
       } catch (e) { messageEl.innerHTML = '<div class="error-message">Error applying schedule</div>'; }
       buttonEl.disabled = false; buttonEl.textContent = '✅ Apply Changes & Reload';
@@ -936,16 +936,16 @@ Respond with a JSON object containing:
    * Render the schedule management UI (uses registry when available so hot-reload changes are visible).
    */
   private async renderScheduleUI(): Promise<Response> {
-    const agents =
-      typeof this.api.getAgents === "function"
-        ? this.api.getAgents()
-        : await this.loader.loadAllAgents(this.api);
-    const agentsWithSchedules = agents.filter((a) => a.schedule).map((a) => a.name);
-    const allAgents = agents.map((a) => ({ name: a.name, hasSchedule: !!a.schedule }));
+    const duties =
+      typeof this.api.getDuties === "function"
+        ? this.api.getDuties()
+        : await this.loader.loadAllDuties(this.api);
+    const dutiesWithSchedules = duties.filter((a) => a.schedule).map((a) => a.name);
+    const allDuties = duties.map((a) => ({ name: a.name, hasSchedule: !!a.schedule }));
 
     const scriptContent = this.buildScheduleScript(
-      agentsWithSchedules,
-      allAgents,
+      dutiesWithSchedules,
+      allDuties,
       getCommonSchedules(),
       roninTheme.colors.textSecondary
     );
@@ -1008,9 +1008,45 @@ Respond with a JSON object containing:
       display: block;
     }
 
-    .agent-list {
-      display: grid;
-      gap: ${roninTheme.spacing.md};
+    .duty-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .duty-card {
+      background: white;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      border-left: 4px solid var(--theme-color, #22d3ee);
+    }
+    .duty-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .duty-card h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.125rem;
+      color: #1f2937;
+    }
+    .duty-card .schedule {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: #f3f4f6;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .duty-card .description {
+      color: #6b7280;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+    .duty-card .next-runs {
+      font-size: 0.8125rem;
+      color: #9ca3af;
+    }
+    .duty-card .next-runs ul {
+      margin: 0.25rem 0 0 1rem;
+      padding: 0;
     }
 
     .agent-card {
@@ -1408,7 +1444,7 @@ Respond with a JSON object containing:
 
     <!-- Overview Tab -->
     <div class="tab-content active" id="overview">
-      <div class="agent-list" id="agent-list">
+      <div class="duty-list" id="duty-list">
         <p>Loading agents...</p>
       </div>
     </div>
@@ -1501,20 +1537,18 @@ Respond with a JSON object containing:
         </div>
       </div>
 
-      <!-- Apply Section -->
-      <div class="apply-section">
-        <h3>Apply Changes</h3>
-        <div class="form-group">
-          <label>Select Agent</label>
-          <select id="agent-selector">
-            <option value="">-- Select an agent --</option>
-            ${allAgents.map((a) => `<option value="${a.name}">${a.name}${a.hasSchedule ? " (has schedule)" : ""}</option>`).join("")}
-          </select>
+        <div class="apply-section">
+          <h3>Apply Changes</h3>
+          <div class="form-group">
+            <label>Select Duty</label>
+            <select id="duty-selector">
+              <option value="">-- Select a duty --</option>
+            </select>
+          </div>
+          <button class="apply-button" id="apply-button" onclick="applySchedule()">✅ Apply Changes & Reload</button>
+          <div id="apply-message"></div>
         </div>
-        <button class="apply-button" id="apply-button" onclick="applySchedule()">✅ Apply Changes & Reload</button>
-        <div id="apply-message"></div>
       </div>
-    </div>
 
     <!-- Templates Tab -->
     <div class="tab-content" id="templates">

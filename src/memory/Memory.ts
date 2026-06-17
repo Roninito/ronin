@@ -67,6 +67,75 @@ export class MemoryStore {
       CREATE INDEX IF NOT EXISTS idx_conversations_duty ON conversations(duty_name);
       CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
     `);
+
+    // Migration: Rename agent_name → duty_name (if old columns exist)
+    this.migrateAgentToDuty();
+  }
+
+  /**
+   * Migrate old agent_name columns to duty_name
+   */
+  private migrateAgentToDuty(): void {
+    try {
+      // Check if conversations table has agent_name column
+      const tableInfo = this.db.query("PRAGMA table_info(conversations)").all() as Array<{ name: string }>;
+      const hasAgentName = tableInfo.some((col) => col.name === "agent_name");
+      
+      if (hasAgentName) {
+        // SQLite doesn't support DROP COLUMN, so we recreate the table
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS conversations_new (
+            id TEXT PRIMARY KEY,
+            duty_name TEXT,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            metadata TEXT,
+            created_at INTEGER NOT NULL
+          )
+        `);
+        
+        this.db.exec(`
+          INSERT INTO conversations_new (id, duty_name, role, content, metadata, created_at)
+          SELECT id, agent_name, role, content, metadata, created_at FROM conversations
+        `);
+        
+        this.db.exec(`DROP TABLE conversations`);
+        this.db.exec(`ALTER TABLE conversations_new RENAME TO conversations`);
+        
+        // Recreate index
+        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_duty ON conversations(duty_name)`);
+      }
+    } catch {
+      // Migration failed - table might not have data yet, that's OK
+    }
+
+    try {
+      // Check if agent_state table exists (old name for duty_state)
+      const tables = this.db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_state'").all() as Array<{ name: string }>;
+      
+      if (tables.length > 0) {
+        // Migrate agent_state → duty_state
+        this.db.exec(`
+          CREATE TABLE IF NOT EXISTS duty_state_new (
+            duty_name TEXT PRIMARY KEY,
+            state TEXT NOT NULL,
+            metadata TEXT,
+            updated_at INTEGER NOT NULL
+          )
+        `);
+        
+        this.db.exec(`
+          INSERT INTO duty_state_new (duty_name, state, metadata, updated_at)
+          SELECT agent_name, state, metadata, updated_at FROM agent_state
+        `);
+        
+        this.db.exec(`DROP TABLE agent_state`);
+        this.db.exec(`DROP TABLE IF EXISTS duty_state`);
+        this.db.exec(`ALTER TABLE duty_state_new RENAME TO duty_state`);
+      }
+    } catch {
+      // Migration failed - that's OK
+    }
   }
 
   /**

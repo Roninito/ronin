@@ -126,7 +126,7 @@ export class DutyRegistry {
    * Register an duty
    */
   register(duty: DutyMetadata): void {
-    this.dutys.set(duty.name, duty);
+    this.duties.set(duty.name, duty);
 
     // Register schedule if present
     if (duty.schedule) {
@@ -157,7 +157,7 @@ export class DutyRegistry {
    * Get an duty by name
    */
   get(dutyName: string): DutyMetadata | undefined {
-    return this.dutys.get(dutyName);
+    return this.duties.get(dutyName);
   }
 
   /**
@@ -173,7 +173,7 @@ export class DutyRegistry {
    * each duty to implement SAR explicitly.
    */
   async executeDuty(dutyName: string): Promise<void> {
-    const duty = this.dutys.get(dutyName);
+    const duty = this.duties.get(dutyName);
     if (!duty) {
       throw new Error(`Duty not found: ${dutyName}`);
     }
@@ -269,7 +269,7 @@ export class DutyRegistry {
    * Unregister a duty by name
    */
   unregister(dutyName: string): boolean {
-    const duty = this.dutys.get(dutyName);
+    const duty = this.duties.get(dutyName);
     if (!duty) {
       return false;
     }
@@ -296,7 +296,7 @@ export class DutyRegistry {
     }
 
     // Remove from dutys map
-    this.dutys.delete(dutyName);
+    this.duties.delete(dutyName);
 
     logger.info("Duty unregistered", { duty: dutyName });
     return true;
@@ -306,7 +306,7 @@ export class DutyRegistry {
    * Register a cron schedule for an duty
    */
   private registerSchedule(dutyName: string, schedule: string): void {
-    const duty = this.dutys.get(dutyName);
+    const duty = this.duties.get(dutyName);
     if (!duty) return;
 
     // Create a cron job using our scheduler
@@ -324,7 +324,7 @@ export class DutyRegistry {
    * Register file watchers for an duty
    */
   private registerFileWatchers(dutyName: string, patterns: string[]): void {
-    const duty = this.dutys.get(dutyName);
+    const duty = this.duties.get(dutyName);
     if (!duty) return;
 
     for (const pattern of patterns) {
@@ -769,7 +769,7 @@ export class DutyRegistry {
           return new Response("Not Found", { status: 404 });
         }
 
-        const duty = this.dutys.get(dutyName);
+        const duty = this.duties.get(dutyName);
         if (!duty) {
           return new Response("Duty not found", { status: 404 });
         }
@@ -850,7 +850,7 @@ export class DutyRegistry {
    * each duty to implement SAR explicitly.
    */
   async executeDuty(dutyName: string): Promise<void> {
-    const duty = this.dutys.get(dutyName);
+    const duty = this.duties.get(dutyName);
     if (!duty) {
       throw new Error(`Duty not found: ${dutyName}`);
     }
@@ -930,14 +930,14 @@ export class DutyRegistry {
    * Get all registered dutys
    */
   getDuties(): DutyMetadata[] {
-    return Array.from(this.dutys.values());
+    return Array.from(this.duties.values());
   }
 
   /**
    * Get duty by name
    */
   getDuty(name: string): DutyMetadata | undefined {
-    return this.dutys.get(name);
+    return this.duties.get(name);
   }
 
   /**
@@ -2284,7 +2284,7 @@ export class DutyRegistry {
       this.webhookServer = null;
     }
     
-    this.dutys.clear();
+    this.duties.clear();
     this.webhookRoutes.clear();
   }
 }

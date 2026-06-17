@@ -8,7 +8,7 @@ import { ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.j
 
 export interface CreateDutyOptions {
   description?: string;
-  agentDir?: string;
+  dutyDir?: string;
   local?: boolean;
   ollamaUrl?: string;
   ollamaModel?: string;
@@ -31,13 +31,13 @@ function toKebabCase(str: string): string {
 /**
  * Extract agent name from description
  */
-function extractAgentName(description: string): string {
+function extractDutyName(description: string): string {
   // Try to extract a meaningful name
   const words = description.toLowerCase().split(/\s+/);
   const meaningfulWords = words.filter(
     (w) => w.length > 2 && !["the", "and", "for", "with", "that", "this"].includes(w)
   );
-  return toKebabCase(meaningfulWords.slice(0, 3).join("-") || "agent");
+  return toKebabCase(meaningfulWords.slice(0, 3).join("-") || "duty");
 }
 
 /**
@@ -102,8 +102,8 @@ export async function createDutyCommand(
   const eventEmitted = await emitEventViaHTTP("create_duty", { task: userDescription });
   
   if (eventEmitted) {
-    console.log("✅ Agent creation request sent to orchestrator");
-    console.log("   The orchestrator will handle agent creation asynchronously");
+    console.log("✅ Duty creation request sent to orchestrator");
+    console.log("   The orchestrator will handle duty creation asynchronously");
     console.log("   Check the Ronin logs for progress updates");
     return;
   }
@@ -112,12 +112,12 @@ export async function createDutyCommand(
   console.log("⚠️  Ronin instance not running. Using direct creation mode.");
   console.log("   For event-driven creation, start Ronin first: ronin start\n");
 
-  // Use local directory (~/.ronin/agents) if --local flag is set or no agentDir specified
-  let agentDir: string;
+  // Use local directory (~/.ronin/duties) if --local flag is set or no dutyDir specified
+  let dutyDir: string;
   if (options.local) {
-    agentDir = ensureDefaultExternalAgentDir();
+    dutyDir = ensureDefaultExternalAgentDir();
   } else {
-    agentDir = options.agentDir || ensureDefaultAgentDir();
+    dutyDir = options.dutyDir || ensureDefaultAgentDir();
   }
 
   // Check if Ollama is available
@@ -129,19 +129,19 @@ export async function createDutyCommand(
       pluginDir: options.pluginDir,
     });
 
-    // Generate agent name
-    let agentName = extractAgentName(userDescription);
-    let agentPath = join(agentDir, `${agentName}.ts`);
+    // Generate duty name
+    let dutyName = extractDutyName(userDescription);
+    let dutyPath = join(dutyDir, `${dutyName}.ts`);
 
     // Check for conflicts
-    if (existsSync(agentPath)) {
-      console.log(`⚠️  Agent file already exists: ${agentPath}`);
+    if (existsSync(dutyPath)) {
+      console.log(`⚠️  Duty file already exists: ${dutyPath}`);
       const alternative = await readInput(
         "Enter a different name (or press Enter to overwrite): "
       );
       if (alternative) {
-        agentName = toKebabCase(alternative);
-        agentPath = join(agentDir, `${agentName}.ts`);
+        dutyName = toKebabCase(alternative);
+        dutyPath = join(dutyDir, `${dutyName}.ts`);
       }
     }
 
@@ -149,13 +149,13 @@ export async function createDutyCommand(
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       {
         role: "system",
-        content: `You are an AI assistant helping to create Ronin agent files.
+        content: `You are an AI assistant helping to create Ronin duty files.
 
-Ronin agents are TypeScript classes that extend BaseDuty. They have:
+Ronin duties are TypeScript classes that extend BaseDuty. They have:
 - A static schedule property (cron expression) if they should run on a schedule
 - A static watch property (array of file patterns) if they should watch files
 - A static webhook property (string path) if they should handle webhooks
-- An execute() method that contains the main agent logic
+- An execute() method that contains the main duty logic
 - Optional onFileChange() and onWebhook() methods
 
 Available APIs via this.api:
@@ -167,18 +167,18 @@ Available APIs via this.api:
 - api.events - Events (emit, on, off)
 - api.plugins - Plugin calls (call)
 
-The agent class should:
+The duty class should:
 1. Import BaseDuty from "../src/duty/index.js"
 2. Import DutyAPI type from "../src/types/index.js"
 3. Export default class that extends BaseDuty
 4. Have a constructor that calls super(api)
 5. Implement execute() method with the main logic
 
-Generate complete, working TypeScript code for the agent.`,
+Generate complete, working TypeScript code for the duty.`,
       },
       {
         role: "user",
-        content: `I want to create an agent that: ${userDescription}`,
+        content: `I want to create a duty that: ${userDescription}`,
       },
     ];
 
@@ -208,7 +208,7 @@ Generate complete, working TypeScript code for the agent.`,
           messages.push({
             role: "user",
             content:
-              "I'm done answering questions. Please generate the complete agent code now.",
+              "I'm done answering questions. Please generate the complete duty code now.",
           });
           conversationActive = false;
         } else {
@@ -224,69 +224,69 @@ Generate complete, working TypeScript code for the agent.`,
     messages.push({
       role: "user",
       content:
-        "Now generate the complete TypeScript agent code. Include all imports, the class definition with static properties if needed, constructor, and execute method. Output only the code, wrapped in a markdown code block.",
+        "Now generate the complete TypeScript duty code. Include all imports, the class definition with static properties if needed, constructor, and execute method. Output only the code, wrapped in a markdown code block.",
     });
 
     const finalResponse = await api.ai.chat(messages);
-    let agentCode = finalResponse.content;
+    let dutyCode = finalResponse.content;
 
     // Extract code from markdown code blocks if present
-    const codeBlockMatch = agentCode.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
+    const codeBlockMatch = dutyCode.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
     if (codeBlockMatch) {
-      agentCode = codeBlockMatch[1];
+      dutyCode = codeBlockMatch[1];
     }
 
     // Clean up the code - remove any explanatory text before/after
-    agentCode = agentCode
+    dutyCode = dutyCode
       .replace(/^[^i]*import/i, "import") // Remove text before first import
       .trim();
 
     // Basic validation
-    if (!agentCode.includes("import")) {
+    if (!dutyCode.includes("import")) {
       console.error("❌ Generated code is missing imports");
       process.exit(1);
     }
-    if (!agentCode.includes("export default class")) {
+    if (!dutyCode.includes("export default class")) {
       console.error("❌ Generated code is missing 'export default class'");
       process.exit(1);
     }
-    if (!agentCode.includes("extends BaseDuty")) {
+    if (!dutyCode.includes("extends BaseDuty")) {
       console.error("❌ Generated code doesn't extend BaseDuty");
       process.exit(1);
     }
-    if (!agentCode.includes("execute()")) {
+    if (!dutyCode.includes("execute()")) {
       console.error("❌ Generated code is missing execute() method");
       process.exit(1);
     }
 
     // Preview
     if (!options.noPreview) {
-      console.log("\n📝 Generated Agent Code:\n");
+      console.log("\n📝 Generated Duty Code:\n");
       console.log("=".repeat(60));
-      console.log(agentCode);
+      console.log(dutyCode);
       console.log("=".repeat(60));
-      console.log(`\n📁 Will be saved to: ${agentPath}\n`);
+      console.log(`\n📁 Will be saved to: ${dutyPath}\n`);
 
-      const confirm = await readInput("Create this agent? (y/n): ");
+      const confirm = await readInput("Create this duty? (y/n): ");
       if (confirm.toLowerCase() !== "y" && confirm.toLowerCase() !== "yes") {
-        console.log("❌ Agent creation cancelled");
+        console.log("❌ Duty creation cancelled");
         process.exit(0);
       }
     }
 
     // Write file
     try {
-      await writeFile(agentPath, agentCode, "utf-8");
-      console.log(`✅ Agent created: ${agentPath}`);
+      await writeFile(dutyPath, dutyCode, "utf-8");
+      console.log(`✅ Duty created: ${dutyPath}`);
 
       if (options.edit) {
         // Try to open in editor
         const editor = process.env.EDITOR || "nano";
         const { spawn } = await import("child_process");
-        spawn(editor, [agentPath], { stdio: "inherit" });
+        spawn(editor, [dutyPath], { stdio: "inherit" });
       }
     } catch (error) {
-      console.error(`❌ Failed to create agent:`, error);
+      console.error(`❌ Failed to create duty:`, error);
       process.exit(1);
     }
   } catch (error) {

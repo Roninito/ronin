@@ -288,7 +288,7 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     console.log("\nDirectories:");
     console.log(`   Built-in plugins: ${getDefaultPluginDir()}`);
     console.log(`   User plugins: ${getDefaultUserPluginDir()}`);
-    console.log(`   External agents: ${config.externalDutyDir || getDefaultExternalAgentDir()}`);
+    console.log(`   External duties: ${config.externalDutyDir || getDefaultExternalDutyDir()}`);
     
     console.log("\nCurrent working directory:");
     console.log(`   ${process.cwd()}`);
@@ -383,14 +383,14 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
   }
 
   if (options.externalDutyDir !== undefined) {
-    // Set external agent directory
+    // Set external duty directory
     const config = await loadConfig();
     
     if (options.externalDutyDir === "") {
-      // Remove external agent directory
+      // Remove external duty directory
       delete config.externalDutyDir;
       await saveConfig(config);
-      console.log("✅ Removed external agent directory configuration");
+      console.log("✅ Removed external duty directory configuration");
       console.log("\n💡 To remove from environment, edit your shell profile:");
       console.log(`   ${getShellProfile()}`);
     } else {
@@ -404,10 +404,10 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
       config.externalDutyDir = options.externalDutyDir;
       await saveConfig(config);
       
-      console.log(`✅ External agent directory set to: ${options.externalDutyDir}`);
+      console.log(`✅ External duty directory set to: ${options.externalDutyDir}`);
       console.log("\n💡 To make this permanent, add to your shell profile:");
       console.log(`   ${getShellProfile()}`);
-      console.log(`   export RONIN_EXTERNAL_AGENT_DIR="${options.externalDutyDir}"`);
+      console.log(`   export RONIN_EXTERNAL_DUTY_DIR="${options.externalDutyDir}"`);
       console.log("\n   Then reload your shell or run:");
       console.log(`   source ${getShellProfile()}`);
     }
@@ -416,12 +416,12 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
   }
 
   if (options.dutyDir !== undefined) {
-    // Set local agent directory (for this project)
+    // Set local duty directory (for this project)
     const config = await loadConfig();
     config.dutyDir = options.dutyDir;
     await saveConfig(config);
     
-    console.log(`✅ Local agent directory set to: ${options.dutyDir}`);
+    console.log(`✅ Local duty directory set to: ${options.dutyDir}`);
     console.log("\n💡 This setting is project-specific and stored in ~/.ronin/config.json");
     return;
   }
@@ -463,13 +463,13 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     const configPath = getConfigPath();
     
     console.log("\n🔧 Initializing Ronin user directories...\n");
-    console.log(`✅ Agents directory: ${dutyDir}`);
+    console.log(`✅ Duties directory: ${dutyDir}`);
     console.log(`✅ Plugins directory: ${pluginDir}`);
     console.log(`✅ Skills directory: ${skillsDir}`);
     console.log(`✅ Config file: ${configPath}`);
     console.log("\n📋 Your user directories are ready!");
-    console.log("\n💡 To create your first agent:");
-    console.log("   ronin create agent \"My custom agent\"");
+    console.log("\n💡 To create your first duty:");
+    console.log("   ronin create duty \"My custom duty\"");
     console.log("\n💡 To add a custom plugin:");
     console.log(`   Create a .ts file in: ${pluginDir}`);
     
@@ -586,7 +586,7 @@ Features:
 - Edit config via forms or raw JSON
 - Automatic validation
 - Backup/restore
-- Hot-reload (agents auto-update)
+- Hot-reload (duties auto-update)
     `);
     
     // Try to open browser
@@ -738,9 +738,9 @@ Features:
 Usage:
   ronin config --show                    Show current configuration
   ronin config --init                    Initialize user directories (~/.ronin/)
-  ronin config --agent-dir <path>        Set local agent directory
-  ronin config --external-agent-dir <path>  Set external agent directory
-  ronin config --external-agent-dir ""   Remove external agent directory
+  ronin config --duty-dir <path>        Set local duty directory
+  ronin config --external-duty-dir <path>  Set external duty directory
+  ronin config --external-duty-dir ""   Remove external duty directory
   ronin config --user-plugin-dir <path>  Set user plugin directory
   ronin config --user-plugin-dir ""      Remove user plugin directory
   ronin config --grok-api-key <key>      Set Grok API key
@@ -773,8 +773,8 @@ Config Editor (Web UI):
 Examples:
   ronin config --init                    Initialize user directories
   ronin config --show
-  ronin config --external-agent-dir ~/my-agents
-  ronin config --agent-dir ./custom-agents
+  ronin config --external-duty-dir ~/my-duties
+  ronin config --duty-dir ./custom-duties
   ronin config --user-plugin-dir ~/my-plugins
   ronin config --grok-api-key sk-xxxxx
   ronin config --gemini-api-key AIxxxxx
@@ -791,7 +791,7 @@ Examples:
 
 Note: 
   - API keys can also be set via environment variables (takes precedence)
-  - External agent directory can also be set via RONIN_EXTERNAL_AGENT_DIR
+  - External duty directory can also be set via RONIN_EXTERNAL_DUTY_DIR
   - User plugins in ~/.ronin/plugins override built-in plugins
   - Configuration is stored in ~/.ronin/config.json
   - Once Realm URL and call sign are configured, 'ronin start' will automatically connect

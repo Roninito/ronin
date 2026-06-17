@@ -303,7 +303,7 @@ export class MeshDiscoveryService {
     // Try to get from config, otherwise use hostname
     try {
       const systemConfig = this.api.config.getSystem();
-      return systemConfig.externalAgentDir.split("/").pop() || "ronin";
+      return systemConfig.externalDutyDir.split("/").pop() || "ronin";
     } catch {
       return this.getHostnameSync();
     }

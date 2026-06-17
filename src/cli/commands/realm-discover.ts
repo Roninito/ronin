@@ -2,7 +2,7 @@ import { createAPI } from "../../api/index.js";
 
 export interface RealmDiscoverOptions {
   callsign: string;
-  agentDir?: string;
+  dutyDir?: string;
   pluginDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
@@ -11,7 +11,7 @@ export interface RealmDiscoverOptions {
 
 export async function realmDiscoverCommand(options: RealmDiscoverOptions): Promise<void> {
   const api = await createAPI({
-    agentDir: options.agentDir,
+    dutyDir: options.dutyDir,
     pluginDir: options.pluginDir,
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,

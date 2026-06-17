@@ -42,7 +42,7 @@ export class MemoryStore {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
-        agent_name TEXT,
+        duty_name TEXT,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         metadata TEXT,
@@ -50,10 +50,10 @@ export class MemoryStore {
       )
     `);
 
-    // Agent state table - stores agent execution state
+    // Duty state table - stores duty execution state
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS agent_state (
-        agent_name TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS duty_state (
+        duty_name TEXT PRIMARY KEY,
         state TEXT NOT NULL,
         metadata TEXT,
         updated_at INTEGER NOT NULL
@@ -64,7 +64,7 @@ export class MemoryStore {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_memories_key ON memories(key);
       CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
-      CREATE INDEX IF NOT EXISTS idx_conversations_agent ON conversations(agent_name);
+      CREATE INDEX IF NOT EXISTS idx_conversations_duty ON conversations(duty_name);
       CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
     `);
   }
@@ -185,7 +185,7 @@ export class MemoryStore {
    * Add conversation entry
    */
   async addConversation(
-    agentName: string,
+    dutyName: string,
     role: "system" | "user" | "assistant",
     content: string,
     metadata?: Record<string, unknown>
@@ -195,20 +195,20 @@ export class MemoryStore {
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
     const stmt = this.db.prepare(`
-      INSERT INTO conversations (id, agent_name, role, content, metadata, created_at)
+      INSERT INTO conversations (id, duty_name, role, content, metadata, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     await this.runWithBusyRetry(() => {
-      stmt.run(id, agentName, role, content, metadataJson, now);
+      stmt.run(id, dutyName, role, content, metadataJson, now);
     });
     return id;
   }
 
   /**
-   * Get conversation history for an agent
+   * Get conversation history for a duty
    */
-  async getConversations(agentName: string, limit: number = 50): Promise<Array<{
+  async getConversations(dutyName: string, limit: number = 50): Promise<Array<{
     role: string;
     content: string;
     createdAt: Date;
@@ -216,12 +216,12 @@ export class MemoryStore {
     const stmt = this.db.prepare(`
       SELECT role, content, created_at
       FROM conversations
-      WHERE agent_name = ?
+      WHERE duty_name = ?
       ORDER BY created_at DESC
       LIMIT ?
     `);
 
-    const rows = stmt.all(agentName, limit) as Array<{
+    const rows = stmt.all(dutyName, limit) as Array<{
       role: string;
       content: string;
       created_at: number;
@@ -235,32 +235,32 @@ export class MemoryStore {
   }
 
   /**
-   * Store agent state
+   * Store duty state
    */
-  async setAgentState(agentName: string, state: unknown, metadata?: Record<string, unknown>): Promise<void> {
+  async setDutyState(dutyName: string, state: unknown, metadata?: Record<string, unknown>): Promise<void> {
     const now = Date.now();
     const stateJson = JSON.stringify(state);
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO agent_state (agent_name, state, metadata, updated_at)
+      INSERT OR REPLACE INTO duty_state (duty_name, state, metadata, updated_at)
       VALUES (?, ?, ?, ?)
     `);
 
     await this.runWithBusyRetry(() => {
-      stmt.run(agentName, stateJson, metadataJson, now);
+      stmt.run(dutyName, stateJson, metadataJson, now);
     });
   }
 
   /**
-   * Get agent state
+   * Get duty state
    */
-  async getAgentState(agentName: string): Promise<unknown> {
+  async getDutyState(dutyName: string): Promise<unknown> {
     const stmt = this.db.prepare(`
-      SELECT state FROM agent_state WHERE agent_name = ?
+      SELECT state FROM duty_state WHERE duty_name = ?
     `);
 
-    const row = stmt.get(agentName) as { state: string } | undefined;
+    const row = stmt.get(dutyName) as { state: string } | undefined;
     if (!row) {
       return null;
     }

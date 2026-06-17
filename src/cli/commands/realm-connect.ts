@@ -5,7 +5,7 @@ export interface RealmConnectOptions {
   callsign: string;
   token?: string;
   localPort?: number;
-  agentDir?: string;
+  dutyDir?: string;
   pluginDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
@@ -14,7 +14,7 @@ export interface RealmConnectOptions {
 
 export async function realmConnectCommand(options: RealmConnectOptions): Promise<void> {
   const api = await createAPI({
-    agentDir: options.agentDir,
+    dutyDir: options.dutyDir,
     pluginDir: options.pluginDir,
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,

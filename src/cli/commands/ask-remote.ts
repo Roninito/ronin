@@ -28,12 +28,12 @@ export async function askWithRemoteModel(
   modelName: string,
   options: AskOptions,
   api: DutyAPI,
-  agentDir: string,
+  dutyDir: string,
   pluginDir: string
 ): Promise<void> {
   // Build context prompt (same as local)
   console.log("📚 Gathering context...");
-  const systemPrompt = await buildContextPrompt(agentDir, pluginDir, ".", api);
+  const systemPrompt = await buildContextPrompt(dutyDir, pluginDir, ".", api);
 
   // Initialize conversation
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [

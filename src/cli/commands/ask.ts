@@ -5,7 +5,7 @@ export interface AskOptions {
   question?: string;
   model?: string; // Model/tier (e.g., "smart", "cloud", "local")
   askModel?: string; // Specific Ollama model for ask command (e.g., "ministral-3:3b")
-  agentDir?: string;
+  dutyDir?: string;
   pluginDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;

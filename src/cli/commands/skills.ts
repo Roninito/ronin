@@ -10,7 +10,7 @@ import { join } from "path";
 import { URL } from "url";
 
 export interface SkillsCLIOptions {
-  agentDir?: string;
+  dutyDir?: string;
   pluginDir?: string;
   userPluginDir?: string;
   ollamaUrl?: string;

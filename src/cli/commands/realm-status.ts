@@ -1,7 +1,7 @@
 import { createAPI } from "../../api/index.js";
 
 export interface RealmStatusOptions {
-  agentDir?: string;
+  dutyDir?: string;
   pluginDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
@@ -10,7 +10,7 @@ export interface RealmStatusOptions {
 
 export async function realmStatusCommand(options: RealmStatusOptions): Promise<void> {
   const api = await createAPI({
-    agentDir: options.agentDir,
+    dutyDir: options.dutyDir,
     pluginDir: options.pluginDir,
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,

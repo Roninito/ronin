@@ -859,7 +859,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
           },
         };
       }
-      const source = args.source ?? context.metadata?.agentName ?? "ai";
+      const source = args.source ?? context.metadata?.dutyName ?? "ai";
       try {
         api.events.emit(args.event, args.data, source);
         return {

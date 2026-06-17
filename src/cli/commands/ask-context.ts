@@ -10,7 +10,7 @@ import { formatCronTable } from "../../utils/cron.js";
 
 export interface SystemContext {
   plugins: string;
-  agents: string;
+  duties: string;
   documentation: string;
   systemState: string;
 }
@@ -90,36 +90,36 @@ ${exampleUsage}`;
 }
 
 /**
- * Gather agent context information
+ * Gather duty context information
  */
-export async function gatherAgentContext(
-  dutyDir: string = "./agents",
+export async function gatherDutyContext(
+  dutyDir: string = "./duties",
   api: Awaited<ReturnType<typeof createAPI>>
 ): Promise<string> {
   try {
     const loader = new DutyLoader(dutyDir);
-    const agents = await loader.loadAllAgents(api);
+    const duties = await loader.loadAllDuties(api);
 
-    if (agents.length === 0) {
-      return "No agents are currently loaded.";
+    if (duties.length === 0) {
+      return "No duties are currently loaded.";
     }
 
-    const agentInfo = agents.map((a) => {
-      const parts = [`Agent: ${a.name}`, `  File: ${a.filePath}`];
-      if (a.schedule) {
-        parts.push(`  Schedule: ${a.schedule}`);
-        const table = formatCronTable(a.schedule);
+    const dutyInfo = duties.map((d) => {
+      const parts = [`Duty: ${d.name}`, `  File: ${d.filePath}`];
+      if (d.schedule) {
+        parts.push(`  Schedule: ${d.schedule}`);
+        const table = formatCronTable(d.schedule);
         parts.push(table.split('\n').map(line => `  ${line}`).join('\n'));
       }
-      if (a.watch && a.watch.length > 0)
-        parts.push(`  Watch: ${a.watch.join(", ")}`);
-      if (a.webhook) parts.push(`  Webhook: ${a.webhook}`);
+      if (d.watch && d.watch.length > 0)
+        parts.push(`  Watch: ${d.watch.join(", ")}`);
+      if (d.webhook) parts.push(`  Webhook: ${d.webhook}`);
       return parts.join("\n");
     });
 
-    return `Loaded Agents (${agents.length}):\n${agentInfo.join("\n\n")}`;
+    return `Loaded Duties (${duties.length}):\n${dutyInfo.join("\n\n")}`;
   } catch (error) {
-    return `Error loading agents: ${error}`;
+    return `Error loading duties: ${error}`;
   }
 }
 
@@ -184,7 +184,7 @@ export async function gatherCodeExamples(projectRoot: string = "."): Promise<str
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
 
-export default class MyAgent extends BaseDuty {
+export default class MyDuty extends BaseDuty {
   async execute(): Promise<void> {
     // To use git.clone() in Ronin, you call it via the plugins API:
     const result = await this.api.plugins.call(
@@ -210,7 +210,7 @@ This is TypeScript/JavaScript code, NOT Python.`,
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
 
-export default class MyAgent extends BaseDuty {
+export default class MyDuty extends BaseDuty {
   async execute(): Promise<void> {
     // Call git plugin methods
     const status = await this.api.plugins.call("git", "status");
@@ -227,7 +227,7 @@ export default class MyAgent extends BaseDuty {
 }
 \`\`\``,
     
-    `Plugin Usage Pattern (TypeScript/JavaScript):
+    `Duty Usage Pattern (TypeScript/JavaScript):
 - All plugins are called via: await this.api.plugins.call("pluginName", "methodName", ...args)
 - Methods are TypeScript/JavaScript async functions
 - Return values are JavaScript objects/Promises
@@ -236,7 +236,7 @@ export default class MyAgent extends BaseDuty {
 
 Example calling git.clone():
 \`\`\`typescript
-// In a TypeScript/JavaScript agent
+// In a TypeScript/JavaScript duty
 const result = await this.api.plugins.call("git", "clone", "https://github.com/user/repo.git", "optional-dir");
 // result is a JavaScript object: { success: true, output: "..." }
 \`\`\`
@@ -251,14 +251,14 @@ When users ask about "git.clone()", they mean this TypeScript code, NOT Python G
  * Build complete context prompt for AI
  */
 export async function buildContextPrompt(
-  dutyDir: string = "./agents",
+  dutyDir: string = "./duties",
   pluginDir: string = "./plugins",
   projectRoot: string = ".",
   api?: Awaited<ReturnType<typeof createAPI>>
 ): Promise<string> {
-  const [plugins, agents, docs, state, examples] = await Promise.all([
+  const [plugins, duties, docs, state, examples] = await Promise.all([
     gatherPluginContext(pluginDir),
-    api ? gatherAgentContext(dutyDir, api) : Promise.resolve("Agents not loaded"),
+    api ? gatherDutyContext(dutyDir, api) : Promise.resolve("Duties not loaded"),
     gatherDocumentation(projectRoot),
     gatherSystemState(),
     gatherCodeExamples(projectRoot),
@@ -349,17 +349,17 @@ IMPORTANT: You have access to tools/functions that you can call to gather inform
 - Files in a directory → use "list_files" tool (NOT "list")
 - File contents → use "read_file" tool
 - Plugin information → use "list_plugins" tool (NOT "list")
-- Agent information → use "list_agents" tool (NOT "list")
+- Duty information → use "list_duties" tool (NOT "list")
 - System information → use "get_system_info" tool
 
 Available tool names (use these EXACT names):
 - list_files (for listing files in directories)
 - read_file (for reading file contents)
 - list_plugins (for plugin information)
-- list_agents (for agent information)
+- list_duties (for duty information)
 - get_system_info (for system information)
 
-DO NOT call tools with names like "list" - always use the full tool name like "list_files", "list_plugins", or "list_agents".
+DO NOT call tools with names like "list" - always use the full tool name like "list_files", "list_plugins", or "list_duties".
 
 Always use tools to get current, accurate information rather than guessing.
 
@@ -380,7 +380,7 @@ Current System Context:
 
 ${plugins}
 
-${agents}
+${duties}
 
 ${state}
 

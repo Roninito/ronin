@@ -792,75 +792,40 @@ Usage: ronin <command> [options]
        ronin help <command>          Show detailed help for a command
 
 Core:
-  init                 Interactive setup wizard (--quick for defaults)
-  interactive, i       Start Ronin in REPL mode
-  start                Start and schedule all duties
-  start --ninja        Start in background; logs to ~/.ronin/ninja.log
-  start --daemon       Start as daemon; logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
-  daemon start         Start daemon
-  daemon stop          Stop daemon
-  daemon status        Check daemon status
-  daemon restart       Restart daemon
-  daemon logs          Tail daemon logs
-  start --host         Share webhook server on network (bind 0.0.0.0)
-  stop                 Stop the running instance
-  restart              Stop and restart Ronin
-  kill                 Force-kill all Ronin instances
-  run <duty>           Run a specific duty manually
-  list                 List all available duties
-  status               Show runtime status and active schedules
-  emit <event> [data]  Send event to running Ronin (Shortcuts, scripts)
-  doctor               Run health checks on the installation
-  kdb                  Ontology/memory stats and queries (knowledge DB)
-
-AI & Tools:
-  ask [model] [question]  Ask running Ronin instance (start first)
-  ai <subcommand>         Manage AI model definitions (alias: models)
-  config                  Manage configuration
-  config set <path> <val> Set a config value by dot-path
+  start                 Start and schedule all duties
+  start --ninja          Start in background; logs to ~/.ronin/ninja.log
+  start --daemon         Start as daemon; logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
+  start --host          Share webhook server on network (bind 0.0.0.0)
+  stop                  Stop the running instance
+  restart               Stop and restart Ronin
+  kill                  Force-kill all Ronin instances
+  run <duty>            Run a specific duty manually
+  list                  List all available duties
+  status                Show runtime status and active schedules
+  emit <event> [data]   Send event to running Ronin (Shortcuts, scripts)
+  doctor                Run health checks on the installation
 
 Creation:
-  create plugin <name>    Create a new plugin template
-  create duty [desc]      AI-powered duty creation
-  create skill "desc"     AI-powered skill creation
-  create kata "intent"    AI-powered kata proposal (alias for kata propose)
+  create duty [desc]    AI-powered duty creation (interactive)
+  create skill "desc"   AI-powered skill creation
+  create plugin <name>  Create a new plugin template
+  cancel                Cancel pending duty creation
 
-Kata System:
-  kata propose "intent"   AI-generates kata DSL and registers it
-  kata list               List all registered katas
-  kata show <name>        Show a kata's DSL and phases
-  kata validate <file>    Validate a .kata file without registering
+AI & Knowledge:
+  ask [model] [question]  Ask running Ronin instance (start first)
+  ai <subcommand>         Manage AI model definitions (alias: models)
+  kdb                     Ontology/memory stats and queries (knowledge DB)
+  docs [doc]              View documentation
 
-Contracts & Techniques:
-  contract list           List all contracts
-  contract show <id>      Show contract details
-  contract create         Create a new contract
-  contract validate <id>  Validate a contract
-  contract sign <id>      Sign a contract
-  contract execute <id>   Execute a contract
-  contract status <id>    Check contract status
-  contract cancel <id>    Cancel a contract
-  contract renew <id>     Renew a contract
-  contract export <id>    Export contract to file
-  contract import <file>  Import contract from file
-  contract audit <id>     Audit contract history
-  contract dispute <id>   Raise a dispute
-  contract resolve <id>   Resolve a dispute
-  contract archive <id>   Archive a contract
-  technique list          List all techniques
-  technique show <name>   Show technique details
-  technique create        Create a new technique
-  technique test <name>   Run technique tests
-  technique validate <f>  Validate a technique file
-  technique register <f>  Register a technique
-  technique deprecate <n> Deprecate a technique
-  technique delete <name> Delete a technique
+Configuration:
+  config                  Manage configuration
+  config set <path> <val> Set a config value by dot-path
+  init                    Interactive setup wizard (--quick for defaults)
 
-Tasks:
-  task list               List all tasks
-  task show <id>          Show task details
-  task cancel <id>        Cancel a task
-  task retry <id>         Retry a failed task
+Scheduling:
+  schedule list           List all scheduled duties
+  schedule show <name>    Show duty schedule details
+  schedule edit <name>    Edit duty schedule interactively
 
 Plugins & Routes:
   plugins list            List loaded plugins
@@ -875,27 +840,44 @@ Integrations:
   mcp <subcommand>        Manage MCP server connections
   cloudflare <subcommand> Manage Cloudflare tunnels and route policy
   os <subcommand>         Desktop Mode commands (macOS)
-  docs [doc]              View documentation
+
+Advanced (Execution Engine):
+  kata list               List all katas
+  kata show <name>        Show kata details
+  kata create             Create a new kata
+  kata test <name>        Run kata tests
+  kata validate <file>    Validate a kata file
+  kata build <file>       Build a kata from source
+  
+  contract list           List all contracts
+  contract show <id>      Show contract details
+  contract create         Create a new contract
+  contract execute <id>   Execute a contract
+  contract status <id>    Check contract status
+  contract cancel <id>    Cancel a contract
+  
+  task list               List all tasks
+  task show <id>          Show task details
+  task cancel <id>        Cancel a task
+  task retry <id>         Retry a failed task
+
+Deferred (Vestigial - Not Core Architecture):
+  technique list          List all techniques (deferred removal)
+  technique show <name>   Show technique details
+  technique create        Create a new technique
+  technique test <name>   Run technique tests
+  technique validate <f>  Validate a technique file
+  technique register <f>  Register a technique
+  technique deprecate <n> Deprecate a technique
+  technique delete <name> Delete a technique
 
 Global Options:
   --debug                 Enable debug logging
-  --ninja                 Start in background, logs to ~/.ronin/ninja.log
-  --daemon                Start as daemon, logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
-  --host                  Share webhook server on network (bind 0.0.0.0)
   --duty-dir <dir>        Duty directory (default: ./duties)
   --plugin-dir <dir>      Plugin directory (default: ./plugins)
   --user-plugin-dir <dir> User plugins directory (default: ~/.ronin/plugins)
   --ollama-url <url>      Ollama API URL (default: http://localhost:11434)
   --ollama-model <name>   Default Ollama model (default: ministral-3:3b)
-  --db-path <path>        Database file path (default: ronin.db)
-
-Examples:
-  ronin start                          Start all duties
-  ronin emit transcribe.text '{"audioPath":"/tmp/a.wav"}'  Send STT event
-  ronin ask grok "explain quantum"     Ask Grok a question
-  ronin config set ai.provider gemini  Switch to Gemini
-  ronin doctor                         Validate setup
-  ronin help emit                      Detailed help for emit command
 `);
 }
 

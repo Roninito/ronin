@@ -3,12 +3,12 @@
  * Works alongside the existing kata_definitions table.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { KataRowV2, KataListFilters } from "../techniques/types.js";
 import { runTechniqueMigrations } from "../techniques/migrations.js";
 
 export class KataStorageV2 {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   async init(): Promise<void> {
     const db = (this.api as any).db;

@@ -1,13 +1,13 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { TechniqueParser, TechniqueParseError } from "./parser.js";
 import { TechniqueStorage } from "./storage.js";
 
 /**
  * Loads .technique files from project and user directories into the DB.
- * Mirrors the AgentLoader / PluginLoader pattern.
+ * Mirrors the DutyLoader / PluginLoader pattern.
  */
 export class TechniqueLoader {
   private dirs: string[];
@@ -33,7 +33,7 @@ export class TechniqueLoader {
     return files;
   }
 
-  async loadAll(api: AgentAPI): Promise<{ loaded: number; skipped: number; errors: string[] }> {
+  async loadAll(api: DutyAPI): Promise<{ loaded: number; skipped: number; errors: string[] }> {
     const storage = new TechniqueStorage(api);
     await storage.init();
     const parser = new TechniqueParser();

@@ -10,7 +10,7 @@ import { dirname, join } from "path";
 import { homedir } from "os";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../cli/commands/config.js";
 import { getDefaultCache } from "./cache.js";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { OpenAIFunctionSchema } from "../tools/types.js";
 
 export interface RoninContext {
@@ -43,7 +43,7 @@ export interface WindowingResult {
 
 export interface WindowingOptions {
   chatId?: string;
-  api?: AgentAPI;
+  api?: DutyAPI;
   recentCount?: number;
   maxSummaryTokens?: number;
 }
@@ -146,7 +146,7 @@ function getPersonaSection(): string {
  * Single source of truth for discovering agents, plugins, routes.
  * Memoized with use-count decay (maxUses: 10, maxAgeMs: 60s).
  */
-export async function getRoninContext(api: AgentAPI): Promise<RoninContext> {
+export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
   const cache = getDefaultCache();
   const cached = cache.get<RoninContext>(RONIN_CONTEXT_KEY);
   if (cached) return cached;
@@ -167,7 +167,7 @@ export async function getRoninContext(api: AgentAPI): Promise<RoninContext> {
             const descMatch =
               content.match(/\/\*\*[\s\S]*?\*\//) ||
               content.match(/\/\/.*description.*/i) ||
-              content.match(/export default class \w+ extends BaseAgent[\s\S]{0,500}/);
+              content.match(/export default class \w+ extends BaseDuty[\s\S]{0,500}/);
             if (descMatch) {
               description = descMatch[0].substring(0, 200).replace(/\n/g, " ");
             }
@@ -231,7 +231,7 @@ export function getArchitectureDescription(): string {
   const text = `Ronin is a Bun-based AI agent framework for TypeScript/JavaScript.
 
 Key Components:
-- Agents: Extend BaseAgent, implement execute(), auto-loaded from ~/.ronin/agents/
+- Agents: Extend BaseDuty, implement execute(), auto-loaded from ~/.ronin/agents/
 - Plugins: Tools in ~/.ronin/plugins/, accessed via api.plugins.call()
 - Routes: Agents register HTTP routes via api.http.registerRoute()
 - Events: Inter-agent communication via api.events.emit/on()

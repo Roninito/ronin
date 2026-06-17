@@ -8,7 +8,7 @@
 // ─── Global Options (shared across many commands) ──────────────────────
 
 export interface GlobalOptions {
-  agentDir?: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -20,7 +20,7 @@ export interface GlobalOptions {
 }
 
 /**
- * Extract a flag value from an args array (e.g. --agent-dir <value>).
+ * Extract a flag value from an args array (e.g. --duty-dir <value>).
  * Returns undefined if the flag is absent.
  */
 export function getArg(flag: string, args: string[]): string | undefined {
@@ -37,7 +37,7 @@ export function getArg(flag: string, args: string[]): string | undefined {
  */
 export function parseGlobalOptions(args: string[]): GlobalOptions {
   return {
-    agentDir: getArg("--agent-dir", args),
+    dutyDir: getArg("--duty-dir", args),
     ollamaUrl: getArg("--ollama-url", args),
     ollamaModel: getArg("--ollama-model", args),
     dbPath: getArg("--db-path", args),
@@ -55,13 +55,13 @@ const commandHelp: Record<string, string> = {
   start: `
 Usage: ronin start [options]
 
-Start and schedule all agents. Begins the webhook server, cron scheduler,
+Start and schedule all duties. Begins the webhook server, cron scheduler,
 file watchers, and hot-reload service.
 
 Options:
   --ninja                  Start in background; logs to ~/.ronin/ninja.log
   --host                   Bind to 0.0.0.0 and show network URL (share on LAN)
-  --agent-dir <dir>        Agent directory (default: ./agents)
+  --duty-dir <dir>         Duty directory (default: ./duties)
   --ollama-url <url>       Ollama API URL
   --ollama-model <name>    Default Ollama model
   --db-path <path>         Database file path
@@ -86,12 +86,12 @@ Usage: ronin kill
 Force-kill all running Ronin instances (SIGKILL).
 `,
   run: `
-Usage: ronin run <agent-name> [options]
+Usage: ronin run <duty-name> [options]
 
-Execute a specific agent manually (one-shot).
+Execute a specific duty manually (one-shot).
 
 Options:
-  --agent-dir <dir>        Agent directory
+  --duty-dir <dir>         Duty directory
   --ollama-url <url>       Ollama API URL
   --ollama-model <name>    Default model
   --db-path <path>         Database path
@@ -100,7 +100,7 @@ Options:
   list: `
 Usage: ronin list [options]
 
-List all registered agents with their schedules, webhooks, and file watchers.
+List all registered duties with their schedules, webhooks, and file watchers.
 `,
   status: `
 Usage: ronin status [options]
@@ -116,7 +116,7 @@ Models: local (default), smart/cloud/ninja, grok, gemini
 
 Note:
   ronin ask requires Ronin to be running first (ronin start).
-  It does not boot plugins/agents/routes in the CLI process.
+  It does not boot plugins/duties/routes in the CLI process.
 
 Examples:
   ronin ask "What is Ronin?"
@@ -309,11 +309,11 @@ Create new Ronin components.
 
 Types:
   plugin <name>       Create a new plugin template
-  agent [description] AI-powered agent creation (interactive)
-  skill "description" Generate an AgentSkill from a description (SkillMaker)
+  duty [description]   AI-powered duty creation (interactive)
+  skill "description"  Generate an AgentSkill from a description (SkillMaker)
 
-Options (agent):
-  --local              Create in ~/.ronin/agents instead of ./agents
+Options (duty):
+  --local              Create in ~/.ronin/duties instead of ./duties
   --no-preview         Skip preview before saving
   --edit               Open in editor after creation
 `,

@@ -6,7 +6,7 @@
 import { readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import type { AgentAPI } from "@ronin/types/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 import type { ModelRegistry } from "@ronin/types/model.js";
 import { recordUsageEvent } from "./usage.js";
 
@@ -26,7 +26,7 @@ function loadRegistry(path: string): ModelRegistry | null {
  * Migrate usage data from JSON to database
  * Reads existing daily/monthly stats from registry and imports into DB
  */
-export async function migrateUsageData(api: AgentAPI): Promise<number> {
+export async function migrateUsageData(api: DutyAPI): Promise<number> {
   // Load registry
   const repoPath = join(process.cwd(), ".ronin", "ai-models.json");
   const userPath = join(homedir(), ".ronin", "ai-models.json");
@@ -119,7 +119,7 @@ export async function migrateUsageData(api: AgentAPI): Promise<number> {
 /**
  * Check if usage data has been migrated
  */
-export async function isUsageDataMigrated(api: AgentAPI): Promise<boolean> {
+export async function isUsageDataMigrated(api: DutyAPI): Promise<boolean> {
   const db = api.db;
 
   try {
@@ -135,7 +135,7 @@ export async function isUsageDataMigrated(api: AgentAPI): Promise<boolean> {
 /**
  * Get migration status
  */
-export async function getMigrationStatus(api: AgentAPI): Promise<{
+export async function getMigrationStatus(api: DutyAPI): Promise<{
   isMigrated: boolean;
   jsonRecords: number;
   dbRecords: number;

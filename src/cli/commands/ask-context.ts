@@ -2,7 +2,7 @@ import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { PluginLoader } from "../../plugins/PluginLoader.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
+import { DutyLoader } from "../../duty/DutyLoader.js";
 import { createAPI } from "../../api/index.js";
 import { getSystemTools } from "./ask-tools.js";
 import { pluginsToTools } from "../../plugins/toolGenerator.js";
@@ -97,7 +97,7 @@ export async function gatherAgentContext(
   api: Awaited<ReturnType<typeof createAPI>>
 ): Promise<string> {
   try {
-    const loader = new AgentLoader(agentDir);
+    const loader = new DutyLoader(agentDir);
     const agents = await loader.loadAllAgents(api);
 
     if (agents.length === 0) {
@@ -181,10 +181,10 @@ export async function gatherCodeExamples(projectRoot: string = "."): Promise<str
   const examples = [
     `SPECIFIC EXAMPLE: Using git.clone() in Ronin (TypeScript/JavaScript):
 \`\`\`typescript
-import { BaseAgent } from "@ronin/agent/index.js";
-import type { AgentAPI } from "@ronin/types/index.js";
+import { BaseDuty } from "@ronin/duty/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 
-export default class MyAgent extends BaseAgent {
+export default class MyAgent extends BaseDuty {
   async execute(): Promise<void> {
     // To use git.clone() in Ronin, you call it via the plugins API:
     const result = await this.api.plugins.call(
@@ -207,10 +207,10 @@ This is TypeScript/JavaScript code, NOT Python.`,
     
     `TypeScript Agent Example:
 \`\`\`typescript
-import { BaseAgent } from "@ronin/agent/index.js";
-import type { AgentAPI } from "@ronin/types/index.js";
+import { BaseDuty } from "@ronin/duty/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 
-export default class MyAgent extends BaseAgent {
+export default class MyAgent extends BaseDuty {
   async execute(): Promise<void> {
     // Call git plugin methods
     const status = await this.api.plugins.call("git", "status");

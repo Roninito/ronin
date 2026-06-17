@@ -10,7 +10,7 @@ import {
 } from "../../utils/cron.js";
 import * as readline from "readline";
 import { readFile, writeFile } from "fs/promises";
-import { loadAgentFileMetadata, type AgentFileMetadata } from "../utils/agent-metadata.js";
+import { loadDutyFileMetadata, type DutyFileMetadata } from "../utils/duty-metadata.js";
 
 export interface ScheduleOptions {
   agentDir?: string;
@@ -346,7 +346,7 @@ async function applyScheduleCommand(
  * Apply schedule to agent file
  */
 async function applyScheduleToFile(
-  agent: AgentFileMetadata,
+  agent: DutyFileMetadata,
   schedule: string
 ): Promise<void> {
   try {

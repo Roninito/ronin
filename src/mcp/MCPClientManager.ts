@@ -9,7 +9,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { ToolDefinition, ToolContext, ToolResult } from "../tools/types.js";
 import type { ToolRouter } from "../tools/ToolRouter.js";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { MCPConfig, MCPServerConfig } from "../config/types.js";
 import { logger } from "../utils/logger.js";
 
@@ -25,10 +25,10 @@ export interface ServerConnection {
 
 export class MCPClientManager {
   private toolRouter: ToolRouter;
-  private api: AgentAPI;
+  private api: DutyAPI;
   private connections: Map<string, ServerConnection> = new Map();
 
-  constructor(toolRouter: ToolRouter, api: AgentAPI) {
+  constructor(toolRouter: ToolRouter, api: DutyAPI) {
     this.toolRouter = toolRouter;
     this.api = api;
   }

@@ -6,13 +6,13 @@
  * - custom: dynamically imports and calls the handler module
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { TechniqueDefinition, TechniqueStep, ReturnMapping } from "./types.js";
 import { TechniqueRegistry } from "./storage.js";
 import { TechniqueParser } from "./parser.js";
 
 export interface ExecutionContext {
-  api: AgentAPI;
+  api: DutyAPI;
   taskId?: string;
   contractName?: string;
 }
@@ -32,7 +32,7 @@ export class TechniqueExecutor {
   private registry: TechniqueRegistry;
   private parser: TechniqueParser;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.registry = new TechniqueRegistry(api);
     this.parser = new TechniqueParser();
   }

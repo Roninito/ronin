@@ -152,21 +152,21 @@ export interface ToolPolicyViolationEvent {
 
 // Analytics event types (opt-in protocol for agent telemetry)
 
-export interface AgentLifecycleEvent {
+export interface DutyLifecycleEvent {
   agent: string;
   status: "started" | "stopped" | "error";
   timestamp: number;
   meta?: Record<string, unknown>;
 }
 
-export interface AgentTaskStartedEvent {
+export interface DutyTaskStartedEvent {
   agent: string;
   taskId: string;
   taskName: string;
   timestamp: number;
 }
 
-export interface AgentTaskProgressEvent {
+export interface DutyTaskProgressEvent {
   agent: string;
   taskId: string;
   progress: number;
@@ -174,7 +174,7 @@ export interface AgentTaskProgressEvent {
   timestamp: number;
 }
 
-export interface AgentTaskCompletedEvent {
+export interface DutyTaskCompletedEvent {
   agent: string;
   taskId: string;
   duration: number;
@@ -182,7 +182,7 @@ export interface AgentTaskCompletedEvent {
   timestamp: number;
 }
 
-export interface AgentTaskFailedEvent {
+export interface DutyTaskFailedEvent {
   agent: string;
   taskId: string;
   duration: number;
@@ -190,7 +190,7 @@ export interface AgentTaskFailedEvent {
   timestamp: number;
 }
 
-export interface AgentMetricEvent {
+export interface DutyMetricEvent {
   agent: string;
   metric: string;
   value: number;

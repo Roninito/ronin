@@ -10,7 +10,7 @@ import { PluginLoader } from "../plugins/PluginLoader.js";
 import { pluginsToTools } from "../plugins/toolGenerator.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { initializeTools, getToolsAPI } from "./tools.js";
-import type { AgentAPI, Message, CompletionOptions, ChatOptions, Tool } from "../types/api.js";
+import type { DutyAPI, Message, CompletionOptions, ChatOptions, Tool } from "../types/api.js";
 import type { ToolDefinition } from "../tools/types.js";
 
 export interface APIOptions {
@@ -39,7 +39,7 @@ function isPluginMethodSkipped(methodName: string): boolean {
  * so that api.tools.execute() can dispatch to the correct plugin method.
  */
 function registerPluginToolsWithRouter(
-  api: AgentAPI,
+  api: DutyAPI,
   pluginTools: Tool[],
   toolsAPI: { register(tool: ToolDefinition): void },
 ): void {
@@ -114,7 +114,7 @@ function registerPluginToolsWithRouter(
 /**
  * Build the API object that gets passed to agents
  */
-export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
+export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
   // Initialize configuration service first
   const configService = getConfigService();
   await configService.load();
@@ -140,12 +140,12 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
 
   // ── Generic plugin-to-API binder ──────────────────────────────────────
   // Replaces ~120 lines of repetitive per-plugin wiring with a single helper.
-  function bindPluginAPI<K extends keyof AgentAPI>(
+  function bindPluginAPI<K extends keyof DutyAPI>(
     pluginName: string,
-  ): AgentAPI[K] | undefined {
+  ): DutyAPI[K] | undefined {
     const found = plugins.find(p => p.name === pluginName);
     if (!found) return undefined;
-    return { ...found.plugin.methods } as AgentAPI[K];
+    return { ...found.plugin.methods } as DutyAPI[K];
   }
 
   const gitAPI = bindPluginAPI<"git">("git");
@@ -247,7 +247,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   const AI_SOURCE = "api.ai";
   const defaultModel = resolvedOllamaModel;
 
-  const wrappedAi: AgentAPI["ai"] = {
+  const wrappedAi: DutyAPI["ai"] = {
     checkModel: (model?: string) => aiAPI.checkModel(model),
 
     async complete(prompt: string, options?: CompletionOptions): Promise<string> {
@@ -413,7 +413,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     },
   };
 
-  const api: AgentAPI = {
+  const api: DutyAPI = {
     ai: wrappedAi,
     memory: {
       store: (key: string, value: unknown) => memoryStore.store(key, value),
@@ -473,7 +473,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
     ...(skillsAPI && { skills: skillsAPI }),
     ...(emailAPI && { email: emailAPI }),
     ...(oauthAPI && { oauth: oauthAPI }),
-    tools: {} as AgentAPI["tools"],
+    tools: {} as DutyAPI["tools"],
   };
 
   // Initialize tool system with full API (skip for read-only CLI commands)
@@ -492,7 +492,7 @@ export async function createAPI(options: APIOptions = {}): Promise<AgentAPI> {
   // Give plugins that expose setAPI(api) access to full runtime API.
   for (const plugin of plugins) {
     if (plugin?.plugin?.methods?.setAPI) {
-      (plugin.plugin.methods.setAPI as (api: AgentAPI) => void)(api);
+      (plugin.plugin.methods.setAPI as (api: DutyAPI) => void)(api);
     }
   }
 

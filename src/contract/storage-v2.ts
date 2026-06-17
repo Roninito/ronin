@@ -2,7 +2,7 @@
  * Contract Storage V2 — enhanced schema with params, on_failure, execution tracking
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type {
   ContractV2Row,
   ContractV2Definition,
@@ -28,7 +28,7 @@ interface TaskHistoryRow {
 }
 
 export class ContractStorageV2 {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   async init(): Promise<void> {
     const db = (this.api as any).db;

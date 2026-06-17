@@ -9,7 +9,7 @@ import type {
   ToolCompletedEvent,
   ToolPolicyViolationEvent,
 } from "./types.js";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 
 /** Short names some models use → full registered tool name */
 const TOOL_ALIASES: Record<string, string> = {
@@ -28,7 +28,7 @@ const TOOL_ALIASES: Record<string, string> = {
  */
 export class ToolRouter {
   private tools: Map<string, ToolDefinition> = new Map();
-  private api: AgentAPI;
+  private api: DutyAPI;
   private policy: ToolPolicy;
   private callHistory: Map<string, number[]> = new Map(); // toolName -> timestamps
   private dailyCost: number = 0;
@@ -50,7 +50,7 @@ export class ToolRouter {
     return undefined;
   }
 
-  constructor(api: AgentAPI) {
+  constructor(api: DutyAPI) {
     this.api = api;
     this.policy = this.loadDefaultPolicy();
     this.startCostTracking();

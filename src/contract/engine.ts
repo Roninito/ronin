@@ -16,7 +16,7 @@
  * Contract engine listens and creates tasks
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { CronEvaluator } from "./cron.js";
 import { ContractStorage } from "./storage.js";
 
@@ -28,7 +28,7 @@ export class CronEngine {
   private intervalId: NodeJS.Timeout | null = null;
   private lastMinute = -1;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.storage = new ContractStorage(api);
   }
 
@@ -127,7 +127,7 @@ export class CronEngine {
 export class ContractEngine {
   private storage: ContractStorage;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.storage = new ContractStorage(api);
   }
 

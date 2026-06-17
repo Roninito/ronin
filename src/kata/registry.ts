@@ -5,7 +5,7 @@
  * Ensures immutability and version management
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { KataParser } from "./parser.js";
 import { KataCompiler } from "./compiler.js";
 import { KataStorage } from "../task/storage.js";
@@ -19,7 +19,7 @@ export class KataRegistry {
   private compiler = new KataCompiler();
   private storage: KataStorage;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.storage = new KataStorage(api);
     this.storage.init().catch((e) => console.error("[kata-registry] DB init failed:", e.message));
   }

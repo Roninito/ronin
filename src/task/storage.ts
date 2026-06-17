@@ -5,14 +5,14 @@
  * Provides query and update methods for task state management.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { Task, TaskRow, TaskState } from "./types.js";
 
 /**
  * Task Storage — database persistence layer
  */
 export class TaskStorage {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   /**
    * Create tasks table if it doesn't exist
@@ -225,7 +225,7 @@ export class TaskStorage {
  * Kata Storage — database persistence for kata definitions
  */
 export class KataStorage {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   /**
    * Create tables if they don't exist

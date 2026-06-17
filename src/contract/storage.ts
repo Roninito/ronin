@@ -4,14 +4,14 @@
  * Manages contract persistence and querying
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { Contract, ContractAST, ContractRow } from "./types.js";
 
 /**
  * Contract Storage - database persistence
  */
 export class ContractStorage {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   /**
    * Create migration SQL
@@ -219,7 +219,7 @@ export class ContractStorage {
 export class ContractRegistry {
   private storage: ContractStorage;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.storage = new ContractStorage(api);
   }
 

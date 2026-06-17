@@ -108,7 +108,7 @@ export interface Transaction {
 /**
  * Main API interface provided to agents
  */
-export interface AgentAPI {
+export interface DutyAPI {
   /**
    * AI operations via Ollama
    */
@@ -482,11 +482,11 @@ export interface AgentAPI {
    * LangChain operations (if langchain plugin is loaded)
    */
   langchain?: {
-    runChain(prompt: string, input: any, api?: AgentAPI): Promise<string>;
-    runAgent(query: string, tools?: any[], api?: AgentAPI): Promise<any>;
-    buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: AgentAPI): Promise<any>;
-    runAnalysisChain(input: string, dataSource?: string, api?: AgentAPI): Promise<string>;
-    buildResearchGraph(api?: AgentAPI): Promise<any>;
+    runChain(prompt: string, input: any, api?: DutyAPI): Promise<string>;
+    runAgent(query: string, tools?: any[], api?: DutyAPI): Promise<any>;
+    buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: DutyAPI): Promise<any>;
+    runAnalysisChain(input: string, dataSource?: string, api?: DutyAPI): Promise<string>;
+    buildResearchGraph(api?: DutyAPI): Promise<any>;
   };
 
   /**

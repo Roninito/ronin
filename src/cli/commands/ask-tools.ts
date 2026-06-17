@@ -2,8 +2,8 @@ import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import type { Tool } from "../../types/api.js";
 import { PluginLoader } from "../../plugins/PluginLoader.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
-import type { AgentAPI } from "../../types/api.js";
+import { DutyLoader } from "../../duty/DutyLoader.js";
+import type { DutyAPI } from "../../types/api.js";
 import { formatCronTable } from "../../utils/cron.js";
 
 /**
@@ -73,10 +73,10 @@ async function getPluginInfo(pluginDir: string = "./plugins"): Promise<string> {
  */
 async function getAgentInfo(
   agentDir: string = "./agents",
-  api: AgentAPI
+  api: DutyAPI
 ): Promise<string> {
   try {
-    const loader = new AgentLoader(agentDir);
+    const loader = new DutyLoader(agentDir);
     const agents = await loader.loadAllAgents(api);
 
     if (agents.length === 0) {
@@ -127,7 +127,7 @@ async function getSystemInfo(): Promise<string> {
 export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
-  api: AgentAPI,
+  api: DutyAPI,
   agentDir: string = "./agents",
   pluginDir: string = "./plugins"
 ): Promise<unknown> {

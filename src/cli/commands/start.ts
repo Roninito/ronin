@@ -1,6 +1,6 @@
 import { createAPI } from "../../api/index.js";
-import type { AgentAPI } from "../../types/api.js";
-import { AgentLoader, AgentRegistry, HotReloadService } from "../../agent/index.js";
+import type { DutyAPI } from "../../types/api.js";
+import { DutyLoader, DutyRegistry, HotReloadService } from "../../duty/index.js";
 import { TechniqueLoader } from "../../techniques/loader.js";
 import { KataLoader } from "../../kata/loader.js";
 import { ContractLoader } from "../../contract/loader.js";
@@ -27,8 +27,8 @@ export interface StartOptions {
 }
 
 export interface RoninServerState {
-  api: AgentAPI;
-  registry: AgentRegistry;
+  api: DutyAPI;
+  registry: DutyRegistry;
   hotReload: HotReloadService;
   /** Stop hot reload and cleanup registry (does not exit process). */
   cleanup: () => void;
@@ -103,7 +103,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     }
   }
 
-  const loader = new AgentLoader(agentDir, externalAgentDir);
+  const loader = new DutyLoader(agentDir, externalAgentDir);
   logger.debug("Discovering agents...");
   const agents = await loader.loadAllAgents(api);
 
@@ -133,7 +133,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     logger.info("Loaded contracts from files", { loaded: contractResult.loaded, skipped: contractResult.skipped, errors: contractResult.errors.length });
   }
 
-  const registry = new AgentRegistry({
+  const registry = new DutyRegistry({
     files: api.files as any,
     http: api.http as any,
     events: api.events as any,
@@ -158,7 +158,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     }
   }
 
-  (api as { getAgents?: () => ReturnType<AgentRegistry["getAgents"]> }).getAgents = () =>
+  (api as { getAgents?: () => ReturnType<DutyRegistry["getAgents"]> }).getAgents = () =>
     registry.getAgents();
 
   const hotReload = new HotReloadService({
@@ -222,7 +222,7 @@ function setupRunLog(retentionRuns: number): string {
 /**
  * Ingest retained run log files as SystemLog nodes in the ontology.
  */
-async function ingestRunLogsToOntology(api: AgentAPI): Promise<void> {
+async function ingestRunLogsToOntology(api: DutyAPI): Promise<void> {
   if (!api.ontology) return;
   if (!existsSync(RUN_LOGS_DIR)) return;
 

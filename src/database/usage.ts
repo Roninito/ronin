@@ -1,4 +1,4 @@
-import type { AgentAPI } from "@ronin/types/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 
 /**
  * Usage tracking database module
@@ -38,7 +38,7 @@ export interface UsageLogEntry {
 /**
  * Initialize usage tracking tables in database
  */
-export async function initializeUsageTables(api: AgentAPI): Promise<void> {
+export async function initializeUsageTables(api: DutyAPI): Promise<void> {
   const db = api.db;
 
   // Create tables if not exist
@@ -123,7 +123,7 @@ export async function initializeUsageTables(api: AgentAPI): Promise<void> {
  * Record a single usage event
  */
 export async function recordUsageEvent(
-  api: AgentAPI,
+  api: DutyAPI,
   modelNametag: string,
   inputTokens: number,
   outputTokens: number,
@@ -235,7 +235,7 @@ export async function recordUsageEvent(
  * Get usage stats for a specific model on a specific date
  */
 export async function getDailyUsage(
-  api: AgentAPI,
+  api: DutyAPI,
   modelNametag: string,
   date?: string
 ): Promise<DailyUsageStats | null> {
@@ -257,7 +257,7 @@ export async function getDailyUsage(
  * Get usage stats for a specific model in a specific month
  */
 export async function getMonthlyUsage(
-  api: AgentAPI,
+  api: DutyAPI,
   modelNametag: string,
   year?: number,
   month?: number
@@ -283,7 +283,7 @@ export async function getMonthlyUsage(
  * Get all daily usage stats for a model over a date range
  */
 export async function getDailyUsageRange(
-  api: AgentAPI,
+  api: DutyAPI,
   modelNametag: string,
   startDate: string,
   endDate: string
@@ -305,7 +305,7 @@ export async function getDailyUsageRange(
  * Get aggregated stats for all models on a specific date
  */
 export async function getDailyStats(
-  api: AgentAPI,
+  api: DutyAPI,
   date?: string
 ): Promise<DailyUsageStats[]> {
   const db = api.db;
@@ -327,7 +327,7 @@ export async function getDailyStats(
  * Get aggregated stats for all models in a specific month
  */
 export async function getMonthlyStats(
-  api: AgentAPI,
+  api: DutyAPI,
   year?: number,
   month?: number
 ): Promise<MonthlyUsageStats[]> {
@@ -353,7 +353,7 @@ export async function getMonthlyStats(
  * Get usage log for analytics
  */
 export async function getUsageLog(
-  api: AgentAPI,
+  api: DutyAPI,
   modelNametag?: string,
   limit = 100
 ): Promise<UsageLogEntry[]> {
@@ -381,7 +381,7 @@ export async function getUsageLog(
  * Get total cost for a period
  */
 export async function getTotalCost(
-  api: AgentAPI,
+  api: DutyAPI,
   startDate: string,
   endDate: string,
   modelNametag?: string
@@ -403,7 +403,7 @@ export async function getTotalCost(
 /**
  * Clear usage data (for testing)
  */
-export async function clearUsageData(api: AgentAPI): Promise<void> {
+export async function clearUsageData(api: DutyAPI): Promise<void> {
   const db = api.db;
   await db.execute(`DELETE FROM model_usage_daily`);
   await db.execute(`DELETE FROM model_usage_monthly`);

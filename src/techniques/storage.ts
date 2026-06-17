@@ -5,7 +5,7 @@
  * TechniqueRegistry is the high-level API; TechniqueStorage is the DB layer.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type {
   TechniqueDefinition,
   TechniqueRow,
@@ -16,7 +16,7 @@ import { runTechniqueMigrations } from "./migrations.js";
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 export class TechniqueStorage {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   async init(): Promise<void> {
     const db = (this.api as any).db;
@@ -169,7 +169,7 @@ export class TechniqueStorage {
 export class TechniqueRegistry {
   private storage: TechniqueStorage;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.storage = new TechniqueStorage(api);
     this.storage.init().catch((e: Error) => console.error("[technique-registry] DB init failed:", e.message));
   }

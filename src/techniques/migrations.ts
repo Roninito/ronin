@@ -155,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_task_phases_status ON task_phases(status);
 
 /**
  * Run all technique/kata/contract/task migrations against a db instance.
- * Compatible with both Bun SQLite (db.exec) and the AgentAPI (db.execute).
+ * Compatible with both Bun SQLite (db.exec) and the DutyAPI (db.execute).
  */
 export async function runTechniqueMigrations(db: any): Promise<void> {
   const statements = TECHNIQUE_MIGRATIONS.split(";")

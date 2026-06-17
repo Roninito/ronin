@@ -35,6 +35,6 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src/**/*", "agents/**/*"],
+  "include": ["src/**/*", "duties/**/*"],
   "exclude": ["node_modules", "dist"]
 }

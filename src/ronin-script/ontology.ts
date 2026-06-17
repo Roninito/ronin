@@ -3,7 +3,7 @@
  * Export ontology subgraph to Ronin Script for aggregation.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { parse } from "./parse.js";
 import { serialize } from "./serialize.js";
 import type { ParsedRoninScript, ParsedEntity, Relationship } from "./types.js";
@@ -24,7 +24,7 @@ function entityToNodeId(entity: ParsedEntity, index: number): string {
  * Resolves subject/object to node ids by matching entity names (first value or first two values).
  */
 export async function ingestRoninScriptToOntology(
-  api: AgentAPI,
+  api: DutyAPI,
   script: string | ParsedRoninScript
 ): Promise<void> {
   if (!api.ontology) return;
@@ -75,7 +75,7 @@ export interface ExportOntologyOptions {
  * Export a subset of the ontology to Ronin Script (entities + relationships).
  */
 export async function exportOntologyToRoninScript(
-  api: AgentAPI,
+  api: DutyAPI,
   options: ExportOntologyOptions = {}
 ): Promise<string> {
   if (!api.ontology?.search) return "";

@@ -7,7 +7,7 @@ import type { ChainContext } from "../chain/types.js";
 import { resolveOntology } from "../ontology/resolveOntology.js";
 
 export interface OntologyResolveOptions {
-  api?: import("../types/index.js").AgentAPI;
+  api?: import("../types/index.js").DutyAPI;
   /** If set, ctx.metadata?.taskId is used when resolving. */
   useTaskIdFromMetadata?: boolean;
 }

@@ -1,7 +1,7 @@
 import { buildContextPrompt } from "./ask-context.js";
 import { stdin, stdout } from "process";
 import { createInterface } from "readline";
-import type { AgentAPI } from "../../types/api.js";
+import type { DutyAPI } from "../../types/api.js";
 import type { AskOptions } from "./ask.js";
 
 /**
@@ -27,7 +27,7 @@ async function readInput(prompt: string): Promise<string> {
 export async function askWithRemoteModel(
   modelName: string,
   options: AskOptions,
-  api: AgentAPI,
+  api: DutyAPI,
   agentDir: string,
   pluginDir: string
 ): Promise<void> {

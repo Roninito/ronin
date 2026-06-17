@@ -22,7 +22,7 @@
  *   → Parent resumes in "configure" phase (or fails)
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { TaskEngine } from "./engine.js";
 import type { Task } from "./types.js";
 
@@ -32,7 +32,7 @@ import type { Task } from "./types.js";
 export class ChildTaskCoordinator {
   private engine: TaskEngine;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.engine = new TaskEngine(api);
 
     // Listen for child task completion

@@ -2,7 +2,7 @@
  * Task Storage V2 — enhanced schema with task_id, source tracking, and phase-level results
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { TaskV2Row, TaskPhaseRow, TaskV2Status, TaskListFilters, PhaseStatus } from "../techniques/types.js";
 import { runTechniqueMigrations } from "../techniques/migrations.js";
 
@@ -15,7 +15,7 @@ function generateTaskId(): string {
 }
 
 export class TaskStorageV2 {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   async init(): Promise<void> {
     const db = (this.api as any).db;

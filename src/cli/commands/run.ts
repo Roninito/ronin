@@ -1,6 +1,6 @@
 import { createAPI } from "../../api/index.js";
-import { AgentLoader } from "../../agent/AgentLoader.js";
-import { AgentRegistry } from "../../agent/AgentRegistry.js";
+import { DutyLoader } from "../../duty/DutyLoader.js";
+import { DutyRegistry } from "../../duty/DutyRegistry.js";
 import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 
@@ -34,7 +34,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   });
 
   // Load agents
-  const loader = new AgentLoader(agentDir, externalAgentDir);
+  const loader = new DutyLoader(agentDir, externalAgentDir);
   const agents = await loader.loadAllAgents(api);
 
   // Find the agent

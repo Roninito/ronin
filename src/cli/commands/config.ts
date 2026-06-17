@@ -42,40 +42,67 @@ function getConfigPath(): string {
 }
 
 /**
- * Get the default local agents directory
+ * Get the default local duties directory
  */
+export function getDefaultDutyDir(): string {
+  // Local duties should be in ./duties relative to where ronin is run
+  return join(process.cwd(), "duties");
+}
+
+/**
+ * Ensure the default duties directory exists
+ */
+export function ensureDefaultDutyDir(): string {
+  const dutyDir = getDefaultDutyDir();
+  if (!existsSync(dutyDir)) {
+    mkdirSync(dutyDir, { recursive: true });
+  }
+  return dutyDir;
+}
+
+/**
+ * Get the default external duties directory
+ */
+export function getDefaultExternalDutyDir(): string {
+  return join(homedir(), ".ronin", "duties");
+}
+
+/**
+ * Ensure the default external duties directory exists
+ */
+export function ensureDefaultExternalDutyDir(): string {
+  const dutyDir = getDefaultExternalDutyDir();
+  if (!existsSync(dutyDir)) {
+    mkdirSync(dutyDir, { recursive: true });
+  }
+  return dutyDir;
+}
+
+// Backward compatibility aliases (for existing installations with old paths)
 export function getDefaultAgentDir(): string {
-  // Local agents should be in ./agents relative to where ronin is run
-  return join(process.cwd(), "agents");
+  // Check if ./duties exists, fall back to ./agents
+  const dutiesDir = join(process.cwd(), "duties");
+  const agentsDir = join(process.cwd(), "agents");
+  if (existsSync(dutiesDir)) return dutiesDir;
+  if (existsSync(agentsDir)) return agentsDir;
+  return dutiesDir; // Default to new path
 }
 
-/**
- * Ensure the default agents directory exists
- */
 export function ensureDefaultAgentDir(): string {
-  const agentDir = getDefaultAgentDir();
-  if (!existsSync(agentDir)) {
-    mkdirSync(agentDir, { recursive: true });
-  }
-  return agentDir;
+  return ensureDefaultDutyDir();
 }
 
-/**
- * Get the default external agents directory
- */
 export function getDefaultExternalAgentDir(): string {
-  return join(homedir(), ".ronin", "agents");
+  // Check if ~/.ronin/duties exists, fall back to ~/.ronin/agents
+  const dutiesDir = join(homedir(), ".ronin", "duties");
+  const agentsDir = join(homedir(), ".ronin", "agents");
+  if (existsSync(dutiesDir)) return dutiesDir;
+  if (existsSync(agentsDir)) return agentsDir;
+  return dutiesDir; // Default to new path
 }
 
-/**
- * Ensure the default external agents directory exists
- */
 export function ensureDefaultExternalAgentDir(): string {
-  const agentDir = getDefaultExternalAgentDir();
-  if (!existsSync(agentDir)) {
-    mkdirSync(agentDir, { recursive: true });
-  }
-  return agentDir;
+  return ensureDefaultExternalDutyDir();
 }
 
 /**

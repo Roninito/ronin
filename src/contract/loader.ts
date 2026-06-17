@@ -1,13 +1,13 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { ContractParserV2, ContractParseError } from "./parser-v2.js";
 import { ContractStorageV2 } from "./storage-v2.js";
 
 /**
  * Loads .contract files from project and user directories into the DB.
- * Mirrors the AgentLoader / PluginLoader pattern.
+ * Mirrors the DutyLoader / PluginLoader pattern.
  */
 export class ContractLoader {
   private dirs: string[];
@@ -33,7 +33,7 @@ export class ContractLoader {
     return files;
   }
 
-  async loadAll(api: AgentAPI): Promise<{ loaded: number; skipped: number; errors: string[] }> {
+  async loadAll(api: DutyAPI): Promise<{ loaded: number; skipped: number; errors: string[] }> {
     const storage = new ContractStorageV2(api);
     await storage.init();
     const parser = new ContractParserV2();

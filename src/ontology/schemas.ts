@@ -5,7 +5,7 @@
  * These schemas are used by knowledge-gathering agents to store structured data.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 
 /**
  * System Information Node
@@ -144,7 +144,7 @@ export function deserializeMetadata(json: string): Record<string, unknown> {
  * Create a system info node
  */
 export async function createSystemInfoNode(
-  api: AgentAPI,
+  api: DutyAPI,
   info: SystemInfoMetadata
 ): Promise<void> {
   if (!api.ontology) return;
@@ -163,7 +163,7 @@ export async function createSystemInfoNode(
  * Create a tool metadata node
  */
 export async function createToolMetadataNode(
-  api: AgentAPI,
+  api: DutyAPI,
   tool: ToolMetadataNode & { name: string; description: string }
 ): Promise<void> {
   if (!api.ontology) return;
@@ -182,7 +182,7 @@ export async function createToolMetadataNode(
  * Create a codebase file node
  */
 export async function createCodebaseFileNode(
-  api: AgentAPI,
+  api: DutyAPI,
   file: CodebaseFileMetadata & { name: string }
 ): Promise<void> {
   if (!api.ontology) return;
@@ -201,7 +201,7 @@ export async function createCodebaseFileNode(
  * Query helper: Get system capabilities
  */
 export async function getSystemCapabilities(
-  api: AgentAPI
+  api: DutyAPI
 ): Promise<SystemInfoMetadata | null> {
   if (!api.ontology) return null;
   
@@ -223,7 +223,7 @@ export async function getSystemCapabilities(
  * Query helper: Get available tools in a domain
  */
 export async function getAvailableTools(
-  api: AgentAPI,
+  api: DutyAPI,
   domain?: string
 ): Promise<Array<ToolMetadataNode & { name: string; id: string }>> {
   if (!api.ontology) return [];
@@ -252,7 +252,7 @@ export async function getAvailableTools(
  * Query helper: Get codebase file by path
  */
 export async function getCodebaseFile(
-  api: AgentAPI,
+  api: DutyAPI,
   path: string
 ): Promise<CodebaseFileMetadata | null> {
   if (!api.ontology) return null;
@@ -277,7 +277,7 @@ export async function getCodebaseFile(
  * Query helper: Get all files in a domain
  */
 export async function getCodebaseFiles(
-  api: AgentAPI,
+  api: DutyAPI,
   limit: number = 100
 ): Promise<Array<CodebaseFileMetadata & { path: string; id: string }>> {
   if (!api.ontology) return [];
@@ -306,7 +306,7 @@ export async function getCodebaseFiles(
  * Query helper: Get files that export a specific symbol
  */
 export async function getFilesByExport(
-  api: AgentAPI,
+  api: DutyAPI,
   exportName: string
 ): Promise<Array<CodebaseFileMetadata & { path: string }>> {
   const files = await getCodebaseFiles(api);
@@ -320,7 +320,7 @@ export async function getFilesByExport(
  * Query helper: Get system environment (non-sensitive only)
  */
 export async function getEnvironmentInfo(
-  api: AgentAPI
+  api: DutyAPI
 ): Promise<Record<string, string>> {
   const systemInfo = await getSystemCapabilities(api);
   return systemInfo?.environment || {};
@@ -330,7 +330,7 @@ export async function getEnvironmentInfo(
  * Create relationship: Domain owns tool
  */
 export async function linkToolToDomain(
-  api: AgentAPI,
+  api: DutyAPI,
   toolId: string,
   domain: string
 ): Promise<void> {
@@ -348,7 +348,7 @@ export async function linkToolToDomain(
  * Create relationship: File imports module
  */
 export async function linkFileImport(
-  api: AgentAPI,
+  api: DutyAPI,
   filePath: string,
   importPath: string
 ): Promise<void> {
@@ -369,7 +369,7 @@ export async function linkFileImport(
  * Create relationship: File exports symbol
  */
 export async function linkFileExport(
-  api: AgentAPI,
+  api: DutyAPI,
   filePath: string,
   exportName: string
 ): Promise<void> {
@@ -421,7 +421,7 @@ export interface ObsidianNoteMetadata {
  * Create Obsidian note node in ontology
  */
 export async function createObsidianNoteNode(
-  api: AgentAPI,
+  api: DutyAPI,
   metadata: ObsidianNoteMetadata
 ): Promise<void> {
   if (!api.ontology) return;
@@ -452,7 +452,7 @@ export async function createObsidianNoteNode(
  * Get all notes from a specific Obsidian vault
  */
 export async function getObsidianVaultNotes(
-  api: AgentAPI,
+  api: DutyAPI,
   vaultId: string,
   folderPath?: string
 ): Promise<ObsidianNoteMetadata[]> {
@@ -486,7 +486,7 @@ export async function getObsidianVaultNotes(
  * Search Obsidian notes by tag, title, or content
  */
 export async function searchObsidianNotes(
-  api: AgentAPI,
+  api: DutyAPI,
   query: string,
   vaultId?: string
 ): Promise<ObsidianNoteMetadata[]> {
@@ -513,7 +513,7 @@ export async function searchObsidianNotes(
  * Get notes by tag (search for tag in tags array)
  */
 export async function getObsidianNotesByTag(
-  api: AgentAPI,
+  api: DutyAPI,
   tag: string,
   vaultId?: string
 ): Promise<ObsidianNoteMetadata[]> {
@@ -525,7 +525,7 @@ export async function getObsidianNotesByTag(
  * Get notes linking to a specific note (wikilink references)
  */
 export async function getObsidianBacklinks(
-  api: AgentAPI,
+  api: DutyAPI,
   targetTitle: string,
   vaultId?: string
 ): Promise<ObsidianNoteMetadata[]> {

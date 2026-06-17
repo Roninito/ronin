@@ -10,7 +10,7 @@
  *   Results → Task variables
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { Chain } from "../chain/index.js";
 import { useMiddlewareStack } from "../chains/templates.js";
 import type { ChainContext } from "../chain/types.js";
@@ -20,7 +20,7 @@ import type { TaskContext } from "./types.js";
  * Skill Adapter — delegates task execution to SAR Chain
  */
 export class SkillAdapter {
-  constructor(private api: AgentAPI) {}
+  constructor(private api: DutyAPI) {}
 
   /**
    * Execute a skill via SAR Chain

@@ -10,7 +10,7 @@
  *                    ↘ canceled
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { TaskStorage, KataStorage } from "./storage.js";
 import type { Task, TaskState, TaskEvent } from "./types.js";
 import { KataRegistry } from "../kata/registry.js";
@@ -23,7 +23,7 @@ export class TaskEngine {
   private kataStorage: KataStorage;
   private registry: KataRegistry;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.taskStorage = new TaskStorage(api);
     this.kataStorage = new KataStorage(api);
     this.registry = new KataRegistry(api);

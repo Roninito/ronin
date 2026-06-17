@@ -5,7 +5,7 @@
  * Integrates Ollama's function calling with the ToolRouter
  */
 
-import type { AgentAPI } from "../types/api.js";
+import type { DutyAPI } from "../types/api.js";
 import type { 
   ToolDefinition, 
   ToolCall as RouterToolCall, 
@@ -52,7 +52,7 @@ export interface ToolEnabledChatResult {
  * ```
  */
 export async function toolChat(
-  api: AgentAPI,
+  api: DutyAPI,
   messages: ChatMessage[],
   options: ToolEnabledChatOptions = {}
 ): Promise<ToolEnabledChatResult> {
@@ -178,7 +178,7 @@ export async function toolChat(
  * Execute a single tool and return result
  */
 export async function executeTool(
-  api: AgentAPI,
+  api: DutyAPI,
   toolName: string,
   args: Record<string, any>,
   context?: Partial<ToolContext>
@@ -194,7 +194,7 @@ export async function executeTool(
  * Execute a workflow
  */
 export async function runWorkflow(
-  api: AgentAPI,
+  api: DutyAPI,
   workflowName: string,
   args: Record<string, any>,
   context?: Partial<ToolContext>
@@ -206,7 +206,7 @@ export async function runWorkflow(
  * Quick research helper
  */
 export async function quickResearch(
-  api: AgentAPI,
+  api: DutyAPI,
   query: string,
   options: { depth?: number; summarize?: boolean } = {}
 ): Promise<string> {
@@ -229,7 +229,7 @@ export async function quickResearch(
  * Quick code analysis helper
  */
 export async function analyzeCode(
-  api: AgentAPI,
+  api: DutyAPI,
   code: string,
   options: { filePath?: string; context?: string } = {}
 ): Promise<{

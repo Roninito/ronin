@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import type { AgentAPI } from "@ronin/types/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 import {
   initializeUsageTables,
   recordUsageEvent,
@@ -13,8 +13,8 @@ import {
 } from "../src/database/usage.js";
 import { migrateUsageData, isUsageDataMigrated, getMigrationStatus } from "../src/database/migration.js";
 
-// Mock AgentAPI with in-memory database
-function createMockAPI(): AgentAPI {
+// Mock DutyAPI with in-memory database
+function createMockAPI(): DutyAPI {
   const Database = require("bun:sqlite").Database;
   const db = new Database(":memory:");
 
@@ -35,11 +35,11 @@ function createMockAPI(): AgentAPI {
         return stmt.run();
       },
     },
-  } as unknown as AgentAPI;
+  } as unknown as DutyAPI;
 }
 
 describe("Database Usage Tracking", () => {
-  let api: AgentAPI;
+  let api: DutyAPI;
 
   beforeEach(async () => {
     api = createMockAPI();

@@ -5,7 +5,7 @@
  * Eliminates tool duplication and provides consistent error handling, typing, and metadata.
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 
 /**
  * Tool parameter schema (JSON Schema compatible)
@@ -38,7 +38,7 @@ export interface ToolMetadata {
  * Tool execution context
  */
 export interface ToolExecutionContext {
-  api: AgentAPI;
+  api: DutyAPI;
   userId?: string;
   sessionId?: string;
   timeout?: number; // milliseconds

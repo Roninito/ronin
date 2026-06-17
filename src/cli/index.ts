@@ -10,8 +10,8 @@ import { stopCommand, restartCommand } from "./commands/stop.js";
 import { killCommand } from "./commands/kill.js";
 import { daemonCommand } from "./commands/daemon.js";
 import { createPluginCommand } from "./commands/create-plugin.js";
-import { createAgentCommand } from "./commands/create-agent.js";
-import { cancelAgentCreationCommand } from "./commands/cancel-agent-creation.js";
+import { createDutyCommand } from "./commands/create-duty.js";
+import { cancelDutyCreationCommand } from "./commands/cancel-duty-creation.js";
 import { listPluginsCommand } from "./commands/list-plugins.js";
 import { pluginInfoCommand } from "./commands/plugin-info.js";
 import { askCommand } from "./commands/ask.js";
@@ -137,7 +137,7 @@ function isReadOnlyCommand(cmd: string | undefined, a: string[]): boolean {
 }
 
 async function main() {
-  // Read-only commands must never start the server and should run quietly (no plugin/agent init logs)
+  // Read-only commands must never start the server and should run quietly (no plugin/duty init logs)
   if (isReadOnlyCommand(command, args)) {
     process.env.RONIN_READ_ONLY = "1";
     process.env.RONIN_QUIET = "1";
@@ -153,7 +153,7 @@ async function main() {
   switch (command) {
     case "start":
       await startCommand({
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -172,7 +172,7 @@ async function main() {
 
     case "restart":
       await restartCommand(() => startCommand({
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -191,7 +191,7 @@ async function main() {
     case "interactive":
     case "i":
       await interactiveCommand({
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -203,15 +203,15 @@ async function main() {
       break;
 
     case "run":
-      const agentName = args[0];
-      if (!agentName) {
-        console.error("❌ Agent name required");
-        console.log("Usage: ronin run <agent-name>");
+      const dutyName = args[0];
+      if (!dutyName) {
+        console.error("❌ Duty name required");
+        console.log("Usage: ronin run <duty-name>");
         process.exit(1);
       }
       await runCommand({
-        agentName,
-        agentDir: getArg("--agent-dir", args),
+        dutyName,
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -221,7 +221,7 @@ async function main() {
 
     case "list":
       await listCommand({
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -243,7 +243,7 @@ async function main() {
 
     case "status":
       await statusCommand({
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -267,11 +267,11 @@ async function main() {
           pluginName,
           pluginDir: getArg("--plugin-dir", args),
         });
-      } else if (args[0] === "agent") {
+      } else if (args[0] === "duty") {
         const description = args.slice(1).join(" ");
-        await createAgentCommand({
+        await createDutyCommand({
           description: description || undefined,
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           local: args.includes("--local"),
           ollamaUrl: getArg("--ollama-url", args),
           ollamaModel: getArg("--ollama-model", args),
@@ -288,7 +288,7 @@ async function main() {
           process.exit(1);
         }
         await createSkillCommand(description, {
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           pluginDir: getArg("--plugin-dir", args),
           userPluginDir: getArg("--user-plugin-dir", args),
           ollamaUrl: getArg("--ollama-url", args),
@@ -313,21 +313,21 @@ async function main() {
         });
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
-        console.log("Available: ronin create plugin <name>, ronin create agent [description], ronin create skill \"<description>\", ronin create kata \"<intent>\"");
+        console.log("Available: ronin create plugin <name>, ronin create duty [description], ronin create skill \"<description>\", ronin create kata \"<intent>\"");
         process.exit(1);
       }
       break;
 
     case "cancel":
-      if (args[0] === "agent-creation") {
+      if (args[0] === "duty-creation") {
         const taskId = args[1];
-        await cancelAgentCreationCommand({
+        await cancelDutyCreationCommand({
           taskId,
           port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
         });
       } else {
         console.error(`❌ Unknown cancel command: ${args[0]}`);
-        console.log("Available: ronin cancel agent-creation [taskId]");
+        console.log("Available: ronin cancel duty-creation [taskId]");
         process.exit(1);
       }
       break;
@@ -379,7 +379,7 @@ async function main() {
         : args;
       const subcmd = sub;
       await skillsCommand(subcmd, subArgs, {
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         pluginDir: getArg("--plugin-dir", args),
         userPluginDir: getArg("--user-plugin-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
@@ -406,7 +406,7 @@ async function main() {
       const flagsWithValues = new Set([
         "--model",
         "--ask-model",
-        "--agent-dir",
+        "--duty-dir",
         "--plugin-dir",
         "--ollama-url",
         "--ollama-model",
@@ -431,7 +431,7 @@ async function main() {
           question: question || undefined,
           model: model || getArg("--model", args),
           askModel: getArg("--ask-model", args),
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           pluginDir: getArg("--plugin-dir", args),
           ollamaUrl: getArg("--ollama-url", args),
           ollamaModel: getArg("--ollama-model", args),
@@ -463,8 +463,8 @@ async function main() {
         break;
       }
       await configCommand({
-        agentDir: getArg("--agent-dir", args),
-        externalAgentDir: getArg("--external-agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
+        externalDutyDir: getArg("--external-duty-dir", args),
         userPluginDir: getArg("--user-plugin-dir", args),
         init: args.includes("--init"),
         grokApiKey: getArg("--grok-api-key", args),
@@ -512,7 +512,7 @@ async function main() {
           callsign,
           token: getArg("--token", args),
           localPort: getArg("--local-port", args) ? parseInt(getArg("--local-port", args)!) : undefined,
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           pluginDir: getArg("--plugin-dir", args),
           ollamaUrl: getArg("--ollama-url", args),
           ollamaModel: getArg("--ollama-model", args),
@@ -520,7 +520,7 @@ async function main() {
         });
       } else if (args[0] === "status") {
         await realmStatusCommand({
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           pluginDir: getArg("--plugin-dir", args),
           ollamaUrl: getArg("--ollama-url", args),
           ollamaModel: getArg("--ollama-model", args),
@@ -535,7 +535,7 @@ async function main() {
         }
         await realmDiscoverCommand({
           callsign,
-          agentDir: getArg("--agent-dir", args),
+          dutyDir: getArg("--duty-dir", args),
           pluginDir: getArg("--plugin-dir", args),
           ollamaUrl: getArg("--ollama-url", args),
           ollamaModel: getArg("--ollama-model", args),
@@ -613,7 +613,7 @@ async function main() {
 
     case "schedule":
       await scheduleCommand(args, {
-        agentDir: getArg("--agent-dir", args),
+        dutyDir: getArg("--duty-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         dbPath: getArg("--db-path", args),
@@ -786,7 +786,7 @@ async function main() {
 
 function printHelp() {
   console.log(`
-Ronin - Bun AI Agent Library
+Ronin - Bun AI Duty Engine
 
 Usage: ronin <command> [options]
        ronin help <command>          Show detailed help for a command
@@ -794,7 +794,7 @@ Usage: ronin <command> [options]
 Core:
   init                 Interactive setup wizard (--quick for defaults)
   interactive, i       Start Ronin in REPL mode
-  start                Start and schedule all agents
+  start                Start and schedule all duties
   start --ninja        Start in background; logs to ~/.ronin/ninja.log
   start --daemon       Start as daemon; logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
   daemon start         Start daemon
@@ -806,8 +806,8 @@ Core:
   stop                 Stop the running instance
   restart              Stop and restart Ronin
   kill                 Force-kill all Ronin instances
-  run <agent>          Run a specific agent manually
-  list                 List all available agents
+  run <duty>           Run a specific duty manually
+  list                 List all available duties
   status               Show runtime status and active schedules
   emit <event> [data]  Send event to running Ronin (Shortcuts, scripts)
   doctor               Run health checks on the installation
@@ -821,7 +821,7 @@ AI & Tools:
 
 Creation:
   create plugin <name>    Create a new plugin template
-  create agent [desc]     AI-powered agent creation
+  create duty [desc]      AI-powered duty creation
   create skill "desc"     AI-powered skill creation
   create kata "intent"    AI-powered kata proposal (alias for kata propose)
 
@@ -882,7 +882,7 @@ Global Options:
   --ninja                 Start in background, logs to ~/.ronin/ninja.log
   --daemon                Start as daemon, logs to ~/.ronin/daemon.log, PID in ~/.ronin/ronin.pid
   --host                  Share webhook server on network (bind 0.0.0.0)
-  --agent-dir <dir>       Agent directory (default: ./agents)
+  --duty-dir <dir>        Duty directory (default: ./duties)
   --plugin-dir <dir>      Plugin directory (default: ./plugins)
   --user-plugin-dir <dir> User plugins directory (default: ~/.ronin/plugins)
   --ollama-url <url>      Ollama API URL (default: http://localhost:11434)
@@ -890,7 +890,7 @@ Global Options:
   --db-path <path>        Database file path (default: ronin.db)
 
 Examples:
-  ronin start                          Start all agents
+  ronin start                          Start all duties
   ronin emit transcribe.text '{"audioPath":"/tmp/a.wav"}'  Send STT event
   ronin ask grok "explain quantum"     Ask Grok a question
   ronin config set ai.provider gemini  Switch to Gemini

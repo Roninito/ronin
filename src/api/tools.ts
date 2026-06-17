@@ -4,7 +4,7 @@
  * Exposes the tool system to agents via api.tools.*
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { ToolRouter } from "../tools/ToolRouter.js";
 import { WorkflowEngine } from "../tools/WorkflowEngine.js";
 import { registerLocalTools } from "../tools/providers/LocalTools.js";
@@ -28,7 +28,7 @@ let mcpManager: MCPClientManager | null = null;
 /**
  * Initialize the tools system
  */
-export async function initializeTools(api: AgentAPI): Promise<void> {
+export async function initializeTools(api: DutyAPI): Promise<void> {
   if (toolRouter) {
     if (!process.env.RONIN_QUIET) console.log("[ToolsAPI] Already initialized");
     return;
@@ -57,7 +57,7 @@ export async function initializeTools(api: AgentAPI): Promise<void> {
 /**
  * Get the tools API surface
  */
-export function getToolsAPI(api: AgentAPI) {
+export function getToolsAPI(api: DutyAPI) {
   if (!toolRouter) {
     initializeTools(api);
   }

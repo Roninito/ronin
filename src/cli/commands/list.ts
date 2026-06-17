@@ -1,10 +1,10 @@
-import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 import { formatCronTable } from "../../utils/cron.js";
-import { loadAgentFileMetadata } from "../utils/agent-metadata.js";
+import { loadDutyFileMetadata } from "../utils/duty-metadata.js";
 
 export interface ListOptions {
-  agentDir?: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -12,31 +12,31 @@ export interface ListOptions {
 }
 
 /**
- * List command: Show all registered agents and their schedules
+ * List command: Show all registered duties and their schedules
  */
 export async function listCommand(options: ListOptions = {}): Promise<void> {
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
+  const duties = await loadDutyFileMetadata(dutyDir, externalDutyDir);
 
-  if (agents.length === 0) {
-    logger.info("No agents found.");
+  if (duties.length === 0) {
+    logger.info("No duties found.");
     return;
   }
 
-  logger.info(`\n📋 Found ${agents.length} agent(s):\n`);
-  for (const agent of agents) {
-    logger.info(`🤖 ${agent.name}`);
-    if (agent.schedule) {
-      logger.info(`   Schedule: ${agent.schedule}`);
-      const table = formatCronTable(agent.schedule);
+  logger.info(`\n📋 Found ${duties.length} duty(s):\n`);
+  for (const duty of duties) {
+    logger.info(`🤖 ${duty.name}`);
+    if (duty.schedule) {
+      logger.info(`   Schedule: ${duty.schedule}`);
+      const table = formatCronTable(duty.schedule);
       console.log(table);
     }
-    if (agent.watch && agent.watch.length > 0) logger.info(`   Watch: ${agent.watch.join(", ")}`);
-    if (agent.webhook) logger.info(`   Webhook: ${agent.webhook}`);
+    if (duty.watch && duty.watch.length > 0) logger.info(`   Watch: ${duty.watch.join(", ")}`);
+    if (duty.webhook) logger.info(`   Webhook: ${duty.webhook}`);
     logger.info("");
   }
 }

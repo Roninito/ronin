@@ -14,7 +14,7 @@
  *   - Event bus (coordination)
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import { TaskEngine } from "./engine.js";
 import { SkillAdapter } from "../skills/adapter.js";
 import { ChildTaskCoordinator } from "./child-coordinator.js";
@@ -28,7 +28,7 @@ export class TaskExecutor {
   private adapter: SkillAdapter;
   private childCoordinator: ChildTaskCoordinator;
 
-  constructor(private api: AgentAPI) {
+  constructor(private api: DutyAPI) {
     this.engine = new TaskEngine(api);
     this.adapter = new SkillAdapter(api);
     this.childCoordinator = new ChildTaskCoordinator(api);

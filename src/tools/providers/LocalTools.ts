@@ -1,5 +1,5 @@
 import type { ToolDefinition, ToolContext, ToolResult } from "../types.js";
-import type { AgentAPI } from "../../types/index.js";
+import type { DutyAPI } from "../../types/index.js";
 import { parse, serialize, toJson, fromJson, fromJsonToScript } from "../../ronin-script/index.js";
 import { ingestRoninScriptToOntology, exportOntologyToRoninScript } from "../../ronin-script/ontology.js";
 
@@ -18,7 +18,7 @@ async function runSpeechQueued(task: () => Promise<void>): Promise<void> {
  * Used when local.notify.ask times out so the user can respond later.
  */
 async function sendToChatChannel(
-  api: AgentAPI,
+  api: DutyAPI,
   title: string,
   message: string,
   buttons: string[],
@@ -78,7 +78,7 @@ async function sendToChatChannel(
  * 
  * Built-in tools that run locally without external APIs
  */
-export function registerLocalTools(api: AgentAPI, register: (tool: ToolDefinition) => void): void {
+export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition) => void): void {
   
   // 1. Memory Search Tool
   register({

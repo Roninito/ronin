@@ -29,7 +29,7 @@ import {
 import { modelResolution } from "../middleware/modelResolution.js";
 import { Chain } from "../chain/Chain.js";
 import { Executor } from "../executor/Executor.js";
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { ChainContext } from "../chain/types.js";
 
 // Re-export package types + utilities
@@ -86,7 +86,7 @@ export function standardSAR(options: TemplateOptions = {}): MiddlewareStack<Chai
  */
 export function smartSAR(
   options: TemplateOptions & {
-    persistence?: { api: AgentAPI; chainId: string | ((ctx: ChainContext) => string) };
+    persistence?: { api: DutyAPI; chainId: string | ((ctx: ChainContext) => string) };
   } = {}
 ): MiddlewareStack<ChainContext> {
   const stack = new MiddlewareStack<ChainContext>();
@@ -116,7 +116,7 @@ export function smartSAR(
  */
 export function useMiddlewareStack(
   template: "quick" | "standard" | "smart" | MiddlewareStack<ChainContext>,
-  api: AgentAPI,
+  api: DutyAPI,
   ctx?: ChainContext,
   options?: TemplateOptions
 ): Chain {

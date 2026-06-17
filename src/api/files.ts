@@ -32,12 +32,12 @@ export class FilesAPI {
 
   /**
    * Watch a file pattern for changes
-   * Note: This uses Node's fs.watch. For glob patterns, the AgentRegistry
+   * Note: This uses Node's fs.watch. For glob patterns, the DutyRegistry
    * will need to expand them to actual file paths.
    */
   watch(pattern: string, callback: (path: string, event: string) => void): void {
     // For now, we'll watch the exact path
-    // The AgentRegistry should handle glob pattern expansion
+    // The DutyRegistry should handle glob pattern expansion
     if (this.watchers.has(pattern)) {
       // Already watching
       return;

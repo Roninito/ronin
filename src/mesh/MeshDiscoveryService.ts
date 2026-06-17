@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { AgentAPI } from "../types/index.js";
+import type { DutyAPI } from "../types/index.js";
 import type { ToolDefinition } from "../tools/types.js";
 
 /**
@@ -108,13 +108,13 @@ export interface MeshDiscoveryConfig {
  * Mesh Discovery Service
  */
 export class MeshDiscoveryService {
-  private api: AgentAPI;
+  private api: DutyAPI;
   private registry: Map<string, ServiceAdvertisement> = new Map();
   private advertisementTimer: NodeJS.Timeout | null = null;
   private config: MeshDiscoveryConfig;
   private identityHash: string | null = null;
 
-  constructor(api: AgentAPI, config?: Partial<MeshDiscoveryConfig>) {
+  constructor(api: DutyAPI, config?: Partial<MeshDiscoveryConfig>) {
     this.api = api;
     this.config = {
       advertiseServices: true,
@@ -458,7 +458,7 @@ export class MeshDiscoveryService {
  * Create mesh discovery service
  */
 export function createMeshDiscovery(
-  api: AgentAPI,
+  api: DutyAPI,
   config?: Partial<MeshDiscoveryConfig>
 ): MeshDiscoveryService {
   const service = new MeshDiscoveryService(api, config);

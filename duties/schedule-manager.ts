@@ -125,25 +125,23 @@ export default class ScheduleManagerDuty extends BaseDuty {
           }
 
           // Get agent metadata (use registry when available so we find the same agents shown in the UI)
-          const agent = await this.resolveAgentMetadata(args.agentName);
-          if (!agent) {
+          const duty = await this.resolveDutyMetadata(args.dutyName);
+          if (!duty) {
             return {
               success: false,
               data: null,
+              error: `Duty ${args.dutyName} not found`,
               metadata: {
                 toolName: "schedule.writeSchedule",
                 provider: "schedule-manager",
                 duration: 0,
                 cached: false,
                 timestamp: Date.now(),
-                callId: `call-${Date.now()}`,
+                callId: `schedule-${Date.now()}`,
               },
-              error: `Agent ${args.agentName} not found`,
             };
           }
-
-          // Update agent file
-          const result = await this.updateAgentSchedule(args.agentName, args.schedule, agent);
+          const result = await this.updateDutySchedule(args.dutyName, args.schedule, duty);
 
           if (!result.success) {
             return {
@@ -169,11 +167,11 @@ export default class ScheduleManagerDuty extends BaseDuty {
           return {
             success: true,
             data: {
-              agentName: args.agentName,
+              dutyName: args.dutyName,
               schedule: args.schedule,
-              description: human.summary,
-              nextRuns: human.nextRuns.slice(0, 5),
-              message: `Schedule updated for ${args.agentName}. Hot reload triggered.`,
+              validation: validation,
+              cronParts,
+              message: `Schedule updated for ${args.dutyName}. Hot reload triggered.`,
             },
             metadata: {
               toolName: "schedule.writeSchedule",
@@ -299,42 +297,42 @@ export default class ScheduleManagerDuty extends BaseDuty {
   }
 
   /**
-   * Get all agents with their schedules (from registry when available so hot-reload changes are visible).
+   * Get all duties with their schedules (from registry when available so hot-reload changes are visible).
    */
-  private async handleGetAgents(): Promise<Response> {
+  private async handleGetDuties(): Promise<Response> {
     try {
-      const agents =
-        typeof this.api.getAgents === "function"
-          ? this.api.getAgents()
-          : await this.loader.loadAllAgents(this.api);
-      const agentsWithSchedules = agents
-        .filter((agent) => agent.schedule)
-        .map((agent) => {
+      const duties =
+        typeof this.api.getDuties === "function"
+          ? this.api.getDuties()
+          : await this.loader.loadAllDuties(this.api);
+      const dutiesWithSchedules = duties
+        .filter((duty) => duty.schedule)
+        .map((duty) => {
           try {
-            const validation = validateCronExpression(agent.schedule!);
+            const validation = validateCronExpression(duty.schedule!);
             if (!validation.valid) {
               return {
-                name: agent.name,
-                filePath: agent.filePath,
-                schedule: agent.schedule,
+                name: duty.name,
+                filePath: duty.filePath,
+                schedule: duty.schedule,
                 description: `⚠️ Invalid schedule: ${validation.error}`,
                 nextRuns: [],
                 error: validation.error,
               };
             }
-            const human = cronToHumanReadable(agent.schedule!);
+            const human = cronToHumanReadable(duty.schedule!);
             return {
-              name: agent.name,
-              filePath: agent.filePath,
-              schedule: agent.schedule,
+              name: duty.name,
+              filePath: duty.filePath,
+              schedule: duty.schedule,
               description: human.summary,
               nextRuns: human.nextRuns.slice(0, 5),
             };
           } catch (err) {
             return {
-              name: agent.name,
-              filePath: agent.filePath,
-              schedule: agent.schedule,
+              name: duty.name,
+              filePath: duty.filePath,
+              schedule: duty.schedule,
               description: `⚠️ Error parsing schedule: ${err instanceof Error ? err.message : String(err)}`,
               nextRuns: [],
               error: err instanceof Error ? err.message : String(err),
@@ -342,7 +340,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
           }
         });
 
-      return Response.json({ agents: agentsWithSchedules });
+      return Response.json({ duties: dutiesWithSchedules });
     } catch (error) {
       return Response.json(
         { error: error instanceof Error ? error.message : String(error) },
@@ -412,35 +410,23 @@ export default class ScheduleManagerDuty extends BaseDuty {
   private async handleApplySchedule(req: Request): Promise<Response> {
     try {
       const body = await req.json();
-      const { agentName, schedule } = body;
-
-      if (!agentName || !schedule) {
+      const { dutyName, schedule } = body;
+      if (!dutyName || !schedule) {
         return Response.json(
-          { success: false, error: "agentName and schedule are required" },
+          { success: false, error: "dutyName and schedule are required" },
           { status: 400 }
         );
       }
 
-      // Validate schedule
-      const validation = validateCronExpression(schedule);
-      if (!validation.valid) {
+      const duty = await this.resolveDutyMetadata(dutyName);
+      if (!duty) {
         return Response.json(
-          { success: false, error: validation.error },
-          { status: 400 }
-        );
-      }
-
-      // Get agent metadata (use registry when available so we find the same agents shown in the UI)
-      const agent = await this.resolveAgentMetadata(agentName);
-      if (!agent) {
-        return Response.json(
-          { success: false, error: `Agent ${agentName} not found` },
+          { success: false, error: `Duty ${dutyName} not found` },
           { status: 404 }
         );
       }
 
-      // Update agent file
-      const result = await this.updateAgentSchedule(agentName, schedule, agent);
+      const result = await this.updateDutySchedule(dutyName, schedule, duty);
 
       if (!result.success) {
         return Response.json(
@@ -454,7 +440,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
 
       return Response.json({
         success: true,
-        message: `Schedule updated for ${agentName}. Hot reload triggered.`,
+        message: `Schedule updated for ${dutyName}. Hot reload triggered.`,
         reloaded: true,
       });
     } catch (error) {
@@ -472,18 +458,18 @@ export default class ScheduleManagerDuty extends BaseDuty {
    * Resolve agent metadata by name (registry when available, else loader).
    * Matches exact name first, then by file basename so e.g. "gvec" finds an agent from gvec.ts even if registry name is the class name.
    */
-  private async resolveAgentMetadata(agentName: string): Promise<DutyMetadata | null> {
-    const byName = (a: { name: string; filePath?: string }) => a.name === agentName;
-    const byFileBasename = (a: { name: string; filePath?: string }) => {
+  private async resolveDutyMetadata(dutyName: string): Promise<DutyMetadata | null> {
+    const byName = (a: { name: string; filePath?: string }) => a.name === dutyName;
+    const dutyFiles = await this.loader.discoverDuties();
+    const found = dutyFiles.find(byName);
+    if (found) return found;
+    const byBase = (a: { name: string; filePath?: string }) => {
       if (!a.filePath) return false;
-      const base = basename(a.filePath, ".ts").replace(/\.js$/, "");
-      return base.toLowerCase() === agentName.toLowerCase();
+      const base = basename(a.filePath, ".ts");
+      return base.toLowerCase() === dutyName.toLowerCase();
     };
-
-    if (typeof this.api.getAgents === "function") {
-      const agents = this.api.getAgents();
-      return agents.find(byName) ?? agents.find(byFileBasename) ?? null;
-    }
+    return dutyFiles.find(byBase) || null;
+  }
     const agents = await this.loader.loadAllAgents(this.api);
     return agents.find(byName) ?? agents.find(byFileBasename) ?? null;
   }
@@ -491,10 +477,10 @@ export default class ScheduleManagerDuty extends BaseDuty {
   /**
    * Update agent schedule in file
    */
-  private async updateAgentSchedule(
-    agentName: string,
+  private async updateDutySchedule(
+    dutyName: string,
     schedule: string,
-    agentMetadata: DutyMetadata
+    duty: DutyMetadata
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const filePath = resolve(process.cwd(), agentMetadata.filePath);
@@ -537,7 +523,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
 
       // Trigger hot reload for this file only (so we don't rely on fs watch)
       this.api.events.emit("agent_file_updated", { filePath }, "schedule-manager");
-      this.emitHomeFeed("Updated", `${agentName}: ${schedule}`);
+      this.emitHomeFeed("Updated", `${dutyName}: ${schedule}`);
 
       return { success: true };
     } catch (error) {
@@ -559,33 +545,33 @@ export default class ScheduleManagerDuty extends BaseDuty {
   private async handleAIPrompt(req: Request): Promise<Response> {
     try {
       const body = await req.json();
-      const { agentName, prompt } = body;
+      const { dutyName, prompt } = body;
 
-      if (!agentName || !prompt) {
+      if (!dutyName || !prompt) {
         return Response.json(
-          { success: false, error: "agentName and prompt are required" },
+          { success: false, error: "dutyName and prompt are required" },
           { status: 400 }
         );
       }
 
-      // Get agent metadata (use registry when available so external agents like gvec are found)
-      const agent = await this.resolveAgentMetadata(agentName);
-      if (!agent) {
+      // Get duty metadata (use registry when available so external duties like gvec are found)
+      const duty = await this.resolveDutyMetadata(dutyName);
+      if (!duty) {
         return Response.json(
-          { success: false, error: `Agent ${agentName} not found` },
+          { success: false, error: `Duty ${dutyName} not found` },
           { status: 404 }
         );
       }
 
       // Build context for AI
-      const currentSchedule = agent.schedule || "none";
-      const currentScheduleDesc = agent.schedule
-        ? cronToHumanReadable(agent.schedule).summary
+      const currentSchedule = duty.schedule || "none";
+      const currentScheduleDesc = duty.schedule
+        ? cronToHumanReadable(duty.schedule).summary
         : "No schedule set";
 
       const systemPrompt = `You are a cron schedule assistant. Your task is to convert natural language requests into valid cron expressions.
 
-Current schedule for ${agentName}: ${currentSchedule} (${currentScheduleDesc})
+Current schedule for ${dutyName}: ${currentSchedule} (${currentScheduleDesc})
 
 User request: ${prompt}
 
@@ -629,7 +615,7 @@ Respond with a JSON object containing:
           { role: "system", content: systemPrompt },
           {
             role: "user",
-            content: `Change the schedule for ${agentName} to: ${prompt}`,
+            content: `Change the schedule for ${dutyName} to: ${prompt}`,
           },
         ],
         {
@@ -707,7 +693,7 @@ Respond with a JSON object containing:
           if (validation.valid) {
             const toolResult = await this.api.tools.execute(
               "schedule.writeSchedule",
-              { agentName, schedule: extractedSchedule },
+              { dutyName, schedule: extractedSchedule },
               {
                 conversationId: `schedule-ai-${Date.now()}`,
                 originalQuery: prompt,
@@ -769,17 +755,17 @@ Respond with a JSON object containing:
    * nesting issues that could cause server-side ReferenceError for identifiers in the script).
    */
   private buildScheduleScript(
-    agentsWithSchedules: string[],
-    allAgents: { name: string; hasSchedule: boolean }[],
+    dutiesWithSchedules: string[],
+    allDuties: { name: string; hasSchedule: boolean }[],
     templates: Array<{ name: string; cron: string; description: string }>,
     themeColorSecondary: string
   ): string {
-    const agentsStr = JSON.stringify(agentsWithSchedules);
-    const allAgentsStr = JSON.stringify(allAgents);
+    const dutiesStr = JSON.stringify(dutiesWithSchedules);
+    const allDutiesStr = JSON.stringify(allDuties);
     const templatesStr = JSON.stringify(templates);
     return `
-    const agents = ${agentsStr};
-    const allAgents = ${allAgentsStr};
+    const duties = ${dutiesStr};
+    const allDuties = ${allDutiesStr};
     const templates = ${templatesStr};
     const THEME_COLOR = ${JSON.stringify(themeColorSecondary)};
 
@@ -790,7 +776,7 @@ Respond with a JSON object containing:
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById(tabName).classList.add('active');
-        if (tabName === 'overview') loadAgents();
+        if (tabName === 'overview') loadDuties();
         else if (tabName === 'templates') loadTemplates();
         else if (tabName === 'tools') loadTools();
       });
@@ -807,15 +793,15 @@ Respond with a JSON object containing:
       });
     });
 
-    async function loadAgents() {
+    async function loadDuties() {
       try {
-        const res = await fetch('/api/schedule/agents');
+        const res = await fetch('/api/schedule/duties');
         const data = await res.json();
-        const listEl = document.getElementById('agent-list');
-        if (data.agents && data.agents.length > 0) {
-          listEl.innerHTML = data.agents.map(agent => '<div class="agent-card"><h3>' + agent.name + '</h3><div class="schedule">' + agent.schedule + '</div><div class="description">' + agent.description + '</div>' + (agent.error ? '<div class="schedule-error">⚠️ ' + agent.error + '</div>' : '') + (agent.nextRuns && agent.nextRuns.length > 0 ? '<div class="next-runs"><strong>Next runs:</strong><ul>' + agent.nextRuns.map(run => '<li>' + run + '</li>').join('') + '</ul></div>' : '') + '<div class="ai-prompt-section"><strong style="font-size: 0.8125rem; color: ' + THEME_COLOR + ';">🤖 AI Schedule Change:</strong><div class="ai-prompt-input"><input type="text" id="ai-prompt-' + agent.name + '" placeholder="e.g. change to every 15 minutes" /><button class="ai-prompt-button" onclick="aiPromptSchedule(\\'' + agent.name + '\\')">Apply</button></div><div id="ai-result-' + agent.name + '" class="ai-result" style="display:none;"></div></div></div>').join('');
-        } else listEl.innerHTML = '<p>No agents with schedules found.</p>';
-      } catch (e) { listEl.innerHTML = '<p class="error-message">Error loading agents</p>'; }
+        const listEl = document.getElementById('duty-list');
+        if (data.duties && data.duties.length > 0) {
+          listEl.innerHTML = data.duties.map(duty => '<div class="duty-card"><h3>' + duty.name + '</h3><div class="schedule">' + duty.schedule + '</div><div class="description">' + duty.description + '</div>' + (duty.error ? '<div class="schedule-error">⚠️ ' + duty.error + '</div>' : '') + (duty.nextRuns && duty.nextRuns.length > 0 ? '<div class="next-runs"><strong>Next runs:</strong><ul>' + duty.nextRuns.map(run => '<li>' + run + '</li>').join('') + '</ul></div>' : '') + '<div class="ai-prompt-section"><strong style="font-size: 0.8125rem; color: ' + THEME_COLOR + ';">🤖 AI Schedule Change:</strong><div class="ai-prompt-input"><input type="text" id="ai-prompt-' + duty.name + '" placeholder="e.g. change to every 15 minutes" /><button class="ai-prompt-button" onclick="aiPromptSchedule(\\'' + duty.name + '\\')">Apply</button></div><div id="ai-result-' + duty.name + '" class="ai-result" style="display:none;"></div></div></div>').join('');
+        } else listEl.innerHTML = '<p>No duties with schedules found.</p>';
+      } catch (e) { listEl.innerHTML = '<p class="error-message">Error loading duties</p>'; }
     }
 
     async function loadTools() {

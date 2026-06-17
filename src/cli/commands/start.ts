@@ -4,7 +4,7 @@ import { DutyLoader, DutyRegistry, HotReloadService } from "../../duty/index.js"
 import { TechniqueLoader } from "../../techniques/loader.js";
 import { KataLoader } from "../../kata/loader.js";
 import { ContractLoader } from "../../contract/loader.js";
-import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir, ensureDefaultUserPluginDir } from "./config.js";
+import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
 import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync, readFileSync } from "fs";
@@ -13,7 +13,7 @@ import { join } from "path";
 import { homedir } from "os";
 
 export interface StartOptions {
-  agentDir?: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -35,7 +35,7 @@ export interface RoninServerState {
 }
 
 /**
- * Start Ronin server and agents. Returns state for REPL or other callers.
+ * Start Ronin server and duties. Returns state for REPL or other callers.
  * Does not register SIGINT/SIGTERM; caller is responsible for shutdown.
  */
 export async function startRoninServer(options: StartOptions = {}): Promise<RoninServerState | null> {
@@ -44,9 +44,9 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   }
   await ensureAiRegistry();
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
   const userPluginDir = options.userPluginDir || config.userPluginDir || ensureDefaultUserPluginDir();
 
   process.on("uncaughtException", (error) => {
@@ -61,12 +61,12 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     logger.error("Unhandled rejection (prevented crash)", { reason });
   });
 
-  logger.info("Starting Ronin Agent System", { agentDir, externalAgentDir, userPluginDir });
+  logger.info("Starting Ronin Duty Engine", { dutyDir, externalDutyDir, userPluginDir });
 
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
-    useFastModelForAgents: true,
+    useFastModelForDuties: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
     userPluginDir,
@@ -96,23 +96,23 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     logger.info("Desktop Mode enabled");
     const { getMacStatus } = await import("../../os/index.js");
     const osStatus = getMacStatus();
-    if (!osStatus.quickActionInstalled || !osStatus.launchAgentInstalled) {
+    if (!osStatus.quickActionInstalled || !osStatus.launchDutyInstalled) {
       logger.warn("macOS integrations not fully installed. Run: ronin os install mac");
     } else {
       logger.info("macOS integrations ready");
     }
   }
 
-  const loader = new DutyLoader(agentDir, externalAgentDir);
-  logger.debug("Discovering agents...");
-  const agents = await loader.loadAllAgents(api);
+  const loader = new DutyLoader(dutyDir, externalDutyDir);
+  logger.debug("Discovering duties...");
+  const duties = await loader.loadAllDuties(api);
 
-  if (agents.length === 0) {
-    logger.warn("No agents found");
+  if (duties.length === 0) {
+    logger.warn("No duties found");
     return null;
   }
 
-  logger.info("Loaded agents", { count: agents.length });
+  logger.info("Loaded duties", { count: duties.length });
 
   // Load techniques, katas, and contracts from filesystem
   const techniqueLoader = new TechniqueLoader(process.cwd());
@@ -140,9 +140,9 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     webhookHost: options.host ? "0.0.0.0" : undefined,
   });
   registry.startWebhookServerIfNeeded();
-  registry.registerAll(agents);
+  registry.registerAll(duties);
 
-  // Start menubar after agents are registered so route discovery includes agent routes (e.g. /todo, /analytics)
+  // Start menubar after duties are registered so route discovery includes duty routes (e.g. /todo, /analytics)
   if (desktopEnabled && config.desktop?.menubar) {
     const { startMenubar, discoverRoutes } = await import("../../os/index.js");
     const port = config.desktop?.bridge?.port ?? 17341;
@@ -158,27 +158,26 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     }
   }
 
-  (api as { getAgents?: () => ReturnType<DutyRegistry["getAgents"]> }).getAgents = () =>
-    registry.getAgents();
+  (api as { getDuties?: () => ReturnType<DutyRegistry["getDuties"]> }).getDuties = () =>
+    registry.getDuties();
 
   const hotReload = new HotReloadService({
-    agentsDir: agentDir,
-    externalAgentsDir: externalAgentDir,
+    dutiesDir: dutyDir,
+    externalDutiesDir: externalDutyDir,
     registry,
     api,
   });
   hotReload.start();
 
-  // When an agent file is updated (e.g. by schedule-manager), reload only that agent
-  api.events.on("agent_file_updated", async (data: unknown) => {
+  // When a duty file is updated (e.g. by schedule-manager), reload only that duty
+  api.events.on("duty_file_updated", async (data: unknown) => {
     const payload = data as { filePath?: string };
     const filePath = payload?.filePath;
     if (filePath) {
-      const result = await hotReload.loadAgent(filePath);
-      if (result.success) {
-        logger.info("Hot reload applied", { agent: result.agentName });
-        // Emit schedule_updated only after registry is refreshed so the UI sees the new schedule
-        api.events.emit("schedule_updated", { agentName: result.agentName, filePath }, "hot-reload");
+      const result = await hotReload.loadDuty(filePath);
+      if (result.success && result.dutyName) {
+        logger.info("Hot reload applied", { duty: result.dutyName });
+        api.events.emit("schedule_updated", { dutyName: result.dutyName, filePath }, "hot-reload");
       } else {
         logger.warn("Hot reload failed for updated file", { filePath, error: result.error });
       }
@@ -345,7 +344,7 @@ function runDaemonMode(): void {
 }
 
 /**
- * Start command: Discover, load, and schedule all agents
+ * Start command: Discover, load, and schedule all duties
  */
 export async function startCommand(options: StartOptions = {}): Promise<void> {
   if (options.ninja) {
@@ -401,9 +400,9 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
 
   const pad = (s: string, w: number) => s + " ".repeat(Math.max(0, w - s.replace(/\x1b\[[0-9;]*m/g, "").length));
 
-  const row1 = `  ${bold}${cyan}🥷 Ronin${reset}  ${dim}·${reset}  ${bold}${status.totalAgents} agents loaded${reset}  ${dim}·${reset}  ${cyan}:${port}${reset}`;
-  const row2 = `  ${green}✦${reset} ${bold}${status.scheduledAgents}${reset} scheduled   ${dim}·${reset}  ${yellow}⬡${reset} ${bold}${pluginCount}${reset} plugins`;
-  const row3 = `  ${green}✦${reset} ${bold}${status.webhookAgents}${reset} webhooks    ${dim}·${reset}  ${gray}${status.watchedAgents} watchers${reset}`;
+  const row1 = `  ${bold}${cyan}🥷 Ronin${reset}  ${dim}·${reset}  ${bold}${status.totalDuties} duties loaded${reset}  ${dim}·${reset}  ${cyan}:${port}${reset}`;
+  const row2 = `  ${green}✦${reset} ${bold}${status.scheduledDuties}${reset} scheduled   ${dim}·${reset}  ${yellow}⬡${reset} ${bold}${pluginCount}${reset} plugins`;
+  const row3 = `  ${green}✦${reset} ${bold}${status.webhookDuties}${reset} webhooks    ${dim}·${reset}  ${gray}${status.watchedDuties} watchers${reset}`;
 
   console.log(`\n${cyan}┌${line}┐${reset}`);
   console.log(`${cyan}│${reset}${pad(row1, width)}${cyan}│${reset}`);

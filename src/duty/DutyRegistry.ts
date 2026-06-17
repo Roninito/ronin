@@ -22,7 +22,7 @@ import {
   createExecutionTrackingMiddleware,
   createModelResolutionMiddleware,
 } from "../middleware/index.js";
-import { modelSelector } from "../plugins/model-selector.js";
+import { modelSelector } from "../../plugins/model-selector.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {

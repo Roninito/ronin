@@ -166,7 +166,7 @@ class RoninREPL {
 
       case "status":
         await statusCommand({
-          agentDir: this.options.agentDir,
+          dutyDir: this.options.dutyDir,
           ollamaUrl: this.options.ollamaUrl,
           ollamaModel: this.options.ollamaModel,
           dbPath: this.options.dbPath,
@@ -182,7 +182,7 @@ class RoninREPL {
         }
         await askCommand({
           question,
-          agentDir: this.options.agentDir,
+          dutyDir: this.options.dutyDir,
           pluginDir: this.options.pluginDir ?? this.options.userPluginDir,
           ollamaUrl: this.options.ollamaUrl,
           ollamaModel: this.options.ollamaModel,
@@ -209,7 +209,7 @@ class RoninREPL {
       case "config":
         await configCommand({
           show: true,
-          agentDir: this.options.agentDir,
+          dutyDir: this.options.dutyDir,
           userPluginDir: this.options.userPluginDir,
         });
         break;

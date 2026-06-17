@@ -6,8 +6,8 @@ import { homedir } from "os";
  * Configuration command: Set agent directory paths
  */
 export interface ConfigOptions {
-  agentDir?: string;
-  externalAgentDir?: string;
+  dutyDir?: string;
+  externalDutyDir?: string;
   pluginDir?: string;
   userPluginDir?: string;
   init?: boolean;
@@ -288,7 +288,7 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     console.log("\nDirectories:");
     console.log(`   Built-in plugins: ${getDefaultPluginDir()}`);
     console.log(`   User plugins: ${getDefaultUserPluginDir()}`);
-    console.log(`   External agents: ${config.externalAgentDir || getDefaultExternalAgentDir()}`);
+    console.log(`   External agents: ${config.externalDutyDir || getDefaultExternalAgentDir()}`);
     
     console.log("\nCurrent working directory:");
     console.log(`   ${process.cwd()}`);
@@ -382,32 +382,32 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     return;
   }
 
-  if (options.externalAgentDir !== undefined) {
+  if (options.externalDutyDir !== undefined) {
     // Set external agent directory
     const config = await loadConfig();
     
-    if (options.externalAgentDir === "") {
+    if (options.externalDutyDir === "") {
       // Remove external agent directory
-      delete config.externalAgentDir;
+      delete config.externalDutyDir;
       await saveConfig(config);
       console.log("✅ Removed external agent directory configuration");
       console.log("\n💡 To remove from environment, edit your shell profile:");
       console.log(`   ${getShellProfile()}`);
     } else {
       // Validate path
-      if (!existsSync(options.externalAgentDir)) {
-        console.error(`❌ Directory does not exist: ${options.externalAgentDir}`);
+      if (!existsSync(options.externalDutyDir)) {
+        console.error(`❌ Directory does not exist: ${options.externalDutyDir}`);
         console.log("\n💡 Create the directory first, or use an existing path");
         process.exit(1);
       }
       
-      config.externalAgentDir = options.externalAgentDir;
+      config.externalDutyDir = options.externalDutyDir;
       await saveConfig(config);
       
-      console.log(`✅ External agent directory set to: ${options.externalAgentDir}`);
+      console.log(`✅ External agent directory set to: ${options.externalDutyDir}`);
       console.log("\n💡 To make this permanent, add to your shell profile:");
       console.log(`   ${getShellProfile()}`);
-      console.log(`   export RONIN_EXTERNAL_AGENT_DIR="${options.externalAgentDir}"`);
+      console.log(`   export RONIN_EXTERNAL_AGENT_DIR="${options.externalDutyDir}"`);
       console.log("\n   Then reload your shell or run:");
       console.log(`   source ${getShellProfile()}`);
     }
@@ -415,13 +415,13 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
     return;
   }
 
-  if (options.agentDir !== undefined) {
+  if (options.dutyDir !== undefined) {
     // Set local agent directory (for this project)
     const config = await loadConfig();
-    config.agentDir = options.agentDir;
+    config.dutyDir = options.dutyDir;
     await saveConfig(config);
     
-    console.log(`✅ Local agent directory set to: ${options.agentDir}`);
+    console.log(`✅ Local agent directory set to: ${options.dutyDir}`);
     console.log("\n💡 This setting is project-specific and stored in ~/.ronin/config.json");
     return;
   }
@@ -457,13 +457,13 @@ export async function configCommand(options: ConfigOptions = {}): Promise<void> 
 
   if (options.init) {
     // Initialize user directories
-    const agentDir = ensureDefaultExternalAgentDir();
+    const dutyDir = ensureDefaultExternalAgentDir();
     const pluginDir = ensureDefaultUserPluginDir();
     const skillsDir = ensureDefaultSkillsDir();
     const configPath = getConfigPath();
     
     console.log("\n🔧 Initializing Ronin user directories...\n");
-    console.log(`✅ Agents directory: ${agentDir}`);
+    console.log(`✅ Agents directory: ${dutyDir}`);
     console.log(`✅ Plugins directory: ${pluginDir}`);
     console.log(`✅ Skills directory: ${skillsDir}`);
     console.log(`✅ Config file: ${configPath}`);

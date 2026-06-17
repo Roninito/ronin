@@ -1,4 +1,4 @@
-import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 import {
   formatCronTable,
@@ -13,7 +13,7 @@ import { readFile, writeFile } from "fs/promises";
 import { loadDutyFileMetadata, type DutyFileMetadata } from "../utils/duty-metadata.js";
 
 export interface ScheduleOptions {
-  agentDir?: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -63,14 +63,14 @@ export async function scheduleCommand(
       break;
 
     case "apply":
-      const agentName = args[1];
+      const dutyName = args[1];
       const schedule = args[2];
-      if (!agentName || !schedule) {
+      if (!dutyName || !schedule) {
         console.error("❌ Agent name and schedule required");
         console.log("Usage: ronin schedule apply <agent-name> <schedule>");
         process.exit(1);
       }
-      await applyScheduleCommand(agentName, schedule, options);
+      await applyScheduleCommand(dutyName, schedule, options);
       break;
 
     default:
@@ -91,11 +91,11 @@ export async function scheduleCommand(
  */
 async function listScheduleCommand(options: ScheduleOptions): Promise<void> {
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
+  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
 
   const agentsWithSchedules = agents.filter((agent) => agent.schedule);
 
@@ -120,11 +120,11 @@ async function listScheduleCommand(options: ScheduleOptions): Promise<void> {
  */
 async function buildScheduleCommand(options: ScheduleOptions): Promise<void> {
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
+  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -310,14 +310,14 @@ async function templatesScheduleCommand(): Promise<void> {
  * Apply schedule to agent file
  */
 async function applyScheduleCommand(
-  agentName: string,
+  dutyName: string,
   schedule: string,
   options: ScheduleOptions
 ): Promise<void> {
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
   // Validate schedule
   const validation = validateCronExpression(schedule);
@@ -326,16 +326,16 @@ async function applyScheduleCommand(
     process.exit(1);
   }
 
-  const agents = await loadAgentFileMetadata(agentDir, externalAgentDir);
+  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
 
-  const agent = agents.find((a) => a.name === agentName);
+  const agent = agents.find((a) => a.name === dutyName);
   if (!agent) {
-    console.error(`❌ Agent ${agentName} not found`);
+    console.error(`❌ Agent ${dutyName} not found`);
     process.exit(1);
   }
 
   await applyScheduleToFile(agent, schedule);
-  console.log(`✅ Schedule applied to ${agentName}`);
+  console.log(`✅ Schedule applied to ${dutyName}`);
   console.log(`   Expression: ${schedule}`);
   const human = cronToHumanReadable(schedule);
   console.log(`   Description: ${human.summary}`);

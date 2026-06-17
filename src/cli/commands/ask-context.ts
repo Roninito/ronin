@@ -93,11 +93,11 @@ ${exampleUsage}`;
  * Gather agent context information
  */
 export async function gatherAgentContext(
-  agentDir: string = "./agents",
+  dutyDir: string = "./agents",
   api: Awaited<ReturnType<typeof createAPI>>
 ): Promise<string> {
   try {
-    const loader = new DutyLoader(agentDir);
+    const loader = new DutyLoader(dutyDir);
     const agents = await loader.loadAllAgents(api);
 
     if (agents.length === 0) {
@@ -251,14 +251,14 @@ When users ask about "git.clone()", they mean this TypeScript code, NOT Python G
  * Build complete context prompt for AI
  */
 export async function buildContextPrompt(
-  agentDir: string = "./agents",
+  dutyDir: string = "./agents",
   pluginDir: string = "./plugins",
   projectRoot: string = ".",
   api?: Awaited<ReturnType<typeof createAPI>>
 ): Promise<string> {
   const [plugins, agents, docs, state, examples] = await Promise.all([
     gatherPluginContext(pluginDir),
-    api ? gatherAgentContext(agentDir, api) : Promise.resolve("Agents not loaded"),
+    api ? gatherAgentContext(dutyDir, api) : Promise.resolve("Agents not loaded"),
     gatherDocumentation(projectRoot),
     gatherSystemState(),
     gatherCodeExamples(projectRoot),

@@ -104,7 +104,7 @@ export interface SystemConfig {
   dataDir: string;
   webhookPort: number;
   httpIdleTimeout: number;
-  externalAgentDir: string;
+  externalDutyDir: string;
   userPluginDir: string;
   /** Allowlist for local.shell.safe base commands */
   safeShellCommands?: string[];
@@ -369,7 +369,7 @@ export type ConfigPath =
   | 'system.dataDir'
   | 'system.webhookPort'
   | 'system.httpIdleTimeout'
-  | 'system.externalAgentDir'
+  | 'system.externalDutyDir'
   | 'system.userPluginDir'
   | 'system.safeShellCommands'
   | 'system.skillProviders'

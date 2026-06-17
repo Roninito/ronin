@@ -1,7 +1,7 @@
-import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
 
 export interface StatusOptions {
-  agentDir?: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -56,41 +56,41 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
     
     if (runningStatus && runningStatus.running) {
     // Show status from running instance
-    console.log("\n📊 Ronin Agent System Status (Running Instance)\n");
+    console.log("\n📊 Ronin Duty Engine Status (Running Instance)\n");
     console.log(`🟢 Status: Running`);
     console.log(`   Port: ${runningStatus.port}`);
     console.log(`   PID: ${runningStatus.pid}`);
     console.log(`   Uptime: ${formatUptime(runningStatus.uptime)}`);
-    console.log(`\n   Total Agents: ${runningStatus.totalAgents}`);
-    console.log(`   Scheduled: ${runningStatus.scheduledAgents}`);
-    console.log(`   File Watchers: ${runningStatus.watchedAgents}`);
-    console.log(`   Webhooks: ${runningStatus.webhookAgents}`);
+    console.log(`\n   Total Duties: ${runningStatus.totalDuties}`);
+    console.log(`   Scheduled: ${runningStatus.scheduledDuties}`);
+    console.log(`   File Watchers: ${runningStatus.watchedDuties}`);
+    console.log(`   Webhooks: ${runningStatus.webhookDuties}`);
 
-    if (runningStatus.agents && runningStatus.agents.length > 0) {
-      console.log("\n🤖 Agents:\n");
-      for (const agent of runningStatus.agents) {
-        console.log(`   ${agent.name}`);
-        if (agent.schedule) {
-          console.log(`      ⏰ ${agent.schedule}`);
+    if (runningStatus.duties && runningStatus.duties.length > 0) {
+      console.log("\n🤖 Duties:\n");
+      for (const duty of runningStatus.duties) {
+        console.log(`   ${duty.name}`);
+        if (duty.schedule) {
+          console.log(`      ⏰ ${duty.schedule}`);
         }
-        if (agent.watch && agent.watch.length > 0) {
-          console.log(`      👁️  ${agent.watch.join(", ")}`);
+        if (duty.watch && duty.watch.length > 0) {
+          console.log(`      👁️  ${duty.watch.join(", ")}`);
         }
-        if (agent.webhook) console.log(`      🔗 ${agent.webhook}`);
+        if (duty.webhook) console.log(`      🔗 ${duty.webhook}`);
       }
     }
     console.log();
     return;
   }
 
-  // If not running, show minimal info without loading plugins or agents (avoids init side effects)
+  // If not running, show minimal info without loading plugins or duties (avoids init side effects)
   console.log("🔴 Ronin is not currently running\n");
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
-  console.log("   Agent directory: " + agentDir);
-  console.log("   External agent directory: " + externalAgentDir);
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
+  console.log("   Duty directory: " + dutyDir);
+  console.log("   External duty directory: " + externalDutyDir);
   console.log("\n💡 To start Ronin, run: ronin start");
   console.log();
   } catch (error) {

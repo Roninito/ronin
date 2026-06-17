@@ -72,11 +72,11 @@ async function getPluginInfo(pluginDir: string = "./plugins"): Promise<string> {
  * Get agent information
  */
 async function getAgentInfo(
-  agentDir: string = "./agents",
+  dutyDir: string = "./agents",
   api: DutyAPI
 ): Promise<string> {
   try {
-    const loader = new DutyLoader(agentDir);
+    const loader = new DutyLoader(dutyDir);
     const agents = await loader.loadAllAgents(api);
 
     if (agents.length === 0) {
@@ -128,7 +128,7 @@ export async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   api: DutyAPI,
-  agentDir: string = "./agents",
+  dutyDir: string = "./agents",
   pluginDir: string = "./plugins"
 ): Promise<unknown> {
   switch (toolName) {
@@ -142,7 +142,7 @@ export async function executeTool(
       return await getPluginInfo(pluginDir);
 
     case "list_agents":
-      return await getAgentInfo(agentDir, api);
+      return await getAgentInfo(dutyDir, api);
 
     case "get_system_info":
       return await getSystemInfo();

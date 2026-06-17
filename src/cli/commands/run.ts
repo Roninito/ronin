@@ -1,12 +1,12 @@
 import { createAPI } from "../../api/index.js";
 import { DutyLoader } from "../../duty/DutyLoader.js";
 import { DutyRegistry } from "../../duty/DutyRegistry.js";
-import { loadConfig, ensureDefaultAgentDir, ensureDefaultExternalAgentDir } from "./config.js";
+import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
 import { logger } from "../../utils/logger.js";
 
 export interface RunOptions {
-  agentName: string;
-  agentDir?: string;
+  dutyName: string;
+  dutyDir?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   dbPath?: string;
@@ -14,42 +14,42 @@ export interface RunOptions {
 }
 
 /**
- * Run command: Execute a specific agent manually
+ * Run command: Execute a specific duty manually
  */
 export async function runCommand(options: RunOptions): Promise<void> {
   const config = await loadConfig();
-  const agentDir = options.agentDir || config.agentDir || ensureDefaultAgentDir();
-  const externalAgentDir =
-    process.env.RONIN_EXTERNAL_AGENT_DIR || config.externalAgentDir || ensureDefaultExternalAgentDir();
+  const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
+  const externalDutyDir =
+    process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  logger.info(`Running agent: ${options.agentName}`);
+  logger.info(`Running duty: ${options.dutyName}`);
 
-  // Create API (use fast model by default for agent execution speed)
+  // Create API (use fast model by default for duty execution speed)
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
-    useFastModelForAgents: true,
+    useFastModelForDuties: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
   });
 
-  // Load agents
-  const loader = new DutyLoader(agentDir, externalAgentDir);
-  const agents = await loader.loadAllAgents(api);
+  // Load duties
+  const loader = new DutyLoader(dutyDir, externalDutyDir);
+  const duties = await loader.loadAllDuties(api);
 
-  // Find the agent
-  const agent = agents.find(a => a.name === options.agentName);
-  if (!agent) {
-    logger.error("Agent not found", { agent: options.agentName, available: agents.map(a => a.name) });
+  // Find the duty
+  const duty = duties.find(d => d.name === options.dutyName);
+  if (!duty) {
+    logger.error("Duty not found", { duty: options.dutyName, available: duties.map(d => d.name) });
     process.exit(1);
   }
 
-  // Execute the agent
+  // Execute the duty
   try {
-    await agent.instance.execute();
-    logger.info(`Agent ${options.agentName} completed successfully`);
+    await duty.instance.execute();
+    logger.info(`Duty ${options.dutyName} completed successfully`);
   } catch (error) {
-    logger.error("Error executing agent", { agent: options.agentName, error });
+    logger.error("Error executing duty", { duty: options.dutyName, error });
     process.exit(1);
   }
 }

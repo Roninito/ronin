@@ -112,7 +112,7 @@ export const DEFAULT_CONFIG: FullConfig = {
     dataDir: join(homedir(), ".ronin", "data"),
     webhookPort: 3000,
     httpIdleTimeout: 60,
-    externalAgentDir: join(homedir(), ".ronin", "agents"),
+    externalDutyDir: join(homedir(), ".ronin", "duties"),
     userPluginDir: join(homedir(), ".ronin", "plugins"),
     safeShellCommands: [
       "ls", "cat", "head", "tail", "echo", "pwd",
@@ -257,7 +257,7 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "system.dataDir": "RONIN_DATA_DIR",
   "system.webhookPort": "WEBHOOK_PORT",
   "system.httpIdleTimeout": "HTTP_IDLE_TIMEOUT",
-  "system.externalAgentDir": "RONIN_EXTERNAL_AGENT_DIR",
+  "system.externalDutyDir": "RONIN_EXTERNAL_DUTY_DIR",
   "blogBoy.aiTimeoutMs": "BLOG_BOY_AI_TIMEOUT_MS",
   "configEditor.password": "CONFIG_EDITOR_PASSWORD",
   "realm.url": "REALM_URL",

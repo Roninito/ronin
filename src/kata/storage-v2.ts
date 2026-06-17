@@ -12,7 +12,7 @@ export class KataStorageV2 {
 
   async init(): Promise<void> {
     const db = (this.api as any).db;
-    if (db) await runTechniqueMigrations(db);
+    if (db) await runEngineMigrations(db);
   }
 
   async save(opts: {

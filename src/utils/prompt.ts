@@ -32,8 +32,13 @@ export interface PromptOptions {
 }
 
 // Moved to @ronin/sar — re-exported for backward compatibility
-export { buildToolPrompt, estimateTokens } from "@ronin/sar";
+import { buildToolPrompt as _buildToolPrompt, estimateTokens as _estimateTokens } from "@ronin/sar";
+export { _buildToolPrompt as buildToolPrompt, _estimateTokens as estimateTokens };
 export type { BuildToolPromptParams } from "@ronin/sar";
+
+// Local aliases for use within this module
+const estimateTokens = _estimateTokens;
+const buildToolPrompt = _buildToolPrompt;
 
 export interface WindowingResult {
   summary?: string;

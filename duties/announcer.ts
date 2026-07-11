@@ -19,6 +19,11 @@ export default class AnnouncerAgent extends BaseDuty {
   }
 
   async execute(): Promise<void> {
+    // Skip if TTS announcements are disabled
+    if (process.env.RONIN_ANNOUNCE_DISABLED === "true") {
+      return;
+    }
+    
     if (!this.api.plugins.has("piper")) {
       return;
     }
@@ -32,8 +37,11 @@ export default class AnnouncerAgent extends BaseDuty {
     try {
       await this.api.plugins.call("piper", "speakAndPlay", "Ronin online");
       await this.api.memory.store(MEMORY_KEY_LAST_ANNOUNCE, Date.now());
+      console.log("[announcer] Successfully announced Ronin online");
     } catch (err) {
       console.error("[announcer] TTS failed:", err);
+      // Don't let TTS failures block the duty - store the timestamp anyway
+      await this.api.memory.store(MEMORY_KEY_LAST_ANNOUNCE, Date.now());
     }
   }
 }

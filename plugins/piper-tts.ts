@@ -1,6 +1,7 @@
 import type { Plugin } from "../src/plugins/base.js";
 import { spawn } from "child_process";
-import { writeFile, unlink } from "fs/promises";
+import { writeFile, unlink, access } from "fs/promises";
+import { constants } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -142,6 +143,13 @@ const piperPlugin: Plugin = {
       const result = await piperPlugin.methods.speak?.(text, options) as { audioPath: string };
       const audioPath = result.audioPath;
       
+      // Verify audio file exists before attempting playback
+      try {
+        await access(audioPath, constants.R_OK);
+      } catch (err) {
+        throw new Error(`Audio file not found or not readable: ${audioPath}`);
+      }
+      
       // Play audio using system player
       const platform = process.platform;
       let playCommand: string;
@@ -166,15 +174,38 @@ const piperPlugin: Plugin = {
       }
 
       await new Promise<void>((resolve, reject) => {
-        const proc = spawn(playCommand, playArgs, { stdio: "ignore" });
+        const proc = spawn(playCommand, playArgs, { stdio: ["ignore", "pipe", "pipe"] });
+        
+        // Set a timeout for playback (max 30 seconds)
+        const timeout = setTimeout(() => {
+          proc.kill();
+          reject(new Error(`Audio playback timed out after 30 seconds`));
+        }, 30000);
+        
+        let stdout = "";
+        let stderr = "";
+        
+        proc.stdout?.on("data", (data) => {
+          stdout += data.toString();
+        });
+        
+        proc.stderr?.on("data", (data) => {
+          stderr += data.toString();
+        });
+        
         proc.on("close", (code) => {
+          clearTimeout(timeout);
           if (code === 0) {
             resolve();
           } else {
-            reject(new Error(`Audio player failed with code ${code}`));
+            const errorMsg = `Audio player (${playCommand}) failed with code ${code}. File: ${audioPath}${stderr ? `\nStderr: ${stderr}` : ""}${stdout ? `\nStdout: ${stdout}` : ""}`;
+            reject(new Error(errorMsg));
           }
         });
-        proc.on("error", reject);
+        proc.on("error", (err) => {
+          clearTimeout(timeout);
+          reject(new Error(`Failed to spawn ${playCommand}: ${err.message}`));
+        });
       });
 
       // Cleanup audio file after playing

@@ -34,8 +34,11 @@ export function createChainLoggingMiddleware(
     const msgCount = ctx.messages?.length ?? 0;
     const userCount = ctx.messages?.filter((m) => m.role === "user").length ?? 0;
 
+    const isEnvelope = label.startsWith("duty:");
     if (msgCount === 0) {
-      console.log(`${prefix} ⚠️  Chain run started with NO MESSAGES (context may be empty)`);
+      if (!isEnvelope) {
+        console.log(`${prefix} ⚠️  Chain run started with NO MESSAGES (context may be empty)`);
+      }
     } else {
       console.log(`${prefix} ▶️  Chain run started (${msgCount} total, ${userCount} user)`);
       if (verbose) {
@@ -71,9 +74,13 @@ export function createChainLoggingMiddleware(
           });
       }
 
-      console.log(
-        `${prefix} ✅ Chain run finished in ${elapsed}s (${finalCount} messages total, ${assistantCount} assistant, ${toolCount} tool results)`
-      );
+      if (finalCount === 0 && isEnvelope) {
+        // Silent completion for empty SAR envelope chains
+      } else {
+        console.log(
+          `${prefix} ✅ Chain run finished in ${elapsed}s (${finalCount} messages total, ${assistantCount} assistant, ${toolCount} tool results)`
+        );
+      }
     } catch (err) {
       const elapsed = ((Date.now() - start) / 1000).toFixed(1);
       console.error(`${prefix} ❌ Chain run failed after ${elapsed}s: ${(err as Error).message}`);

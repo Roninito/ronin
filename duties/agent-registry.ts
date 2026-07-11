@@ -1,6 +1,6 @@
 /**
  * @enabled true
- * Agent Registry — Scans and catalogs all agents in the system
+ * Duty Registry — Scans and catalogs all duties in the system
  * Extracts metadata and dependencies to populate dashboard
  */
 
@@ -8,6 +8,7 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
+import { homedir } from "os";
 
 interface DutyMetadata {
   name: string;
@@ -19,11 +20,12 @@ interface DutyMetadata {
   emitsEvents: string[];
   consumesEvents: string[];
   description?: string;
+  source: "project" | "user";
 }
 
 export default class DutyRegistry extends BaseDuty {
   static schedule = "0 * * * *"; // Every hour
-  static description = "Scans and catalogs all agents in the system";
+  static description = "Scans and catalogs all duties in the system";
 
   constructor(api: DutyAPI) {
     super(api);
@@ -31,44 +33,56 @@ export default class DutyRegistry extends BaseDuty {
 
   async execute(): Promise<void> {
     try {
-      const metadata = await this.scanAgents();
+      const metadata = await this.scanDuties();
       await this.api.memory.store("agent-registry", metadata);
-      console.log(`[agent-registry] Cataloged ${metadata.length} agents`);
+      console.log(`[agent-registry] Cataloged ${metadata.length} duties`);
     } catch (error) {
-      console.error("[agent-registry] Error scanning agents:", error);
+      console.error("[agent-registry] Error scanning duties:", error);
     }
   }
 
   /**
-   * Scan all agent files and extract metadata
+   * Scan all duty files from project and user directories
    */
-  private async scanAgents(): Promise<DutyMetadata[]> {
-    const agentsDir = join(process.cwd(), "agents");
-    const files = await readdir(agentsDir);
-    const agents: DutyMetadata[] = [];
+  private async scanDuties(): Promise<DutyMetadata[]> {
+    const duties: DutyMetadata[] = [];
 
-    for (const file of files) {
-      if (!file.endsWith(".ts")) continue;
+    const projectDir = join(process.cwd(), "duties");
+    const userDir = process.env.RONIN_EXTERNAL_DUTY_DIR ?? join(homedir(), ".ronin", "duties");
 
-      const filePath = join(agentsDir, file);
+    const dirs: Array<{ dir: string; source: "project" | "user" }> = [
+      { dir: projectDir, source: "project" },
+      { dir: userDir, source: "user" },
+    ];
+
+    for (const { dir, source } of dirs) {
       try {
-        const content = await readFile(filePath, "utf-8");
-        const metadata = this.parseAgentFile(file, content);
-        if (metadata) {
-          agents.push(metadata);
+        const files = await readdir(dir);
+        for (const file of files) {
+          if (!file.endsWith(".ts")) continue;
+          const filePath = join(dir, file);
+          try {
+            const content = await readFile(filePath, "utf-8");
+            const metadata = this.parseDutyFile(file, content, source);
+            if (metadata) {
+              duties.push(metadata);
+            }
+          } catch (error) {
+            console.warn(`[agent-registry] Failed to parse ${file}:`, error);
+          }
         }
-      } catch (error) {
-        console.warn(`[agent-registry] Failed to parse ${file}:`, error);
+      } catch {
+        // Directory doesn't exist, skip silently
       }
     }
 
-    return agents;
+    return duties;
   }
 
   /**
-   * Parse a single agent file and extract metadata
+   * Parse a single duty file and extract metadata
    */
-  private parseAgentFile(filename: string, content: string): DutyMetadata | null {
+  private parseDutyFile(filename: string, content: string, source: "project" | "user"): DutyMetadata | null {
     const name = filename.replace(/\.ts$/, "");
 
     // Check if enabled (default true)
@@ -119,6 +133,7 @@ export default class DutyRegistry extends BaseDuty {
       requiredPlugins: requiredPlugins.filter((p) => p !== "memory" && p !== "files" && p !== "events"),
       emitsEvents,
       consumesEvents,
+      source,
     };
   }
 }

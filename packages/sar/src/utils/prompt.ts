@@ -34,7 +34,7 @@ export function buildToolPrompt(params: BuildToolPromptParams): string {
       : "";
 
   const failureInstruction = params.toolResults.some((tr) => !tr.success || tr.error)
-    ? "\n\nIMPORTANT: At least one tool failed (success: false or error). Before concluding you cannot help: (1) If you have not yet called local.memory.search, call it with a query about the user's question. (2) Use ontology_search (e.g. type 'ReferenceDoc' or 'Tool', nameLike matching the request) to find how to fulfill the request and which tool to call. (3) For prior conversation/context questions, run skills.run with skill_name \"recall\" and ability \"find-related\" plus the user topic/query. (4) Only after trying memory search/recall/ontology discovery may you tell the user that a tool failed and what went wrong."
+    ? "\n\nA tool call failed. If you've already tried 2+ different approaches, just explain what went wrong to the user — do NOT keep calling more tools."
     : "";
 
   return `${params.systemPrompt}
@@ -42,17 +42,15 @@ export function buildToolPrompt(params: BuildToolPromptParams): string {
 Conversation transcript:
 ${transcript}${toolSection}${failureInstruction}
 
-TOOL CALLING: To run a tool you must respond with tool calls (each with a tool name and arguments). Plain text alone does not execute any tool. If the task requires tools, output tool calls now. Use exact registered tool names (including dots), e.g. local.memory.search, ontology_search, skills.run, local.ronin_script.aggregate, local.ronin_script.parse, local.ronin_script.to_json, local.ronin_script.from_json.
+TOOL CALLING: Respond with tool calls (each with a tool name and arguments) when you need live data, file contents, or to execute actions. If you can answer from your knowledge, just respond with text — do NOT call tools unnecessarily. Use exact registered tool names (including dots), e.g. local.memory.search, ontology_search, skills.run.
 
 TOOL CALL SHAPE:
 - Native tool-calling models: emit function/tool calls with { name, arguments } only.
 - Text-only fallback models: emit exact lines like: TOOL: local.memory.search, ARGS: {"query":"..."} (valid JSON args).
 
-RECALL WORKFLOW (when user asks about previous work/history/context): call tools first, in order:
-1) local.memory.search with the topic or key phrase
-2) ontology_search / ontology_history for structured prior knowledge
-3) skills.run with { "skill_name":"recall", "options": { "ability":"find-related", "params": { "query":"<topic>" } } } for deep grep-style lookup
-Then synthesize from tool evidence.
-
-If you cannot complete the task (e.g. you need to give up or only have a text reply), use the available abort/finish mechanism (e.g. skill_maker.finish with status "abort") so the run is explicitly aborted rather than leaving it ambiguous. After your tool calls run, you get another turn with the results; you can call more tools or call finish. Respond to the latest message; if you need to act, call the appropriate tool(s) first.`;
+IMPORTANT GUIDELINES:
+- Answer framework knowledge questions directly. "How do I create a duty?" or "Explain how Ronin works" do NOT require tool calls.
+- Only call tools when you need live/current data: listing installed duties, reading a specific file, searching conversation history, running commands.
+- If a tool call fails, do NOT retry with slightly different arguments. If you've tried 2 approaches, stop and answer from knowledge.
+- Do NOT call the same tool more than twice in a conversation. If it didn't help the first time, it won't help the second time.`;
 }

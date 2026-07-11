@@ -38,8 +38,8 @@ export default class ChattyAgent extends BaseDuty {
   private localModel: string;
   private toolModel: string;
   private chatCount = 0;
-  private readonly maxToolIterations = 4;
-  private readonly maxToolsPerIteration = 6;
+  private readonly maxToolIterations = 3;
+  private readonly maxToolsPerIteration = 4;
   private lastHomeFeedEmitAt = 0;
 
   private normalizeRequestedModel(model?: string): string | undefined {
@@ -1464,6 +1464,8 @@ export default class ChattyAgent extends BaseDuty {
       maxSchemas: 12,
     });
     const toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }> = [];
+    const calledToolSignatures = new Set<string>();
+    let consecutiveEmptyResults = 0;
     let finalResponse = "";
 
     if (toolSchemas.length === 0) {
@@ -1494,6 +1496,22 @@ export default class ChattyAgent extends BaseDuty {
       }
 
       if (!result.toolCalls.length) {
+        break;
+      }
+
+      // Loop detection: check if the model is calling the same tools again
+      const currentSignatures = result.toolCalls.map((c) => `${c.name}:${JSON.stringify(c.arguments ?? {}).slice(0, 100)}`);
+      let duplicateCount = 0;
+      for (const sig of currentSignatures) {
+        if (calledToolSignatures.has(sig)) duplicateCount++;
+        calledToolSignatures.add(sig);
+      }
+      // If more than half the calls are duplicates, break the loop
+      if (duplicateCount > currentSignatures.length / 2) {
+        console.log(`[Chatty] Breaking tool loop: ${duplicateCount}/${currentSignatures.length} duplicate calls`);
+        if (!finalResponse) {
+          finalResponse = "I searched for information but wasn't able to find what I was looking for through tools. Let me answer from my knowledge instead.";
+        }
         break;
       }
 
@@ -1530,6 +1548,20 @@ export default class ChattyAgent extends BaseDuty {
       // If we ran a non-say tool, do another round so the model can reply using results.
       // Clear any placeholder reply so we don't return "Let me check..." instead of the real answer.
       if (ranNonSayTool) {
+        // Track empty/unhelpful results — if tools return nothing useful twice, stop
+        const usefulResults = toolResults.filter((tr) => tr.success && tr.result != null && tr.result !== "" && !(typeof tr.result === "object" && Object.keys(tr.result as object).length === 0));
+        if (usefulResults.length === 0) {
+          consecutiveEmptyResults++;
+          if (consecutiveEmptyResults >= 2) {
+            console.log(`[Chatty] Breaking tool loop: ${consecutiveEmptyResults} consecutive empty result rounds`);
+            if (!finalResponse) {
+              finalResponse = "I tried looking that up but couldn't find the information through available tools. I'll answer based on what I know.";
+            }
+            break;
+          }
+        } else {
+          consecutiveEmptyResults = 0;
+        }
         finalResponse = "";
         continue;
       }

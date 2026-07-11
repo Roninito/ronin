@@ -89,7 +89,9 @@ You have access to Ronin's knowledge graph via ontology tools:
 
 DATABASE (ronin.db): For questions about the database itself — list tables, schema, or run custom read-only queries — use local.db.query. It accepts a single SELECT statement (e.g. "SELECT name FROM sqlite_master WHERE type='table'" to list tables, or "SELECT type, COUNT(*) as count FROM ontology_nodes GROUP BY type"). Only SELECT is allowed; results are limited to 100 rows.
 
-DISCOVERY (basic capability): When you are unsure how to fulfill a request, use the graph to find out. (1) Call ontology_search with a relevant type (e.g. type "ReferenceDoc" or "Tool" and optional nameLike for the topic, e.g. "list", "skill", "discover"). (2) From the results, read node summaries — they often state which tool to call and with what args. (3) Use ontology_related(nodeId) if you need to see which tool is linked (e.g. use_tool edges). (4) Then call the indicated tool. Do not guess or refuse; search the graph first, then decide the best tool to call next.
+DISCOVERY (when tools are needed): When you need live data that you cannot answer from knowledge, use the graph. (1) Call ontology_search with a relevant type. (2) From the results, read node summaries — they often state which tool to call. (3) Use ontology_related(nodeId) for linked nodes. (4) Then call the indicated tool.
+
+IMPORTANT: Do NOT call ontology or shell tools for questions you can answer from your built-in knowledge about the Ronin framework. Only use tools when you need current/live data (e.g., "what duties are installed right now", "search my past conversations").
 
 LISTING SKILLS: To list available Ronin skills you MUST call at least one of: (1) ontology_search with { type: "Skill", limit: 50 } to get Skill nodes (name/summary per skill), or (2) skills.list to get the list from disk. If ontology_search returns empty, use skills.list. Never say "no tools are available to retrieve skills" or "skills are not registered in the ontology" without having called one of these first. ontology_stats only gives counts; use ontology_search(type: "Skill") to get the actual skill names and details.
 
@@ -97,12 +99,13 @@ Use the graph both for recall (past work, failures, task context) and for discov
 
 function buildFileStructureGuide(): string {
   const projectRoot = process.cwd();
-  return `FILE SEARCH MAP (use this before saying information is unavailable):
-When users ask about previous work, conversations, logs, configs, or project files, search in this order:
-1) local.memory.search (semantic recall)
-2) ontology_search / ontology_history / ontology_context (structured recall)
-3) skills.run -> recall/find-related (deep grep-style lookup)
-4) local.file.list / local.file.read or local.shell.safe (find/grep/pwd) for direct file inspection
+  return `FILE ACCESS (use sparingly):
+When you need to read specific files or check current system state, use:
+1) local.memory.search (for past conversations/context)
+2) local.file.read (for a specific known file)
+3) local.shell.safe (only for targeted commands, not exploratory browsing)
+
+IMPORTANT: Do NOT use local.shell.safe to repeatedly ls, find, or cat files to discover how things work. Answer framework questions from your knowledge. Only read files when the user asks about their specific content.
 
 Project workspace tree:
 ${projectRoot}/
@@ -123,13 +126,7 @@ Local Ronin home tree:
 ├── skills/              # User-installed skills
 ├── duties/             # User-installed duties
 ├── plugins/             # User plugins
-└── data/                # Runtime data files
-
-Search guidance:
-- For "what did we discuss / do before": query memory + ontology first, then recall skill.
-- For config/runtime issues: inspect ~/.ronin/config.json and ~/.ronin/*.log.
-- For implementation/code questions: inspect ${projectRoot}/src, duties, skills, docs.
-- Prefer evidence from tool results over guessing.`;
+└── data/                # Runtime data files`;
 }
 
 function getPersonaSection(): string {
@@ -314,7 +311,7 @@ export function buildSystemPrompt(
   }
 
   parts.push(
-    "Your role:\n- Do the work yourself using the tools you have. Call the tools and return the result. Only tell the user how to do something in bash or with tools if they explicitly ask (e.g. \"how do I run X\", \"what command\", \"show me the steps\").\n- Answer questions about the Ronin AI agent framework architecture\n- Explain how duties, plugins, and routes work\n- Help users understand their current Ronin setup\n- Discuss duty creation, plugin usage, and route registration\n- Analyze duty outputs (e.g., RSS feeds) when requested\n\nIMPORTANT: Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript."
+    "Your role:\n- Answer questions about the Ronin AI agent framework from your knowledge. You already know how duties, plugins, routes, skills, and the SAR loop work — explain them directly without calling tools.\n- Use tools ONLY when you need live data: file contents, database queries, running commands, searching memory for past conversations, or listing current system state.\n- Do NOT call local.shell.safe repeatedly to explore the filesystem when you can answer from knowledge. One or two targeted reads are fine; more than that means you should just answer the question.\n- When users ask \"how do I create a duty\" or \"explain the framework\", ANSWER DIRECTLY. Do not search for documentation first.\n- Only tell the user how to do something in bash or with commands if they explicitly ask for that format.\n- Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript.\n\nIMPORTANT: If you find yourself calling the same tool or similar tools more than 2-3 times without getting useful results, STOP. Summarize what you know and answer the user's question directly. Do not loop on tool calls."
   );
 
   if (ontologyHint) {
@@ -478,15 +475,21 @@ export function filterToolSchemas(
   const msg = (context.message ?? "").toLowerCase();
 
   // Check if this looks like a tool-using query vs simple chat
-  const isToolQuery = /\b(skills?|notes?|weather|email|mail|messages?|discord|telegram|search|run|execute|list|get|find|read|write|create|delete|update|discuss|explain|tell me about|about|tables?|database|schema|ronin\.db|diagram|mermaid|flowchart|flow chart|chart|draw|recall|remember|memory|history|conversation|context)\b/.test(msg);
+  const isToolQuery = /\b(weather|email|mail|discord|telegram|search|run|execute|list files|read file|write file|delete|database|ronin\.db|diagram|mermaid|flowchart|recall|remember|memory)\b/.test(msg);
   const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
   const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
   // Include tools when user asks about duties/architecture (so memory + ontology can be used)
   const isAboutDuties = /\b(duty|duties|intent-ingress|chatty|ronin)\b/.test(msg);
+  const isCreationRequest = /\b(create|make|build|generate|write me|new duty|new skill)\b/.test(msg);
+  const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool)\b/.test(msg);
 
-  // Only include tools for actual tool queries, not simple chat/greetings
-  if ((!isToolQuery && !isAboutDuties) || (isGreeting && !isToolQuery && !isAboutDuties)) {
-    return []; // Return empty for simple chat - let local model handle it
+  // Only include tools for genuine action requests, not for explanatory questions
+  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest) {
+    return []; // Return empty for simple chat/questions - let the model answer from knowledge
+  }
+  // Greetings should never get tools
+  if (isGreeting && !isToolQuery && !isCreationRequest) {
+    return [];
   }
 
   const coreNames = new Set([
@@ -506,7 +509,7 @@ export function filterToolSchemas(
 
   const includeOntology =
     context.hasOntology &&
-    /past|previous|before|history|failure|failed|why|what happened|that task|that skill|recall|remember|agent|agents|discuss|explain|about|docs?|tools?|reference|ronin script|skills?|ontology|tables?|schema|database/.test(
+    /past|previous|before|history|failure|failed|what happened|that task|that skill|recall|remember|ontology|tables?|schema|database/.test(
       msg
     );
 

@@ -5,6 +5,17 @@ All notable changes to Ronin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-07-30
+
+### Added
+- **Artifacts**: New persistent, cross-chat project containers (`src/artifacts/`) for multi-step work — SQLite-backed state machine, exponential-backoff scheduling, 8 native `artifact_*` tools, and a new `duties/artifact-manager.ts` duty serving `/artifacts` dashboards. The system prompt now includes an artifact-aware hint so Ronin knows when to create or continue one.
+- **Web research + screenshots**: `agent-browser` is now allowlisted in `local.shell.safe` for browser automation, and Artifacts gained a per-artifact binary asset directory and serving route so screenshots taken during research can be attached to an artifact and rendered on its dashboard.
+
+### Changed
+- **Agent → Duty rename**: Completed the renaming of the agent runtime to "duties" throughout the codebase (`src/duty/`, `duties/`, CLI commands, types) for consistency with the rest of the framework's terminology.
+- **Technique capability removed**: Removed the `techniques/` execution layer and its CLI/parser/storage in favor of the AgentSkills-based `SKILL.md` format already used elsewhere in the framework.
+- **Runtime fixes**: Resolved various runtime errors and improved robustness across the duty/database migration path; prevented `chatty` from entering infinite tool-call loops.
+
 ## [1.2.0] - 2026-03-18
 
 ### Added

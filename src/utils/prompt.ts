@@ -19,6 +19,7 @@ export interface RoninContext {
   routes: Array<{ path: string; type: string }>;
   architecture: string;
   hasOntology?: boolean;
+  hasArtifacts?: boolean;
 }
 
 export interface PromptOptions {
@@ -29,6 +30,7 @@ export interface PromptOptions {
   includeRouteList?: boolean;
   sections?: string[];
   ontologyHint?: boolean;
+  artifactsHint?: boolean;
 }
 
 // Moved to @ronin/sar — re-exported for backward compatibility
@@ -96,6 +98,19 @@ IMPORTANT: Do NOT call ontology or shell tools for questions you can answer from
 LISTING SKILLS: To list available Ronin skills you MUST call at least one of: (1) ontology_search with { type: "Skill", limit: 50 } to get Skill nodes (name/summary per skill), or (2) skills.list to get the list from disk. If ontology_search returns empty, use skills.list. Never say "no tools are available to retrieve skills" or "skills are not registered in the ontology" without having called one of these first. ontology_stats only gives counts; use ontology_search(type: "Skill") to get the actual skill names and details.
 
 Use the graph both for recall (past work, failures, task context) and for discovery (what tools exist, how to list skills/tools, how to do X). ReferenceDoc and Tool nodes are synced from docs and the tool registry; Skill nodes are installed AgentSkills.`;
+
+const ARTIFACT_HINT_SECTION = `
+ARTIFACTS (persistent, cross-chat project containers):
+When the user describes multi-step collection, research, or prototyping work that will span more than one session — gathering assets, building a research base, aggregating resources — you can create an Artifact to track it:
+- artifact_create: Start a new project container (name, type, tags, completionThreshold). Only do this for ongoing multi-session work, never for single-session one-off tasks or simple questions.
+- artifact_load: Load an existing artifact's progress, pending categories, and recent activity before continuing work on it.
+- artifact_updateProgress / artifact_addAsset / artifact_appendLog: Record progress as you gather or produce things for the project.
+- artifact_getSchedulingStatus: Check whether an artifact is due for more work (respects backoff — don't call artifact_schedule repeatedly for the same artifact).
+- artifact_transitionState: Move the artifact to COMPLETE once its completion threshold is met — this stops further scheduling and finalizes its dashboard.
+- Dashboards live at /artifact/<id> and the full list at /artifacts.
+Do NOT create an artifact for something you can just answer or do in this one turn.
+
+ATTACHING SCREENSHOTS (e.g. from web research via agent-browser): artifact_create and artifact_load both return an assetsDir (an absolute local directory). To attach a screenshot: (1) run agent-browser open <url>, then agent-browser screenshot "<assetsDir>/<name>.png" via local.shell.safe, (2) call artifact_addAsset with assetType "reference", filename "<name>.png", source "<url>", and storedPath "<name>.png". The asset is then served at /api/artifact/<id>/asset/<name>.png and shown on the dashboard. Do not pass arbitrary paths as storedPath — it must be a file you just saved under assetsDir.`;
 
 function buildFileStructureGuide(): string {
   const projectRoot = process.cwd();
@@ -207,12 +222,14 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
 
   const architecture = getArchitectureDescription();
   const hasOntology = api.plugins.has("ontology");
+  const hasArtifacts = api.tools.has("artifact_create");
   const context: RoninContext = {
     duties,
     plugins,
     routes,
     architecture,
     hasOntology,
+    hasArtifacts,
   };
 
   cache.set(RONIN_CONTEXT_KEY, context, {
@@ -270,6 +287,7 @@ export function buildSystemPrompt(
     includeRouteList = false,
     sections = [],
     ontologyHint = context.hasOntology ?? false,
+    artifactsHint = context.hasArtifacts ?? false,
   } = options;
 
   const parts: string[] = [role];
@@ -316,6 +334,10 @@ export function buildSystemPrompt(
 
   if (ontologyHint) {
     parts.push(ONTOLOGY_HINT_SECTION);
+  }
+
+  if (artifactsHint) {
+    parts.push(ARTIFACT_HINT_SECTION);
   }
 
   for (const section of sections) {

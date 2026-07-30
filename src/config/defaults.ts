@@ -117,6 +117,7 @@ export const DEFAULT_CONFIG: FullConfig = {
     safeShellCommands: [
       "ls", "cat", "head", "tail", "echo", "pwd",
       "git", "find", "grep", "wc", "curl", "bun", "osascript",
+      "agent-browser",
     ],
     skillsDir: join(homedir(), ".ronin", "skills"),
     skillProviders: ["skills.sh", "playbooks.com"],

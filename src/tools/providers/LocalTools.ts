@@ -591,7 +591,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
   // 4. Shell Command Tool (restricted)
   register({
     name: "local.shell.safe",
-    description: "Execute safe shell commands (read-only operations). Allowed commands: ls, cat, head, tail, echo, pwd, find, grep, git, wc, curl, bun, osascript.",
+    description: "Execute safe shell commands (read-only operations, plus agent-browser for browser automation/screenshots). Allowed commands: ls, cat, head, tail, echo, pwd, find, grep, git, wc, curl, bun, osascript, agent-browser.",
     parameters: {
       type: "object",
       properties: {
@@ -608,7 +608,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       const configuredCommands = api.config.getAll?.()?.system?.safeShellCommands;
       const safeCommands = Array.isArray(configuredCommands) && configuredCommands.length > 0
         ? configuredCommands
-        : ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript'];
+        : ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript', 'agent-browser'];
       const baseCmd = args.command.split(' ')[0];
       
       if (!safeCommands.includes(baseCmd)) {

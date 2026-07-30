@@ -1297,6 +1297,7 @@ export default class ChattyAgent extends BaseDuty {
         includeArchitecture: isFirstMessage,
         includeRouteList: true,
         ontologyHint: context.hasOntology,
+        artifactsHint: context.hasArtifacts,
       });
 
       // Log context for debugging

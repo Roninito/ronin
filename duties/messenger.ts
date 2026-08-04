@@ -604,10 +604,12 @@ export default class MessengerAgent extends BaseDuty {
       };
 
       const toolMessages = ctx.messages.filter((m) => m.role === "tool");
+      let anyToolFailed = false;
       const toolSummaries = toolMessages.slice(0, 8).map((m: any, idx) => {
         try {
           const parsed = JSON.parse(m.content);
           const ok = parsed.success === true;
+          if (!ok) anyToolFailed = true;
           const status = ok ? "✅ success" : "❌ error";
           const details = ok ? toPreview(parsed.data) : toPreview(parsed.error || "Unknown error");
           return `${idx + 1}. ${m.name || "tool"} — ${status}\n${details}`;
@@ -627,15 +629,25 @@ export default class MessengerAgent extends BaseDuty {
           `User request:\n${message.text}\n\n` +
           `Draft assistant text (may be empty):\n${assistantMessages || "(none)"}\n\n` +
           `Tool execution summary:\n${toolSummaryText}\n\n` +
-          `Write a concise, helpful final answer. Do not dump raw JSON. ` +
-          `If a tool failed, explain clearly and suggest the next action.`;
+          `Write a concise, helpful final answer. Do not dump raw JSON. Do not repeat the draft text verbatim — ` +
+          `it was written before the tools ran and does not reflect the outcome. ` +
+          `If a tool failed, you MUST say so plainly (never leave the user thinking you're "still checking") ` +
+          `and explain what that means for their request.`;
         try {
           const synthesized = await this.api.ai.complete(synthesisPrompt, {
             model: this.model,
             maxTokens: 700,
           });
-          if (synthesized?.trim()) {
-            finalResponse = synthesized;
+          const synthesizedTrimmed = synthesized?.trim() ?? "";
+          // A model can ignore the failure instruction and just echo the pre-tool-call
+          // draft back (e.g. "I'll check on that..."), which silently hides a real error
+          // from the user. If any tool in this turn failed, require the synthesis to
+          // actually mention it — otherwise fall through to the deterministic summary below.
+          const mentionsFailure = /error|fail|couldn'?t|could not|unable|issue|problem|not configured|not set up|not available/i.test(
+            synthesizedTrimmed
+          );
+          if (synthesizedTrimmed && (!anyToolFailed || mentionsFailure)) {
+            finalResponse = synthesizedTrimmed;
           }
         } catch (err) {
           console.error("[messenger] Synthesis failed, using summary fallback:", err);

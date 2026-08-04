@@ -38,8 +38,17 @@ interface TelegramSubscriptionConfig {
  * and stores them for other agents to consume
  */
 export default class TelegramSubscriptionAgent extends BaseDuty {
-  // Schedule: Run every 5 minutes
-  static schedule = "*/15 * * * *";
+  // No schedule — this duty's own getUpdates() polling (in execute(), below) competed
+  // directly with messenger.ts's continuous long-poll on the SAME bot token. Telegram's
+  // getUpdates offset is consumed globally per bot, not per-caller: whichever poller
+  // advances the offset first permanently confirms those updates for every other
+  // caller too. Since this duty's own message-processing only acts on group/channel
+  // chats by default (processPrivate defaults to false) and its downstream events
+  // (telegram.message / telegram-message) currently have zero listeners anywhere in
+  // duties/, its scheduled poll was silently swallowing private-chat messages before
+  // messenger.ts's reply-capable handler ever saw them — bot online, no replies.
+  // The SendTelegramMessage outbound listener (constructor, below) and the config
+  // page are unaffected by removing this — only the competing inbound poll is gone.
   private static readonly CONFIG_KEY = "telegram_subscription_config";
   private lastHomeFeedEmitAt = 0;
 

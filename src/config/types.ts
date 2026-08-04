@@ -301,8 +301,24 @@ export interface FullConfig {
   mesh: MeshNetworkConfig;
   obsidian?: ObsidianConfig;
   alpaca: AlpacaConfig;
+  mngr: MngrIntegrationConfig;
+  envoy: EnvoyIntegrationConfig;
   pluginDir: string;
   geminiModel: string;
+}
+
+/** The EXTERNAL MNGR orchestrator app — see plugins/mngr.ts / duties/mngr-worker.ts. */
+export interface MngrIntegrationConfig {
+  baseUrl: string;
+  registrationSecret: string;
+  inboundToken: string;
+  roninEndpointUrl?: string;
+}
+
+/** ENVOY's /api/v1 REST API — see plugins/envoy.ts. */
+export interface EnvoyIntegrationConfig {
+  baseUrl: string;
+  apiKey: string;
 }
 
 export interface AlpacaConfig {
@@ -436,5 +452,13 @@ export type ConfigPath =
   | 'alpaca.apiKey'
   | 'alpaca.secretKey'
   | 'alpaca.mode'
+  | 'mngr'
+  | 'mngr.baseUrl'
+  | 'mngr.registrationSecret'
+  | 'mngr.inboundToken'
+  | 'mngr.roninEndpointUrl'
+  | 'envoy'
+  | 'envoy.baseUrl'
+  | 'envoy.apiKey'
   | 'pluginDir'
   | 'geminiModel';

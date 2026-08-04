@@ -227,6 +227,15 @@ export const DEFAULT_CONFIG: FullConfig = {
     secretKey: "",
     mode: "paper",
   },
+  mngr: {
+    baseUrl: "",
+    registrationSecret: "",
+    inboundToken: "",
+  },
+  envoy: {
+    baseUrl: "",
+    apiKey: "",
+  },
 };
 
 /**
@@ -271,4 +280,9 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "speech.stt.whisperBinary": "WHISPER_BINARY",
   "speech.tts.piperModelPath": "PIPER_MODEL_PATH",
   "speech.tts.piperBinary": "PIPER_BINARY",
+  "mngr.baseUrl": "MNGR_BASE_URL",
+  "mngr.registrationSecret": "MNGR_REGISTRATION_SECRET",
+  "mngr.inboundToken": "RONIN_INBOUND_TOKEN",
+  "envoy.baseUrl": "ENVOY_BASE_URL",
+  "envoy.apiKey": "ENVOY_API_KEY",
 };

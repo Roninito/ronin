@@ -213,6 +213,10 @@ export interface DutyAPI {
     push(remote?: string, branch?: string): Promise<{ success: boolean; output: string }>;
     pull(remote?: string, branch?: string): Promise<{ success: boolean; output: string }>;
     branch(name?: string): Promise<{ success?: boolean; output?: string; branches?: string[] }>;
+    log(options?: { limit?: number }): Promise<{
+      commits: Array<{ hash: string; fullHash: string; author: string; date: string; message: string }>;
+      count: number;
+    }>;
     checkout(branch: string): Promise<{ success: boolean; output: string }>;
   };
 
@@ -412,6 +416,7 @@ export interface DutyAPI {
       id: string;
       recipient?: { id: string; username: string };
     }>>;
+    getBotInfo(clientId: string): Promise<{ id: string; username: string }>;
   };
 
   /**

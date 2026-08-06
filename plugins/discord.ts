@@ -29,6 +29,112 @@ interface ClientInstance {
 }
 
 const clients: Map<string, ClientInstance> = new Map();
+// Track tokens to prevent duplicate bot instances (mirrors plugins/telegram.ts's
+// tokenToBotId cache) — without this, every caller of initBot() with the same token
+// (e.g. a duty's constructor re-running on hot reload) opens a brand-new discord.js
+// Client and gateway connection instead of reusing the live one.
+const tokenToClientId: Map<string, string> = new Map();
+// Lock to prevent race conditions when multiple callers initBot() the same token concurrently
+const initLocks: Map<string, Promise<string>> = new Map();
+
+/**
+ * Actual client creation + login. Only ever called once per token per process —
+ * initBot() below guards every entry point against duplicate calls.
+ */
+async function initBotInternal(
+  token: string,
+  options?: { intents?: number[] }
+): Promise<string> {
+  const clientId = `discord_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+  // Default intents for basic bot functionality and DMs
+  // Note: MessageContent and DirectMessages are privileged intents - enable in Discord Developer Portal
+  // https://discord.com/developers/applications -> Your Bot -> Bot -> Privileged Gateway Intents
+  const defaultIntents = [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+  ];
+
+  const intents = options?.intents || defaultIntents;
+  const client = new Client({
+    intents,
+    partials: [Partials.Channel],
+  });
+
+  const instance: ClientInstance = {
+    client,
+    messageHandlers: new Set(),
+    readyHandlers: new Set(),
+  };
+
+  // Set up ready handler (using clientReady to avoid deprecation warning in discord.js v15)
+  client.once("clientReady", () => {
+    console.log(`[discord] Bot logged in as ${client.user?.tag}`);
+    instance.readyHandlers.forEach((handler) => {
+      try {
+        handler();
+      } catch (error) {
+        console.error(`[discord] Error in ready handler:`, error);
+      }
+    });
+  });
+
+  // Set up message handler wrapper
+  client.on("messageCreate", (message: Message) => {
+    const discordMessage: DiscordMessage = {
+      id: message.id,
+      content: message.content,
+      author: {
+        id: message.author.id,
+        username: message.author.username,
+        bot: message.author.bot,
+      },
+      channelId: message.channelId,
+      guildId: message.guildId,
+      timestamp: message.createdTimestamp,
+    };
+
+    instance.messageHandlers.forEach((handler) => {
+      try {
+        handler(discordMessage);
+      } catch (error) {
+        console.error(`[discord] Error in message handler:`, error);
+      }
+    });
+  });
+
+  try {
+    await client.login(token);
+    clients.set(clientId, instance);
+    tokenToClientId.set(token, clientId);
+    console.log(`[discord] Bot initialized: ${clientId}`);
+    return clientId;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Provide helpful guidance for common Discord errors
+    if (errorMessage.includes("disallowed intents") || errorMessage.includes("intents")) {
+      throw new Error(
+        `Failed to initialize Discord bot: Used disallowed intents.\n` +
+        `To fix this:\n` +
+        `1. Go to https://discord.com/developers/applications\n` +
+        `2. Select your bot application\n` +
+        `3. Go to "Bot" section\n` +
+        `4. Under "Privileged Gateway Intents", enable:\n` +
+        `   - MESSAGE CONTENT INTENT (required for reading message content)\n` +
+        `   - DIRECT MESSAGES (required for receiving and sending DMs)\n` +
+        `5. Save changes and restart the bot\n` +
+        `\nIf you don't need DMs or message content, you can remove those intents from the code.`
+      );
+    }
+
+    throw new Error(
+      `Failed to initialize Discord bot: ${errorMessage}`
+    );
+  }
+}
 
 /**
  * Discord plugin for interacting with Discord Bot API
@@ -51,94 +157,33 @@ const discordPlugin: Plugin = {
         throw new Error("Discord bot token is required");
       }
 
-      const clientId = `discord_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-      // Default intents for basic bot functionality and DMs
-      // Note: MessageContent and DirectMessages are privileged intents - enable in Discord Developer Portal
-      // https://discord.com/developers/applications -> Your Bot -> Bot -> Privileged Gateway Intents
-      const defaultIntents = [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.DirectMessages,
-      ];
-
-      const intents = options?.intents || defaultIntents;
-      const client = new Client({
-        intents,
-        partials: [Partials.Channel],
-      });
-
-      const instance: ClientInstance = {
-        client,
-        messageHandlers: new Set(),
-        readyHandlers: new Set(),
-      };
-
-      // Set up ready handler (using clientReady to avoid deprecation warning in discord.js v15)
-      client.once("clientReady", () => {
-        console.log(`[discord] Bot logged in as ${client.user?.tag}`);
-        instance.readyHandlers.forEach((handler) => {
-          try {
-            handler();
-          } catch (error) {
-            console.error(`[discord] Error in ready handler:`, error);
-          }
-        });
-      });
-
-      // Set up message handler wrapper
-      client.on("messageCreate", (message: Message) => {
-        const discordMessage: DiscordMessage = {
-          id: message.id,
-          content: message.content,
-          author: {
-            id: message.author.id,
-            username: message.author.username,
-            bot: message.author.bot,
-          },
-          channelId: message.channelId,
-          guildId: message.guildId,
-          timestamp: message.createdTimestamp,
-        };
-
-        instance.messageHandlers.forEach((handler) => {
-          try {
-            handler(discordMessage);
-          } catch (error) {
-            console.error(`[discord] Error in message handler:`, error);
-          }
-        });
-      });
-
-      try {
-        await client.login(token);
-        clients.set(clientId, instance);
-        console.log(`[discord] Bot initialized: ${clientId}`);
-        return clientId;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        
-        // Provide helpful guidance for common Discord errors
-        if (errorMessage.includes("disallowed intents") || errorMessage.includes("intents")) {
-          throw new Error(
-            `Failed to initialize Discord bot: Used disallowed intents.\n` +
-            `To fix this:\n` +
-            `1. Go to https://discord.com/developers/applications\n` +
-            `2. Select your bot application\n` +
-            `3. Go to "Bot" section\n` +
-            `4. Under "Privileged Gateway Intents", enable:\n` +
-            `   - MESSAGE CONTENT INTENT (required for reading message content)\n` +
-            `   - DIRECT MESSAGES (required for receiving and sending DMs)\n` +
-            `5. Save changes and restart the bot\n` +
-            `\nIf you don't need DMs or message content, you can remove those intents from the code.`
-          );
-        }
-        
-        throw new Error(
-          `Failed to initialize Discord bot: ${errorMessage}`
-        );
+      // Wait for any in-flight init of this same token instead of racing it
+      const existingLock = initLocks.get(token);
+      if (existingLock) {
+        console.log(`[discord] Waiting for existing initialization to complete...`);
+        return existingLock;
       }
+
+      // Reuse the live client if this token was already initialized in this process
+      const existingClientId = tokenToClientId.get(token);
+      if (existingClientId) {
+        const existingInstance = clients.get(existingClientId);
+        if (existingInstance) {
+          console.log(`[discord] Returning existing bot: ${existingClientId}`);
+          return existingClientId;
+        }
+        tokenToClientId.delete(token); // stale entry, clean up
+      }
+
+      const initPromise = (async (): Promise<string> => {
+        try {
+          return await initBotInternal(token, options);
+        } finally {
+          initLocks.delete(token);
+        }
+      })();
+      initLocks.set(token, initPromise);
+      return initPromise;
     },
 
     /**
@@ -417,6 +462,25 @@ const discordPlugin: Plugin = {
           `Failed to list channels: ${error instanceof Error ? error.message : String(error)}`
         );
       }
+    },
+
+    /**
+     * Get the bot's own Discord identity (real snowflake user ID, for building
+     * `<@id>` mention strings — distinct from the internally-generated clientId).
+     * @param clientId ID from initBot
+     */
+    getBotInfo: async (
+      clientId: string
+    ): Promise<{ id: string; username: string }> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      const user = instance.client.user;
+      if (!user) {
+        throw new Error(`Bot not ready yet: ${clientId}`);
+      }
+      return { id: user.id, username: user.username };
     },
 
     /**

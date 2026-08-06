@@ -38,6 +38,8 @@ const sharedConversations: Map<string, ConversationEntry[]> =
   ((globalThis as any).__roninMessengerConversations ??= new Map());
 const registeredTelegramHandlers: Set<string> =
   ((globalThis as any).__roninMessengerTelegramHandlers ??= new Set());
+const registeredDiscordHandlers: Set<string> =
+  ((globalThis as any).__roninMessengerDiscordHandlers ??= new Set());
 const MESSENGER_IDENTITY_AND_INTERFACE = `
 **IDENTITY (DO NOT FORGET):**
 - You are Ronin AI for the Ronin AI agent framework (Bun + TypeScript/JavaScript).
@@ -287,6 +289,8 @@ function buildMessengerSAR(options: {
 
 export default class MessengerAgent extends BaseDuty {
   private botId: string | null = null;
+  private discordClientId: string | null = null;
+  private discordBotUserId: string | null = null;
   private model: string;
   private localModel: string;
   private readonly maxConversationHistory = 10;
@@ -303,12 +307,8 @@ export default class MessengerAgent extends BaseDuty {
     // Set up Telegram handler (initialize bot if needed)
     this.setupTelegramHandler();
 
-    // Listen for Discord messages via events
-    this.api.events.on("discord.message", (data: any) => {
-      this.handleDiscordEvent(data).catch((err) => {
-        console.error("[messenger] Error handling Discord event:", err);
-      });
-    });
+    // Set up Discord handler (initialize bot if needed)
+    this.setupDiscordHandler();
 
     console.log("[messenger] Ready - using enhanced SAR chains with conversation history");
     this.emitHomeFeed("Ready", "Listening for Telegram/Discord messages");
@@ -439,6 +439,96 @@ export default class MessengerAgent extends BaseDuty {
     });
   }
 
+  private setupDiscordHandler(): void {
+    if (!this.api.discord) {
+      console.log("[messenger] Discord API not available");
+      return;
+    }
+
+    const token = this.api.config.getDiscord().botToken;
+    if (!token) {
+      console.log("[messenger] No Discord bot token configured");
+      return;
+    }
+
+    // plugins/discord.ts's initBot() caches by token, so this always resolves to the
+    // same clientId whether this is a fresh boot or a hot-reload re-run of this duty.
+    this.api.discord.initBot(token).then(async (clientId) => {
+      this.discordClientId = clientId;
+
+      if (registeredDiscordHandlers.has(clientId)) {
+        console.log(`[messenger] Discord handler already registered for client ${clientId}, skipping duplicate`);
+        return;
+      }
+
+      // Resolve the bot's real Discord snowflake ID so we can recognize `<@id>` mentions.
+      // client.user is populated by the time initBot()'s login() resolves.
+      try {
+        const info = await this.api.discord!.getBotInfo(clientId);
+        this.discordBotUserId = info.id;
+      } catch (err) {
+        console.warn("[messenger] Could not resolve Discord bot's own user ID (falling back to text-only '@ronin' mentions):", err);
+      }
+
+      this.api.discord!.onMessage(clientId, (msg: any) => {
+        this.handleDiscordMessage(msg, clientId).catch((err) => {
+          console.error("[messenger] Error handling Discord message:", err);
+        });
+      });
+      registeredDiscordHandlers.add(clientId);
+      console.log(`[messenger] Discord message handler registered for client ${clientId}`);
+    }).catch((err) => {
+      console.error("[messenger] Failed to initialize Discord bot:", err instanceof Error ? err.message : err);
+    });
+  }
+
+  /**
+   * Handle an incoming Discord message. Always responds in DMs; in guild channels,
+   * only responds when the bot is actually @mentioned (real `<@id>` mention or literal
+   * "@ronin" text) so it doesn't reply to every message in every channel it can see.
+   */
+  private async handleDiscordMessage(
+    message: {
+      id: string;
+      content: string;
+      author: { id: string; username: string; bot: boolean };
+      channelId: string;
+      guildId: string | null;
+      timestamp: number;
+    },
+    clientId: string
+  ): Promise<void> {
+    if (message.author.bot) return; // ignore other bots, including ourselves
+
+    const text = message.content || "";
+    if (!text.trim()) return;
+
+    const isDM = message.guildId === null;
+    const mentionPattern = this.discordBotUserId
+      ? new RegExp(`<@!?${this.discordBotUserId}>`)
+      : null;
+    const isMentioned =
+      (mentionPattern ? mentionPattern.test(text) : false) || /(^|\s)@ronin\b/i.test(text);
+
+    if (!isDM && !isMentioned) return;
+
+    const cleanText = (mentionPattern ? text.replace(mentionPattern, "") : text)
+      .replace(/@ronin/gi, "")
+      .trim();
+    if (!cleanText) return;
+
+    await this.processMessage({
+      text: cleanText,
+      source: "discord",
+      sourceChannel: `discord:${message.channelId}`,
+      sourceUser: message.author.username || message.author.id,
+      replyCallback: async (response) => {
+        console.log(`[messenger] Sending Discord reply to channel ${message.channelId}`);
+        await this.api.discord?.sendMessage(clientId, message.channelId, response);
+      },
+    });
+  }
+
   private async handleTelegramMessage(update: any, botId: string): Promise<void> {
     // Update structure: { update_id, message: { chat, from, text, ... } }
     const msg = update.message;
@@ -494,32 +584,6 @@ export default class MessengerAgent extends BaseDuty {
         if (chatId) {
           console.log(`[messenger] Sending reply to ${chatId}`);
           await this.api.telegram?.sendMessage(botId, chatId, response, { parseMode: "HTML" });
-        }
-      },
-    });
-  }
-
-  private async handleDiscordEvent(data: any): Promise<void> {
-    const botId = data.botId;
-    const channelId = data.channelId;
-    const text = data.content || "";
-    if (!text.trim()) return;
-
-    const botMention = botId ? `<@${botId}>` : "@ronin";
-    if (!text.includes(botMention) && !text.toLowerCase().includes("@ronin")) {
-      return;
-    }
-
-    const cleanText = text.replace(botMention, "@ronin").replace(/@ronin/gi, "").trim();
-
-    await this.processMessage({
-      text: cleanText,
-      source: "discord",
-      sourceChannel: `discord:${channelId}`,
-      sourceUser: data.author?.username || data.author?.id || "unknown",
-      replyCallback: async (response) => {
-        if (botId && channelId) {
-          await this.api.discord?.sendMessage(botId, channelId, response);
         }
       },
     });

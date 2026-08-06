@@ -14,21 +14,37 @@ interface DiscordMessage {
   timestamp: number;
 }
 
+// Anchored on globalThis (not a plain module const) so it survives HotReloadService's
+// cache-busted re-import of this file on every edit — see the identical fix and full
+// explanation in duties/messenger.ts. Without this, each hot reload would call
+// discord.onMessage() again with a new callback closure and stack duplicate handlers
+// on the same persistent client, replying to each Discord message multiple times.
+const registeredDiscordBridgeHandlers: Set<string> =
+  ((globalThis as any).__roninDiscordBridgeHandlers ??= new Set());
+
 /**
  * Discord Bridge agent demonstrating Discord bot functionality
  * Responds to commands and can bridge messages between Discord and Telegram
  */
 export default class DiscordBridgeAgent extends BaseDuty {
-  // No schedule - runs continuously via event handlers
-  // static schedule = undefined;
+  // No schedule - event-driven, so setup must happen in the constructor (execute()
+  // is only ever invoked by the cron scheduler on a schedule tick — a duty with no
+  // schedule and all its setup in execute() never actually starts).
 
   private clientId: string | null = null;
 
   constructor(api: DutyAPI) {
     super(api);
+    this.initBot().catch((err) => {
+      console.error("[discord-bridge] Initialization failed:", err);
+    });
   }
 
   async execute(): Promise<void> {
+    // Event-driven - handlers registered in constructor
+  }
+
+  private async initBot(): Promise<void> {
     console.log("[discord-bridge] Initializing Discord bot...");
 
     // Check if Discord plugin is available
@@ -48,17 +64,15 @@ export default class DiscordBridgeAgent extends BaseDuty {
       return;
     }
 
-    // Initialize bot if not already initialized
-    this.clientId = (await this.api.memory.retrieve("discord_client_id")) as string | undefined;
-    if (!this.clientId) {
-      try {
-        this.clientId = await this.api.discord.initBot(token);
-        await this.api.memory.store("discord_client_id", this.clientId);
-        console.log(`[discord-bridge] Initialized Discord bot: ${this.clientId}`);
-      } catch (error) {
-        console.error(`[discord-bridge] Failed to initialize bot:`, error);
-        return;
-      }
+    // plugins/discord.ts's initBot() caches by token, so calling it directly here
+    // (rather than trusting a memory-cached clientId from a possibly-dead prior
+    // process) always resolves to the correct live client for this process.
+    try {
+      this.clientId = await this.api.discord.initBot(token);
+      console.log(`[discord-bridge] Initialized Discord bot: ${this.clientId}`);
+    } catch (error) {
+      console.error(`[discord-bridge] Failed to initialize bot:`, error);
+      return;
     }
 
     // Set up event handlers
@@ -75,6 +89,11 @@ export default class DiscordBridgeAgent extends BaseDuty {
       return;
     }
 
+    if (registeredDiscordBridgeHandlers.has(this.clientId)) {
+      console.log(`[discord-bridge] Handlers already registered for client ${this.clientId}, skipping duplicate`);
+      return;
+    }
+
     // Handle ready event
     this.api.discord.onReady(this.clientId, () => {
       console.log("[discord-bridge] Bot is ready!");
@@ -84,6 +103,8 @@ export default class DiscordBridgeAgent extends BaseDuty {
     this.api.discord.onMessage(this.clientId, async (message: DiscordMessage) => {
       await this.handleMessage(message);
     });
+
+    registeredDiscordBridgeHandlers.add(this.clientId);
   }
 
   /**

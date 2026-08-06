@@ -255,6 +255,58 @@ const gitPlugin: Plugin = {
     },
 
     /**
+     * Read commit history (auto-initializes repo if needed)
+     */
+    log: async (options?: { limit?: number }) => {
+      await ensureGitRepo();
+      const limit = options?.limit && options.limit > 0 ? options.limit : 10;
+
+      // Use ASCII field/record separators so commit messages containing
+      // arbitrary punctuation can't be misparsed as delimiters.
+      const FS = "\x1f";
+      const RS = "\x1e";
+      const proc = Bun.spawn(
+        [
+          "git",
+          "log",
+          `-${limit}`,
+          `--pretty=format:%H${FS}%an${FS}%ad${FS}%s${RS}`,
+          "--date=iso-strict",
+        ],
+        { stdout: "pipe", stderr: "pipe" }
+      );
+
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      await proc.exited;
+
+      if (proc.exitCode !== 0) {
+        // A brand-new repo with no commits yet isn't an error condition here.
+        if (stderr.includes("does not have any commits yet")) {
+          return { commits: [], count: 0 };
+        }
+        throw new Error(`Git log failed: ${stderr}`);
+      }
+
+      const commits = stdout
+        .split(RS)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [hash, author, date, message] = entry.split(FS);
+          return {
+            hash: (hash ?? "").substring(0, 7),
+            fullHash: hash ?? "",
+            author: author ?? "",
+            date: date ?? "",
+            message: message ?? "",
+          };
+        });
+
+      return { commits, count: commits.length };
+    },
+
+    /**
      * Checkout a branch
      */
     checkout: async (branch: string) => {

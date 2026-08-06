@@ -24,9 +24,20 @@ import { modelResolution } from "../src/middleware/modelResolution.js";
 import { createChainLoggingMiddleware } from "../src/middleware/chainLogging.js";
 
 const SOURCE = "messenger";
-const sharedProcessedUpdates: Map<string, number> = new Map();
-const sharedConversations: Map<string, ConversationEntry[]> = new Map();
-const registeredTelegramHandlers: Set<string> = new Set();
+// HotReloadService re-imports this file with a cache-busting query string on every edit
+// (`import(filePath + '?t=' + Date.now())`), which creates a genuinely fresh module instance
+// each time — a plain top-level `const` here would reset to empty on every reload. The
+// Telegram bot connection in plugins/telegram.ts is NOT reloaded (it's set up once at
+// startup and persists), so a reset guard can never see handlers a prior module instance
+// already registered on it, and keeps adding duplicates — the same inbound message then
+// gets processed (and replied to) once per surviving duplicate handler. Anchoring this
+// state on globalThis instead makes it survive the reload along with the bot connection.
+const sharedProcessedUpdates: Map<string, number> =
+  ((globalThis as any).__roninMessengerProcessedUpdates ??= new Map());
+const sharedConversations: Map<string, ConversationEntry[]> =
+  ((globalThis as any).__roninMessengerConversations ??= new Map());
+const registeredTelegramHandlers: Set<string> =
+  ((globalThis as any).__roninMessengerTelegramHandlers ??= new Set());
 const MESSENGER_IDENTITY_AND_INTERFACE = `
 **IDENTITY (DO NOT FORGET):**
 - You are Ronin AI for the Ronin AI agent framework (Bun + TypeScript/JavaScript).

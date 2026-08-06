@@ -20,7 +20,11 @@ const SOURCE = "tool-calling";
  * 6. Demonstrates multi-step operations with context preservation
  */
 export default class ToolCallingAgent extends BaseDuty {
-  static schedule = "0 * * * *";
+  // No schedule — this is a bundled example duty (see class doc above), not something
+  // meant to run unattended in production. It was firing hourly and running real shell/AI
+  // calls against the live project directory purely to demonstrate the SAR chain API.
+  // Kept loadable (no execute()-removal) so `ronin run tool-calling-agent` still works
+  // per TESTING.md and the code remains a working reference example.
 
   constructor(api: DutyAPI) {
     super(api);

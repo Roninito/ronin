@@ -211,6 +211,11 @@ export class OllamaProvider implements AIProvider {
         num_ctx: 8192, // Use reasonable context window
         top_p: 0.9,
         top_k: 40,
+        // callToolsJSONMode below already sets this; the native path never did, so a model
+        // stuck deciding whether/how to call a tool had nothing discouraging it from
+        // degenerating into repeating the same clause over and over instead of emitting
+        // a real tool_calls entry (observed live with glm-5.2:cloud on this exact path).
+        repeat_penalty: 1.1,
       };
       
       const res = await fetchWithTimeout(

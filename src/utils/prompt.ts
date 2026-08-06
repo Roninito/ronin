@@ -505,8 +505,20 @@ export function filterToolSchemas(
   const isCreationRequest = /\b(create|make|build|generate|write me|new duty|new skill)\b/.test(msg);
   const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool)\b/.test(msg);
 
+  // Hand-tuned keyword regexes above can't anticipate every plugin (they missed "list
+  // mngr tasks" and "show me the last 3 git commits" entirely — "tasks"/"commits" aren't
+  // in isLookupRequest's noun list). A message that literally names a real plugin is
+  // strong, generic signal regardless of phrasing.
+  const knownPluginPrefixes = new Set<string>();
+  for (const schema of allSchemas) {
+    const n = schema.function?.name ?? "";
+    const underscore = n.indexOf("_");
+    if (underscore > 2) knownPluginPrefixes.add(n.slice(0, underscore));
+  }
+  const mentionsKnownPlugin = Array.from(knownPluginPrefixes).some((p) => msg.includes(p));
+
   // Only include tools for genuine action requests, not for explanatory questions
-  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest) {
+  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest && !mentionsKnownPlugin) {
     return []; // Return empty for simple chat/questions - let the model answer from knowledge
   }
   // Greetings should never get tools
@@ -586,6 +598,22 @@ export function filterToolSchemas(
   }
 
   if (result.length > maxSchemas) {
+    // Plain slice() here truncates in registration order — local tools first, then
+    // plugins roughly by load order — so a plugin loaded late (e.g. mngr is 8th, git
+    // later still) could get silently cut from the model's options entirely by tools
+    // it had nothing to do with the request, even when its own name is right there in
+    // the message ("list mngr tasks"). Stable-sort tools whose plugin prefix is
+    // literally mentioned in the message to the front before truncating, so an explicit
+    // mention always survives the cap.
+    result.sort((a, b) => {
+      const mentioned = (s: OpenAIFunctionSchema): number => {
+        const n = s.function?.name ?? "";
+        const underscore = n.indexOf("_");
+        const pluginPrefix = underscore > 0 ? n.slice(0, underscore) : "";
+        return pluginPrefix.length > 2 && msg.includes(pluginPrefix) ? 1 : 0;
+      };
+      return mentioned(b) - mentioned(a);
+    });
     return result.slice(0, maxSchemas);
   }
   return result;

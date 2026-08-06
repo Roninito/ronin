@@ -65,7 +65,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
-    useFastModelForDuties: true,
+    useFastModelForAgents: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
     userPluginDir,

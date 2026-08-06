@@ -28,7 +28,7 @@ export async function runCommand(options: RunOptions): Promise<void> {
   const api = await createAPI({
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,
-    useFastModelForDuties: true,
+    useFastModelForAgents: true,
     dbPath: options.dbPath,
     pluginDir: options.pluginDir || config.pluginDir,
   });

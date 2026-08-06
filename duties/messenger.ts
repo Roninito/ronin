@@ -344,7 +344,9 @@ export default class MessengerAgent extends BaseDuty {
   }
 
   /**
-   * Add message to conversation history
+   * Add message to conversation history. Updates the in-process cache synchronously
+   * (existing callers rely on this) and persists to disk in the background so history
+   * survives a full process restart — sharedConversations alone only survives hot reload.
    */
   private addToConversation(
     key: string,
@@ -362,6 +364,29 @@ export default class MessengerAgent extends BaseDuty {
     // Prune old entries
     while (entries.length > this.maxConversationHistory) {
       entries.shift();
+    }
+
+    this.api.memory.store(`conversation:${key}`, entries).catch((err) => {
+      console.error("[messenger] Failed to persist conversation history:", err);
+    });
+  }
+
+  /**
+   * Load conversation history from disk into the in-process cache the first time a
+   * conversation key is touched in this process (sharedConversations is empty right
+   * after a real restart, but the SQLite-backed memory store isn't).
+   */
+  private async hydrateConversationIfNeeded(key: string): Promise<void> {
+    if (sharedConversations.has(key)) return;
+    try {
+      const stored = (await this.api.memory.retrieve(`conversation:${key}`)) as
+        | ConversationEntry[]
+        | undefined;
+      if (Array.isArray(stored) && stored.length > 0) {
+        sharedConversations.set(key, stored);
+      }
+    } catch (err) {
+      console.error("[messenger] Failed to hydrate conversation history:", err);
     }
   }
 
@@ -602,6 +627,7 @@ export default class MessengerAgent extends BaseDuty {
     }
 
     const conversationKey = this.getConversationKey(message.sourceChannel, message.sourceUser);
+    await this.hydrateConversationIfNeeded(conversationKey);
     const isFirst = this.isFirstMessage(conversationKey);
     const hasOntology = this.api.plugins.has("ontology");
 
@@ -668,7 +694,12 @@ export default class MessengerAgent extends BaseDuty {
         .filter((content) => content.length > 0)
         .join("\n\n");
 
-      const toPreview = (value: unknown, max = 700): string => {
+      // This feeds the synthesis prompt (and can become the literal fallback reply sent
+      // to the user verbatim if synthesis fails) — not just a terminal log line — so it
+      // needs real fidelity. A 700-char cap was cutting structured tool results like
+      // git_log's commit list off mid-JSON, and the synthesis model correctly reported
+      // the malformed tail as "truncated" back to the user.
+      const toPreview = (value: unknown, max = 4000): string => {
         try {
           const raw = typeof value === "string" ? value : JSON.stringify(value);
           return raw.length > max ? `${raw.slice(0, max)}...` : raw;

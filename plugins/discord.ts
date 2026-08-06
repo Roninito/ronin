@@ -513,6 +513,185 @@ const discordPlugin: Plugin = {
         );
       }
     },
+
+    /**
+     * List active threads in a channel (only channel types that support threads —
+     * text, announcement, forum — expose a `.threads` manager).
+     * @param clientId ID from initBot
+     * @param channelId Parent channel ID
+     */
+    listThreads: async (
+      clientId: string,
+      channelId: string
+    ): Promise<Array<{ id: string; name: string; archived: boolean; parentId: string | null }>> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      try {
+        const channel = await instance.client.channels.fetch(channelId);
+        if (!channel || !("threads" in channel)) {
+          throw new Error(`Channel does not support threads: ${channelId}`);
+        }
+        const active = await (channel as unknown as { threads: { fetchActive(): Promise<{ threads: Map<string, any> }> } }).threads.fetchActive();
+        return Array.from(active.threads.values()).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          archived: Boolean(t.archived),
+          parentId: t.parentId ?? null,
+        }));
+      } catch (error) {
+        throw new Error(
+          `Failed to list threads: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+
+    /**
+     * List archived threads in a channel.
+     * @param clientId ID from initBot
+     * @param channelId Parent channel ID
+     * @param limit Max threads to return (default 25)
+     */
+    listArchivedThreads: async (
+      clientId: string,
+      channelId: string,
+      limit?: number
+    ): Promise<Array<{ id: string; name: string; archived: boolean; parentId: string | null }>> => {
+      const instance = clients.get(clientId);
+      if (!instance) {
+        throw new Error(`Client not initialized: ${clientId}`);
+      }
+      try {
+        const channel = await instance.client.channels.fetch(channelId);
+        if (!channel || !("threads" in channel)) {
+          throw new Error(`Channel does not support threads: ${channelId}`);
+        }
+        const effectiveLimit = limit && limit > 0 ? limit : 25;
+        const archived = await (
+          channel as unknown as {
+            threads: { fetchArchived(options: { limit: number }): Promise<{ threads: Map<string, any> }> };
+          }
+        ).threads.fetchArchived({ limit: effectiveLimit });
+        return Array.from(archived.threads.values()).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          archived: true,
+          parentId: t.parentId ?? null,
+        }));
+      } catch (error) {
+        throw new Error(
+          `Failed to list archived threads: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    },
+  },
+  toolMetadata: {
+    sendMessage: {
+      description: "Send a text message (optionally with a rich embed) to a Discord channel or thread.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          channelId: { type: "string", description: "Channel or thread ID to send to" },
+          content: { type: "string", description: "Message text" },
+        },
+        required: ["clientId", "channelId", "content"],
+      },
+    },
+    getMessages: {
+      description: "Fetch recent message history from a Discord channel or thread.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          channelId: { type: "string", description: "Channel or thread ID to read" },
+          options: { type: "object", description: "Optional { limit, before }" },
+        },
+        required: ["clientId", "channelId"],
+      },
+    },
+    joinGuild: {
+      description:
+        "Resolve info about a Discord invite code. Bots join servers via OAuth2, not by accepting invites — this only looks up invite metadata.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          inviteCode: { type: "string", description: "Invite code, without the discord.gg/ prefix" },
+        },
+        required: ["clientId", "inviteCode"],
+      },
+    },
+    getChannel: {
+      description: "Get info about a specific Discord channel (name, type, guild).",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          channelId: { type: "string" },
+        },
+        required: ["clientId", "channelId"],
+      },
+    },
+    listGuilds: {
+      description: "List the Discord servers (guilds) this bot is currently a member of.",
+      parameters: {
+        type: "object",
+        properties: { clientId: { type: "string", description: "Bot client ID from initBot" } },
+        required: ["clientId"],
+      },
+    },
+    listChannels: {
+      description: "List the channels in a specific Discord server (guild). Does not include threads — use listThreads for those.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          guildId: { type: "string", description: "Guild (server) ID" },
+        },
+        required: ["clientId", "guildId"],
+      },
+    },
+    getBotInfo: {
+      description: "Get this bot's own Discord identity (real snowflake user ID and username).",
+      parameters: {
+        type: "object",
+        properties: { clientId: { type: "string", description: "Bot client ID from initBot" } },
+        required: ["clientId"],
+      },
+    },
+    listDMChannels: {
+      description: "List direct-message channels this bot currently has open.",
+      parameters: {
+        type: "object",
+        properties: { clientId: { type: "string", description: "Bot client ID from initBot" } },
+        required: ["clientId"],
+      },
+    },
+    listThreads: {
+      description: "List active threads inside a specific Discord channel.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          channelId: { type: "string", description: "Parent channel ID" },
+        },
+        required: ["clientId", "channelId"],
+      },
+    },
+    listArchivedThreads: {
+      description: "List archived (closed) threads inside a specific Discord channel.",
+      parameters: {
+        type: "object",
+        properties: {
+          clientId: { type: "string", description: "Bot client ID from initBot" },
+          channelId: { type: "string", description: "Parent channel ID" },
+          limit: { type: "number", description: "Max threads to return (default 25)" },
+        },
+        required: ["clientId", "channelId"],
+      },
+    },
   },
 };
 

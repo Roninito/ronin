@@ -255,11 +255,16 @@ const gitPlugin: Plugin = {
     },
 
     /**
-     * Read commit history (auto-initializes repo if needed)
+     * Read commit history (auto-initializes repo if needed).
+     * Takes a plain positional number, not an options object — every other method on
+     * this plugin (clone, commit, branch, checkout...) takes positional primitive args,
+     * and the generic plugin-tool dispatcher (src/api/index.ts's registerPluginToolsWithRouter)
+     * flattens whatever the model sends into a positional array before calling the plugin
+     * method. An options-object parameter here would silently never receive its value.
      */
-    log: async (options?: { limit?: number }) => {
+    log: async (limit?: number) => {
       await ensureGitRepo();
-      const limit = options?.limit && options.limit > 0 ? options.limit : 10;
+      const effectiveLimit = limit && limit > 0 ? limit : 10;
 
       // Use ASCII field/record separators so commit messages containing
       // arbitrary punctuation can't be misparsed as delimiters.
@@ -269,7 +274,7 @@ const gitPlugin: Plugin = {
         [
           "git",
           "log",
-          `-${limit}`,
+          `-${effectiveLimit}`,
           `--pretty=format:%H${FS}%an${FS}%ad${FS}%s${RS}`,
           "--date=iso-strict",
         ],
@@ -325,6 +330,93 @@ const gitPlugin: Plugin = {
       }
 
       return { success: true, output: stdout };
+    },
+  },
+  toolMetadata: {
+    clone: {
+      description: "Clone a git repository from a URL.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "Repository URL to clone" },
+          dir: { type: "string", description: "Optional destination directory" },
+        },
+        required: ["url"],
+      },
+    },
+    status: {
+      description:
+        "Get the working tree status: whether it's clean, and which files are modified/staged/untracked. Auto-initializes a repo if none exists yet.",
+    },
+    add: {
+      description: "Stage one or more files for the next commit.",
+      parameters: {
+        type: "object",
+        properties: { files: { type: "array", description: "File path or paths to stage" } },
+        required: ["files"],
+      },
+    },
+    commit: {
+      description: "Commit staged (or specified) changes with a message.",
+      parameters: {
+        type: "object",
+        properties: {
+          message: { type: "string", description: "Commit message" },
+          files: { type: "array", description: "Optional specific files to commit instead of everything staged" },
+        },
+        required: ["message"],
+      },
+    },
+    push: {
+      description: "Push commits to a remote.",
+      parameters: {
+        type: "object",
+        properties: {
+          remote: { type: "string", description: "Remote name, e.g. origin" },
+          branch: { type: "string", description: "Branch to push" },
+        },
+        required: [],
+      },
+    },
+    pull: {
+      description: "Pull commits from a remote.",
+      parameters: {
+        type: "object",
+        properties: {
+          remote: { type: "string", description: "Remote name, e.g. origin" },
+          branch: { type: "string", description: "Branch to pull" },
+        },
+        required: [],
+      },
+    },
+    branch: {
+      description: "List existing branches, or create a new one if a name is given.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name of a new branch to create; omit to just list existing branches" },
+        },
+        required: [],
+      },
+    },
+    log: {
+      description:
+        "Read commit history — hashes, authors, dates, and messages. Use this for anything like \"show recent commits\" or \"summarize the last N updates\" instead of running raw shell git log commands.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Max number of commits to return (default 10)" },
+        },
+        required: [],
+      },
+    },
+    checkout: {
+      description: "Switch to a branch.",
+      parameters: {
+        type: "object",
+        properties: { branch: { type: "string", description: "Branch name to check out" } },
+        required: ["branch"],
+      },
     },
   },
 };

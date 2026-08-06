@@ -54,6 +54,15 @@ function registerPluginToolsWithRouter(
     const methodName = name.slice(underscore + 1);
     if (isPluginMethodSkipped(methodName)) continue;
 
+    // A real (non-fallback) parameter schema has named properties other than the
+    // generic single "args" array — map those to a positional call in the schema's
+    // declared order, so a model that omits or reorders optional named params still
+    // lands each value on the correct positional slot instead of silently shifting.
+    const declaredProperties = (t.function.parameters as { properties?: Record<string, unknown> } | undefined)?.properties;
+    const declaredKeys = declaredProperties ? Object.keys(declaredProperties) : [];
+    const namedParamOrder =
+      declaredKeys.length > 0 && !(declaredKeys.length === 1 && declaredKeys[0] === "args") ? declaredKeys : null;
+
     const def: ToolDefinition = {
       name,
       description: t.function.description || `Call ${methodName} from ${pluginName} plugin`,
@@ -73,6 +82,10 @@ function registerPluginToolsWithRouter(
                 ? args.args[0]
                 : args;
             result = await api.plugins.call(pluginName, methodName, params);
+          } else if (namedParamOrder) {
+            const argsArr = namedParamOrder.map((key) => args?.[key]);
+            while (argsArr.length > 0 && argsArr[argsArr.length - 1] === undefined) argsArr.pop();
+            result = await api.plugins.call(pluginName, methodName, ...argsArr);
           } else {
             const argsArr = Array.isArray(args?.args) ? (args.args as unknown[]) : (args && typeof args === "object" ? Object.values(args) : []);
             result = await api.plugins.call(pluginName, methodName, ...argsArr);

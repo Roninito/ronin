@@ -67,6 +67,79 @@ const mngrPlugin: Plugin = {
         return { ok: false, status: 0, error: e instanceof Error ? e.message : String(e) };
       }
     },
+
+    /**
+     * List MNGR's tasks ("duties" in the sense a user usually means when asking Ronin
+     * what MNGR has going on — distinct from Ronin's own internal Duty concept).
+     * GET /api/v1/tasks is unauthenticated on MNGR's side (only mutating verbs are
+     * gated), so this only needs baseUrl — no registration secret/token required.
+     * Positional args, not an options object — the generic plugin-tool dispatcher
+     * (src/api/index.ts) flattens whatever the model sends into a positional array
+     * before calling the plugin method, same reason plugins/git.ts's log() takes a
+     * plain number rather than { limit }.
+     */
+    async listTasks(
+      projectId?: string,
+      assignedTo?: string,
+      status?: string
+    ): Promise<{ ok: boolean; status: number; tasks?: unknown[]; error?: string }> {
+      const cfg = getMngrConfig();
+      if (!cfg.baseUrl) {
+        return { ok: false, status: 0, error: "mngr plugin not configured — set mngr.baseUrl" };
+      }
+      try {
+        const params = new URLSearchParams();
+        if (projectId) params.set("project_id", projectId);
+        if (assignedTo) params.set("assigned_to", assignedTo);
+        if (status) params.set("status", status);
+        const qs = params.toString();
+        const res = await fetch(`${cfg.baseUrl}/api/v1/tasks${qs ? `?${qs}` : ""}`, {
+          signal: AbortSignal.timeout(10_000),
+        });
+        const body = await res.json().catch(() => undefined);
+        if (!res.ok) {
+          const errMsg =
+            body && typeof body === "object" && "error" in body
+              ? String((body as { error: unknown }).error)
+              : `HTTP ${res.status}`;
+          return { ok: false, status: res.status, error: errMsg };
+        }
+        return { ok: true, status: res.status, tasks: Array.isArray(body) ? body : [] };
+      } catch (e) {
+        return { ok: false, status: 0, error: e instanceof Error ? e.message : String(e) };
+      }
+    },
+  },
+  toolMetadata: {
+    getConfig: {
+      description:
+        "Check whether Ronin is configured to talk to MNGR (the external task orchestrator) and what its base URL is. Never returns secrets.",
+    },
+    register: {
+      description:
+        "Register (or re-register) this Ronin instance with MNGR so MNGR can dispatch tasks to it. Idempotent — safe to call repeatedly.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Worker name to register as" },
+          endpointUrl: { type: "string", description: "URL MNGR should call to dispatch tasks to this Ronin instance" },
+        },
+        required: ["name", "endpointUrl"],
+      },
+    },
+    listTasks: {
+      description:
+        "List MNGR's tasks — what a user usually means by \"tasks\" or \"duties\" in MNGR specifically, distinct from Ronin's own internal duties. Optionally filter by project, assignee, or status.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: { type: "string", description: "Filter to tasks in this MNGR project ID" },
+          assignedTo: { type: "string", description: "Filter to tasks assigned to this MNGR worker ID" },
+          status: { type: "string", description: "Filter by status, e.g. open, in_progress, blocked, done, cancelled" },
+        },
+        required: [],
+      },
+    },
   },
 };
 

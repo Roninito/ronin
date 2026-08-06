@@ -16,7 +16,16 @@ export class Chain {
   ) {}
 
   withContext(ctx: ChainContext): this {
-    this.ctx = { ...ctx, executor: this.executor };
+    // Mutate and hold onto the SAME object the caller passed in — do not spread it into
+    // a copy. Middleware such as conversation-history injection reassigns `ctx.messages`
+    // to a brand-new array (not an in-place push); if this.ctx were a separate object,
+    // that reassignment would only be visible inside the chain, silently orphaning the
+    // caller's own `ctx.messages` reference at whatever state it was in before the
+    // reassignment — e.g. messenger.ts reading back an empty/stale message list after
+    // chain.run() resolves, even though the chain itself ran with the full, correct
+    // history- and tool-result-augmented context.
+    ctx.executor = this.executor;
+    this.ctx = ctx;
     return this;
   }
 

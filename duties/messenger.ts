@@ -17,6 +17,7 @@ import {
 } from "../src/utils/prompt.js";
 import { createOntologyResolveMiddleware } from "../src/middleware/ontologyResolve.js";
 import { createOntologyInjectMiddleware } from "../src/middleware/ontologyInject.js";
+import { createArtifactInjectMiddleware } from "../src/middleware/artifactInject.js";
 import { createTokenGuardMiddleware } from "../src/middleware/tokenGuard.js";
 import { createAiToolMiddleware } from "../src/middleware/aiToolMiddleware.js";
 import { createExecutionTrackingMiddleware } from "../src/middleware/executionTracking.js";
@@ -234,11 +235,12 @@ function createConversationHistoryMiddleware(
  * Excludes smartTrim to preserve conversation history
  */
 function buildMessengerSAR(options: {
+  api: DutyAPI;
   maxTokens?: number;
   maxToolIterations?: number;
   conversationHistory?: () => ChainMessage[];
-}): MiddlewareStack {
-  const stack = new MiddlewareStack();
+}): MiddlewareStack<ChainContext> {
+  const stack = new MiddlewareStack<ChainContext>();
 
   // 1. Logging
   stack.use(
@@ -262,22 +264,30 @@ function buildMessengerSAR(options: {
     createOntologyInjectMiddleware()
   );
 
-  // 5. Conversation history injection (if provided)
+  // 5. Artifact detection/injection — cross-chat continuity for Artifact
+  // projects (mentioning "the game assets project" in a Telegram message
+  // days after the fact should pull its live state into context, same as
+  // ontology resolution does for skills/tasks).
+  stack.use(
+    createArtifactInjectMiddleware({ api: options.api })
+  );
+
+  // 6. Conversation history injection (if provided)
   if (options.conversationHistory) {
     stack.use(createConversationHistoryMiddleware(options.conversationHistory));
   }
 
-  // 6. Token guard (enforce budget, but no trimming)
+  // 7. Token guard (enforce budget, but no trimming)
   stack.use(
     createTokenGuardMiddleware({
       maxTokens: options.maxTokens || 8192,
     })
   );
 
-  // 7. Execution tracking
+  // 8. Execution tracking
   stack.use(createExecutionTrackingMiddleware());
 
-  // 8. AI tool execution
+  // 9. AI tool execution
   stack.use(
     createAiToolMiddleware({
       maxIterations: options.maxToolIterations || 5,
@@ -670,6 +680,7 @@ export default class MessengerAgent extends BaseDuty {
     try {
       // Build custom SAR stack with conversation history injection
       const stack = buildMessengerSAR({
+        api: this.api,
         maxTokens: 8192,
         maxToolIterations: 5,
         conversationHistory: getHistory,

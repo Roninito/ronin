@@ -202,6 +202,24 @@ export default class DocsAgent extends BaseDuty {
     // Serve book CSS files
     this.api.http.registerRoute("/docs/book/styles/", this.handleBookCSS.bind(this));
     this.api.http.registerRoute("/docs/skills-and-duties/styles/", this.handleSkillsDutiesCSS.bind(this));
+    // Standalone pre-built HTML guide (not markdown, so it isn't picked up by
+    // the .md-only discovery above — served directly instead).
+    this.api.http.registerRoute("/guide", this.handleGuideUI.bind(this), {
+      title: "Ronin User Guide",
+      description: "What Ronin does today and how to use it",
+    });
+  }
+
+  /**
+   * Serve the standalone user guide (docs/GUIDE.html) as-is.
+   */
+  private async handleGuideUI(): Promise<Response> {
+    try {
+      const html = await readFile(join(this.docsPath, "GUIDE.html"), "utf-8");
+      return new Response(html, { headers: { "Content-Type": "text/html" } });
+    } catch {
+      return new Response("Guide not found", { status: 404 });
+    }
   }
 
   private normalizeText(content: string, path: string): string {

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ronin — User Guide</title>
+<style>
+  :root {
+    --text: #1a1a1a;
+    --muted: #555;
+    --bg: #ffffff;
+    --line: #d9d9d9;
+    --code-bg: #f4f4f4;
+    --accent: #1a4a7a;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 17px;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 6rem; }
+  h1, h2, h3, h4 {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.25;
+    color: var(--text);
+  }
+  h1 { font-size: 2.1rem; margin: 0 0 .25rem; }
+  .subtitle { color: var(--muted); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0 0 2.5rem; }
+  h2 {
+    font-size: 1.45rem;
+    margin: 3rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 1.1rem; margin: 2rem 0 .5rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  code {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: .85em;
+    background: var(--code-bg);
+    padding: .1em .35em;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    margin: 0 0 1rem;
+  }
+  pre code { background: none; padding: 0; font-size: .82rem; line-height: 1.5; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1.25rem;
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: .92rem;
+  }
+  th, td {
+    text-align: left;
+    padding: .5rem .6rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { font-weight: 600; }
+  .toc {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: .95rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .toc ol { margin: .25rem 0 0; padding-left: 1.25rem; }
+  .toc li { margin: .2rem 0; }
+  .note {
+    border-left: 3px solid var(--accent);
+    padding: .5rem 1rem;
+    margin: 0 0 1rem;
+    background: #f7f9fb;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .kbd-path { color: var(--muted); }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #e8e8e8;
+      --muted: #a5a5a5;
+      --bg: #191919;
+      --line: #3a3a3a;
+      --code-bg: #242424;
+      --accent: #7fb3e0;
+    }
+    .note { background: #202730; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Ronin User Guide</h1>
+<p class="subtitle">A local-first AI agent system. This guide covers what Ronin does today and how to use it.</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#model">The mental model</a></li>
+  <li><a href="#concepts">Three concepts: Duty, Tool, Skill</a></li>
+  <li><a href="#start">Getting started</a></li>
+  <li><a href="#talk">Talking to Ronin</a></li>
+  <li><a href="#web">The web surface</a></li>
+  <li><a href="#duties">Writing a Duty</a></li>
+  <li><a href="#api">The API object</a></li>
+  <li><a href="#skills">Skills</a></li>
+  <li><a href="#artifacts">Artifacts</a></li>
+  <li><a href="#plans">The Plan Workflow</a></li>
+  <li><a href="#tasking">Coding Tasks (multi-executor)</a></li>
+  <li><a href="#models">Models and privacy</a></li>
+  <li><a href="#config">Where everything lives</a></li>
+  <li><a href="#trouble">Troubleshooting</a></li>
+</ol>
+</div>
+
+<h2 id="model">1. The mental model</h2>
+<p><strong>Ronin is a daemon. Everything else is a remote control.</strong></p>
+<p>You start Ronin once with <code>ronin start</code> and it keeps running — scheduling work, watching files, listening on Telegram and Discord, serving dashboards. The CLI, the chat channels, and the browser are all just different ways of reaching that one running process. This explains the most common first-run surprise: <code>ronin ask</code> fails if Ronin isn't running, because <code>ask</code> is a client, not a standalone command.</p>
+<p>Internally, every unit of work in Ronin is a <strong>Duty running the SAR loop</strong>: Sense (pull in signal — a schedule firing, a file changing, a chat message), Analyze (reason over it with an AI model), Respond (execute tools, emit events, write memory). There is no second execution model. Coordination and scheduling are just Duties whose job is coordinating other Duties.</p>
+
+<h2 id="concepts">2. Three concepts: Duty, Tool, Skill</h2>
+<p>Ronin has exactly three capability concepts. Older names still appear in some files and commands; the translations are below.</p>
+<table>
+<tr><th>Concept</th><th>What it is</th><th>Legacy names you may still see</th></tr>
+<tr><td><strong>Duty</strong></td><td>A running SAR loop with a persona, an allowlist of capabilities, and memory. The thing that <em>decides</em>. Lives in <code>duties/</code>.</td><td>Agent</td></tr>
+<tr><td><strong>Tool</strong></td><td>An atomic, typed, in-process capability the AI can call directly (function calling). Bundled into Tool Packs.</td><td>Plugin method</td></tr>
+<tr><td><strong>Skill</strong></td><td>A markdown-defined, language-agnostic capability — can shell out to Python or anything else. Discoverable, installable, shareable. Lives in <code>skills/</code>.</td><td>Technique, Kata</td></tr>
+</table>
+<p>If you see "agent" in a command or doc, read it as Duty. If you see "kata" or "technique," those concepts have been folded into Skills.</p>
+
+<h2 id="start">3. Getting started</h2>
+<pre><code># One-time setup — the wizard walks you through privacy mode,
+# desktop integration, and optional cloud AI keys
+ronin init
+
+# Or accept the recommended defaults
+ronin init --quick
+
+# Start the daemon (leave this running)
+ronin start</code></pre>
+<p>The wizard's defaults are the most private configuration: local AI only (Ollama), nothing leaves your machine, works offline. Cloud providers are opt-in and can be added later.</p>
+<p>Once it's running, verify from another terminal:</p>
+<pre><code>ronin status          # is it up, what's scheduled
+ronin list            # all loaded duties
+ronin list-routes     # every URL the running instance serves</code></pre>
+
+<h2 id="talk">4. Talking to Ronin</h2>
+<p>Ronin has several front doors. They all reach the same running instance and share conversation context.</p>
+<table>
+<tr><th>Door</th><th>Use it for</th><th>How</th></tr>
+<tr><td>CLI</td><td>Quick questions, scripted use</td><td><code>ronin ask "how do plugins work?"</code> (requires <code>ronin start</code> first)</td></tr>
+<tr><td>Telegram / Discord</td><td>Conversations away from the machine; submitting plans</td><td>Configure tokens in <code>ronin init</code> or config; message the bot</td></tr>
+<tr><td>Browser</td><td>Dashboards, kanban, artifacts, docs</td><td><code>http://localhost:3000</code></td></tr>
+<tr><td>Webhooks</td><td>Triggering duties from other systems</td><td>Any duty with a <code>static webhook</code> path, on port 3000</td></tr>
+<tr><td>MCP</td><td>Giving Ronin external capabilities (filesystem, web search, GitHub)</td><td><code>ronin mcp discover</code>, then <code>ronin mcp add ...</code></td></tr>
+</table>
+<p>Model choice per question: <code>ronin ask "…"</code> uses the local default; <code>ronin ask smart "…"</code> and <code>ronin ask cloud "…"</code> use the configured tiers; <code>--ask-model qwen3:1.7b</code> pins a specific Ollama model.</p>
+
+<h2 id="web">5. The web surface</h2>
+<p>Duties register their own pages on the main port (3000 by default). The essential map:</p>
+<table>
+<tr><th>URL</th><th>What's there</th></tr>
+<tr><td><code>/</code></td><td>Home — entry point to the running instance</td></tr>
+<tr><td><code>/artifacts</code></td><td>All Artifact projects with state and progress</td></tr>
+<tr><td><code>/artifact/&lt;id&gt;</code></td><td>One artifact's dashboard: progress bars, collected assets, activity log</td></tr>
+<tr><td><code>/todo</code></td><td>The Plan Workflow kanban board — also where Coding Task cards (Doing / Review / Merge Conflict / Done) live</td></tr>
+<tr><td><code>/api/routes</code></td><td>JSON list of every registered route</td></tr>
+<tr><td><code>http://localhost:3002/docs</code></td><td>The documentation server (<code>ronin docs</code> opens it)</td></tr>
+<tr><td><code>/guide</code></td><td>This guide</td></tr>
+</table>
+<p>Because duties add routes dynamically, the authoritative list is always <code>ronin list-routes</code>. Make that your discovery habit — new duties often ship new pages.</p>
+
+<h2 id="duties">6. Writing a Duty</h2>
+<p>A Duty is a TypeScript class in <code>duties/</code> (project) or <code>~/.ronin/agents</code> (shared across projects). It declares how it wakes up — a cron schedule, a file watch, a webhook, or any combination — and gets an <code>api</code> object for everything else.</p>
+<pre><code>import { BaseDuty } from "../src/duty/index.js";
+import type { DutyAPI } from "../src/types/index.js";
+
+export default class DigestDuty extends BaseDuty {
+  static schedule = "0 9 * * 1-5";      // weekdays at 9am
+  static watch = ["notes/**/*.md"];      // optional
+  static webhook = "/webhook/digest";    // optional
+
+  constructor(api: DutyAPI) { super(api); }
+
+  async execute(): Promise&lt;void&gt; {
+    const recent = await this.api.memory.getRecent(10);
+    const summary = await this.api.ai.complete(
+      `Summarize these notes: ${JSON.stringify(recent)}`
+    );
+    await this.api.memory.store("daily-digest", summary);
+  }
+}</code></pre>
+<p>You don't have to write duties by hand. <code>ronin create agent "monitor log files and alert on errors"</code> generates one interactively with AI assistance, and <code>ronin run &lt;name&gt;</code> executes any duty once, on demand, for testing.</p>
+
+<h2 id="api">7. The API object</h2>
+<p>Every Duty receives <code>this.api</code>. The namespaces you'll use constantly:</p>
+<table>
+<tr><th>Namespace</th><th>What it gives you</th></tr>
+<tr><td><code>api.ai</code></td><td><code>complete</code>, <code>chat</code>, <code>stream</code>, and <code>callTools</code> (function-calling loop). Routed through model tiers.</td></tr>
+<tr><td><code>api.memory</code></td><td>Store/retrieve/search persistent memory (SQLite-backed)</td></tr>
+<tr><td><code>api.files</code></td><td>Read, write, list, watch files</td></tr>
+<tr><td><code>api.db</code></td><td>Direct SQL: <code>query</code>, <code>execute</code>, <code>transaction</code></td></tr>
+<tr><td><code>api.events</code></td><td>The event bus: <code>emit</code>, <code>on</code>. How duties talk to each other.</td></tr>
+<tr><td><code>api.http</code></td><td>Outbound requests, plus <code>registerRoute</code> to serve pages</td></tr>
+<tr><td>Direct plugin APIs</td><td><code>api.git</code>, <code>api.shell</code>, <code>api.telegram</code>, <code>api.discord</code>, <code>api.scrape</code>, <code>api.rag</code>, <code>api.email</code>, and more</td></tr>
+</table>
+<p>The one rule of the architecture worth internalizing: <strong>duties communicate through events, not by calling into each other.</strong> One scheduler, one bus, and a single state-owning duty per domain (for example, the Todo duty owns the kanban).</p>
+
+<h2 id="skills">8. Skills</h2>
+<p>Skills are markdown-defined capabilities that live in <code>skills/</code> and <code>~/.ronin/skills</code>. Unlike Tools, they're language-agnostic — a skill can run Python, shell scripts, or anything else. They follow the open AgentSkills standard, which means you can install skills from the public ecosystem.</p>
+<pre><code>ronin skills list                        # what's installed
+ronin skills discover "log monitor"      # search skills.sh + playbooks.com
+ronin skills explore &lt;name&gt;              # read a skill's full docs
+ronin skills use &lt;name&gt; --ability=x --params='{...}'
+ronin create skill "monitor logs and alert on errors"</code></pre>
+<p>A skill is just a folder with a <code>SKILL.md</code> — frontmatter (name, description) plus documentation of its operations. Ronin reads these to know when and how to use each skill during conversations and duty runs.</p>
+
+<h2 id="artifacts">9. Artifacts</h2>
+<p>Artifacts are Ronin's persistent project containers — the feature to reach for whenever work spans more than one session. An Artifact tracks a multi-step collection or research project across every chat, Discord message, and duty that touches it, and it knows when it's done.</p>
+<h3>What an Artifact does</h3>
+<p>Each Artifact has a lifecycle (<code>INITIALIZED → ACTIVE → PROCESSING → REVIEW → COMPLETE → ARCHIVED</code>), asset categories with target/collected/pending counts, a completion threshold (85% by default), an activity log, and its own dashboard at <code>/artifact/&lt;id&gt;</code>. Files gathered for the project are stored under the artifact and served from its dashboard.</p>
+<h3>Using them in conversation</h3>
+<p>You mostly don't manage Artifacts manually — you mention them. Say "let's gather 3D models and textures for the game" and Ronin will propose creating an Artifact. Later, in a completely different chat, say "add some vehicle models to the game assets" and Ronin recognizes which project you mean (by id, name, or tag relevance), pulls its current state into context, and records the new work. This auto-detection runs on Telegram and Discord today; elsewhere, Ronin still knows the <code>artifact_*</code> tools exist but won't proactively surface a specific project's state unless you name it.</p>
+<h3>Why it doesn't loop forever</h3>
+<p>The artifact-manager duty sweeps active artifacts every 15 minutes and asks a gated question: is this project due for more work? The gate enforces exponential backoff between check-ins (1h, 1.5h, 2.25h…), a maximum attempt count, relevance scoring on new context, and a hard stop once the project is COMPLETE or ARCHIVED. When an artifact does come due, Ronin nudges you on Telegram or Discord with what's pending and a dashboard link, rather than silently burning cycles. Completed projects can be re-opened by asking.</p>
+<h3>The tools</h3>
+<p>Eight <code>artifact_*</code> tools are available to the AI in any conversation: create, load, updateProgress, addAsset, appendLog, schedule, transitionState, and getSchedulingStatus. You can invoke them indirectly ("mark the game assets project complete") — you never need to call them yourself.</p>
+
+<h2 id="plans">10. The Plan Workflow</h2>
+<p>The Plan Workflow turns a chat message into approved, executed work, with a human gate in the middle.</p>
+<pre><code>1. Propose   →  Telegram message: "#ronin #plan Create user auth system"
+2. Track     →  The Todo duty adds it to the kanban at /todo
+3. Approve   →  You approve on the board (or POST /api/plans/approve)
+4. Execute   →  The Coder Bot picks up the approved plan and runs it
+5. Observe   →  Every transition emits events; observers alert and log</code></pre>
+<p>The design guarantees are worth knowing: all communication is events, the Todo duty is the only owner of plan state, and the Coder Bot is a pure reactor that only acts on approved plans. Nothing executes without your approval.</p>
+
+<h2 id="tasking">11. Coding Tasks (multi-executor)</h2>
+<p>The same kanban board that runs the Plan Workflow can hand a card to a real coding agent — Claude, opencode, qwen, cursor, or Gemini — working inside its own isolated git worktree, with your review in the loop before anything merges into your repo.</p>
+<h3>Picking an executor</h3>
+<p>Tag a card <code>#claude</code>, <code>#opencode</code>, <code>#qwen</code>, <code>#cursor</code>, or <code>#gemini</code> to pick that executor explicitly. An untagged command that clearly implies file or code work falls back to your configured default (<code>claude</code> out of the box); anything else stays on Ronin's own tool-calling loop, unchanged — coding execution is opt-in per command, never the default path.</p>
+<h3>Worktrees, review, and merge</h3>
+<p>Every coding-executor command gets its own git worktree on a fresh <code>task/&lt;card-id&gt;</code> branch, so parallel cards never share a writable ref. When the executor finishes, a card with file changes moves to a new <strong>Review</strong> column with the diff attached; no changes means it goes straight to Done, same as any other command. Approve on the Review card (or <code>POST /api/todo/commands/approve</code>) to dry-run the merge, fast-forward your base branch, and release the worktree. If it conflicts — something else merged while this sat in Review — Ronin spins up a linked conflict-resolution card in the same worktree automatically, rather than leaving you to sort it out by hand. Cards in Review are also rechecked periodically, so a conflict can surface before you ever click Approve.</p>
+<h3>Leaving feedback</h3>
+<p>A comment on a Review card (<code>POST /api/todo/commands/resume</code>) sends it back for another round — the executor resumes its actual session in the same worktree rather than starting over, and the diff can be viewed per round or cumulatively.</p>
+<h3>From one goal to many cards</h3>
+<p>Give the board a goal instead of a pre-chopped task list — "ship the CSV export feature" — and Ronin breaks it into linked cards with dependencies, tagging each with the executor it thinks fits. Cards labeled <code>#auto</code> start themselves the moment their prerequisites land in Done.</p>
+<h3>Safety</h3>
+<p>Coding executors run shell commands and write files, so any command that resolves to one from an untrusted source (a Discord or Telegram message, for instance) is held for your explicit approval before it ever touches a worktree — the same pending-response mechanism used elsewhere in Ronin, not a separate system. Commands you create yourself, from the board or a channel you've explicitly marked trusted, run immediately.</p>
+
+<h2 id="models">12. Models and privacy</h2>
+<p>Ronin's default posture is fully local: Ollama on <code>localhost:11434</code>, no data leaving the machine, functional without internet. Cloud AI is a tiered opt-in, not a requirement.</p>
+<table>
+<tr><th>Tier</th><th>Meaning</th></tr>
+<tr><td><code>local</code></td><td>Ollama models on your machine (the default)</td></tr>
+<tr><td><code>smart</code></td><td>Your configured "better" model — local or cloud, your choice</td></tr>
+<tr><td><code>cloud</code></td><td>Remote providers (Anthropic, OpenAI, Grok, Gemini) — requires API keys</td></tr>
+</table>
+<p>Manage local model definitions with <code>ronin ai add / list / run</code>, and set cloud keys with <code>ronin config --grok-api-key …</code> etc. When cloud tools are used, Ronin surfaces estimated costs and asks before expensive operations.</p>
+
+<h2 id="config">13. Where everything lives</h2>
+<table>
+<tr><th>Path</th><th>Contents</th></tr>
+<tr><td class="kbd-path"><code>~/.ronin/config.json</code></td><td>Main config: API keys, directories, notification preferences</td></tr>
+<tr><td class="kbd-path"><code>~/.ronin/agents/</code></td><td>Your shared duties (survive project updates, loaded alongside <code>./duties</code>)</td></tr>
+<tr><td class="kbd-path"><code>~/.ronin/plugins/</code></td><td>User plugins — override built-ins with the same name</td></tr>
+<tr><td class="kbd-path"><code>~/.ronin/skills/</code></td><td>Installed skills (global)</td></tr>
+<tr><td class="kbd-path"><code>~/.ronin/guidelines/</code></td><td>System-prompt building blocks — edit these to change Ronin's behavior</td></tr>
+<tr><td class="kbd-path"><code>~/.ronin/ai-models.json</code></td><td>Local AI model registry</td></tr>
+<tr><td class="kbd-path"><code>./ronin.db</code></td><td>The SQLite database: memory, artifacts, plans, events</td></tr>
+</table>
+<p>Precedence rules: environment variables override <code>config.json</code>; user plugins override built-in plugins of the same name. <code>ronin config --show</code> prints the resolved picture.</p>
+<table>
+<tr><th>Port</th><th>Service</th></tr>
+<tr><td>3000</td><td>Main server: dashboards, APIs, webhooks</td></tr>
+<tr><td>3002</td><td>Documentation server</td></tr>
+<tr><td>11434</td><td>Ollama (local AI)</td></tr>
+</table>
+
+<h2 id="trouble">14. Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Cause and fix</th></tr>
+<tr><td><code>ronin ask</code> can't connect</td><td>The daemon isn't running. <code>ronin start</code> first — ask is a client.</td></tr>
+<tr><td>Commands produce no output</td><td>You're not in the ronin directory. <code>cd</code> into it (or install globally with <code>bun link</code>).</td></tr>
+<tr><td>A dashboard 404s</td><td>The owning duty isn't loaded, or the instance restarted. Check <code>ronin list</code> and <code>ronin list-routes</code>.</td></tr>
+<tr><td>AI responses fail locally</td><td>Ollama isn't running or the model isn't pulled: <code>ollama run qwen3:1.7b</code> once to fetch it.</td></tr>
+<tr><td>Cloud tier errors</td><td>Missing API key. <code>ronin config --show</code> to verify, remembering env vars win over config.json.</td></tr>
+<tr><td>Duty didn't fire on schedule</td><td>Check the cron expression (<code>minute hour day month weekday</code>) and confirm the duty appears in <code>ronin status</code>.</td></tr>
+<tr><td>Artifact stopped getting attention</td><td>By design: it hit COMPLETE, max attempts, or backoff. Its dashboard shows which. Mention it in chat to re-engage.</td></tr>
+<tr><td>Coding task card stuck in To Do</td><td>It's held for approval — a coding executor was requested from a channel that isn't in <code>tasking.trustedChannels</code>. Approve the pending-response card to release it.</td></tr>
+<tr><td>Coding task card fails immediately with no worktree</td><td>Its board has no <code>default_repo</code> set (or the card has no <code>repo_path</code> override). Coding executors fail fast rather than guessing a repo.</td></tr>
+</table>
+
+<p style="margin-top:3rem; color:var(--muted); font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:.85rem;">
+Ronin · RastaCamp Studio · This guide reflects the current build. For the canonical internals, see ARCHITECTURE.md.
+</p>
+
+</div>
+</body>
+</html>

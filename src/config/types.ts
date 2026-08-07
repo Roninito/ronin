@@ -171,6 +171,21 @@ export interface RssToTelegramConfig {
   enabled: boolean;
 }
 
+/** Multi-executor coding tasks on TodoAgent's command queue. See tasking-executor-spec.md. */
+export interface TaskingConfig {
+  maxConcurrent: number;
+  defaultCodingExecutor: "ronin" | "claude" | "opencode" | "qwen" | "cursor" | "gemini";
+  worktreeRoot?: string;
+  codingBudget: { timeoutMs: number };
+  autoResolveStale: boolean;
+  autoApprove: boolean;
+  /** sourceChannel values treated as trusted origin for dangerous (coding) executors. Empty = only locally-created commands. */
+  trustedChannels: string[];
+  eventRetentionDays: number;
+  autoStartDependents: boolean;
+  staleCheckIntervalMs: number;
+}
+
 export interface RealmConfig {
   url: string;
   callsign: string;
@@ -293,6 +308,7 @@ export interface FullConfig {
   blogBoy: BlogBoyConfig;
   configEditor: ConfigEditorConfig;
   rssToTelegram: RssToTelegramConfig;
+  tasking: TaskingConfig;
   realm: RealmConfig;
   desktop: DesktopConfig;
   mcp: MCPConfig;
@@ -406,6 +422,18 @@ export type ConfigPath =
   | 'configEditor.password'
   | 'rssToTelegram'
   | 'rssToTelegram.enabled'
+  | 'tasking'
+  | 'tasking.maxConcurrent'
+  | 'tasking.defaultCodingExecutor'
+  | 'tasking.worktreeRoot'
+  | 'tasking.codingBudget'
+  | 'tasking.codingBudget.timeoutMs'
+  | 'tasking.autoResolveStale'
+  | 'tasking.autoApprove'
+  | 'tasking.trustedChannels'
+  | 'tasking.eventRetentionDays'
+  | 'tasking.autoStartDependents'
+  | 'tasking.staleCheckIntervalMs'
   | 'realm'
   | 'realm.url'
   | 'realm.callsign'

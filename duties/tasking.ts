@@ -1,6 +1,17 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { runTaskingExecutorMigrations } from "../src/tasking/migrations.js";
+import { resolveExecutor, isCodingExecutor, runCodingExecutor, type ExecutorName } from "../src/tasking/executors.js";
+import { provisionWorktree, releaseWorktree } from "../src/tasking/worktree.js";
+import { approveMerge, dryRunMerge, spawnConflictTask, type CardCreator } from "../src/tasking/merge.js";
+import { emitCommandEvent, getEventsSince, pruneOldCommandEvents, subscribeToCommand } from "../src/tasking/events.js";
+import { getBranchPointRef, getCurrentRef, commitIfDirty, diffBetweenRefs, filesChangedBetweenRefs } from "../src/tasking/diffs.js";
+import { recordExecutorOutcome } from "../src/tasking/outcomes.js";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 interface Board {
   id: string;
@@ -8,6 +19,8 @@ interface Board {
   description: string | null;
   created_at: number;
   updated_at: number;
+  default_repo?: string | null;
+  default_branch?: string | null;
 }
 
 interface Column {
@@ -88,10 +101,15 @@ export default class TodoAgent extends BaseDuty {
   private defaultBoardId: string | null = null;
   private taskingRulesCache: string | null = null;
   private taskingRulesLastModified: number = 0;
+  // In-memory only (spec §5.4) — worst case we re-check a card an extra
+  // tick after a restart, which is harmless.
+  private lastStaleCheck: Map<string, number> = new Map();
+  // Event retention prune is a daily-ish concern, not every tick.
+  private lastEventPrune: number = 0;
 
   constructor(api: DutyAPI) {
     super(api);
-    this.initializeDatabase();
+    this.initializeDatabase().then(() => runTaskingExecutorMigrations(this.api.db));
     this.registerRoutes();
     this.registerEventHandlers();
     this.loadTaskingRules();
@@ -187,7 +205,69 @@ export default class TodoAgent extends BaseDuty {
       this.handleUserResponse(payload);
     });
 
+    // TaskMoved → Done: auto-start dependents (spec §9.3 closing paragraph)
+    this.api.events.on("TaskMoved", (data: unknown) => {
+      const payload = data as { cardId?: string; to?: string };
+      if (payload.to === "Done" && payload.cardId) {
+        this.handleDependencyAutoStart(payload.cardId);
+      }
+    });
+
+    // DecomposeRequested → one prompt in, N linked cards out (spec §9.3)
+    this.api.events.on("DecomposeRequested", (data: unknown) => {
+      const payload = data as { goal: string; boardId?: string };
+      this.handleDecomposeAPI(
+        new Request("http://internal/decompose", { method: "POST", body: JSON.stringify(payload) })
+      ).catch((error) => console.error("[todo] DecomposeRequested handling failed:", error));
+    });
+
     console.log("[todo] Event handlers registered");
+  }
+
+  /**
+   * Dependency auto-start (spec §9.3 closing paragraph): when a card
+   * completes, enqueue any dependent whose prerequisites are now all Done
+   * and that either carries #auto or has autoStartDependents on globally.
+   */
+  private async handleDependencyAutoStart(completedCardId: string): Promise<void> {
+    try {
+      const autoStartAll = this.api.config.getTasking().autoStartDependents ?? false;
+      const dependents = await this.api.db.query<{ card_id: string }>(
+        `SELECT DISTINCT card_id FROM kanban_dependencies WHERE depends_on_id = ?`,
+        [completedCardId]
+      );
+
+      for (const { card_id } of dependents) {
+        const prereqs = await this.api.db.query<{ depends_on_id: string }>(
+          `SELECT depends_on_id FROM kanban_dependencies WHERE card_id = ?`,
+          [card_id]
+        );
+        const statuses = await Promise.all(
+          prereqs.map(async (p) => {
+            const c = await this.getCard(p.depends_on_id);
+            if (!c) return true; // missing prerequisite card doesn't block forever
+            const col = await this.api.db.query<{ name: string }>(`SELECT name FROM kanban_columns WHERE id = ?`, [c.column_id]);
+            return col[0]?.name === "Done";
+          })
+        );
+        if (!statuses.every(Boolean)) continue;
+
+        const dependent = await this.getCard(card_id);
+        if (!dependent) continue;
+
+        const labels: string[] = JSON.parse(dependent.labels || "[]");
+        const isAuto = labels.some((l) => l.replace(/^#/, "").toLowerCase() === "auto");
+        if (!isAuto && !autoStartAll) continue;
+
+        if (!labels.some((l) => l.replace(/^#/, "").toLowerCase() === "command")) {
+          await this.updateCard(card_id, { labels: JSON.stringify([...labels, "#command"]) });
+        }
+        await this.handleCommandTag(card_id, dependent.title, dependent.description || "");
+        console.log(`[todo] Auto-started dependent card ${card_id} (all prerequisites Done)`);
+      }
+    } catch (error) {
+      console.error("[todo] Failed to handle dependency auto-start:", error);
+    }
   }
 
   /**
@@ -610,6 +690,23 @@ export default class TodoAgent extends BaseDuty {
       await this.updateCard(card.id, { description: newDescription });
       await this.moveCardToColumn(card.id, doneColumn.id);
 
+      // Safety-boundary approval gate (see handleCommandTag): taskId doubles
+      // as the id of a held kanban_command_queue row when this response is
+      // resolving a coding-executor approval request rather than a generic
+      // notify.ask. Harmless no-op for any other taskId (0 rows affected).
+      const isRejection = /reject|no|deny|cancel/i.test(payload.answer);
+      if (isRejection) {
+        await this.api.db.execute(
+          `UPDATE kanban_command_queue SET status = 'failed', error = 'Rejected by approval gate' WHERE id = ? AND status = 'pending' AND approved = 0`,
+          [payload.taskId]
+        );
+      } else {
+        await this.api.db.execute(
+          `UPDATE kanban_command_queue SET approved = 1 WHERE id = ? AND approved = 0`,
+          [payload.taskId]
+        );
+      }
+
       this.api.events.emit("ResponseReceived", {
         taskId: payload.taskId,
         cardId: card.id,
@@ -623,21 +720,79 @@ export default class TodoAgent extends BaseDuty {
   }
 
   /**
-   * Handle #command tag on a card - enqueue for immediate execution
+   * Handle #command tag on a card - resolve an executor (spec §1), gate
+   * dangerous (coding) executors on trusted provenance (spec §6 /
+   * ARCHITECTURE.md §6), and enqueue for execution.
    */
-  private async handleCommandTag(cardId: string, title: string, description: string): Promise<void> {
+  private async handleCommandTag(
+    cardId: string,
+    title: string,
+    description: string,
+    sourceChannel?: string,
+    sourceUser?: string
+  ): Promise<void> {
     try {
       const id = crypto.randomUUID();
       const now = Date.now();
+      const instruction = description || title;
+      const card = await this.getCard(cardId);
+
+      const config = this.api.config.getTasking();
+      const executor = resolveExecutor(card?.labels, instruction, config);
+
+      let repoPath: string | null = null;
+      let baseBranch: string | null = null;
+      if (isCodingExecutor(executor) && card) {
+        const board = await this.getBoard(card.board_id);
+        repoPath = board?.default_repo ?? null;
+        baseBranch = board?.default_branch ?? "main";
+
+        // Fail fast at Analyze — never guess a repo (spec §9.4's rule, kept).
+        if (!repoPath) {
+          await this.api.db.execute(
+            `INSERT INTO kanban_command_queue (id, card_id, instruction, status, executor, error, created_at)
+             VALUES (?, ?, ?, 'failed', ?, ?, ?)`,
+            [id, cardId, instruction, executor, `No repo resolvable for executor "${executor}" — set this board's default_repo.`, now]
+          );
+          const failedColumn = await this.getOrCreateColumn(card.board_id, "Failed", 3);
+          if (failedColumn) await this.moveCardToColumn(cardId, failedColumn.id);
+          console.error(`[todo] #command ${id}: no repo_path for coding executor "${executor}", card -> Failed`);
+          return;
+        }
+      }
+
+      // Safety boundary (ARCHITECTURE.md §6, scoped to coding executors only —
+      // see src/tasking/executors.ts). Trusted origin: created locally (no
+      // sourceChannel) or an explicitly allowlisted channel. Everything else
+      // needs a human approval before a dangerous executor may run.
+      const trustedChannels = config.trustedChannels ?? [];
+      const trustedOrigin = !sourceChannel || trustedChannels.includes(sourceChannel);
+      const needsApproval = isCodingExecutor(executor) && !trustedOrigin;
 
       await this.api.db.execute(
-        `INSERT INTO kanban_command_queue (id, card_id, instruction, status, created_at)
-         VALUES (?, ?, ?, 'pending', ?)`,
-        [id, cardId, description || title, now]
+        `INSERT INTO kanban_command_queue (
+           id, card_id, instruction, status, executor, repo_path, base_branch,
+           source_channel, source_user, approved, created_at
+         ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
+        [id, cardId, instruction, executor, repoPath, baseBranch, sourceChannel ?? null, sourceUser ?? null, needsApproval ? 0 : 1, now]
       );
 
+      if (needsApproval) {
+        // Reuses the existing PendingResponse/UserResponse approval-card
+        // mechanism (handlePendingResponse/handleUserResponse below) instead
+        // of new plumbing — taskId is this queue row's own id, so
+        // handleUserResponse can flip `approved` on it directly.
+        await this.handlePendingResponse({
+          taskId: id,
+          title: `Approve ${executor} execution: ${title}`,
+          message: `This command resolved to the "${executor}" coding executor from an untrusted channel (${sourceChannel}). It will run shell commands and write files in a worktree. Approve to proceed.`,
+          buttons: ["Approve", "Reject"],
+          source: "tasking-safety-gate",
+        });
+        console.log(`[todo] #command ${id}: held for approval (executor=${executor}, channel=${sourceChannel})`);
+      }
+
       // Move card to Doing immediately
-      const card = await this.getCard(cardId);
       if (card) {
         const doingColumn = await this.getColumnByName(card.board_id, "Doing");
         if (doingColumn && card.column_id !== doingColumn.id) {
@@ -645,7 +800,7 @@ export default class TodoAgent extends BaseDuty {
         }
       }
 
-      console.log(`[todo] #command queued: ${id} for card ${cardId}`);
+      console.log(`[todo] #command queued: ${id} for card ${cardId} (executor=${executor})`);
     } catch (error) {
       console.error("[todo] Failed to handle #command tag:", error);
     }
@@ -656,33 +811,45 @@ export default class TodoAgent extends BaseDuty {
    * Runs one command at a time to completion before picking up the next.
    */
   private async processCommandQueue(): Promise<void> {
-    // Check for a running command first - only one at a time
-    const running = await this.api.db.query<{ id: string }>(
-      `SELECT id FROM kanban_command_queue WHERE status = 'running' LIMIT 1`
+    // Concurrency pool (spec §3) — replaces the old single-running gate.
+    const maxConcurrent = this.api.config.getTasking().maxConcurrent ?? 3;
+    const runningCount = await this.api.db.query<{ n: number }>(
+      `SELECT COUNT(*) as n FROM kanban_command_queue WHERE status = 'running'`
     );
-    if (running.length > 0) return;
+    if ((runningCount[0]?.n ?? 0) >= maxConcurrent) return;
 
-    // Get next pending command (FIFO, highest priority first)
+    // Get next pending, approved command (FIFO, highest priority first).
+    // approved=0 rows (held for coding-executor safety approval) are
+    // deliberately excluded — see handleCommandTag / handleUserResponse.
     const pending = await this.api.db.query<{
       id: string;
       card_id: string;
       instruction: string;
       attempts: number;
       max_attempts: number;
+      executor: ExecutorName;
+      worktree_path: string | null;
+      task_branch: string | null;
+      base_branch: string | null;
+      repo_path: string | null;
+      session_id: string | null;
+      from_ref: string | null;
+      round: number;
     }>(
-      `SELECT cq.id, cq.card_id, cq.instruction, cq.attempts, cq.max_attempts
+      `SELECT cq.id, cq.card_id, cq.instruction, cq.attempts, cq.max_attempts,
+              cq.executor, cq.worktree_path, cq.task_branch, cq.base_branch, cq.repo_path, cq.session_id,
+              cq.from_ref, cq.round
        FROM kanban_command_queue cq
        JOIN kanban_cards kc ON kc.id = cq.card_id
-       WHERE cq.status = 'pending'
+       WHERE cq.status = 'pending' AND cq.approved = 1
        ORDER BY
          CASE kc.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
          cq.created_at ASC
        LIMIT 1`
     );
 
-    if (pending.length === 0) return;
-
     const cmd = pending[0];
+    if (!cmd) return;
     const now = Date.now();
 
     // Mark as running
@@ -692,61 +859,11 @@ export default class TodoAgent extends BaseDuty {
     );
 
     try {
-      // Get available tools
-      const availableTools = this.api.tools.list().map(t => ({
-        type: "function" as const,
-        function: {
-          name: t.name,
-          description: t.description,
-          parameters: t.parameters as { type: "object"; properties: Record<string, { type: string; description?: string }>; required?: string[] },
-        },
-      }));
-
-      const rules = this.getTaskingRules();
-
-      const systemPrompt = `You are Ronin's command executor. The user has issued a direct command that must be completed immediately.
-
-Command: ${cmd.instruction}
-
-Rules:
-${rules}
-
-Execute this command to completion using the available tools. If you cannot complete it, explain what is needed.
-If the task requires skills you don't have, use local.notify.ask to ask the user whether to create them.
-Be thorough but efficient. Report your result when done.`;
-
-      const result = await this.api.ai.callTools(systemPrompt, availableTools, {
-        temperature: 0.3,
-        maxTokens: 4000,
-      });
-
-      const toolsUsed = result.toolCalls.map(tc => tc.name);
-
-      // Mark completed
-      await this.api.db.execute(
-        `UPDATE kanban_command_queue SET status = 'completed', result = ?, tools_used = ?, completed_at = ? WHERE id = ?`,
-        [result.message.content, JSON.stringify(toolsUsed), Date.now(), cmd.id]
-      );
-
-      // Move card to Done
-      const card = await this.getCard(cmd.card_id);
-      if (card) {
-        const doneColumn = await this.getColumnByName(card.board_id, "Done");
-        if (doneColumn) {
-          await this.moveCardToColumn(cmd.card_id, doneColumn.id);
-          const desc = `${card.description || ""}\n\n---\n✅ Command completed:\n${result.message.content}`;
-          await this.updateCard(cmd.card_id, { description: desc });
-        }
+      if (isCodingExecutor(cmd.executor)) {
+        await this.runCodingCommand(cmd);
+      } else {
+        await this.runRoninCommand(cmd);
       }
-
-      this.api.events.emit("CommandCompleted", {
-        commandId: cmd.id,
-        cardId: cmd.card_id,
-        result: result.message.content,
-        toolsUsed,
-      }, "todo");
-
-      console.log(`[todo] Command ${cmd.id} completed successfully`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
 
@@ -756,6 +873,13 @@ Be thorough but efficient. Report your result when done.`;
           `UPDATE kanban_command_queue SET status = 'failed', error = ?, completed_at = ? WHERE id = ?`,
           [errMsg, Date.now(), cmd.id]
         );
+
+        // Release the worktree on final failure — this is a terminal state
+        // (spec §2 says release on "Done or Rejected"; "Failed" here is the
+        // closest analog TodoAgent actually has).
+        if (cmd.worktree_path && cmd.repo_path && cmd.task_branch) {
+          await releaseWorktree(this.api, cmd.repo_path, cmd.worktree_path, cmd.task_branch, false).catch(() => {});
+        }
 
         // Move card to Failed
         const card = await this.getCard(cmd.card_id);
@@ -784,6 +908,15 @@ Be thorough but efficient. Report your result when done.`;
           request: cmd.instruction,
           description: cmd.instruction,
         }, "tasking");
+
+        await emitCommandEvent(this.api, cmd.id, { type: "error", content: errMsg });
+        await recordExecutorOutcome(this.api, {
+          commandId: cmd.id,
+          executor: cmd.executor,
+          outcome: "failed",
+          attempts: cmd.attempts + 1,
+          rounds: cmd.round,
+        });
       } else {
         // Retry: reset to pending
         await this.api.db.execute(
@@ -793,6 +926,339 @@ Be thorough but efficient. Report your result when done.`;
       }
 
       console.error(`[todo] Command ${cmd.id} failed (attempt ${cmd.attempts + 1}):`, errMsg);
+    }
+  }
+
+  /**
+   * Existing ronin-executor path — unchanged behavior, extracted verbatim so
+   * processCommandQueue can branch between it and runCodingCommand.
+   */
+  private async runRoninCommand(cmd: { id: string; card_id: string; instruction: string }): Promise<void> {
+    await emitCommandEvent(this.api, cmd.id, { type: "text", content: "Running with ronin executor..." });
+
+    const availableTools = this.api.tools.list().map(t => ({
+      type: "function" as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters as { type: "object"; properties: Record<string, { type: string; description?: string }>; required?: string[] },
+      },
+    }));
+
+    const rules = this.getTaskingRules();
+
+    const systemPrompt = `You are Ronin's command executor. The user has issued a direct command that must be completed immediately.
+
+Command: ${cmd.instruction}
+
+Rules:
+${rules}
+
+Execute this command to completion using the available tools. If you cannot complete it, explain what is needed.
+If the task requires skills you don't have, use local.notify.ask to ask the user whether to create them.
+Be thorough but efficient. Report your result when done.`;
+
+    const result = await this.api.ai.callTools(systemPrompt, availableTools, {
+      temperature: 0.3,
+      maxTokens: 4000,
+    });
+
+    const toolsUsed = result.toolCalls.map(tc => tc.name);
+
+    await this.api.db.execute(
+      `UPDATE kanban_command_queue SET status = 'completed', result = ?, tools_used = ?, completed_at = ? WHERE id = ?`,
+      [result.message.content, JSON.stringify(toolsUsed), Date.now(), cmd.id]
+    );
+    await emitCommandEvent(this.api, cmd.id, { type: "done", content: result.message.content });
+    await recordExecutorOutcome(this.api, { commandId: cmd.id, executor: "ronin", outcome: "success" });
+
+    const card = await this.getCard(cmd.card_id);
+    if (card) {
+      const doneColumn = await this.getColumnByName(card.board_id, "Done");
+      if (doneColumn) {
+        await this.moveCardToColumn(cmd.card_id, doneColumn.id);
+        const desc = `${card.description || ""}\n\n---\n✅ Command completed:\n${result.message.content}`;
+        await this.updateCard(cmd.card_id, { description: desc });
+      }
+    }
+
+    this.api.events.emit("CommandCompleted", {
+      commandId: cmd.id,
+      cardId: cmd.card_id,
+      result: result.message.content,
+      toolsUsed,
+    }, "todo");
+
+    console.log(`[todo] Command ${cmd.id} completed successfully`);
+  }
+
+  /**
+   * Coding-executor path (spec §1-§2, §4, §9.2): provision a worktree if this
+   * is a fresh dispatch (resume/conflict rows already carry worktree_path),
+   * run the executor plugin, and either move straight to Done (no file
+   * changes) or capture a round-scoped diff and move to Review.
+   */
+  private async runCodingCommand(cmd: {
+    id: string;
+    card_id: string;
+    instruction: string;
+    executor: ExecutorName;
+    worktree_path: string | null;
+    task_branch: string | null;
+    base_branch: string | null;
+    repo_path: string | null;
+    session_id: string | null;
+    from_ref: string | null;
+    round: number;
+  }): Promise<void> {
+    if (!isCodingExecutor(cmd.executor)) throw new Error(`runCodingCommand called with non-coding executor: ${cmd.executor}`);
+    if (!cmd.repo_path || !cmd.base_branch) throw new Error("Missing repo_path/base_branch for coding executor command");
+
+    let worktreePath = cmd.worktree_path;
+    let taskBranch = cmd.task_branch;
+    let fromRef = cmd.from_ref;
+
+    if (!worktreePath || !taskBranch) {
+      const provisioned = await provisionWorktree(this.api, cmd.repo_path, cmd.card_id, cmd.base_branch);
+      worktreePath = provisioned.worktreePath;
+      taskBranch = provisioned.taskBranch;
+      // Round 1's from_ref is the branch point — where task_branch diverged from base_branch.
+      fromRef = await getBranchPointRef(worktreePath, cmd.base_branch, taskBranch);
+      await this.api.db.execute(
+        `UPDATE kanban_command_queue SET worktree_path = ?, task_branch = ?, from_ref = ? WHERE id = ?`,
+        [worktreePath, taskBranch, fromRef, cmd.id]
+      );
+    }
+    if (!fromRef) {
+      // Resume rows should always carry from_ref (set by handleCommandResumeAPI), but
+      // fall back to the branch point rather than crash if it's somehow missing.
+      fromRef = await getBranchPointRef(worktreePath, cmd.base_branch, taskBranch);
+    }
+
+    await emitCommandEvent(this.api, cmd.id, { type: "text", content: `Running with ${cmd.executor} executor (round ${cmd.round})...` });
+
+    const budget = this.api.config.getTasking().codingBudget;
+    const result = await runCodingExecutor(this.api, cmd.executor, cmd.instruction, {
+      workspace: worktreePath,
+      timeout: budget?.timeoutMs,
+      sessionId: cmd.session_id ?? undefined,
+    });
+
+    if (!result.success) {
+      await emitCommandEvent(this.api, cmd.id, { type: "error", content: result.error ?? "executor failed" });
+      throw new Error(result.error || `${cmd.executor} executor failed with no error message`);
+    }
+
+    await this.api.db.execute(
+      `UPDATE kanban_command_queue SET result = ?, session_id = ? WHERE id = ?`,
+      [result.output, result.sessionId ?? cmd.session_id ?? null, cmd.id]
+    );
+
+    // Ensure a real ref exists for this round even if the executor left
+    // uncommitted changes (spec §9.2).
+    await commitIfDirty(worktreePath, cmd.round).catch((error: any) => {
+      console.warn(`[todo] commitIfDirty failed for ${cmd.id}: ${error.message}`);
+    });
+    const toRef = await getCurrentRef(worktreePath);
+
+    const diff = await diffBetweenRefs(worktreePath, fromRef, toRef).catch((error: any) => {
+      console.warn(`[todo] diff capture failed for ${cmd.id}: ${error.message}`);
+      return "";
+    });
+
+    const card = await this.getCard(cmd.card_id);
+
+    if (diff.trim().length === 0) {
+      // No file changes this round — treat like a ronin-style result, straight to Done.
+      await this.api.db.execute(
+        `UPDATE kanban_command_queue SET status = 'completed', completed_at = ? WHERE id = ?`,
+        [Date.now(), cmd.id]
+      );
+      await releaseWorktree(this.api, cmd.repo_path, worktreePath, taskBranch, false).catch(() => {});
+      if (card) {
+        const doneColumn = await this.getColumnByName(card.board_id, "Done");
+        if (doneColumn) {
+          await this.moveCardToColumn(cmd.card_id, doneColumn.id);
+          const desc = `${card.description || ""}\n\n---\n✅ Command completed (${cmd.executor}, no file changes):\n${result.output}`;
+          await this.updateCard(cmd.card_id, { description: desc });
+        }
+      }
+      await recordExecutorOutcome(this.api, { commandId: cmd.id, executor: cmd.executor, outcome: "success", rounds: cmd.round });
+    } else {
+      const filesChanged = await filesChangedBetweenRefs(worktreePath, fromRef, toRef).catch(() => [] as string[]);
+
+      await this.api.db.execute(
+        `INSERT INTO kanban_card_diffs (id, card_id, command_id, session_id, patch, files_changed, from_ref, to_ref, round, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), cmd.card_id, cmd.id, result.sessionId ?? null, diff, JSON.stringify(filesChanged), fromRef, toRef, cmd.round, Date.now()]
+      );
+
+      await this.api.db.execute(
+        `UPDATE kanban_command_queue SET status = 'completed', completed_at = ? WHERE id = ?`,
+        [Date.now(), cmd.id]
+      );
+
+      if (card) {
+        const reviewColumn = await this.getOrCreateColumn(card.board_id, "Review");
+        if (reviewColumn) {
+          await this.moveCardToColumn(cmd.card_id, reviewColumn.id);
+          const desc = `${card.description || ""}\n\n---\n📝 ${cmd.executor} produced changes round ${cmd.round} (${filesChanged.length} file(s)) — awaiting review:\n${result.output}`;
+          await this.updateCard(cmd.card_id, { description: desc });
+        }
+      }
+    }
+
+    await emitCommandEvent(this.api, cmd.id, { type: "done", content: result.output });
+
+    this.api.events.emit("CommandCompleted", {
+      commandId: cmd.id,
+      cardId: cmd.card_id,
+      result: result.output,
+      executor: cmd.executor,
+      filesChanged: diff.trim().length > 0,
+    }, "todo");
+
+    console.log(`[todo] Command ${cmd.id} (${cmd.executor}, round ${cmd.round}) completed${diff.trim().length > 0 ? " -> Review" : " -> Done"}`);
+  }
+
+  /**
+   * Human Approve action (spec §5.1). Dry-runs + merges via
+   * src/tasking/merge.ts; on conflict, spawns a linked conflict-resolution
+   * command (spec §5.2) reusing the same worktree.
+   */
+  private async approveCommand(commandId: string): Promise<{ success: boolean; merged?: boolean; error?: string }> {
+    const rows = await this.api.db.query<{
+      card_id: string;
+      repo_path: string | null;
+      worktree_path: string | null;
+      task_branch: string | null;
+      base_branch: string | null;
+      executor: ExecutorName;
+    }>(
+      `SELECT card_id, repo_path, worktree_path, task_branch, base_branch, executor FROM kanban_command_queue WHERE id = ?`,
+      [commandId]
+    );
+    const cmd = rows[0];
+    if (!cmd || !cmd.repo_path || !cmd.worktree_path || !cmd.task_branch || !cmd.base_branch) {
+      return { success: false, error: "Command not found or missing worktree info" };
+    }
+
+    const card = await this.getCard(cmd.card_id);
+    if (!card) return { success: false, error: "Card not found" };
+
+    const result = await approveMerge(this.api, {
+      repoPath: cmd.repo_path,
+      worktreePath: cmd.worktree_path,
+      taskBranch: cmd.task_branch,
+      baseBranch: cmd.base_branch,
+    });
+
+    if (result.merged) {
+      const doneColumn = await this.getColumnByName(card.board_id, "Done");
+      if (doneColumn) await this.moveCardToColumn(card.id, doneColumn.id);
+      this.api.events.emit("TaskMoved", { cardId: card.id, from: "Review", to: "Done" }, "todo");
+      await recordExecutorOutcome(this.api, { commandId, executor: cmd.executor, outcome: "success" });
+      return { success: true, merged: true };
+    }
+
+    if (result.conflictedFiles.length > 0 || !result.error) {
+      // Merge conflict — spawn the auto-resolution task (spec §5.2).
+      const conflictColumn = await this.getOrCreateColumn(card.board_id, "Merge Conflict");
+      const cardCreator: CardCreator = {
+        createCard: (columnId, boardId, title, description, priority, labels) =>
+          this.createCard(columnId, boardId, title, description, priority, labels),
+        addDependency: (cardId, dependsOnId) => this.addDependency(cardId, dependsOnId),
+      };
+
+      if (conflictColumn) await this.moveCardToColumn(card.id, conflictColumn.id);
+      await this.updateCard(card.id, {
+        labels: JSON.stringify([...JSON.parse(card.labels || "[]"), "#conflict"]),
+      });
+
+      const spawned = await spawnConflictTask(this.api, cardCreator, {
+        originalCardId: card.id,
+        originalCardTitle: card.title,
+        columnId: conflictColumn?.id ?? card.column_id,
+        boardId: card.board_id,
+        executor: cmd.executor,
+        worktreePath: cmd.worktree_path,
+        taskBranch: cmd.task_branch,
+        baseBranch: cmd.base_branch,
+        repoPath: cmd.repo_path,
+        conflictedFiles: result.conflictedFiles,
+      });
+
+      await recordExecutorOutcome(this.api, { commandId, executor: cmd.executor, outcome: "conflict" });
+      console.log(`[todo] Merge conflict for ${commandId}, spawned conflict command ${spawned.commandId}`);
+      return { success: true, merged: false };
+    }
+
+    return { success: false, error: result.error };
+  }
+
+  /**
+   * Proactive staleness check (spec §5.4): re-dry-runs the merge for every
+   * card currently sitting in a "Review" column, so a reviewer sees true
+   * mergeability without waiting for Approve to discover a conflict.
+   */
+  private async checkReviewStaleness(): Promise<void> {
+    const interval = this.api.config.getTasking().staleCheckIntervalMs ?? 300000;
+    const autoResolve = this.api.config.getTasking().autoResolveStale ?? false;
+
+    const reviewCards = await this.api.db.query<{ id: string; board_id: string; labels: string; title: string }>(
+      `SELECT c.id, c.board_id, c.labels, c.title
+       FROM kanban_cards c
+       JOIN kanban_columns col ON c.column_id = col.id
+       WHERE col.name = 'Review'`
+    );
+
+    for (const card of reviewCards) {
+      const lastCheck = this.lastStaleCheck.get(card.id) ?? 0;
+      if (Date.now() - lastCheck < interval) continue;
+      this.lastStaleCheck.set(card.id, Date.now());
+
+      const cmdRows = await this.api.db.query<{
+        id: string; worktree_path: string | null; task_branch: string | null; base_branch: string | null;
+        repo_path: string | null; executor: ExecutorName;
+      }>(
+        `SELECT id, worktree_path, task_branch, base_branch, repo_path, executor
+         FROM kanban_command_queue WHERE card_id = ? AND status = 'completed'
+         ORDER BY completed_at DESC LIMIT 1`,
+        [card.id]
+      );
+      const cmd = cmdRows[0];
+      if (!cmd || !cmd.worktree_path || !cmd.base_branch) continue;
+
+      const dry = await dryRunMerge(cmd.worktree_path, cmd.base_branch).catch(() => null);
+      if (!dry || dry.clean) continue;
+
+      const labels: string[] = JSON.parse(card.labels || "[]");
+      if (!labels.includes("#stale")) {
+        await this.updateCard(card.id, { labels: JSON.stringify([...labels, "#stale"]) });
+        console.log(`[todo] Card ${card.id} went stale in Review (base branch moved)`);
+      }
+
+      if (autoResolve && cmd.repo_path && cmd.task_branch) {
+        const cardCreator: CardCreator = {
+          createCard: (columnId, boardId, title, description, priority, labels2) =>
+            this.createCard(columnId, boardId, title, description, priority, labels2),
+          addDependency: (cardId, dependsOnId) => this.addDependency(cardId, dependsOnId),
+        };
+        const conflictColumn = await this.getOrCreateColumn(card.board_id, "Merge Conflict");
+        await spawnConflictTask(this.api, cardCreator, {
+          originalCardId: card.id,
+          originalCardTitle: card.title,
+          columnId: conflictColumn?.id ?? card.id,
+          boardId: card.board_id,
+          executor: cmd.executor,
+          worktreePath: cmd.worktree_path,
+          taskBranch: cmd.task_branch,
+          baseBranch: cmd.base_branch,
+          repoPath: cmd.repo_path,
+          conflictedFiles: dry.conflictedFiles,
+        });
+        if (conflictColumn) await this.moveCardToColumn(card.id, conflictColumn.id);
+      }
     }
   }
 
@@ -1075,6 +1541,18 @@ Be thorough but efficient. Report your result when done.`;
       // Process any pending commands first (immediate user instructions)
       await this.processCommandQueue();
 
+      // Proactive staleness check for cards sitting in Review (spec §5.4)
+      await this.checkReviewStaleness();
+
+      // Prune old execution-feed events (spec §9.1), at most once/day
+      if (Date.now() - this.lastEventPrune > 24 * 60 * 60 * 1000) {
+        this.lastEventPrune = Date.now();
+        const retentionDays = this.api.config.getTasking().eventRetentionDays ?? 7;
+        pruneOldCommandEvents(this.api, retentionDays).catch((error) =>
+          console.error("[todo] Event prune failed:", error)
+        );
+      }
+
       // Load rules
       const rules = this.getTaskingRules();
 
@@ -1277,6 +1755,12 @@ Respond with JSON:
     // API Routes - Command Queue
     this.api.http.registerRoute("/api/todo/commands", this.handleCommandsAPI.bind(this));
     this.api.http.registerRoute("/api/todo/commands/", this.handleCommandByIdAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/approve", this.handleCommandApproveAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/reject", this.handleCommandRejectAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/diff", this.handleCommandDiffAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/resume", this.handleCommandResumeAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/commands/stream", this.handleCommandStreamAPI.bind(this));
+    this.api.http.registerRoute("/api/todo/decompose", this.handleDecomposeAPI.bind(this));
 
     // API Routes - Events
     this.api.http.registerRoute("/api/todo/events", this.handleEventsAPI.bind(this));
@@ -1455,7 +1939,7 @@ Respond with JSON:
     // Check for #command tag and queue for immediate execution
     const hasCommandTag = labels.some(l => l === '#command' || l === 'command' || l.toLowerCase() === '#command');
     if (hasCommandTag) {
-      await this.handleCommandTag(id, title, finalDescription || '');
+      await this.handleCommandTag(id, title, finalDescription || '', sourceChannel, sourceUser);
     }
 
     return {
@@ -4143,6 +4627,259 @@ Execute the task using the available tools and emit events as needed. Provide a 
       return new Response('Method not allowed', { status: 405 });
     } catch (error) {
       console.error('[Todo] Command by ID API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  private async handleCommandApproveAPI(req: Request): Promise<Response> {
+    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    try {
+      const body = await req.json() as { commandId: string };
+      if (!body.commandId) return Response.json({ error: 'commandId is required' }, { status: 400 });
+      const result = await this.approveCommand(body.commandId);
+      return Response.json(result, { status: result.success ? 200 : 400 });
+    } catch (error) {
+      console.error('[Todo] Command approve API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  /**
+   * Reject a Review-stage command: release its worktree and move the card
+   * to Failed without merging. Terminal state — no resume.
+   */
+  private async handleCommandRejectAPI(req: Request): Promise<Response> {
+    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    try {
+      const body = await req.json() as { commandId: string };
+      if (!body.commandId) return Response.json({ error: 'commandId is required' }, { status: 400 });
+
+      const rows = await this.api.db.query<{
+        card_id: string; repo_path: string | null; worktree_path: string | null; task_branch: string | null; executor: ExecutorName;
+      }>(`SELECT card_id, repo_path, worktree_path, task_branch, executor FROM kanban_command_queue WHERE id = ?`, [body.commandId]);
+      const cmd = rows[0];
+      if (!cmd) return Response.json({ error: 'Command not found' }, { status: 404 });
+
+      await this.api.db.execute(`UPDATE kanban_command_queue SET status = 'failed', error = 'Rejected in review' WHERE id = ?`, [body.commandId]);
+
+      if (cmd.repo_path && cmd.worktree_path && cmd.task_branch) {
+        await releaseWorktree(this.api, cmd.repo_path, cmd.worktree_path, cmd.task_branch, false).catch(() => {});
+      }
+
+      const card = await this.getCard(cmd.card_id);
+      if (card) {
+        const failedColumn = await this.getOrCreateColumn(card.board_id, "Failed", 3);
+        if (failedColumn) await this.moveCardToColumn(cmd.card_id, failedColumn.id);
+      }
+
+      await recordExecutorOutcome(this.api, { commandId: body.commandId, executor: cmd.executor, outcome: "rejected" });
+
+      return Response.json({ success: true });
+    } catch (error) {
+      console.error('[Todo] Command reject API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  /**
+   * Diff sub-view for a command (spec §4) — most recent kanban_card_diffs
+   * row for a given commandId or cardId.
+   */
+  private async handleCommandDiffAPI(req: Request): Promise<Response> {
+    if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
+    try {
+      const url = new URL(req.url);
+      const commandId = url.searchParams.get('commandId');
+      const cardId = url.searchParams.get('cardId');
+      if (!commandId && !cardId) return Response.json({ error: 'commandId or cardId is required' }, { status: 400 });
+
+      const diffs = commandId
+        ? await this.api.db.query(`SELECT * FROM kanban_card_diffs WHERE command_id = ? ORDER BY created_at DESC`, [commandId])
+        : await this.api.db.query(`SELECT * FROM kanban_card_diffs WHERE card_id = ? ORDER BY created_at DESC`, [cardId]);
+
+      return Response.json(diffs);
+    } catch (error) {
+      console.error('[Todo] Command diff API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  /**
+   * Comment-resume (spec §4): "request changes" on a Review card. Re-enqueues
+   * against the SAME worktree/session (executor resumes warm), scoped to the
+   * next round (spec §9.2) rather than a fresh dispatch.
+   */
+  private async handleCommandResumeAPI(req: Request): Promise<Response> {
+    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    try {
+      const body = await req.json() as { commandId: string; comment: string };
+      if (!body.commandId || !body.comment) {
+        return Response.json({ error: 'commandId and comment are required' }, { status: 400 });
+      }
+
+      const rows = await this.api.db.query<{
+        card_id: string; executor: ExecutorName; worktree_path: string | null; task_branch: string | null;
+        base_branch: string | null; repo_path: string | null; session_id: string | null; round: number;
+      }>(
+        `SELECT card_id, executor, worktree_path, task_branch, base_branch, repo_path, session_id, round
+         FROM kanban_command_queue WHERE id = ? ORDER BY created_at DESC LIMIT 1`,
+        [body.commandId]
+      );
+      const prior = rows[0];
+      if (!prior || !prior.worktree_path || !prior.task_branch || !prior.base_branch || !prior.repo_path) {
+        return Response.json({ error: 'Command not found or missing worktree info' }, { status: 404 });
+      }
+      if (!isCodingExecutor(prior.executor)) {
+        return Response.json({ error: 'Comment-resume only applies to coding-executor commands' }, { status: 400 });
+      }
+
+      // The worktree's current HEAD is exactly where the previous round left
+      // off (runCodingCommand always commits before finishing a round).
+      const fromRef = await getCurrentRef(prior.worktree_path);
+
+      const newId = crypto.randomUUID();
+      await this.api.db.execute(
+        `INSERT INTO kanban_command_queue (
+           id, card_id, instruction, status, executor, worktree_path, task_branch, base_branch,
+           repo_path, session_id, from_ref, round, approved, created_at
+         ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        [
+          newId, prior.card_id, body.comment, prior.executor, prior.worktree_path, prior.task_branch,
+          prior.base_branch, prior.repo_path, prior.session_id, fromRef, (prior.round ?? 1) + 1, Date.now(),
+        ]
+      );
+
+      const card = await this.getCard(prior.card_id);
+      if (card) {
+        const desc = `${card.description || ""}\n\n---\n💬 Review comment (round ${(prior.round ?? 1) + 1}):\n${body.comment}`;
+        await this.updateCard(prior.card_id, { description: desc });
+        const doingColumn = await this.getColumnByName(card.board_id, "Doing");
+        if (doingColumn) await this.moveCardToColumn(prior.card_id, doingColumn.id);
+      }
+
+      console.log(`[todo] Comment-resume: queued ${newId} (round ${(prior.round ?? 1) + 1}) for card ${prior.card_id}`);
+      return Response.json({ success: true, commandId: newId });
+    } catch (error) {
+      console.error('[Todo] Command resume API error:', error);
+      return Response.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  /**
+   * Live execution feed (spec §9.1). SSE, replays kanban_command_events
+   * since ?lastSeq for reconnects, then streams live pushes. Same pattern as
+   * duties/schedule-manager.ts's /api/schedule/events.
+   */
+  private async handleCommandStreamAPI(req: Request): Promise<Response> {
+    if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
+    const url = new URL(req.url);
+    const commandId = url.searchParams.get('commandId');
+    if (!commandId) return Response.json({ error: 'commandId is required' }, { status: 400 });
+    const lastSeq = parseInt(url.searchParams.get('lastSeq') || '0', 10) || 0;
+
+    const backlog = await getEventsSince(this.api, commandId, lastSeq);
+
+    const stream = new ReadableStream({
+      start: (controller) => {
+        const send = (data: string) => {
+          try {
+            controller.enqueue(new TextEncoder().encode(data));
+          } catch {
+            unsubscribe();
+          }
+        };
+        for (const evt of backlog) {
+          send(`data: ${JSON.stringify({ seq: evt.seq, type: evt.type, ...JSON.parse(evt.payload) })}\n\n`);
+        }
+        const unsubscribe = subscribeToCommand(commandId, send);
+        req.signal?.addEventListener("abort", unsubscribe);
+      },
+    });
+
+    return new Response(stream, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
+    });
+  }
+
+  /**
+   * Decomposition intent (spec §9.3, renamed away from "MNGR" — see the
+   * integration plan for why: neither the aspirational coordinating Duty nor
+   * the external MNGR app integration is a safe dependency here). One prompt
+   * in, N linked cards out, using api.ai.complete() with strict JSON.
+   */
+  private async handleDecomposeAPI(req: Request): Promise<Response> {
+    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    try {
+      const body = await req.json() as { goal: string; boardId?: string };
+      if (!body.goal) return Response.json({ error: 'goal is required' }, { status: 400 });
+
+      const board = body.boardId ? await this.getBoard(body.boardId) : await this.ensureDefaultBoard();
+      if (!board) return Response.json({ error: 'Board not found' }, { status: 404 });
+
+      const existingCards = await this.api.db.query<{ title: string; priority: string }>(
+        `SELECT title, priority FROM kanban_cards WHERE board_id = ? ORDER BY created_at DESC LIMIT 20`,
+        [board.id]
+      );
+      const toolNames = this.api.tools.list().map(t => t.name);
+      const rules = this.getTaskingRules();
+
+      const prompt = `You are decomposing a goal into linked Kanban cards for board "${board.name}".
+
+Goal: ${body.goal}
+
+Existing recent cards on this board (avoid duplicating):
+${existingCards.map(c => `- [${c.priority}] ${c.title}`).join("\n") || "(none)"}
+
+Available tools (reference these instead of inventing new capabilities): ${toolNames.slice(0, 40).join(", ")}
+
+Rules:
+${rules}
+
+Break the goal into a small number of concrete, actionable cards. Each card's executorHint should be
+"ronin" for tool-calling/research/administrative work, or "claude"/"opencode"/"qwen"/"cursor"/"gemini"
+for work that clearly implies writing or changing code, or "auto" if unsure (defers to config).
+dependsOn is a list of 0-based indices into this same cards array (cards that must complete first).
+
+Respond with ONLY strict JSON, no markdown fences, no commentary:
+{"cards": [{"title": "...", "description": "...", "priority": "low"|"medium"|"high", "executorHint": "ronin"|"claude"|"opencode"|"qwen"|"cursor"|"gemini"|"auto", "dependsOn": [0,1]}]}`;
+
+      const raw = await this.api.ai.complete(prompt, { temperature: 0.2, maxTokens: 2000 });
+      const jsonText = raw.trim().replace(/^```(json)?/i, "").replace(/```$/, "").trim();
+      let parsed: { cards: Array<{ title: string; description?: string; priority?: 'low' | 'medium' | 'high'; executorHint?: string; dependsOn?: number[] }> };
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        return Response.json({ error: 'Decomposition did not return valid JSON', raw }, { status: 502 });
+      }
+      if (!Array.isArray(parsed.cards) || parsed.cards.length === 0) {
+        return Response.json({ error: 'Decomposition returned no cards', raw }, { status: 502 });
+      }
+
+      const todoColumn = await this.getColumnByName(board.id, "To Do");
+      if (!todoColumn) return Response.json({ error: 'To Do column not found' }, { status: 500 });
+
+      const createdIds: string[] = [];
+      for (const c of parsed.cards) {
+        const hint = c.executorHint && c.executorHint !== "auto" && c.executorHint !== "ronin" ? [`#${c.executorHint}`] : [];
+        const card = await this.createCard(todoColumn.id, board.id, c.title, c.description, c.priority ?? "medium", hint);
+        createdIds.push(card.id);
+        this.api.events.emit("TaskCreated", { cardId: card.id, title: card.title, column: "To Do", type: "decomposition" }, "todo");
+      }
+
+      for (let i = 0; i < parsed.cards.length; i++) {
+        for (const depIndex of parsed.cards[i]?.dependsOn ?? []) {
+          if (createdIds[depIndex] && createdIds[i]) {
+            await this.addDependency(createdIds[i]!, createdIds[depIndex]!);
+          }
+        }
+      }
+
+      this.api.events.emit("DecompositionCompleted", { boardId: board.id, goal: body.goal, cardIds: createdIds }, "todo");
+      console.log(`[todo] Decomposed goal into ${createdIds.length} card(s) on board ${board.id}`);
+
+      return Response.json({ success: true, boardId: board.id, cardIds: createdIds });
+    } catch (error) {
+      console.error('[Todo] Decompose API error:', error);
       return Response.json({ error: String(error) }, { status: 500 });
     }
   }

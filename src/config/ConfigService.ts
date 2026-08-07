@@ -266,6 +266,13 @@ export class ConfigService {
   }
 
   /**
+   * Get tasking executor configuration (multi-executor coding tasks)
+   */
+  getTasking() {
+    return this.config.tasking;
+  }
+
+  /**
    * Get Realm configuration
    */
   getRealm() {

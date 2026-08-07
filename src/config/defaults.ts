@@ -150,7 +150,19 @@ export const DEFAULT_CONFIG: FullConfig = {
   rssToTelegram: {
     enabled: false,
   },
-  
+
+  tasking: {
+    maxConcurrent: 3,
+    defaultCodingExecutor: "claude",
+    codingBudget: { timeoutMs: 600000 },
+    autoResolveStale: false,
+    autoApprove: false,
+    trustedChannels: [],
+    eventRetentionDays: 7,
+    autoStartDependents: false,
+    staleCheckIntervalMs: 300000,
+  },
+
   realm: {
     url: "",
     callsign: "",

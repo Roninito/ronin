@@ -788,6 +788,7 @@ export interface DutyAPI {
     getBlogBoy(): import("../config/types.js").BlogBoyConfig;
     getConfigEditor(): import("../config/types.js").ConfigEditorConfig;
     getRssToTelegram(): import("../config/types.js").RssToTelegramConfig;
+    getTasking(): import("../config/types.js").TaskingConfig;
     getRealm(): import("../config/types.js").RealmConfig;
     getMCP(): import("../config/types.js").MCPConfig;
     getNotifications(): import("../config/types.js").NotificationsConfig;

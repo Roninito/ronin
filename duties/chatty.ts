@@ -13,6 +13,7 @@ import {
   injectMermaidLinkIntoResponse,
   injectContractProposalCardIntoResponse,
   injectWorkflowProposalCardIntoResponse,
+  injectDutyProposalCardIntoResponse,
 } from "../src/utils/prompt.js";
 import { discoverWorkflow } from "../src/workflow/discovery.js";
 
@@ -582,6 +583,31 @@ self.addEventListener("fetch", (event) => {
       margin-bottom: ${dramTheme.spacing.sm};
     }
 
+    .proposal-card-code-details {
+      margin-bottom: ${dramTheme.spacing.sm};
+    }
+
+    .proposal-card-code-details summary {
+      font-size: 0.75rem;
+      color: ${dramTheme.colors.textSecondary};
+      cursor: pointer;
+    }
+
+    .proposal-card-code {
+      margin-top: ${dramTheme.spacing.xs};
+      padding: ${dramTheme.spacing.sm};
+      background: ${dramTheme.colors.background};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.sm};
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
     .proposal-card-actions {
       display: flex;
       gap: ${dramTheme.spacing.sm};
@@ -1132,15 +1158,18 @@ self.addEventListener("fetch", (event) => {
       return div.innerHTML;
     }
 
-    // Proposal cards: a \`\`\`contract-proposal { id, preview } \`\`\` or
-    // \`\`\`workflow-proposal { id, preview } \`\`\` fence (deterministically
-    // appended server-side whenever contracts.proposeReflex / workflows.propose
-    // runs — see injectContractProposalCardIntoResponse /
-    // injectWorkflowProposalCardIntoResponse) is pulled out of the markdown
-    // text and rendered as an Allow/Refuse card instead of a code block.
+    // Proposal cards: a \`\`\`contract-proposal { id, preview } \`\`\`,
+    // \`\`\`workflow-proposal { id, preview } \`\`\`, or
+    // \`\`\`duty-proposal { id, preview, code } \`\`\` fence (deterministically
+    // appended server-side whenever contracts.proposeReflex / workflows.propose /
+    // duties.proposeDuty runs — see injectContractProposalCardIntoResponse /
+    // injectWorkflowProposalCardIntoResponse / injectDutyProposalCardIntoResponse)
+    // is pulled out of the markdown text and rendered as an Allow/Refuse card
+    // instead of a code block.
     const PROPOSAL_KINDS = {
       'contract-proposal': { kind: 'contract', approveUrl: '/api/contracts/proposals/approve', refuseUrl: '/api/contracts/proposals/refuse', nameField: 'contractName' },
       'workflow-proposal': { kind: 'workflow', approveUrl: '/api/workflows/proposals/approve', refuseUrl: '/api/workflows/proposals/refuse', nameField: 'workflowName' },
+      'duty-proposal': { kind: 'duty', approveUrl: '/api/duties/proposals/approve', refuseUrl: '/api/duties/proposals/refuse', nameField: 'dutyName' },
     };
 
     function extractProposalCards(text) {
@@ -1166,8 +1195,15 @@ self.addEventListener("fetch", (event) => {
       const el = document.createElement('div');
       el.className = 'proposal-card';
       el.dataset.proposalId = card.id;
+      const codeBlock = (card.kind === 'duty' && typeof card.code === 'string')
+        ? \`<details class="proposal-card-code-details">
+             <summary>View generated code</summary>
+             <pre class="proposal-card-code">\${escapeHtml(card.code)}</pre>
+           </details>\`
+        : '';
       el.innerHTML = \`
         <div class="proposal-card-preview">\${escapeHtml(card.preview)}</div>
+        \${codeBlock}
         <div class="proposal-card-actions"></div>
       \`;
       const actions = el.querySelector('.proposal-card-actions');
@@ -1185,7 +1221,7 @@ self.addEventListener("fetch", (event) => {
     }
 
     async function decideProposal(id, kind, action, actionsEl) {
-      const cfg = kind === 'workflow' ? PROPOSAL_KINDS['workflow-proposal'] : PROPOSAL_KINDS['contract-proposal'];
+      const cfg = PROPOSAL_KINDS[kind + '-proposal'] || PROPOSAL_KINDS['contract-proposal'];
       const buttons = actionsEl.querySelectorAll('button');
       buttons.forEach(b => b.disabled = true);
       try {
@@ -1790,9 +1826,12 @@ self.addEventListener("fetch", (event) => {
     }
 
     if (finalResponse) {
-      return injectWorkflowProposalCardIntoResponse(
-        injectContractProposalCardIntoResponse(
-          injectMermaidLinkIntoResponse(finalResponse, toolResults),
+      return injectDutyProposalCardIntoResponse(
+        injectWorkflowProposalCardIntoResponse(
+          injectContractProposalCardIntoResponse(
+            injectMermaidLinkIntoResponse(finalResponse, toolResults),
+            toolResults
+          ),
           toolResults
         ),
         toolResults

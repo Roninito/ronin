@@ -126,6 +126,9 @@ export class DutyLoader {
         schedule: dutyConstructor.schedule,
         watch: dutyConstructor.watch,
         webhook: dutyConstructor.webhook,
+        events: dutyConstructor.events,
+        beams: dutyConstructor.beams,
+        queries: dutyConstructor.queries,
         instance,
       };
     } catch (error) {

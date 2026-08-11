@@ -104,6 +104,34 @@ CREATE TABLE IF NOT EXISTS workflow_proposals (
 CREATE INDEX IF NOT EXISTS idx_workflow_proposals_status ON workflow_proposals(status);
 CREATE INDEX IF NOT EXISTS idx_workflow_proposals_chat ON workflow_proposals(chat_id);
 
+-- ── Duty Proposals (AI-drafted duty TypeScript awaiting approval) ────────────
+
+CREATE TABLE IF NOT EXISTS duty_proposals (
+  id TEXT PRIMARY KEY,
+  chat_id TEXT,
+  intent TEXT NOT NULL,
+  duty_name TEXT NOT NULL,
+  code TEXT NOT NULL,
+  preview TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  supersedes_id TEXT,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_duty_proposals_status ON duty_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_duty_proposals_chat ON duty_proposals(chat_id);
+
+-- ── Graph snapshots (canvas editor's derived topology graph) ─────────────────
+-- Single-row store: graph-keeper fully re-derives and overwrites on every
+-- trigger rather than diffing incrementally (see design plan §3 step 2).
+
+CREATE TABLE IF NOT EXISTS graph_snapshots (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  graph_json TEXT NOT NULL,
+  derived_at INTEGER NOT NULL
+);
+
 -- ── Tasks (v2 — enhanced schema with task_id and source tracking) ────────────
 
 CREATE TABLE IF NOT EXISTS tasks_v2 (

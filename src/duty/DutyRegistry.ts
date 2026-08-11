@@ -381,7 +381,7 @@ export class DutyRegistry {
       ...(hostname && { hostname }),
       port,
       idleTimeout, // Timeout in seconds for long-running requests (default: 60s)
-      fetch: async (req) => {
+      fetch: async (req, server) => {
         const url = new URL(req.url);
         const path = url.pathname;
 
@@ -394,6 +394,13 @@ export class DutyRegistry {
         if (await this.routeGuard.hasPolicy()) {
           const blocked = await this.routeGuard.handle(req, "default");
           if (blocked) return blocked;
+        }
+
+        // WebSocket upgrade — duties register via this.api.http.registerWebSocket(path, handlers);
+        // checked early so it isn't shadowed by any of the ~25 hardcoded HTTP branches below.
+        if (this.http.getWebSocketPaths?.().has(path)) {
+          const upgraded = server.upgrade(req, { data: { path } });
+          if (upgraded) return undefined;
         }
 
         // Root route - Main dashboard
@@ -834,6 +841,17 @@ export class DutyRegistry {
           );
         }
       },
+      websocket: {
+        open: (ws: any) => {
+          this.http.getWebSocketHandlers(ws.data?.path)?.open?.(ws);
+        },
+        message: (ws: any, message: string | Buffer) => {
+          this.http.getWebSocketHandlers(ws.data?.path)?.message?.(ws, message);
+        },
+        close: (ws: any, code: number, reason: string) => {
+          this.http.getWebSocketHandlers(ws.data?.path)?.close?.(ws, code, reason);
+        },
+      },
     });
 
     const localUrl = `http://localhost:${port}`;
@@ -1072,7 +1090,7 @@ export class DutyRegistry {
   }
 
   private async getDashboardNavRoutes(allRoutes: Array<{ path: string }>): Promise<string[]> {
-    const defaults = ["/chat", "/analytics", "/config", "/skills", "/routes", "/contracts"];
+    const defaults = ["/chat", "/analytics", "/config", "/skills", "/routes", "/contracts", "/duties/review", "/canvas"];
     const validSet = new Set(allRoutes.map((r) => r.path));
     const path = this.getDashboardNavConfigPath();
     try {

@@ -1,4 +1,5 @@
 import type { RequestOptions } from "../types/api.js";
+import type { ServerWebSocket } from "bun";
 
 export interface RouteMetadata {
   title?: string;
@@ -6,9 +7,34 @@ export interface RouteMetadata {
   icon?: string;
 }
 
+export interface WebSocketHandlers<T = unknown> {
+  open?(ws: ServerWebSocket<T>): void;
+  message?(ws: ServerWebSocket<T>, message: string | Buffer): void;
+  close?(ws: ServerWebSocket<T>, code: number, reason: string): void;
+}
+
 export class HTTPAPI {
   private routes: Map<string, (req: Request) => Response | Promise<Response>> = new Map();
   private routeMetadata: Map<string, RouteMetadata> = new Map();
+  private webSocketRoutes: Map<string, WebSocketHandlers> = new Map();
+
+  /**
+   * Register a WebSocket endpoint. The webhook server (DutyRegistry) upgrades
+   * any request whose path matches one of these before falling through to
+   * the normal HTTP route table — a duty's canvas/live-update UI registers
+   * here instead of DutyRegistry needing to know anything canvas-specific.
+   */
+  registerWebSocket(path: string, handlers: WebSocketHandlers): void {
+    this.webSocketRoutes.set(path, handlers);
+  }
+
+  getWebSocketHandlers(path: string): WebSocketHandlers | undefined {
+    return this.webSocketRoutes.get(path);
+  }
+
+  getWebSocketPaths(): Set<string> {
+    return new Set(this.webSocketRoutes.keys());
+  }
 
   /**
    * Register a route handler with optional metadata

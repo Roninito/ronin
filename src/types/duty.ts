@@ -1,6 +1,33 @@
 import type { DutyAPI } from "./api.js";
 
 /**
+ * Declared event topology — purely declarative, no runtime effect on its own.
+ * A duty still calls this.api.events.emit/beam/query imperatively; this is
+ * read by DutyLoader/HotReloadService so external tooling (e.g. a graph
+ * introspection duty) doesn't have to re-derive it by scanning source.
+ */
+export interface DutyEventsDecl {
+  in?: string[];
+  out?: string[];
+}
+
+export interface DutyBeamDecl {
+  target: string;
+  eventType: string;
+}
+
+export interface DutyQueryOutDecl {
+  target: string;
+  queryType: string;
+  timeoutMs?: number;
+}
+
+export interface DutyQueriesDecl {
+  out?: DutyQueryOutDecl[];
+  served?: string[];
+}
+
+/**
  * Base Duty interface that all duties must implement
  */
 export interface Duty {
@@ -45,6 +72,22 @@ export interface DutyConstructor {
    * Optional: HTTP webhook path (e.g., "/webhook/my-duty")
    */
   webhook?: string;
+
+  /**
+   * Optional: declared event topology (events consumed/emitted). Additive —
+   * duties that don't declare this still load exactly as before.
+   */
+  events?: DutyEventsDecl;
+
+  /**
+   * Optional: declared targeted beams this duty sends.
+   */
+  beams?: DutyBeamDecl[];
+
+  /**
+   * Optional: declared queries this duty makes and/or serves.
+   */
+  queries?: DutyQueriesDecl;
 }
 
 /**
@@ -57,5 +100,8 @@ export interface DutyMetadata {
   schedule?: string;
   watch?: string[];
   webhook?: string;
+  events?: DutyEventsDecl;
+  beams?: DutyBeamDecl[];
+  queries?: DutyQueriesDecl;
   instance: Duty;
 }

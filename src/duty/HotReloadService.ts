@@ -172,6 +172,9 @@ export class HotReloadService {
         schedule: DutyClass.schedule,
         watch: DutyClass.watch,
         webhook: DutyClass.webhook,
+        events: DutyClass.events,
+        beams: DutyClass.beams,
+        queries: DutyClass.queries,
         instance: dutyInstance,
       };
 

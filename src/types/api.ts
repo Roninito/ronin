@@ -171,6 +171,8 @@ export interface DutyAPI {
     getAllRoutes(): Map<string, (req: Request) => Response | Promise<Response>>;
     getRouteMetadata(path: string): {title?: string, description?: string, icon?: string} | undefined;
     getAllRoutesWithMetadata(): Array<{path: string, metadata?: {title?: string, description?: string, icon?: string}}>;
+    /** Register a WebSocket endpoint — the webhook server upgrades matching requests before falling through to normal HTTP routes. */
+    registerWebSocket?(path: string, handlers: { open?(ws: unknown): void; message?(ws: unknown, message: string | Buffer): void; close?(ws: unknown, code: number, reason: string): void }): void;
   };
 
   /**

@@ -5,6 +5,13 @@ import { createAPI } from "../../api/index.js";
 import { stdin, stdout } from "process";
 import { createInterface } from "readline";
 import { ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
+import {
+  toKebabCase,
+  extractDutyName,
+  buildDutyAuthoringSystemPrompt,
+  validateDutyCode,
+  extractCodeFromResponse,
+} from "../../duty/duty-authoring.js";
 
 export interface CreateDutyOptions {
   description?: string;
@@ -16,28 +23,6 @@ export interface CreateDutyOptions {
   pluginDir?: string;
   noPreview?: boolean;
   edit?: boolean;
-}
-
-/**
- * Convert string to kebab-case
- */
-function toKebabCase(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-/**
- * Extract agent name from description
- */
-function extractDutyName(description: string): string {
-  // Try to extract a meaningful name
-  const words = description.toLowerCase().split(/\s+/);
-  const meaningfulWords = words.filter(
-    (w) => w.length > 2 && !["the", "and", "for", "with", "that", "this"].includes(w)
-  );
-  return toKebabCase(meaningfulWords.slice(0, 3).join("-") || "duty");
 }
 
 /**
@@ -149,32 +134,7 @@ export async function createDutyCommand(
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       {
         role: "system",
-        content: `You are an AI assistant helping to create Ronin duty files.
-
-Ronin duties are TypeScript classes that extend BaseDuty. They have:
-- A static schedule property (cron expression) if they should run on a schedule
-- A static watch property (array of file patterns) if they should watch files
-- A static webhook property (string path) if they should handle webhooks
-- An execute() method that contains the main duty logic
-- Optional onFileChange() and onWebhook() methods
-
-Available APIs via this.api:
-- api.ai - AI operations (complete, chat, callTools)
-- api.memory - Memory storage (store, retrieve, search)
-- api.files - File operations (read, write, list, watch)
-- api.db - Database operations (query, execute, transaction)
-- api.http - HTTP client (get, post)
-- api.events - Events (emit, on, off)
-- api.plugins - Plugin calls (call)
-
-The duty class should:
-1. Import BaseDuty from "../src/duty/index.js"
-2. Import DutyAPI type from "../src/types/index.js"
-3. Export default class that extends BaseDuty
-4. Have a constructor that calls super(api)
-5. Implement execute() method with the main logic
-
-Generate complete, working TypeScript code for the duty.`,
+        content: buildDutyAuthoringSystemPrompt(),
       },
       {
         role: "user",
@@ -228,34 +188,14 @@ Generate complete, working TypeScript code for the duty.`,
     });
 
     const finalResponse = await api.ai.chat(messages);
-    let dutyCode = finalResponse.content;
-
-    // Extract code from markdown code blocks if present
-    const codeBlockMatch = dutyCode.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      dutyCode = codeBlockMatch[1];
-    }
-
-    // Clean up the code - remove any explanatory text before/after
-    dutyCode = dutyCode
-      .replace(/^[^i]*import/i, "import") // Remove text before first import
-      .trim();
+    const dutyCode = extractCodeFromResponse(finalResponse.content);
 
     // Basic validation
-    if (!dutyCode.includes("import")) {
-      console.error("❌ Generated code is missing imports");
-      process.exit(1);
-    }
-    if (!dutyCode.includes("export default class")) {
-      console.error("❌ Generated code is missing 'export default class'");
-      process.exit(1);
-    }
-    if (!dutyCode.includes("extends BaseDuty")) {
-      console.error("❌ Generated code doesn't extend BaseDuty");
-      process.exit(1);
-    }
-    if (!dutyCode.includes("execute()")) {
-      console.error("❌ Generated code is missing execute() method");
+    const validation = validateDutyCode(dutyCode);
+    if (!validation.valid) {
+      for (const error of validation.errors) {
+        console.error(`❌ ${error}`);
+      }
       process.exit(1);
     }
 

@@ -444,6 +444,31 @@ export function injectWorkflowProposalCardIntoResponse(
 }
 
 /**
+ * Same pattern as injectContractProposalCardIntoResponse, for AI-drafted
+ * Duty proposals (duties.proposeDuty, duties/duty-executor.ts). The chat UI
+ * detects a fenced \`\`\`duty-proposal block and renders it as an Allow/Refuse
+ * card. Unlike the contract/workflow fences, this one also carries the full
+ * generated `code` — a duty proposal is arbitrary TypeScript with real
+ * DutyAPI access once approved, not structured/pre-validated data, so the
+ * card shows the actual code (collapsed by default), not just a gloss of it.
+ */
+export function injectDutyProposalCardIntoResponse(
+  response: string,
+  toolResults: Array<ToolResultEntry>
+): string {
+  const fences: string[] = [];
+  for (const tr of toolResults) {
+    if (tr.name !== "duties.proposeDuty" || !tr.success || !tr.result) continue;
+    const data = tr.result as Record<string, unknown>;
+    if (typeof data.id !== "string" || typeof data.preview !== "string" || typeof data.code !== "string") continue;
+    const fence = "```duty-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview, code: data.code }) + "\n```";
+    if (!response.includes(data.id)) fences.push(fence);
+  }
+  if (fences.length === 0) return response;
+  return response + "\n\n" + fences.join("\n\n");
+}
+
+/**
  * Invalidate conversation summary for a chat (call when new message is appended).
  */
 export function invalidateChatSummary(chatId: string): void {

@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RONIN — Duties: The Building Blocks of Autonomy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d10;
+    --panel: #12171c;
+    --panel-2: #161c22;
+    --border: #232b32;
+    --border-bright: #2f3b44;
+    --text: #c7d1d8;
+    --text-dim: #6e7a85;
+    --amber: #f0a830;
+    --cyan: #4fd6e0;
+    --gold: #d4af37;
+    --green: #5fd38a;
+    --red: #e0625f;
+    --purple: #b794f6;
+    --blue: #6b9bff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    padding-bottom: 80px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79, 214, 224, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79, 214, 224, 0.022) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+    opacity: 0.35;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+  .mono { font-family: 'Share Tech Mono', monospace; }
+
+  /* ---------- HERO ---------- */
+  header.hero {
+    position: relative;
+    padding: 88px 0 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute;
+    top: -30%; right: -5%;
+    width: 60%; height: 160%;
+    background: radial-gradient(closest-side, rgba(240,168,48,0.12), transparent 65%);
+    pointer-events: none;
+  }
+  header.hero::after {
+    content: "";
+    position: absolute;
+    bottom: -30%; left: -10%;
+    width: 50%; height: 140%;
+    background: radial-gradient(closest-side, rgba(79,214,224,0.08), transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 7px 14px; border-radius: 2px;
+    margin-bottom: 28px;
+  }
+  .hero-tag b { color: var(--amber); font-weight: 400; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  h1.wordmark {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: clamp(52px, 11vw, 120px);
+    line-height: 0.86;
+    letter-spacing: 0.02em;
+    color: #eef3f6;
+    margin-bottom: 8px;
+  }
+  h1.wordmark span { color: var(--amber); }
+  .hero-sub {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    font-size: clamp(18px, 2.8vw, 28px);
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+    margin-bottom: 22px;
+  }
+  .hero-thesis {
+    max-width: 720px;
+    font-size: 17px;
+    color: var(--text);
+    line-height: 1.75;
+  }
+  .hero-thesis b { color: #eef3f6; font-weight: 600; }
+
+  .statrow {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 4px;
+    margin-top: 44px; overflow: hidden;
+  }
+  .stat { background: var(--panel); padding: 18px 16px; }
+  .stat .v { font-family: 'Share Tech Mono', monospace; font-size: 22px; color: var(--gold); }
+  .stat .k { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; }
+
+  /* ---------- SECTION ---------- */
+  section { padding: 64px 0 8px; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; }
+  .sec-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; color: var(--amber);
+    border: 1px solid var(--border-bright); border-radius: 2px;
+    padding: 3px 8px;
+  }
+  h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: clamp(26px, 4vw, 40px);
+    letter-spacing: 0.01em;
+    color: #eef3f6;
+    line-height: 1.05;
+  }
+  .lede { color: var(--text-dim); max-width: 820px; margin-top: 10px; font-size: 16px; line-height: 1.7; }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  /* ---------- DUTY CARD ---------- */
+  .duty-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 24px; }
+  .duty {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .duty:hover { border-color: var(--border-bright); }
+  .duty .duty-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: #eef3f6;
+    margin-bottom: 4px;
+  }
+  .duty .duty-name .idx { color: var(--text-dim); font-size: 13px; font-weight: 500; margin-right: 6px; font-family: 'Share Tech Mono', monospace; }
+  .duty .duty-desc { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+  .duty .duty-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .duty .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+  .tag-schedule { color: var(--amber); border-color: rgba(240,168,48,0.4); background: rgba(240,168,48,0.06); }
+  .tag-webhook { color: var(--cyan); border-color: rgba(79,214,224,0.4); background: rgba(79,214,224,0.06); }
+  .tag-events { color: var(--purple); border-color: rgba(183,148,246,0.4); background: rgba(183,148,246,0.06); }
+  .tag-routes { color: var(--blue); border-color: rgba(107,155,255,0.4); background: rgba(107,155,255,0.06); }
+  .tag-ai { color: var(--green); border-color: rgba(95,211,138,0.4); background: rgba(95,211,138,0.06); }
+  .tag-sar { color: var(--gold); border-color: rgba(212,175,55,0.4); background: rgba(212,175,55,0.06); }
+  .tag-ui { color: var(--red); border-color: rgba(224,98,95,0.4); background: rgba(224,98,95,0.06); }
+
+  /* ---------- CATEGORY HEADER ---------- */
+  .cat-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 40px; margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-header .cat-icon { font-size: 24px; }
+  .cat-header h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: #eef3f6;
+    letter-spacing: 0.02em;
+  }
+  .cat-header .cat-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ---------- PANEL ---------- */
+  .panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 28px;
+    margin-top: 28px;
+  }
+  .panel.highlight {
+    border-color: var(--amber);
+    background: linear-gradient(180deg, rgba(240,168,48,0.06), transparent 50%);
+  }
+  .panel h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+    color: #eef3f6;
+    margin-bottom: 16px;
+  }
+  .panel p { color: var(--text); font-size: 15px; line-height: 1.7; }
+  .panel ul { list-style: none; padding: 0; margin-top: 12px; }
+  .panel ul li { padding: 6px 0; font-size: 14.5px; color: var(--text); display: flex; gap: 10px; align-items: flex-start; }
+  .panel ul li .m { font-family: 'Share Tech Mono', monospace; font-size: 13px; flex-shrink: 0; }
+
+  /* corner brackets */
+  .panel.bracket::before, .panel.bracket::after {
+    content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none;
+  }
+  .panel.bracket::before { top: 8px; left: 8px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+  .panel.bracket::after { bottom: 8px; right: 8px; border-bottom: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+
+  /* ---------- CODE BLOCK ---------- */
+  .code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px;
+    overflow-x: auto;
+    margin-top: 20px;
+    line-height: 1.75;
+    color: var(--text);
+  }
+  .code .comment { color: var(--text-dim); }
+  .code .keyword { color: var(--purple); }
+  .code .string { color: var(--green); }
+  .code .func { color: var(--cyan); }
+  .code .type { color: var(--gold); }
+  .code .prop { color: var(--amber); }
+
+  /* ---------- CALLOUT ---------- */
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: rgba(240,168,48,0.05);
+    padding: 20px 24px;
+    border-radius: 0 4px 4px 0;
+    margin-top: 32px;
+  }
+  .callout .k {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+  .callout p {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .callout p + p { margin-top: 12px; }
+
+  .callout.green {
+    border-left-color: var(--green);
+    background: rgba(95,211,138,0.05);
+  }
+  .callout.green .k { color: var(--green); }
+
+  .callout.cyan {
+    border-left-color: var(--cyan);
+    background: rgba(79,214,224,0.05);
+  }
+  .callout.cyan .k { color: var(--cyan); }
+
+  /* ---------- STEP FLOW ---------- */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+  .step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+  }
+  .step .step-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+  .step h4 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: #eef3f6;
+    margin-bottom: 6px;
+  }
+  .step p { font-size: 14px; color: var(--text-dim); }
+  .step .mono { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+
+  /* ---------- FILE TREE ---------- */
+  .tree {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; line-height: 1.85;
+    color: var(--text-dim); background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px; padding: 22px 24px; overflow-x: auto;
+  }
+  .tree .d { color: var(--cyan); }
+  .tree .n { color: var(--amber); }
+  .tree .c { color: var(--text-dim); opacity: 0.8; }
+  .tree .g { color: var(--green); }
+
+  /* ---------- COMPARE ---------- */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ba-col { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .ba-h {
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+  }
+  .ba-before .ba-h { color: var(--red); background: rgba(224,98,95,0.05); }
+  .ba-after .ba-h { color: var(--green); background: rgba(95,211,138,0.06); }
+  .ba-col ul { list-style: none; padding: 8px 0; }
+  .ba-col li { padding: 9px 18px; font-size: 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .ba-col li + li { border-top: 1px solid rgba(35,43,50,0.6); }
+  .ba-col li .m { font-family: 'Share Tech Mono', monospace; font-size: 13px; flex-shrink: 0; }
+  .ba-before li .m { color: var(--red); } .ba-after li .m { color: var(--green); }
+
+  footer {
+    margin-top: 80px;
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+  }
+  footer .f {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; color: var(--text-dim);
+    letter-spacing: 0.1em;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  footer .f b { color: var(--cyan); font-weight: 400; }
+
+  /* ---------- TABLE OF CONTENTS ---------- */
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-top: 28px;
+  }
+  .toc h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #eef3f6;
+    margin-bottom: 12px;
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 6px 24px;
+  }
+  .toc li {
+    counter-increment: toc;
+    font-size: 14px;
+    padding: 4px 0;
+  }
+  .toc li a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .toc li a:hover { color: var(--cyan); }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    margin-right: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 760px) {
+    .statrow { grid-template-columns: repeat(2, 1fr); }
+    .duty-grid { grid-template-columns: 1fr; }
+    .ba { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-tag"><span class="dot"></span> DUTY SYSTEM · <b>THE BUILDING BLOCKS OF AUTONOMY</b></div>
+    <h1 class="wordmark">DU<span>T</span>IES</h1>
+    <div class="hero-sub">Every unit of work in Ronin is a Duty</div>
+    <p class="hero-thesis">
+      A <b>Duty is a SAR loop instance</b> — a self-contained unit of autonomous work with its own schedule, memory, tools, and personality. Duties can run on cron schedules, respond to webhooks, watch files, listen to events, or serve web UIs. This document catalogs all <b>57 built-in duties</b> and shows you how to create your own.
+    </p>
+
+    <div class="statrow">
+      <div class="stat"><div class="v">57</div><div class="k">Built-in Duties</div></div>
+      <div class="stat"><div class="v">8</div><div class="k">Categories</div></div>
+      <div class="stat"><div class="v">26</div><div class="k">With Web Routes</div></div>
+      <div class="stat"><div class="v">12</div><div class="k">Cron-Scheduled</div></div>
+      <div class="stat"><div class="v">5</div><div class="k">Webhook-Activated</div></div>
+      <div class="stat"><div class="v">29</div><div class="k">Event-Driven</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- TABLE OF CONTENTS -->
+<section class="wrap">
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#what-is-a-duty">What Is a Duty?</a></li>
+      <li><a href="#duty-anatomy">Duty Anatomy</a></li>
+      <li><a href="#trigger-types">Trigger Types</a></li>
+      <li><a href="#communication">Communication & Messaging</a></li>
+      <li><a href="#ai-intelligence">AI & Intelligence</a></li>
+      <li><a href="#web-uis">Web UIs & Dashboards</a></li>
+      <li><a href="#automation">Scheduling & Automation</a></li>
+      <li><a href="#data-processing">Data Processing & Analysis</a></li>
+      <li><a href="#system-ops">System Operations</a></li>
+      <li><a href="#orchestration">Orchestration & Coordination</a></li>
+      <li><a href="#creating-custom">Creating Custom Duties</a></li>
+      <li><a href="#manual-creation">Manual Creation</a></li>
+      <li><a href="#ai-workflow">AI-Assisted Workflow</a></li>
+      <li><a href="#duty-api">The DutyAPI Reference</a></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 01 WHAT IS A DUTY -->
+<section class="wrap" id="what-is-a-duty">
+  <div class="sec-head"><span class="sec-num">01</span><div><h2>What Is a Duty?</h2></div></div>
+  <p class="lede">A Duty is the fundamental unit of work in Ronin. Every agent, bot, scheduler, monitor, and service you see in the system is a Duty. They are <b>TypeScript classes that extend BaseDuty</b>, each with their own schedule, memory, tools, and execution logic.</p>
+
+  <div class="panel bracket">
+    <h3>The SAR Loop</h3>
+    <p>Every Duty runs inside a <b>SAR envelope</b> — Sense, Analyze, Respond — applied at the runner level. This means governance, token budgets, model resolution, and execution tracking are applied uniformly to every duty without any special code.</p>
+    <ul>
+      <li><span class="m" style="color:var(--cyan)">SENSE</span> Pull signal: trigger from cron, webhook, file-watch, or event</li>
+      <li><span class="m" style="color:var(--gold)">ANALYZE</span> Reason over context with AI, apply budgets, resolve models</li>
+      <li><span class="m" style="color:var(--amber)">RESPOND</span> Execute tools, write memory, emit events, call other duties</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="k">Key insight</div>
+    <p>Duties are <b>not just scheduled tasks</b>. A duty can be a full web application (like the chat UI), a Telegram bot, an event listener, a cron job, or a combination of all of these. The SAR loop wraps whatever the duty does.</p>
+  </div>
+</section>
+
+<!-- 02 DUTY ANATOMY -->
+<section class="wrap" id="duty-anatomy">
+  <div class="sec-head"><span class="sec-num">02</span><div><h2>Duty Anatomy</h2></div></div>
+
+  <div class="code"><span class="keyword">import</span> { BaseDuty } <span class="keyword">from</span> <span class="string">"../src/duty/index.js"</span>;
+<span class="keyword">import type</span> { DutyAPI } <span class="keyword">from</span> <span class="string">"../src/types/index.js"</span>;
+
+<span class="comment">/**
+ * A Duty is a TypeScript class with:
+ * - Static properties that declare triggers (schedule, watch, webhook)
+ * - A constructor that receives the DutyAPI
+ * - An execute() method containing the main logic
+ * - Optional lifecycle hooks (onFileChange, onWebhook)
+ * - Access to the full DutyAPI: ai, memory, db, http, events, plugins
+ */</span>
+<span class="keyword">export default class</span> <span class="type">MyDuty</span> <span class="keyword">extends</span> <span class="type">BaseDuty</span> {
+  <span class="comment">// Trigger declarations (static properties)</span>
+  <span class="keyword">static</span> <span class="prop">schedule</span> = <span class="string">"*/5 * * * *"</span>;   <span class="comment">// Cron: every 5 min</span>
+  <span class="keyword">static</span> <span class="prop">watch</span>: <span class="type">string</span>[] = [<span class="string">"./data/*.csv"</span>]; <span class="comment">// File watch</span>
+  <span class="keyword">static</span> <span class="prop">webhook</span> = <span class="string">"/api/my-duty"</span>;  <span class="comment">// HTTP endpoint</span>
+
+  <span class="keyword">constructor</span>(<span class="prop">api</span>: <span class="type">DutyAPI</span>) {
+    <span class="keyword">super</span>(api);
+    <span class="comment">// Register HTTP routes, event listeners, tools</span>
+  }
+
+  <span class="keyword">async</span> <span class="func">execute</span>(): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="comment">// Main logic — runs on schedule, event, or webhook</span>
+    <span class="keyword">const</span> result = <span class="keyword">await</span> <span class="keyword">this</span>.<span class="prop">api</span>.<span class="func">ai.complete</span>(<span class="string">"Hello"</span>);
+    <span class="keyword">await</span> <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">memory</span>.<span class="func">store</span>(<span class="string">"lastRun"</span>, <span class="type">Date</span>.<span class="func">now</span>());
+    <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">events</span>.<span class="func">emit</span>(<span class="string">"my-duty:complete"</span>, {}, <span class="string">"my-duty"</span>);
+  }
+
+  <span class="comment">// Optional: handle file changes</span>
+  <span class="keyword">async</span> <span class="func">onFileChange</span>(<span class="prop">path</span>: <span class="type">string</span>, <span class="prop">event</span>: <span class="type">string</span>) { }
+
+  <span class="comment">// Optional: handle webhook requests</span>
+  <span class="keyword">async</span> <span class="func">onWebhook</span>(<span class="prop">payload</span>: <span class="type">unknown</span>) { }
+}</div>
+</section>
+
+<!-- 03 TRIGGER TYPES -->
+<section class="wrap" id="trigger-types">
+  <div class="sec-head"><span class="sec-num">03</span><div><h2>Trigger Types</h2></div></div>
+  <p class="lede">Duties can be activated by <b>four trigger types</b>, each declared as a static property. A single duty can use any combination.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">Trigger 01</div>
+      <h4>Cron Schedule</h4>
+      <p>Standard cron expression. The duty's <span class="mono">execute()</span> runs on schedule.</p>
+      <div class="mono" style="margin-top:8px;color:var(--amber)">static schedule = "*/5 * * * *"</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Trigger 02</div>
+      <h4>File Watch</h4>
+      <p>Watch file patterns. <span class="mono">onFileChange()</span> fires on create/update/delete.</p>
+      <div class="mono" style="margin-top:8px;color:var(--cyan)">static watch = ["./data/*.csv"]</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Trigger 03</div>
+      <h4>Webhook</h4>
+      <p>Register an HTTP endpoint. <span class="mono">onWebhook()</span> receives the request payload.</p>
+      <div class="mono" style="margin-top:8px;color:var(--green)">static webhook = "/api/my-duty"</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Trigger 04</div>
+      <h4>Event Listener</h4>
+      <p>Listen to the event bus in the constructor. React to any duty's events.</p>
+      <div class="mono" style="margin-top:8px;color:var(--purple)">this.api.events.on("event", fn)</div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 COMMUNICATION & MESSAGING -->
+<section class="wrap" id="communication">
+  <div class="cat-header">
+    <div class="cat-icon">&#128172;</div>
+    <h3>Communication & Messaging</h3>
+    <span class="cat-count">7 duties</span>
+  </div>
+  <p class="lede">Connect to chat platforms, bridge messages across services, and provide conversational AI interfaces.</p>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">01</span>Chatty</div>
+      <div class="duty-desc">Context-aware chat interface with tool calling, conversation history, and knowledge graph integration. Serves the <span class="mono">/chat</span> web UI and <span class="mono">/api/chat</span> endpoint. Understands Ronin's architecture, duties, and plugins.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-sar">sar chain</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">02</span>Messenger</div>
+      <div class="duty-desc">Enhanced SAR-chain messenger with conversation history, dynamic Ronin context, and tool calling. Receives messages from Telegram, Discord, and other channels; lets AI choose appropriate actions.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-sar">sar chain</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">03</span>Discord Bridge</div>
+      <div class="duty-desc">Full-featured Discord bot with command handling, message bridging, and channel monitoring. Bridges Discord conversations to other platforms via the event bus.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">04</span>Telegram Subscription</div>
+      <div class="duty-desc">Manages Telegram bot subscriptions, polling, and message routing. Runs on a 15-minute schedule to process subscription updates and deliver scheduled content.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/15 * * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">05</span>Telegram Watcher</div>
+      <div class="duty-desc">Monitors Telegram channels and groups for new messages. Runs on a 5-minute schedule to check for updates and emit events for other duties to process.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/5 * * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">06</span>Email Manager</div>
+      <div class="duty-desc">IMAP/SMTP email management with web UI. Read, send, and organize emails. Auto-detect settings, handle attachments, and automate email workflows.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">07</span>Voice Messaging</div>
+      <div class="duty-desc">Voice message processing for Telegram. Transcribes audio, processes voice commands, and integrates with the TTS system for responses.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 AI & INTELLIGENCE -->
+<section class="wrap" id="ai-intelligence">
+  <div class="cat-header">
+    <div class="cat-icon">&#129302;</div>
+    <h3>AI & Intelligence</h3>
+    <span class="cat-count">9 duties</span>
+  </div>
+  <p class="lede">Core AI capabilities — from the primary chat interface to tool orchestration, code generation, and knowledge management.</p>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">08</span>Tool Orchestrator</div>
+      <div class="duty-desc">Smart tool router that understands user intent, decides which tools to use, orchestrates local and cloud tools, and assembles final responses. Exposed via <span class="mono">/api/tool-orchestrator</span>.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-webhook">/api/tool-orchestrator</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">09</span>Skill Maker</div>
+      <div class="duty-desc">AI-powered skill creation using SAR chains with ontology awareness. Creates new skills in <span class="mono">~/.ronin/skills/</span> with full SKILL.md manifests, directory structure, and implementation.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-sar">sar chain</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">10</span>Agent Creator Orchestrator</div>
+      <div class="duty-desc">Event-driven orchestrator for creating new duties using LangGraph. Coordinates the multi-step process of understanding requirements, generating code, and hot-reloading the new duty.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">11</span>Ontologist</div>
+      <div class="duty-desc">Passive knowledge graph builder. Listens to plan, skill, task, and lifecycle events; writes nodes and edges. Bootstraps from existing duties, plugins, and skills on startup. Daily cleanup at 3 AM.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 3 * * *</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">12</span>Web Researcher</div>
+      <div class="duty-desc">Tool-provider duty that offers web research capabilities. Registers itself as a tool provider so other duties can call <span class="mono">agent.WebResearcher.research</span> for web searches and content extraction.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">13</span>Coder Bot</div>
+      <div class="duty-desc">Code generation and editing via CLI tools (opencode, cursor, etc.). Handles plan-approved tasks, checks tool availability, and coordinates code generation workflows.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">14</span>Tool Calling Agent</div>
+      <div class="duty-desc">Demonstrates the complete tool-calling workflow. Runs hourly to process pending tool-call requests and demonstrate the function-calling pipeline.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 * * * *</span>
+        <span class="tag tag-ai">ai-powered</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">15</span>Refactory</div>
+      <div class="duty-desc">AI-driven code refactoring and analysis duty. Receives refactoring requests, analyzes codebases, and proposes or applies changes.</div>
+      <div class="duty-tags">
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">16</span>Dojo Agent</div>
+      <div class="duty-desc">Training and evaluation agent. Provides a structured environment for testing AI capabilities and measuring performance improvements.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 WEB UIS -->
+<section class="wrap" id="web-uis">
+  <div class="cat-header">
+    <div class="cat-icon">&#127760;</div>
+    <h3>Web UIs & Dashboards</h3>
+    <span class="cat-count">10 duties</span>
+  </div>
+  <p class="lede">Full-featured web interfaces served by duties. Each registers HTTP routes and renders HTML with the Ronin theme system.</p>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">17</span>Blogs</div>
+      <div class="duty-desc">SQLite-backed blog system with markdown support. Full CMS-style interface at <span class="mono">/blogs</span> with draft/publish workflow, markdown editing, and HTML rendering.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">18</span>Portfolio</div>
+      <div class="duty-desc">Portfolio tracking dashboard with positions, trades, and agent performance metrics. Rich visual UI at <span class="mono">/portfolio</span> with real-time data. Runs every 5 minutes.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/5 * * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ui">ui</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">19</span>Schedule Manager</div>
+      <div class="duty-desc">Web UI and API for managing cron schedules for all duties at <span class="mono">/schedule</span>. View, edit, and create schedules with human-readable descriptions. SSE for real-time updates.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">20</span>Event Monitor</div>
+      <div class="duty-desc">Real-time event timeline at <span class="mono">/timeline</span>. Monitors all events with sampling, filtering, pagination, and 24h retention. Visual indicators for sampled events.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 * * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">21</span>Model Manager UI</div>
+      <div class="duty-desc">Web interface for managing AI models — view installed models, pull new ones, check status, and switch between providers.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">22</span>Model Selector UI</div>
+      <div class="duty-desc">Interactive model selection interface. Compare models, test responses, and configure model routing preferences.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">23</span>Web Viewer</div>
+      <div class="duty-desc">Web content viewer and renderer at <span class="mono">/api/web-viewer</span>. Fetches and renders web pages, markdown, and other content formats.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/api/web-viewer</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">24</span>Config Editor</div>
+      <div class="duty-desc">Web UI for editing Ronin configuration. Modify AI models, plugins, and system settings through a friendly interface.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">25</span>Served</div>
+      <div class="duty-desc">Discovers and displays servers running on the local machine. Uses the Served skill to gather server info and presents it via a web interface at <span class="mono">/served</span>.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/served</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">26</span>Onboarding Wizard</div>
+      <div class="duty-desc">First-run setup wizard at <span class="mono">/onboarding</span>. Guides new users through configuring AI models, connecting services, and setting up preferences.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/onboarding</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 AUTOMATION -->
+<section class="wrap" id="automation">
+  <div class="cat-header">
+    <div class="cat-icon">&#9200;</div>
+    <h3>Scheduling & Automation</h3>
+    <span class="cat-count">8 duties</span>
+  </div>
+  <p class="lede">Cron-scheduled duties that run on fixed intervals to monitor, aggregate, clean up, and announce.</p>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">27</span>Announcer</div>
+      <div class="duty-desc">Speaks status messages via TTS (Piper). Announces "Ronin online" every 30 minutes with a 12-hour cooldown. Respects the <span class="mono">RONIN_ANNOUNCE_DISABLED</span> env var.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/30 * * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">28</span>RSS to Telegram</div>
+      <div class="duty-desc">Queries the RSS feed duty for new items and sends them to a Telegram channel. Runs every 3 hours with full config management and HTML rendering.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 */3 * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">29</span>DB Cleanup</div>
+      <div class="duty-desc">Database maintenance duty that runs nightly at 3:15 AM. Vacuums SQLite, removes stale sessions, and optimizes indexes. Also exposes a management UI.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">15 3 * * *</span>
+        <span class="tag tag-routes">web routes</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">30</span>Analytics</div>
+      <div class="duty-desc">Collects and aggregates system metrics. Runs every 2 hours to compute duty execution stats, model usage, and performance data. Serves analytics dashboard.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 */2 * * *</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">31</span>Tool Analytics</div>
+      <div class="duty-desc">Tracks tool usage patterns, success rates, and performance metrics. Runs every 6 hours to aggregate and emit analytics events.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 */6 * * *</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">32</span>System Info Collector</div>
+      <div class="duty-desc">Gathers system information (CPU, memory, disk, network) every 6 hours and stores it for monitoring and diagnostics.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 */6 * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">33</span>Plugin Manager</div>
+      <div class="duty-desc">Monitors plugin health, checks for updates, and manages plugin lifecycle. Runs every 5 minutes to verify plugin availability.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/5 * * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">34</span>Example Agent</div>
+      <div class="duty-desc">Simple example duty running daily at 7 AM. Demonstrates AI completion, memory storage, and file reading. Serves as a template for new duty creation.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 7 * * *</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 DATA PROCESSING -->
+<section class="wrap" id="data-processing">
+  <div class="cat-header">
+    <div class="cat-icon">&#128202;</div>
+    <h3>Data Processing & Content</h3>
+    <span class="cat-count">8 duties</span>
+  </div>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">35</span>Blog Boy</div>
+      <div class="duty-desc">AI-powered blog writing assistant. Generates articles on topics, handles SEO, and publishes through the Blogs duty. Rich web UI for content creation.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ai">ai-powered</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">36</span>Codebase Analyzer</div>
+      <div class="duty-desc">Analyzes project codebases — file counts, languages, dependencies, complexity metrics. Runs nightly and serves analysis via events.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 1 * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">37</span>Obsidian Vault Indexer</div>
+      <div class="duty-desc">Indexes Obsidian vaults for search and knowledge graph integration. Runs daily at 2 AM to process markdown files, frontmatter, and wikilinks.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 2 * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">38</span>Discord URL Aggregator</div>
+      <div class="duty-desc">Monitors Discord channels for shared URLs, aggregates them, extracts metadata, and serves a browsable collection via web UI.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">39</span>Docs Agent</div>
+      <div class="duty-desc">Documentation generation and management. Processes code comments, READMEs, and produces structured documentation with web UI.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">40</span>Tools Indexer</div>
+      <div class="duty-desc">Indexes all available tools, their schemas, and descriptions. Runs daily at midnight to maintain an up-to-date tool catalog.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 0 * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">41</span>Kata Runner</div>
+      <div class="duty-desc">Executes kata (structured task patterns) on a 30-minute schedule. Processes and validates kata definitions, tracking execution history.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">*/30 * * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">42</span>Kata Executor</div>
+      <div class="duty-desc">Handles individual kata execution requests. Works with the Kata Runner to process structured task definitions.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 09 SYSTEM OPERATIONS -->
+<section class="wrap" id="system-ops">
+  <div class="cat-header">
+    <div class="cat-icon">&#9881;</div>
+    <h3>System Operations</h3>
+    <span class="cat-count">9 duties</span>
+  </div>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">43</span>OS Bridge</div>
+      <div class="duty-desc">System tray integration, desktop notifications, and OS-level operations. Webhook endpoint at <span class="mono">/api/os-bridge</span> for system commands from other duties.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/api/os-bridge</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">44</span>Alert Observer</div>
+      <div class="duty-desc">Monitors system events for alert conditions. Watches for errors, threshold breaches, and anomalies, then dispatches alerts via configured channels.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">45</span>Auth Service</div>
+      <div class="duty-desc">Authentication and session management. Handles API keys, tokens, and access control for web routes and protected resources.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">46</span>Log Observer</div>
+      <div class="duty-desc">Watches and processes system logs. Aggregates log entries, detects patterns, and emits events for error handling and monitoring.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">47</span>Agent Registry</div>
+      <div class="duty-desc">Maintains the registry of all active duties, their schedules, and capabilities. Runs hourly to verify agent health and update the registry.</div>
+      <div class="duty-tags">
+        <span class="tag tag-schedule">0 * * * *</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">48</span>Agent Dependency Dashboard</div>
+      <div class="duty-desc">Visualizes duty dependencies and relationships. Shows which duties depend on which plugins, events, and other duties.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">49</span>Rule Manager</div>
+      <div class="duty-desc">Manages system rules and automation policies. Webhook endpoint at <span class="mono">/rules</span> for creating, updating, and deleting rules that govern duty behavior.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/rules</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">50</span>Manual Approval</div>
+      <div class="duty-desc">Human-in-the-loop approval workflow. Presents actions that require human confirmation and tracks approval/rejection decisions.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">51</span>Term Manager</div>
+      <div class="duty-desc">Terminal session management with web UI. Provides secure terminal access via <span class="mono">/api/term-manager</span> for remote administration.</div>
+      <div class="duty-tags">
+        <span class="tag tag-webhook">/api/term-manager</span>
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 ORCHESTRATION -->
+<section class="wrap" id="orchestration">
+  <div class="cat-header">
+    <div class="cat-icon">&#128279;</div>
+    <h3>Orchestration & Coordination</h3>
+    <span class="cat-count">6 duties</span>
+  </div>
+
+  <div class="duty-grid">
+    <div class="duty">
+      <div class="duty-name"><span class="idx">52</span>Tasking</div>
+      <div class="duty-desc">Task management and delegation. Coordinates work across duties, tracks task state (pending, running, completed, failed), and provides a web UI at <span class="mono">/tasking</span>.</div>
+      <div class="duty-tags">
+        <span class="tag tag-routes">web routes</span>
+        <span class="tag tag-events">events</span>
+        <span class="tag tag-ui">ui</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">53</span>Contract Executor</div>
+      <div class="duty-desc">Executes contracts — structured agreements between duties about inputs, outputs, and guarantees. Validates pre/post conditions and manages execution lifecycle.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">54</span>Mesh Diagnostic</div>
+      <div class="duty-desc">Network mesh diagnostics and monitoring. Checks connectivity between distributed Ronin instances and reports health status.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">55</span>Example Approval Workflow</div>
+      <div class="duty-desc">Demonstrates the human-in-the-loop approval pattern. Shows how to create multi-step workflows that require human confirmation at critical points.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">56</span>Example Katas</div>
+      <div class="duty-desc">Demonstrates kata (structured task pattern) usage. Shows how to define, register, and execute katas within the Ronin framework.</div>
+      <div class="duty-tags">
+      </div>
+    </div>
+    <div class="duty">
+      <div class="duty-name"><span class="idx">57</span>Test Agent</div>
+      <div class="duty-desc">Automated testing duty for validating Ronin's core systems. Runs integration tests, verifies API endpoints, and reports system health.</div>
+      <div class="duty-tags">
+        <span class="tag tag-events">events</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 CREATING CUSTOM DUTIES -->
+<section class="wrap" id="creating-custom">
+  <div class="sec-head"><span class="sec-num">11</span><div><h2>Creating Custom Duties</h2></div></div>
+  <p class="lede">Ronin is designed for extensibility. You can create custom duties <b>two ways</b>: manually by writing TypeScript, or using the AI-assisted <span class="mono">ronin create-duty</span> command.</p>
+
+  <div class="ba" style="margin-top:28px">
+    <div class="ba-col ba-after">
+      <div class="ba-h">Two Ways to Create</div>
+      <ul>
+        <li><span class="m" style="color:var(--green)">MANUAL</span><span>Write TypeScript in <span class="mono">~/.ronin/duties/</span> — full control, no AI needed</span></li>
+        <li><span class="m" style="color:var(--green)">AI-ASSISTED</span><span>Run <span class="mono">ronin create-duty</span> — AI generates the code interactively</span></li>
+      </ul>
+    </div>
+    <div class="ba-col ba-after">
+      <div class="ba-h">Where Duties Live</div>
+      <ul>
+        <li><span class="m" style="color:var(--green)">LOCAL</span><span><span class="mono">./duties/</span> — project-level, checked into git</span></li>
+        <li><span class="m" style="color:var(--green)">USER</span><span><span class="mono">~/.ronin/duties/</span> — user-level, available across projects</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 12 MANUAL CREATION -->
+<section class="wrap" id="manual-creation">
+  <div class="sec-head"><span class="sec-num">12</span><div><h2>Manual Duty Creation</h2></div></div>
+  <p class="lede">Create a duty by writing a TypeScript file. Place it in <span class="mono">~/.ronin/duties/</span> for user-level or <span class="mono">./duties/</span> for project-level. Ronin auto-discovers and hot-reloads.</p>
+
+  <div class="panel bracket">
+    <h3>File Structure</h3>
+    <div class="tree">
+~/.ronin/
+├── <span class="d">duties/</span>            <span class="c"># User-level custom duties</span>
+│   ├── <span class="n">weather-alert.ts</span>  <span class="c"># Your custom duty</span>
+│   ├── <span class="n">stock-watcher.ts</span>  <span class="c"># Another custom duty</span>
+│   └── ...
+├── <span class="d">skills/</span>            <span class="c"># Custom skills</span>
+├── <span class="d">plugins/</span>           <span class="c"># Custom plugins</span>
+└── config.json        <span class="c"># Ronin configuration</span>
+
+<span class="c"># OR project-level:</span>
+your-project/
+├── <span class="d">duties/</span>                <span class="c"># Project duties (git-tracked)</span>
+│   ├── <span class="n">my-duty.ts</span>
+│   └── ...
+└── ...
+    </div>
+  </div>
+
+  <div class="callout green" style="margin-top:24px">
+    <div class="k">Hot Reload</div>
+    <p>Both directories are watched. When you save a duty file, Ronin automatically detects the change, reloads the duty, and updates the schedule — <b>no restart needed.</b></p>
+  </div>
+
+  <h3 style="margin-top:36px; margin-bottom:16px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:24px; color:#eef3f6;">Complete Example: GitHub Release Monitor</h3>
+
+  <div class="code"><span class="comment">// ~/.ronin/duties/github-release-monitor.ts</span>
+<span class="keyword">import</span> { BaseDuty } <span class="keyword">from</span> <span class="string">"../src/duty/index.js"</span>;
+<span class="keyword">import type</span> { DutyAPI } <span class="keyword">from</span> <span class="string">"../src/types/index.js"</span>;
+
+<span class="comment">/**
+ * Monitors GitHub repositories for new releases.
+ * Runs every 30 minutes, stores seen releases in memory,
+ * and emits events when new releases are found.
+ */</span>
+<span class="keyword">export default class</span> <span class="type">GitHubReleaseMonitor</span> <span class="keyword">extends</span> <span class="type">BaseDuty</span> {
+  <span class="keyword">static</span> <span class="prop">schedule</span> = <span class="string">"*/30 * * * *"</span>;  <span class="comment">// Every 30 minutes</span>
+  <span class="keyword">static</span> <span class="prop">webhook</span> = <span class="string">"/api/github-releases"</span>; <span class="comment">// Also accessible via HTTP</span>
+
+  <span class="keyword">private</span> <span class="prop">repos</span>: <span class="type">string</span>[] = [
+    <span class="string">"ollama/ollama"</span>,
+    <span class="string">"oven-sh/bun"</span>,
+  ];
+
+  <span class="keyword">constructor</span>(<span class="prop">api</span>: <span class="type">DutyAPI</span>) {
+    <span class="keyword">super</span>(api);
+    <span class="keyword">this</span>.<span class="func">registerRoutes</span>();
+  }
+
+  <span class="keyword">async</span> <span class="func">execute</span>(): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="keyword">for</span> (<span class="keyword">const</span> repo <span class="keyword">of</span> <span class="keyword">this</span>.<span class="prop">repos</span>) {
+      <span class="keyword">await</span> <span class="keyword">this</span>.<span class="func">checkRepo</span>(repo);
+    }
+  }
+
+  <span class="keyword">private async</span> <span class="func">checkRepo</span>(<span class="prop">repo</span>: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="keyword">const</span> key = <span class="string">`gh-release:${repo}`</span>;
+
+    <span class="comment">// Fetch latest release from GitHub</span>
+    <span class="keyword">const</span> response = <span class="keyword">await</span> <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">http</span>.<span class="func">get</span>(
+      <span class="string">`https://api.github.com/repos/${repo}/releases/latest`</span>
+    );
+    <span class="keyword">const</span> release = <span class="keyword">await</span> response.<span class="func">json</span>() <span class="keyword">as</span> { tag_name: <span class="type">string</span>; html_url: <span class="type">string</span> };
+
+    <span class="comment">// Check if we've seen this release before</span>
+    <span class="keyword">const</span> lastSeen = <span class="keyword">await</span> <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">memory</span>.<span class="func">retrieve</span>(key);
+    <span class="keyword">if</span> (lastSeen !== release.tag_name) {
+      <span class="comment">// New release found — store it and emit event</span>
+      <span class="keyword">await</span> <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">memory</span>.<span class="func">store</span>(key, release.tag_name);
+
+      <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">events</span>.<span class="func">emit</span>(<span class="string">"github:new-release"</span>, {
+        repo,
+        tag: release.tag_name,
+        url: release.html_url,
+      }, <span class="string">"github-release-monitor"</span>);
+
+      console.<span class="func">log</span>(<span class="string">`[github-monitor] New release: ${repo} ${release.tag_name}`</span>);
+    }
+  }
+
+  <span class="comment">// Webhook handler — receives push notifications</span>
+  <span class="keyword">async</span> <span class="func">onWebhook</span>(<span class="prop">payload</span>: <span class="type">unknown</span>): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="keyword">const</span> data = payload <span class="keyword">as</span> { repository?: { full_name: <span class="type">string</span> } };
+    <span class="keyword">if</span> (data.repository) {
+      <span class="keyword">await</span> <span class="keyword">this</span>.<span class="func">checkRepo</span>(data.repository.full_name);
+    }
+  }
+
+  <span class="comment">// Register HTTP routes</span>
+  <span class="keyword">private</span> <span class="func">registerRoutes</span>(): <span class="keyword">void</span> {
+    <span class="keyword">this</span>.<span class="prop">api</span>.<span class="prop">http</span>.<span class="func">registerRoute</span>(
+      <span class="string">"/api/github-releases/repos"</span>,
+      <span class="keyword">async</span> () => <span class="type">Response</span>.<span class="func">json</span>({ repos: <span class="keyword">this</span>.repos })
+    );
+  }
+}</div>
+
+  <div class="callout" style="margin-top:24px">
+    <div class="k">Important notes</div>
+    <p><b>Import paths:</b> Use <span class="mono">"../src/duty/index.js"</span> and <span class="mono">"../src/types/index.js"</span> — the <span class="mono">.js</span> extension is required by Bun's ESM resolver.</p>
+    <p><b>Default export:</b> The class must be the <span class="mono">export default</span> — Ronin's loader looks for it.</p>
+    <p><b>Constructor:</b> Always call <span class="mono">super(api)</span> first. Register routes and event listeners in the constructor.</p>
+    <p><b>Hot reload:</b> Save the file and Ronin picks it up within seconds. No restart.</p>
+  </div>
+</section>
+
+<!-- 13 AI-ASSISTED WORKFLOW -->
+<section class="wrap" id="ai-workflow">
+  <div class="sec-head"><span class="sec-num">13</span><div><h2>AI-Assisted Duty Creation</h2></div></div>
+  <p class="lede">Use <span class="mono">ronin create-duty</span> to have AI generate a complete duty file interactively. The AI asks clarifying questions, then writes production-ready TypeScript.</p>
+
+  <div class="steps" style="margin-top:28px">
+    <div class="step">
+      <div class="step-num">Step 01</div>
+      <h4>Describe Your Duty</h4>
+      <p>Run the command and describe what you want. The AI asks follow-up questions.</p>
+      <div class="mono" style="margin-top:8px; color:var(--green)">$ ronin create-duty</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 02</div>
+      <h4>AI Conversation</h4>
+      <p>The AI understands Ronin's architecture and asks about schedule, triggers, APIs needed, and behavior.</p>
+      <div class="mono" style="margin-top:8px; color:var(--text-dim)">What would you like your duty to do?</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 03</div>
+      <h4>Code Generation</h4>
+      <p>AI generates complete TypeScript with imports, class, static properties, constructor, and execute method.</p>
+      <div class="mono" style="margin-top:8px; color:var(--amber)">✅ Duty created: ~/.ronin/duties/my-duty.ts</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 04</div>
+      <h4>Auto-Reload</h4>
+      <p>Ronin's hot-reload detects the new file, loads the duty, and starts running it immediately.</p>
+      <div class="mono" style="margin-top:8px; color:var(--cyan)">[hot-reload] Loaded duty: my-duty</div>
+    </div>
+  </div>
+
+  <div class="panel highlight" style="margin-top:28px">
+    <h3>CLI Options</h3>
+    <div class="code" style="margin-top:12px"><span class="comment"># Basic usage — AI will ask questions interactively</span>
+$ ronin create-duty
+
+<span class="comment"># Provide description upfront</span>
+$ ronin create-duty --description <span class="string">"Monitor GitHub repos for new releases"</span>
+
+<span class="comment"># Save to user-level directory (~/.ronin/duties/)</span>
+$ ronin create-duty --local
+
+<span class="comment"># Save to project-level directory (./duties/)</span>
+$ ronin create-duty --duty-dir ./duties
+
+<span class="comment"># Specify AI model</span>
+$ ronin create-duty --ollama-model <span class="string">"qwen3:1.7b"</span>
+
+<span class="comment"># Skip preview, write immediately</span>
+$ ronin create-duty --no-preview
+
+<span class="comment"># Open in editor after creation</span>
+$ ronin create-duty --edit
+
+<span class="comment"># When Ronin is running, it uses event-driven creation via orchestrator</span>
+<span class="comment"># When not running, it falls back to direct AI generation</span></div>
+  </div>
+
+  <div class="callout cyan" style="margin-top:24px">
+    <div class="k">Two creation modes</div>
+    <p><b>Event-driven (preferred):</b> When Ronin is running, <span class="mono">ronin create-duty</span> sends a <span class="mono">create_duty</span> event to the agent-creator-orchestrator, which uses the full SAR pipeline to generate, validate, and hot-reload the duty.</p>
+    <p><b>Direct creation (fallback):</b> When Ronin isn't running, the CLI creates the API directly, runs an interactive AI conversation, generates the code, validates it, and writes the file. You then start Ronin to load the new duty.</p>
+  </div>
+
+  <h3 style="margin-top:36px; margin-bottom:16px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:24px; color:#eef3f6;">Example AI Workflow Session</h3>
+
+  <div class="code" style="background: var(--panel); border-color: var(--border-bright);"><span class="comment">$ ronin create-duty</span>
+
+<span style="color:var(--amber)">🤖 AI Duty Creator</span>
+<span style="color:var(--amber)">==================</span>
+
+What would you like your duty to do?
+<span style="color:var(--cyan)">&gt; Monitor a folder for new images, compress them, and post to Discord</span>
+
+<span style="color:var(--text-dim)">💬 Let me ask a few questions to understand your requirements...</span>
+
+<span style="color:var(--amber)">🤖</span> Which folder should it watch? And what Discord channel should
+      it post to? Also, what compression format/quality do you prefer?
+
+<span style="color:var(--cyan)">&gt; Watch ~/Pictures/screenshots, post to #general, compress as WebP 80%</span>
+
+<span style="color:var(--amber)">🤖</span> Should it keep the original file or replace it? And how often
+      should it check for new files?
+
+<span style="color:var(--cyan)">&gt; Keep originals, check every 5 minutes</span>
+
+<span style="color:var(--text-dim)">I'm done answering questions. Please generate the code now.</span>
+
+<span style="color:var(--green)">📝 Generated Duty Code:</span>
+<span style="color:var(--text-dim)">============================================================</span>
+<span class="keyword">import</span> { BaseDuty } <span class="keyword">from</span> <span class="string">"../src/duty/index.js"</span>;
+<span class="keyword">import type</span> { DutyAPI } <span class="keyword">from</span> <span class="string">"../src/types/index.js"</span>;
+<span class="keyword">import</span> { readdir } <span class="keyword">from</span> <span class="string">"fs/promises"</span>;
+<span class="keyword">import</span> { join } <span class="keyword">from</span> <span class="string">"path"</span>;
+<span class="keyword">import</span> { homedir } <span class="keyword">from</span> <span class="string">"os"</span>;
+
+<span class="keyword">export default class</span> <span class="type">ImageCompressor</span> <span class="keyword">extends</span> <span class="type">BaseDuty</span> {
+  <span class="keyword">static</span> <span class="prop">schedule</span> = <span class="string">"*/5 * * * *"</span>;
+  <span class="comment">// ... full implementation generated</span>
+}
+
+<span style="color:var(--text-dim)">============================================================</span>
+
+<span style="color:var(--green)">📁 Will be saved to: ~/.ronin/duties/image-compressor.ts</span>
+
+Create this duty? (y/n): <span style="color:var(--cyan)">y</span>
+
+<span style="color:var(--green)">✅ Duty created: ~/.ronin/duties/image-compressor.ts</span>
+<span style="color:var(--green)">[hot-reload] Loaded duty: image-compressor</span></div>
+</section>
+
+<!-- 14 DUTY API REFERENCE -->
+<section class="wrap" id="duty-api">
+  <div class="sec-head"><span class="sec-num">14</span><div><h2>The DutyAPI Reference</h2></div></div>
+  <p class="lede">Every duty receives a <span class="mono">DutyAPI</span> object in its constructor. This is the <b>single interface</b> to all of Ronin's capabilities — AI, memory, database, HTTP, events, plugins, and more.</p>
+
+  <div class="panel bracket">
+    <h3>DutyAPI Surface</h3>
+    <div class="code" style="margin-top:16px"><span class="keyword">interface</span> <span class="type">DutyAPI</span> {
+  <span class="comment">// ── AI Operations ────────────────────────────────────────</span>
+  <span class="prop">ai</span>: {
+    <span class="func">complete</span>(<span class="prop">prompt</span>: <span class="type">string</span>, <span class="prop">options?</span>: <span class="type">CompletionOptions</span>): <span class="type">Promise</span>&lt;<span class="type">string</span>&gt;
+    <span class="func">chat</span>(<span class="prop">messages</span>: <span class="type">Message[]</span>, <span class="prop">options?</span>: <span class="type">ChatOptions</span>): <span class="type">Promise</span>&lt;<span class="type">Message</span>&gt;
+    <span class="func">callTools</span>(<span class="prop">prompt</span>: <span class="type">string</span>, <span class="prop">tools</span>: <span class="type">Tool[]</span>): <span class="type">Promise</span>&lt;{ message, toolCalls }&gt;
+    <span class="func">stream</span>(<span class="prop">prompt</span>: <span class="type">string</span>): <span class="type">AsyncIterable</span>&lt;<span class="type">string</span>&gt;
+  }
+
+  <span class="comment">// ── Persistent Memory ─────────────────────────────────────</span>
+  <span class="prop">memory</span>: {
+    <span class="func">store</span>(<span class="prop">key</span>: <span class="type">string</span>, <span class="prop">value</span>: <span class="type">unknown</span>): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt;
+    <span class="func">retrieve</span>(<span class="prop">key</span>: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="type">unknown</span>&gt;
+    <span class="func">search</span>(<span class="prop">query</span>: <span class="type">string</span>, <span class="prop">limit?</span>: <span class="type">number</span>): <span class="type">Promise</span>&lt;<span class="type">Memory[]</span>&gt;
+    <span class="func">addContext</span>(<span class="prop">text</span>: <span class="type">string</span>, <span class="prop">metadata?</span>): <span class="type">Promise</span>&lt;<span class="type">string</span>&gt;
+  }
+
+  <span class="comment">// ── File Operations ──────────────────────────────────────</span>
+  <span class="prop">files</span>: {
+    <span class="func">read</span>(<span class="prop">path</span>: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="type">string</span>&gt;
+    <span class="func">write</span>(<span class="prop">path</span>: <span class="type">string</span>, <span class="prop">content</span>: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt;
+    <span class="func">list</span>(<span class="prop">dir</span>: <span class="type">string</span>, <span class="prop">pattern?</span>: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="type">string[]</span>&gt;
+    <span class="func">watch</span>(<span class="prop">pattern</span>: <span class="type">string</span>, <span class="prop">cb</span>: <span class="type">Function</span>): <span class="keyword">void</span>
+  }
+
+  <span class="comment">// ── SQLite Database ───────────────────────────────────────</span>
+  <span class="prop">db</span>: {
+    <span class="func">query</span>&lt;<span class="type">T</span>&gt;(<span class="prop">sql</span>: <span class="type">string</span>, <span class="prop">params?</span>: <span class="type">any[]</span>): <span class="type">Promise</span>&lt;<span class="type">T[]</span>&gt;
+    <span class="func">execute</span>(<span class="prop">sql</span>: <span class="type">string</span>, <span class="prop">params?</span>: <span class="type">any[]</span>): <span class="type">Promise</span>&lt;<span class="keyword">void</span>&gt;
+    <span class="func">transaction</span>&lt;<span class="type">T</span>&gt;(<span class="prop">fn</span>: (<span class="prop">tx</span>) =&gt; <span class="type">Promise</span>&lt;<span class="type">T</span>&gt;): <span class="type">Promise</span>&lt;<span class="type">T</span>&gt;
+  }
+
+  <span class="comment">// ── HTTP Client & Server ─────────────────────────────────</span>
+  <span class="prop">http</span>: {
+    <span class="func">get</span>(<span class="prop">url</span>: <span class="type">string</span>, <span class="prop">options?</span>): <span class="type">Promise</span>&lt;<span class="type">Response</span>&gt;
+    <span class="func">post</span>(<span class="prop">url</span>: <span class="type">string</span>, <span class="prop">data</span>: <span class="type">unknown</span>): <span class="type">Promise</span>&lt;<span class="type">Response</span>&gt;
+    <span class="func">registerRoute</span>(<span class="prop">path</span>: <span class="type">string</span>, <span class="prop">handler</span>: <span class="type">Function</span>): <span class="keyword">void</span>
+    <span class="func">getAllRoutes</span>(): <span class="type">Map</span>&lt;<span class="type">string</span>, <span class="type">Function</span>&gt;
+  }
+
+  <span class="comment">// ── Event Bus ────────────────────────────────────────────</span>
+  <span class="prop">events</span>: {
+    <span class="func">emit</span>(<span class="prop">event</span>: <span class="type">string</span>, <span class="prop">data</span>: <span class="type">unknown</span>, <span class="prop">source</span>: <span class="type">string</span>): <span class="keyword">void</span>
+    <span class="func">on</span>(<span class="prop">event</span>: <span class="type">string</span>, <span class="prop">handler</span>: <span class="type">Function</span>): <span class="keyword">void</span>
+    <span class="func">beam</span>(<span class="prop">targets</span>: <span class="type">string[]</span>, <span class="prop">type</span>: <span class="type">string</span>, <span class="prop">payload</span>: <span class="type">unknown</span>): <span class="keyword">void</span>
+    <span class="func">query</span>(<span class="prop">targets</span>: <span class="type">string[]</span>, <span class="prop">type</span>: <span class="type">string</span>, <span class="prop">payload</span>: <span class="type">unknown</span>): <span class="type">Promise</span>&lt;<span class="type">unknown</span>&gt;
+  }
+
+  <span class="comment">// ── Plugin System ────────────────────────────────────────</span>
+  <span class="prop">plugins</span>: {
+    <span class="func">call</span>(<span class="prop">name</span>: <span class="type">string</span>, <span class="prop">method</span>: <span class="type">string</span>, ...<span class="prop">args</span>): <span class="type">Promise</span>&lt;<span class="type">unknown</span>&gt;
+    <span class="func">has</span>(<span class="prop">name</span>: <span class="type">string</span>): <span class="type">boolean</span>
+    <span class="func">list</span>(): <span class="type">string[]</span>
+  }
+
+  <span class="comment">// ── Optional Plugins (loaded when available) ────────────</span>
+  <span class="prop">git?</span>: { <span class="func">init</span>, <span class="func">clone</span>, <span class="func">status</span>, <span class="func">add</span>, <span class="func">commit</span>, <span class="func">push</span>, <span class="func">pull</span>, <span class="func">branch</span> }
+  <span class="prop">shell?</span>: { <span class="func">exec</span>, <span class="func">execAsync</span>, <span class="func">which</span>, <span class="func">env</span>, <span class="func">cwd</span> }
+  <span class="prop">scrape?</span>: { <span class="func">scrape_to_markdown</span>(<span class="prop">url</span>) }
+  <span class="prop">torrent?</span>: { <span class="func">search</span>, <span class="func">add</span>, <span class="func">list</span> }
+}</div>
+  </div>
+
+  <div class="callout green" style="margin-top:24px">
+    <div class="k">SAR Support</div>
+    <p>Duties that need advanced AI workflows can use the <span class="mono">use()</span> and <span class="mono">createChain()</span> methods inherited from BaseDuty. These create a middleware stack with token budgets, model resolution, and execution tracking:</p>
+    <div class="code" style="margin-top:12px"><span class="comment">// Inside your duty's constructor or execute():</span>
+<span class="keyword">this</span>.<span class="func">use</span>(<span class="func">createTokenGuardMiddleware</span>({ maxTokens: <span class="type">8000</span> }));
+<span class="keyword">this</span>.<span class="func">use</span>(<span class="func">createAiToolMiddleware</span>(<span class="keyword">this</span>.api));
+
+<span class="keyword">const</span> chain = <span class="keyword">this</span>.<span class="func">createChain</span>(<span class="string">"my-duty-task"</span>);
+chain.<span class="func">withContext</span>({ messages: [...] });
+<span class="keyword">await</span> chain.<span class="func">run</span>();</div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div class="f">
+    <span>RONIN · DUTY SYSTEM · <b>57 BUILT-IN + ∞ CUSTOM</b></span>
+    <span>RASTACAMP STUDIO · Every unit of work is a Duty</span>
+  </div>
+</footer>
+
+</body>
+</html>

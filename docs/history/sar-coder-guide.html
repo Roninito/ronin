@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SAR Coder — Guide & Design Overview</title>
+  <style>
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.6;color:#0f172a;margin:0;background:#f8fafc}
+    .wrap{max-width:960px;margin:40px auto;padding:28px;background:white;border-radius:10px;box-shadow:0 6px 24px rgba(15,23,42,0.06)}
+    h1{margin-top:0;color:#0b1220}
+    h2{color:#0f172a}
+    p{margin:0 0 12px}
+    code{background:#0b122033;padding:2px 6px;border-radius:4px}
+    pre{background:#0b122033;padding:12px;border-radius:6px;overflow:auto}
+    ul{margin:8px 0 16px 20px}
+    ol{margin:8px 0 16px 20px}
+    .muted{color:#475569}
+    footer{font-size:13px;color:#64748b;margin-top:18px}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>SAR Coder — Deep Dive</h1>
+    <p class="muted">A detailed explanation of what SAR Coder is, how it works today, and how the design is intended to be used and extended.</p>
+
+    <h2>High-level summary</h2>
+    <p>
+      SAR Coder is a lightweight application scaffold and example collection intended to accelerate building small web apps and UI-focused prototypes. It provides a minimal layout, a set of composable UI pieces, and patterns for handling data, routing, and build/deploy. The goal is rapid iteration, readable code, and easy reuse of components in other projects.
+    </p>
+
+    <h2>Project intent and audience</h2>
+    <ul>
+      <li>Designed for frontend-focused developers who want a small, readable starting point for prototypes or internal tools.</li>
+      <li>Useful as an educational reference for component composition, simple state/data flows, and static hosting.</li>
+      <li>Not intended as a production-grade opinionated framework; instead it focuses on clarity and extensibility.</li>
+    </ul>
+
+    <h2>Core architecture (as-is)</h2>
+    <p class="muted">This is a repository-agnostic overview — file names may vary in your copy.</p>
+    <ol>
+      <li><strong>Entry / Layout</strong>: A minimal HTML entry (or a top-level layout component) that includes the global CSS and a small responsive container. This file is the landing page and starting UI shell.</li>
+      <li><strong>Components</strong>: Small, single-responsibility UI components (buttons, lists, form fields, cards). They are intentionally style-light and self-contained to make reuse simple.</li>
+      <li><strong>State/Data Layer</strong>: A thin layer for local state (component state or a small store) and a simple adapter for external data (API clients or fixtures). It favors explicit fetch/transform steps over heavy global frameworks.</li>
+      <li><strong>Routing</strong>: If present, routing is minimal (file-based or a tiny client router) to keep navigation simple for prototypes.</li>
+      <li><strong>Assets & Static</strong>: A public/static folder for images, the landing HTML, and other static assets that can be served by any static host.</li>
+      <li><strong>Scripts</strong>: Lightweight dev/start/build scripts (bun, node, or pkg manager). Check package.json or bun.lock for specifics.</li>
+    </ol>
+
+    <h2>Data and UX flow</h2>
+    <p>
+      The intended runtime flow is straightforward:
+    </p>
+    <ol>
+      <li>Landing or route loads the layout and mounts components.</li>
+      <li>Components request data through a small API-client module (or use local fixtures in prototype mode).</li>
+      <li>Data is transformed in a thin layer and passed to presentational components as props.</li>
+      <li>User actions emit events or call callbacks that update local state and optionally call the API-client for persistence.</li>
+    </ol>
+
+    <h2>How it works today (practical checklist)</h2>
+    <ol>
+      <li>Open the repository and read README.md for exact commands.</li>
+      <li>Look for <code>package.json</code>, <code>bun.lock</code>, or any <code>dev</code>/<code>start</code> script to run the app locally (common dev commands: <code>bun dev</code>, <code>npm run dev</code>, <code>pnpm dev</code>).</li>
+      <li>Inspect <code>public/</code> or <code>static/</code> to find the landing HTML and static assets; drop this guide there if you want it served from the app.</li>
+      <li>Open <code>src/</code> to identify components, services (API adapters), and the main entry. Reuse components by importing them into new pages or routes.</li>
+    </ol>
+
+    <h2>Examples: common extension tasks</h2>
+    <ul>
+      <li><strong>Add a new page</strong>: Create a new route or HTML file, import the shared layout, and wire a small data adapter to supply content.</li>
+      <li><strong>Expose a component library</strong>: Move reusable components into <code>src/components/</code>, add small README usage examples, and export them from an index file for easy import.</li>
+      <li><strong>API integration</strong>: Add an <code>api/client.js</code> or <code>services/</code> module with fetch wrappers. Provide a mock adapter for local development or tests.</li>
+    </ul>
+
+    <h2>Developer workflow recommendations</h2>
+    <ul>
+      <li>Keep components pure and focused; prefer props over implicit global state.</li>
+      <li>Use small, local fixtures for fast prototyping and replace them with API calls later.</li>
+      <li>Document component inputs/outputs with short README snippets or JSDoc so future reuse is easy.</li>
+      <li>Add targeted unit tests for data transformation and key components only — not a full test suite unless required.</li>
+    </ul>
+
+    <h2>Deployment & hosting</h2>
+    <p>
+      As a minimal scaffold, SAR Coder is designed to be hostable on any static host (Netlify, Vercel, GitHub Pages) or served behind a simple Node/Bun server. For static-only builds, place built assets into <code>public/</code> and point your host's root there.
+    </p>
+
+    <h2>Security & production considerations</h2>
+    <ul>
+      <li>Sanitize and validate any input before persisting or forwarding to APIs.</li>
+      <li>Do not commit secrets. Use environment variables or build-time config for API keys.</li>
+      <li>For production deployments, add CORS, rate limiting, and authentication as appropriate for your APIs.</li>
+    </ul>
+
+    <h2>Suggested next steps</h2>
+    <ol>
+      <li>Confirm repository's package manager and run the local dev script to see the current app state.</li>
+      <li>Extract the most useful components into a documented <code>components/</code> folder so they can be reused in other projects.</li>
+      <li>Add a short README section in the repo summarizing the architecture and how to use the components — copy a trimmed version of this file there.</li>
+    </ol>
+
+    <footer>
+      Open this file in a browser to view it: <code>file:///Users/ronin/Desktop/sar-coder-guide.html</code><br/>
+      If you want, provide permission to inspect the repository and I can generate a repository-specific guide (file locations, exact dev commands, and component index).
+    </footer>
+  </main>
+</body>
+</html>

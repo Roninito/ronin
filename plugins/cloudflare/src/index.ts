@@ -8,7 +8,9 @@ import { existsSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { WranglerWrapper } from "./WranglerWrapper.js";
+import { QuickTunnel } from "./QuickTunnel.js";
 import { RouteGuard } from "./RouteGuard.js";
+import { renderQrAscii } from "./qr.js";
 import { PolicyValidator } from "./config/validator.js";
 import { DEFAULT_POLICY } from "./config/validator.js";
 import * as tunnelState from "./tunnelState.js";
@@ -20,6 +22,7 @@ const MAX_TEMP_TTL = 86400;
 
 let _wrangler: WranglerWrapper | null = null;
 let _routeGuard: RouteGuard | null = null;
+let _quickTunnel: QuickTunnel | null = null;
 
 function getWrangler(): WranglerWrapper {
   if (!_wrangler) _wrangler = new WranglerWrapper();
@@ -29,6 +32,11 @@ function getWrangler(): WranglerWrapper {
 function getRouteGuard(): RouteGuard {
   if (!_routeGuard) _routeGuard = new RouteGuard();
   return _routeGuard;
+}
+
+function getQuickTunnel(): QuickTunnel {
+  if (!_quickTunnel) _quickTunnel = new QuickTunnel();
+  return _quickTunnel;
 }
 
 async function login(): Promise<void> {
@@ -107,7 +115,11 @@ function loadPolicyFromFile(): RoutePolicy | null {
   }
 }
 
-async function routeAdd(path: string): Promise<void> {
+async function routeAdd(
+  path: string,
+  methods?: string[],
+  auth?: "none" | "token"
+): Promise<void> {
   if (!path) {
     console.error("[Cloudflare] Path is required");
     return;
@@ -123,12 +135,15 @@ async function routeAdd(path: string): Promise<void> {
   }
   policy.routes.push({
     path,
-    methods: ["GET", "POST"],
-    auth: "none",
+    methods: methods && methods.length > 0 ? methods : ["GET", "POST"],
+    auth: auth ?? "none",
     expires: null
   });
   writePolicy(policy);
-  console.log("[Cloudflare] Added route:", path);
+  console.log(
+    "[Cloudflare] Added route:", path,
+    `(methods: ${(methods && methods.length > 0 ? methods : ["GET", "POST"]).join(",")}, auth: ${auth ?? "none"})`
+  );
 }
 
 async function routeRemove(path: string): Promise<void> {
@@ -240,8 +255,14 @@ async function tunnelStop(name: string): Promise<void> {
     console.error("[Cloudflare] Tunnel name is required");
     return;
   }
-  const wrangler = getWrangler();
-  await wrangler.stopTunnel(name);
+  const tunnel = tunnelState.getTunnelByName(name);
+  if (tunnel?.pid) {
+    // Quick tunnel (tunnel temp) — stop by PID, not a wrangler name-pattern kill.
+    getQuickTunnel().stop(tunnel.pid);
+  } else {
+    const wrangler = getWrangler();
+    await wrangler.stopTunnel(name);
+  }
   tunnelState.updateTunnel(name, { status: "stopped", url: "" });
   console.log("[Cloudflare] Tunnel stopped:", name);
 }
@@ -255,6 +276,15 @@ async function tunnelDelete(name: string): Promise<void> {
   const tunnel = tunnels.find((t) => t.name === name);
   if (!tunnel) {
     console.error("[Cloudflare] Tunnel not found:", name);
+    return;
+  }
+  if (tunnel.pid) {
+    // Quick tunnel — was never registered with Cloudflare via `wrangler tunnel
+    // create`, so there's nothing to delete server-side; stopping the process
+    // and dropping it from local state is the whole operation.
+    getQuickTunnel().stop(tunnel.pid);
+    tunnelState.removeTunnel(name);
+    console.log("[Cloudflare] Tunnel deleted:", name);
     return;
   }
   const wrangler = getWrangler();
@@ -286,30 +316,38 @@ async function tunnelTemp(ttl?: number): Promise<void> {
     console.error("[Cloudflare] Route policy required. Run 'ronin cloudflare route init' first.");
     return;
   }
-  const wrangler = getWrangler();
-  if (!(await wrangler.ensureInstalled())) {
-    console.error("[Cloudflare] Wrangler CLI not available. Install with: npm install -g wrangler");
-    return;
-  }
+  // Real anonymous quick tunnel — no wrangler account, no DNS setup. See
+  // QuickTunnel.ts for why this replaced the old wrangler-based path, which
+  // fabricated a *.trycloudflare.com URL that cloudflared never actually issued.
+  const quickTunnel = getQuickTunnel();
   const sec = ttl != null ? Math.min(Math.max(ttl, 300), MAX_TEMP_TTL) : 3600;
   const expires = Date.now() + sec * 1000;
-  const config = await wrangler.createTunnel(name);
-  if (!config) return;
+  const port = process.env.WEBHOOK_PORT ? parseInt(process.env.WEBHOOK_PORT, 10) : DEFAULT_LOCAL_PORT;
+
+  let handle;
+  try {
+    handle = await quickTunnel.start(port);
+  } catch (error) {
+    console.error("[Cloudflare] Failed to start quick tunnel:", error instanceof Error ? error.message : error);
+    return;
+  }
+
   const tunnelConfig: TunnelConfig = {
-    ...config,
-    localPort: DEFAULT_LOCAL_PORT,
-    url: "",
-    status: "stopped",
+    id: name,
+    name,
+    url: handle.url,
+    localPort: port,
+    createdAt: Date.now(),
+    status: "active",
     isTemporary: true,
-    expires
+    expires,
+    pid: handle.pid,
   };
   tunnelState.addTunnel(tunnelConfig);
-  const port = process.env.WEBHOOK_PORT ? parseInt(process.env.WEBHOOK_PORT, 10) : DEFAULT_LOCAL_PORT;
-  const ok = await wrangler.startTunnel(tunnelConfig, port);
-  if (ok) {
-    tunnelState.updateTunnel(name, { status: "active", url: `https://${name}.trycloudflare.com`, localPort: port });
-    console.log("[Cloudflare] Temporary tunnel active:", name, "expires in", sec, "s");
-  }
+  console.log("[Cloudflare] Temporary tunnel active:", handle.url, "(expires in", sec, "s)");
+  console.log("");
+  console.log(renderQrAscii(handle.url));
+  console.log("Scan to open on your phone. (May take a few seconds to become reachable.)");
 }
 
 async function pagesDeploy(directory: string, project: string): Promise<void> {

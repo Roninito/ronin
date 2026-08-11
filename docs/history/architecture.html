@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RONIN — Engine Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d10;
+    --panel: #12171c;
+    --panel-2: #161c22;
+    --border: #232b32;
+    --border-bright: #2f3b44;
+    --text: #c7d1d8;
+    --text-dim: #6e7a85;
+    --amber: #f0a830;
+    --cyan: #4fd6e0;
+    --gold: #d4af37;
+    --green: #5fd38a;
+    --red: #e0625f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    padding-bottom: 80px;
+    overflow-x: hidden;
+  }
+
+  /* Faint grid texture */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79, 214, 224, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79, 214, 224, 0.022) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Scanline */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+    opacity: 0.35;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  .mono { font-family: 'Share Tech Mono', monospace; }
+  .eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+
+  /* ---------- HERO ---------- */
+  header.hero {
+    position: relative;
+    padding: 88px 0 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute;
+    top: -40%; right: -10%;
+    width: 60%; height: 180%;
+    background: radial-gradient(closest-side, rgba(240,168,48,0.10), transparent 70%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 2px;
+    margin-bottom: 26px;
+  }
+  .hero-tag b { color: var(--amber); font-weight: 400; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  h1.wordmark {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: clamp(56px, 12vw, 132px);
+    line-height: 0.86;
+    letter-spacing: 0.02em;
+    color: #eef3f6;
+    margin-bottom: 8px;
+  }
+  h1.wordmark span { color: var(--amber); }
+  .hero-sub {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    font-size: clamp(18px, 2.6vw, 26px);
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+    margin-bottom: 22px;
+  }
+  .hero-thesis {
+    max-width: 640px;
+    font-size: 17px;
+    color: var(--text);
+  }
+  .hero-thesis b { color: #eef3f6; font-weight: 600; }
+
+  .statrow {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 3px;
+    margin-top: 44px; overflow: hidden;
+  }
+  .stat { background: var(--panel); padding: 18px 16px; }
+  .stat .v { font-family: 'Share Tech Mono', monospace; font-size: 22px; color: var(--gold); }
+  .stat .k { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; }
+
+  /* ---------- SECTION ---------- */
+  section { padding: 64px 0 8px; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; }
+  .sec-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; color: var(--amber);
+    border: 1px solid var(--border-bright); border-radius: 2px;
+    padding: 3px 8px;
+  }
+  h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: clamp(26px, 4vw, 38px);
+    letter-spacing: 0.01em;
+    color: #eef3f6;
+    line-height: 1.05;
+  }
+  .lede { color: var(--text-dim); max-width: 760px; margin-top: 8px; font-size: 16px; }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  /* ---------- PANEL ---------- */
+  .panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 26px;
+  }
+  /* corner brackets */
+  .panel.bracket::before, .panel.bracket::after {
+    content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none;
+  }
+  .panel.bracket::before { top: 8px; left: 8px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+  .panel.bracket::after { bottom: 8px; right: 8px; border-bottom: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
+
+  /* ---------- THREE CONCEPTS ---------- */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .concept { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 22px; }
+  .concept .tag { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .concept h3 { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 28px; color: #eef3f6; margin: 6px 0 2px; letter-spacing: 0.02em; }
+  .concept .role { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+  .concept p { font-size: 14.5px; color: var(--text); }
+  .concept .meta { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-bright); font-family: 'Share Tech Mono', monospace; font-size: 11.5px; color: var(--text-dim); }
+  .c-tool .tag { color: var(--cyan); } .c-tool h3 { border-bottom: 2px solid var(--cyan); display: inline-block; }
+  .c-skill .tag { color: var(--gold); } .c-skill h3 { border-bottom: 2px solid var(--gold); display: inline-block; }
+  .c-duty .tag { color: var(--amber); } .c-duty h3 { border-bottom: 2px solid var(--amber); display: inline-block; }
+
+  /* ---------- SAR ENVELOPE (signature) ---------- */
+  .envelope {
+    position: relative;
+    border: 1px solid var(--amber);
+    border-radius: 6px;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(240,168,48,0.05), transparent 60%);
+  }
+  .env-label {
+    position: absolute; top: -11px; left: 18px;
+    background: var(--bg); padding: 0 10px;
+    font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber);
+  }
+  .env-mw { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .mw {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    color: var(--cyan); border: 1px solid rgba(79,214,224,0.35);
+    background: rgba(79,214,224,0.05);
+    padding: 4px 9px; border-radius: 2px;
+  }
+  .sar-flow { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-items: stretch; }
+  .phase {
+    border: 1px solid var(--border-bright); border-radius: 4px; padding: 16px; background: var(--panel-2);
+    position: relative;
+  }
+  .phase .pn { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-dim); letter-spacing: 0.14em; }
+  .phase h4 { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 21px; color: #eef3f6; margin: 2px 0 6px; letter-spacing: 0.03em; }
+  .phase p { font-size: 13px; color: var(--text-dim); }
+  .phase.respond { border-color: var(--amber); background: rgba(240,168,48,0.06); }
+  .phase.respond h4 { color: var(--amber); }
+  .respond .exec {
+    margin-top: 10px; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    color: var(--text); background: var(--bg); border: 1px dashed var(--amber); border-radius: 3px; padding: 7px 9px;
+  }
+  .env-foot { margin-top: 14px; font-family: 'Share Tech Mono', monospace; font-size: 11.5px; color: var(--text-dim); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); display: inline-block; animation: pl 2.2s ease-in-out infinite; }
+  @keyframes pl { 0%,100% { opacity: 0.35; } 50% { opacity: 1; box-shadow: 0 0 10px var(--amber); } }
+
+  /* ---------- STACK ---------- */
+  .stack { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .layer { background: var(--panel); padding: 16px 20px; display: grid; grid-template-columns: 150px 1fr; gap: 18px; align-items: center; }
+  .layer .ln { font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); }
+  .layer .ld { font-size: 14px; color: var(--text); }
+  .layer .ld b { color: #eef3f6; }
+  .layer.accent { background: var(--panel-2); }
+  .layer.accent .ln { color: var(--amber); }
+
+  /* ---------- BEFORE / AFTER ---------- */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ba-col { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .ba-h { font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  .ba-before .ba-h { color: var(--red); background: rgba(224,98,95,0.05); }
+  .ba-after .ba-h { color: var(--green); background: rgba(95,211,138,0.06); }
+  .ba-col ul { list-style: none; padding: 8px 0; }
+  .ba-col li { padding: 9px 18px; font-size: 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .ba-col li + li { border-top: 1px solid rgba(35,43,50,0.6); }
+  .ba-col li .m { font-family: 'Share Tech Mono', monospace; font-size: 13px; flex-shrink: 0; }
+  .ba-before li .m { color: var(--red); } .ba-after li .m { color: var(--green); }
+
+  /* ---------- TREE ---------- */
+  .tree {
+    font-family: 'Share Tech Mono', monospace; font-size: 13px; line-height: 1.85;
+    color: var(--text-dim); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 4px; padding: 22px 24px; overflow-x: auto;
+  }
+  .tree .d { color: var(--cyan); }
+  .tree .n { color: var(--amber); }
+  .tree .c { color: var(--text-dim); opacity: 0.8; }
+  .tree .keep { color: var(--green); }
+
+  /* ---------- CALLOUT ---------- */
+  .callout { border-left: 2px solid var(--amber); background: rgba(240,168,48,0.04); padding: 16px 20px; border-radius: 0 4px 4px 0; margin-top: 24px; }
+  .callout .k { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--amber); }
+  .callout p { font-size: 15px; color: var(--text); margin-top: 6px; }
+
+  footer { margin-top: 80px; border-top: 1px solid var(--border); padding-top: 28px; }
+  footer .f { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--text-dim); letter-spacing: 0.1em; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  footer .f b { color: var(--cyan); font-weight: 400; }
+
+  @media (max-width: 760px) {
+    .statrow { grid-template-columns: repeat(2, 1fr); }
+    .grid3 { grid-template-columns: 1fr; }
+    .sar-flow { grid-template-columns: 1fr; }
+    .ba { grid-template-columns: 1fr; }
+    .layer { grid-template-columns: 1fr; gap: 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-tag"><span class="dot"></span> ENGINE ARCHITECTURE · <b>POST-REFACTOR v2</b></div>
+    <h1 class="wordmark">RO<span>N</span>IN</h1>
+    <div class="hero-sub">Bun AI Agent Engine — the Duty/SAR model</div>
+    <p class="hero-thesis">Every unit of work is a <b>Duty</b>, and every Duty runs the <b>SAR loop</b>. After the refactor there is one execution model, three capability concepts, and one path to a model — the parallel systems are gone, folded into a single spine.</p>
+
+    <div class="statrow">
+      <div class="stat"><div class="v">1</div><div class="k">Execution model · SAR</div></div>
+      <div class="stat"><div class="v">3</div><div class="k">Concepts · Tool/Skill/Duty</div></div>
+      <div class="stat"><div class="v">57/57</div><div class="k">Duties under SAR envelope</div></div>
+      <div class="stat"><div class="v">1</div><div class="k">Model router path</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 01 CORE IDEA -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">01</span><div><h2>One loop, applied everywhere</h2></div></div>
+  <p class="lede" style="margin-bottom:24px">Before the refactor, SAR was optional middleware that only a handful of duties used; the rest ran arbitrary <span class="mono">execute()</span> methods, and coordination, planning, and scheduling each had their own engine. <b>Now SAR is enforced at the runner</b>: the registry executes every Duty inside a SAR chain, so budgets, model resolution, and tracking apply uniformly — without rewriting the duties themselves.</p>
+
+  <div class="panel bracket">
+    <div class="envelope">
+      <div class="env-label">SAR Envelope · runner-applied</div>
+      <div class="env-mw">
+        <span class="mw">modelResolution</span>
+        <span class="mw">tokenGuard</span>
+        <span class="mw">executionTracking</span>
+        <span class="mw">+ step budget</span>
+      </div>
+      <div class="sar-flow">
+        <div class="phase">
+          <div class="pn">PHASE 01</div>
+          <h4>Sense</h4>
+          <p>Pull signal: trigger context from a Sensor, plus relevant memory.</p>
+        </div>
+        <div class="phase">
+          <div class="pn">PHASE 02</div>
+          <h4>Analyze</h4>
+          <p>Resolve model + budget, reason over signal, decide the response.</p>
+        </div>
+        <div class="phase respond">
+          <div class="pn">PHASE 03</div>
+          <h4>Respond</h4>
+          <p>The Duty's own logic runs here.</p>
+          <div class="exec">duty.execute()</div>
+        </div>
+      </div>
+      <div class="env-foot">
+        <span><span class="pulse"></span> envelope wraps every duty.execute()</span>
+        <span>budget breach → abort + failure event</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="k">The unlock</div>
+    <p>Making SAR an envelope at the boundary — not code inside each duty — is what lets "every duty runs SAR" become true in days instead of weeks. Plain duties behave exactly as before, now with governance around them; richer Sense/Analyze phases become an opt-in, not a rewrite.</p>
+  </div>
+</section>
+
+<!-- 02 THREE CONCEPTS -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">02</span><div><h2>Three concepts, down from six</h2></div></div>
+  <p class="lede" style="margin-bottom:24px"><b>technique</b> and <b>kata</b> are retired from the mental model — the capability stack is now Tool → Skill → Duty. The technique/kata code still exists (coupled to task/contract via storage-v2), but the architecture no longer references them. Contributors hold three ideas in their head: Tool, Skill, Duty.</p>
+
+  <div class="grid3">
+    <div class="concept c-tool">
+      <div class="tag">Capability · tier 1</div>
+      <h3>Tool</h3>
+      <div class="role">atomic · typed · in-process</div>
+      <p>A single typed input → typed output, running in Bun/TS. Hot-path, MCP-exportable, callable by the model via function-calling.</p>
+      <div class="meta">src/tools · ToolRouter + adapters</div>
+    </div>
+    <div class="concept c-skill">
+      <div class="tag">Capability · tier 2</div>
+      <h3>Skill</h3>
+      <div class="role">declarative · language-agnostic</div>
+      <p>A markdown-defined capability that can shell out to Python, shell, or anything — not just Bun. Discoverable by manifest. The portable tier.</p>
+      <div class="meta">skills/*/SKILL.md</div>
+    </div>
+    <div class="concept c-duty">
+      <div class="tag">The decider</div>
+      <h3>Duty</h3>
+      <div class="role">a SAR loop · persona · budget</div>
+      <p>A unit of work that runs the SAR loop with an allowlist of Skills + Tools. Formerly "Agent." Coordinators like MNGR are simply Duties whose job is other Duties.</p>
+      <div class="meta">duties/ · BaseDuty · DutyRegistry</div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 SYSTEM STACK -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">03</span><div><h2>The runtime stack</h2></div></div>
+  <p class="lede" style="margin-bottom:24px">One event bus, one scheduler. The three things that used to feel like separate orchestrators are now roles within this single spine.</p>
+
+  <div class="stack">
+    <div class="layer">
+      <div class="ln">Sensors</div>
+      <div class="ld"><b>Dumb signal sources.</b> Cron, file-watch, webhooks, channel messages. They emit events; they hold no logic.</div>
+    </div>
+    <div class="layer">
+      <div class="ln">Event Bus</div>
+      <div class="ld"><b>The only cross-Duty channel.</b> Events carry origin/provenance. No Duty reaches into another's internals.</div>
+    </div>
+    <div class="layer accent">
+      <div class="ln">Duties · SAR</div>
+      <div class="ld"><b>Every Duty is a SAR loop</b>, executed inside the envelope. MNGR is the coordinating Duty; the Plan Workflow is just Todo + Coder duties on the bus.</div>
+    </div>
+    <div class="layer">
+      <div class="ln">Capabilities</div>
+      <div class="ld"><b>Tools + Skills.</b> What a Duty is allowed to invoke during Respond, scoped by its allowlist.</div>
+    </div>
+    <div class="layer">
+      <div class="ln">Model Router</div>
+      <div class="ld"><b>One path to a model.</b> Providers are adapters behind <span class="mono">ToolRouter</span>, selected by tier — <span class="mono">local</span> / <span class="mono">smart</span> / <span class="mono">cloud</span>.</div>
+    </div>
+    <div class="layer">
+      <div class="ln">SAR Engine</div>
+      <div class="ld"><b>@ronin/sar.</b> Executor, Chain, MiddlewareStack — the shared machinery the envelope is built from.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 MODEL ROUTER -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">04</span><div><h2>Providers behind one router</h2></div></div>
+  <p class="lede" style="margin-bottom:24px">The duplicate provider plugins are gone. Grok, Gemini, and LangChain no longer live as user-facing plugins — they're adapters the router selects, with <b>local Ollama as the privacy-first default</b>.</p>
+
+  <div class="panel">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:13px">
+      <span style="color:var(--amber)">api.ai.complete()</span>
+      <span style="color:var(--text-dim)">·</span>
+      <span style="color:var(--amber)">api.ai.callTools()</span>
+      <span style="color:var(--text-dim)">→</span>
+      <span style="color:var(--cyan);border:1px solid var(--border-bright);padding:5px 12px;border-radius:3px">ToolRouter</span>
+      <span style="color:var(--text-dim)">→</span>
+      <span style="color:var(--green)">Ollama</span><span style="color:var(--text-dim)">·</span>
+      <span>Anthropic</span><span style="color:var(--text-dim)">·</span>
+      <span>OpenAI</span><span style="color:var(--text-dim)">·</span>
+      <span>Gemini</span><span style="color:var(--text-dim)">·</span>
+      <span>Cloud</span>
+    </div>
+    <p style="text-align:center;color:var(--text-dim);font-size:13px;margin-top:14px">ToolChat sits on top of these two entry points — it is not a third path.</p>
+  </div>
+</section>
+
+<!-- 05 BEFORE/AFTER -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">05</span><div><h2>What changed</h2></div></div>
+
+  <div class="ba">
+    <div class="ba-col ba-before">
+      <div class="ba-h">Before</div>
+      <ul>
+        <li><span class="m">6×</span><span>capability concepts: agent, plugin, skill, technique, kata, contract</span></li>
+        <li><span class="m">5/57</span><span>duties actually ran SAR — it was optional middleware</span></li>
+        <li><span class="m">2×</span><span>provider stacks: grok/gemini/langchain plugins <em>and</em> adapters</span></li>
+        <li><span class="m">3×</span><span>orchestration paradigms running in parallel</span></li>
+        <li><span class="m">~10</span><span>contradicting design docs at repo root</span></li>
+      </ul>
+    </div>
+    <div class="ba-col ba-after">
+      <div class="ba-h">After</div>
+      <ul>
+        <li><span class="m">3×</span><span>concepts: Tool, Skill, Duty — technique &amp; kata retired from model</span></li>
+        <li><span class="m">57/57</span><span>duties run under the SAR envelope at the runner level</span></li>
+        <li><span class="m">1×</span><span>provider path: adapters behind ToolRouter, plugins/langchain kept for graph use</span></li>
+        <li><span class="m">1×</span><span>spine: Sensors → Bus → Duties, MNGR is a Duty</span></li>
+        <li><span class="m">1×</span><span>canonical ARCHITECTURE.md; old docs in docs/history/</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout">
+    <div class="k">Deferred removals · not in this pass</div>
+    <p>The <span class="mono">technique / kata / contract / task</span> cluster shares a storage substrate (<span class="mono">storage-v2.ts</span>, <span class="mono">parser-v2.ts</span>), so removing them is a later project. CLI commands for technique still exist but the architecture no longer references them. This refactor landed: Agent→Duty rename, provider consolidation, SAR envelope at runner.</p>
+    <p style="margin-top:8px"><span class="mono" style="color:var(--amber)">plugins/grok.ts</span> and <span class="mono" style="color:var(--amber)">plugins/gemini.ts</span> removed — providers are now adapters behind ToolRouter. <span class="mono" style="color:var(--amber)">plugins/langchain.ts</span> and <span class="mono" style="color:var(--amber)">plugins/gemini-cli.ts</span> kept (active use).</p>
+  </div>
+</section>
+
+<!-- 06 TREE -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">06</span><div><h2>Current layout (post-refactor)</h2></div></div>
+  <div class="tree">
+ronin/<br>
+├── <span class="d">src/</span><br>
+│&nbsp;&nbsp; ├── <span class="d">duty/</span> &nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># BaseDuty, DutyLoader, DutyRegistry (renamed from agent/)</span><br>
+│&nbsp;&nbsp; ├── <span class="d">tools/</span> &nbsp;&nbsp;&nbsp;<span class="c"># ToolRouter + adapters + LocalTools</span><br>
+│&nbsp;&nbsp; ├── <span class="d">api/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># DutyAPI, unified interface to all subsystems</span><br>
+│&nbsp;&nbsp; ├── <span class="d">chain/</span> &nbsp;&nbsp;&nbsp;<span class="c"># Chain, Executor — re-export from @ronin/sar</span><br>
+│&nbsp;&nbsp; ├── <span class="d">middleware/</span> <span class="c"># tokenGuard, modelResolution, executionTracking, etc.</span><br>
+│&nbsp;&nbsp; ├── <span class="d">memory/</span> &nbsp;&nbsp;<span class="c"># SQLite store (duty_state, conversations, memories)</span><br>
+│&nbsp;&nbsp; ├── <span class="keep">technique/</span> <span class="c"># DEFERRED — coupled to kata/contract/task</span><br>
+│&nbsp;&nbsp; ├── <span class="keep">kata/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># DEFERRED — used by src/task/engine.ts</span><br>
+│&nbsp;&nbsp; └── <span class="keep">contract/</span> &nbsp;&nbsp;<span class="c"># DEFERRED — shares storage-v2 with kata</span><br>
+├── <span class="n">duties/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># your Duties (renamed from agents/)</span><br>
+├── <span class="keep">plugins/</span> &nbsp;&nbsp;<span class="c"># capability plugins (langchain, gemini-cli, etc.)</span><br>
+├── <span class="keep">skills/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># markdown Skill defs — language-agnostic</span><br>
+├── <span class="keep">techniques/</span> <span class="c"># DEFERRED — still exists but not referenced by architecture</span><br>
+├── <span class="keep">katas/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c"># DEFERRED — still exists but not referenced by architecture</span><br>
+├── <span class="keep">contracts/</span> &nbsp;<span class="c"># DEFERRED — still exists, planned rename to schema/</span><br>
+├── <span class="d">packages/sar/</span> <span class="c"># @ronin/sar — Executor, Chain, MiddlewareStack</span><br>
+└── <span class="d">docs/</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── <span class="keep">ARCHITECTURE.md</span> <span class="c"># canonical architecture</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── <span class="d">history/</span> &nbsp;&nbsp;&nbsp;<span class="c"># archived PHASE*/SUMMARY/MODEL_SELECTION docs</span>
+  </div>
+  <p class="lede" style="margin-top:18px"><span class="mono" style="color:var(--text-dim)">// Key change: Agent → Duty rename complete. technique/kata/contract code remains but is deferred for later removal.</span></p>
+</section>
+
+<footer class="wrap">
+  <div class="f">
+    <span>RONIN · ENGINE ARCHITECTURE · <b>POST-REFACTOR v2</b></span>
+    <span>RASTACAMP STUDIO · humans set direction, machines execute</span>
+  </div>
+</footer>
+
+</body>
+</html>

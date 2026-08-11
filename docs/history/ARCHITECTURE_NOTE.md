@@ -1,5 +1,13 @@
 # Architecture Note (2026-06-17)
 
+> **Status: resolved and archived (August 2026).** The update this note
+> calls for happened — see `../../ARCHITECTURE.md` (canonical). This file is
+> kept only as historical record of that transition; nothing below is
+> current guidance. Note that this note's own "Technique/Kata/Contract/Task
+> deferred" framing is also now superseded: technique was removed, but
+> kata/contract/task are permanent (the execution engine), not deferred for
+> removal — see `../../ARCHITECTURE.md` §5.
+
 **This document is outdated and preserved for historical reference.**
 
 The canonical architecture is now:

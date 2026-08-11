@@ -36,6 +36,9 @@ export interface TunnelConfig {
   status: 'active' | 'stopped' | 'error';
   expires?: number;
   isTemporary: boolean;
+  /** PID of the running `cloudflared` process, for quick tunnels (tunnel temp) only —
+   *  named/wrangler tunnels are stopped by name pattern instead (see WranglerWrapper.stopTunnel). */
+  pid?: number;
 }
 
 export interface AuthToken {

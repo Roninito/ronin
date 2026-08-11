@@ -17,6 +17,7 @@
  *   export      Export contract (--format, --output)
  *   import      Import from file
  *   stats       Show overall contract statistics
+ *   propose     AI-generates a contract (+ kata, if needed) from plain language
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -30,6 +31,8 @@ import { ContractStorageV2 } from "../../contract/storage-v2.js";
 import { ContractParserV2, ContractParseError } from "../../contract/parser-v2.js";
 import type { ContractV2Row, ContractListFilters, TriggerType } from "../../types/shared.js";
 import { getNextCronRun, cronToHuman } from "../../contract/cron.js";
+import { proposeContract, ContractProposeError } from "../../contract/propose.js";
+import { KataRegistry } from "../../kata/registry.js";
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 
@@ -85,6 +88,8 @@ export interface ContractOptions {
   outputFile?: string;
   // delete
   force?: boolean;
+  // propose
+  yes?: boolean;
   // internal: skip plugin loading for read-only subcommands
   _skipPlugins?: boolean;
 }
@@ -756,6 +761,68 @@ async function cmdTest(args: string[], options: ContractOptions): Promise<void> 
   console.log(c.dim(`\n(${elapsed}ms — use ronin kata test ${contract.target_kata} --params '${JSON.stringify(params)}' to run the kata directly)`));
 }
 
+async function cmdPropose(args: string[], options: ContractOptions): Promise<void> {
+  const intent = args.join(" ").trim();
+  if (!intent) {
+    console.error(c.red("❌ Intent required"));
+    console.log(`  Usage: ronin contract propose "when trust drops below 40, do a quiet handoff, then notify me"`);
+    process.exit(1);
+  }
+
+  console.log(c.cyan(`📜 Drafting contract for: ${c.bold(intent)}`));
+  console.log(c.dim("   Using AI to draft trigger, condition, and kata (if needed)…\n"));
+
+  const api = await getApi(options);
+
+  let proposal;
+  try {
+    proposal = await proposeContract(intent, api);
+  } catch (error) {
+    const msg = error instanceof ContractProposeError || error instanceof Error ? error.message : String(error);
+    console.error(c.red("❌ Proposal failed:"), msg);
+    if (error instanceof ContractProposeError && error.rawDsl) {
+      console.log(c.dim("\nRaw DSL:\n") + error.rawDsl);
+    }
+    process.exit(1);
+  }
+
+  console.log(c.bold(`📋 Proposed contract: ${c.cyan(proposal.contract.name)}`));
+  console.log(`   ${proposal.preview}`);
+  if (proposal.kataDsl) {
+    console.log();
+    console.log(c.dim("─".repeat(60)));
+    console.log(proposal.kataDsl);
+    console.log(c.dim("─".repeat(60)));
+  }
+  console.log();
+
+  if (!options.yes) {
+    const answer = await prompt(c.bold("Register this contract? ") + c.dim("[y/n] "));
+    if (!answer.toLowerCase().startsWith("y")) {
+      console.log(c.dim("Cancelled."));
+      return;
+    }
+  }
+
+  try {
+    if (proposal.kataDsl) {
+      const registry = new KataRegistry(api);
+      await registry.register(proposal.kataDsl);
+    }
+    const storage = new ContractStorageV2(api);
+    await storage.create({ ...proposal.contract, enabled: true });
+    console.log(c.green(`✅ Contract registered: ${c.bold(proposal.contract.name)}`));
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes("already registered")) {
+      console.log(c.yellow(`⚠️  ${msg}`));
+    } else {
+      console.error(c.red("❌ Registration failed:"), msg);
+      process.exit(1);
+    }
+  }
+}
+
 // ── Help ──────────────────────────────────────────────────────────────────────
 
 function printHelp(): void {
@@ -781,6 +848,10 @@ ${c.bold("SUBCOMMANDS")}
   export <name>     Export a contract
   import <file>     Import a contract
   stats             Show overall statistics
+  propose <intent>  AI-generates a contract (+ kata, if needed) from plain language
+
+${c.bold("PROPOSE OPTIONS")}
+  --yes, -y   Skip confirmation prompt
 
 ${c.bold("CREATE OPTIONS")}
   --kata <name>           Target kata (required)
@@ -837,6 +908,7 @@ export async function contractCommand(args: string[], options: ContractOptions):
     case "export":   await cmdExport(subArgs, options); break;
     case "import":   await cmdImport(subArgs, options); break;
     case "stats":    await cmdStats(subArgs, options); break;
+    case "propose":  await cmdPropose(subArgs, options); break;
     default:
       if (!subcommand || subcommand === "help" || subcommand === "--help") {
         printHelp();

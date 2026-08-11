@@ -11,7 +11,10 @@ import {
   invalidateChatSummary,
   filterToolSchemas,
   injectMermaidLinkIntoResponse,
+  injectContractProposalCardIntoResponse,
+  injectWorkflowProposalCardIntoResponse,
 } from "../src/utils/prompt.js";
+import { discoverWorkflow } from "../src/workflow/discovery.js";
 
 interface Chat {
   id: string;
@@ -261,6 +264,69 @@ export default class ChattyAgent extends BaseDuty {
     this.api.http.registerRoute("/api/chats", this.handleChatsAPI.bind(this));
     // Register route with trailing slash for prefix matching (handles /api/chats/xxx)
     this.api.http.registerRoute("/api/chats/", this.handleChatByIdAPI.bind(this));
+    // PWA install support — manifest, service worker, icon.
+    this.api.http.registerRoute("/chat/manifest.json", this.handleManifest.bind(this));
+    this.api.http.registerRoute("/chat/sw.js", this.handleServiceWorker.bind(this));
+    this.api.http.registerRoute("/chat/icon.svg", this.handleIcon.bind(this));
+  }
+
+  /** Web app manifest — lets /chat be installed as a standalone app (Android "Add to Home Screen", desktop Chrome install). */
+  private async handleManifest(req: Request): Promise<Response> {
+    if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const manifest = {
+      name: "Ronin Chat",
+      short_name: "Ronin",
+      description: "Chat with Ronin's AI agent system",
+      start_url: "/chat",
+      scope: "/chat",
+      display: "standalone",
+      background_color: dramTheme.colors.background,
+      theme_color: dramTheme.colors.background,
+      icons: [
+        { src: "/chat/icon.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any" },
+        { src: "/chat/icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any" },
+        { src: "/chat/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
+      ],
+    };
+    return Response.json(manifest, { headers: { "Content-Type": "application/manifest+json" } });
+  }
+
+  /** Minimal service worker — a fetch listener is the one thing Chrome/Android
+   *  actually requires for the install prompt to fire; a light cache-the-shell
+   *  strategy is included since it's nearly free once the listener exists. */
+  private async handleServiceWorker(req: Request): Promise<Response> {
+    if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const sw = `const CACHE = "ronin-chat-shell-v1";
+const SHELL_URLS = ["/chat", "/chat/manifest.json", "/chat/icon.svg"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL_URLS)).catch(() => {}));
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", (event) => {
+  // Network-first for everything (chat is live data) — cache is only a shell
+  // fallback for the install prompt requirement, not an offline chat mode.
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
+});
+`;
+    return new Response(sw, { headers: { "Content-Type": "application/javascript" } });
+  }
+
+  /** Simple placeholder app icon — a wordmark glyph on the dashboard's own background, as SVG so no image-processing dependency is needed. */
+  private async handleIcon(req: Request): Promise<Response> {
+    if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="${dramTheme.colors.background}"/>
+  <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="280">🥷</text>
+</svg>`;
+    return new Response(svg, { headers: { "Content-Type": "image/svg+xml" } });
   }
 
   /**
@@ -324,6 +390,9 @@ export default class ChattyAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Chat</title>
+  <link rel="manifest" href="/chat/manifest.json">
+  <link rel="icon" href="/chat/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="${dramTheme.colors.background}">
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -498,6 +567,57 @@ export default class ChattyAgent extends BaseDuty {
       border-bottom-left-radius: ${dramTheme.borderRadius.sm};
     }
     
+    .proposal-card {
+      margin-top: ${dramTheme.spacing.sm};
+      padding: ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.md};
+      background: ${dramTheme.colors.backgroundTertiary};
+      border: 1px solid ${dramTheme.colors.border};
+    }
+
+    .proposal-card-preview {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: ${dramTheme.colors.textPrimary};
+      margin-bottom: ${dramTheme.spacing.sm};
+    }
+
+    .proposal-card-actions {
+      display: flex;
+      gap: ${dramTheme.spacing.sm};
+    }
+
+    .proposal-card-actions button {
+      flex: 1;
+      padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.md};
+      border-radius: ${dramTheme.borderRadius.sm};
+      border: 1px solid ${dramTheme.colors.border};
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .proposal-card-allow {
+      color: ${dramTheme.colors.success};
+      border-color: ${dramTheme.colors.success} !important;
+    }
+
+    .proposal-card-refuse {
+      color: ${dramTheme.colors.error};
+      border-color: ${dramTheme.colors.error} !important;
+    }
+
+    .proposal-card-actions button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .proposal-card-status {
+      font-size: 0.75rem;
+      color: ${dramTheme.colors.textSecondary};
+    }
+
     .message-content h1,
     .message-content h2,
     .message-content h3 {
@@ -866,6 +986,12 @@ export default class ChattyAgent extends BaseDuty {
     if (window.self !== window.top) {
       document.body.classList.add('embedded-client');
     }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/chat/sw.js').catch(function(err) {
+        console.warn('Service worker registration failed:', err);
+      });
+    }
     
     // Get chat ID from URL or create new
     function getChatIdFromURL() {
@@ -1005,7 +1131,83 @@ export default class ChattyAgent extends BaseDuty {
       div.textContent = text;
       return div.innerHTML;
     }
-    
+
+    // Proposal cards: a \`\`\`contract-proposal { id, preview } \`\`\` or
+    // \`\`\`workflow-proposal { id, preview } \`\`\` fence (deterministically
+    // appended server-side whenever contracts.proposeReflex / workflows.propose
+    // runs — see injectContractProposalCardIntoResponse /
+    // injectWorkflowProposalCardIntoResponse) is pulled out of the markdown
+    // text and rendered as an Allow/Refuse card instead of a code block.
+    const PROPOSAL_KINDS = {
+      'contract-proposal': { kind: 'contract', approveUrl: '/api/contracts/proposals/approve', refuseUrl: '/api/contracts/proposals/refuse', nameField: 'contractName' },
+      'workflow-proposal': { kind: 'workflow', approveUrl: '/api/workflows/proposals/approve', refuseUrl: '/api/workflows/proposals/refuse', nameField: 'workflowName' },
+    };
+
+    function extractProposalCards(text) {
+      const cards = [];
+      let cleaned = text;
+      for (const fenceName of Object.keys(PROPOSAL_KINDS)) {
+        const fence = new RegExp('\`\`\`' + fenceName + '\\\\n([\\\\s\\\\S]*?)\\\\n\`\`\`', 'g');
+        cleaned = cleaned.replace(fence, (match, jsonText) => {
+          try {
+            const parsed = JSON.parse(jsonText);
+            if (parsed && typeof parsed.id === 'string' && typeof parsed.preview === 'string') {
+              cards.push({ ...parsed, kind: PROPOSAL_KINDS[fenceName].kind });
+              return '';
+            }
+          } catch (e) { /* leave malformed fences in the text as-is */ }
+          return match;
+        });
+      }
+      return { text: cleaned, cards };
+    }
+
+    function renderProposalCard(card) {
+      const el = document.createElement('div');
+      el.className = 'proposal-card';
+      el.dataset.proposalId = card.id;
+      el.innerHTML = \`
+        <div class="proposal-card-preview">\${escapeHtml(card.preview)}</div>
+        <div class="proposal-card-actions"></div>
+      \`;
+      const actions = el.querySelector('.proposal-card-actions');
+      const allowBtn = document.createElement('button');
+      allowBtn.className = 'proposal-card-allow';
+      allowBtn.textContent = 'Allow';
+      const refuseBtn = document.createElement('button');
+      refuseBtn.className = 'proposal-card-refuse';
+      refuseBtn.textContent = 'Refuse';
+      allowBtn.onclick = () => decideProposal(card.id, card.kind || 'contract', 'approve', actions);
+      refuseBtn.onclick = () => decideProposal(card.id, card.kind || 'contract', 'refuse', actions);
+      actions.appendChild(allowBtn);
+      actions.appendChild(refuseBtn);
+      return el;
+    }
+
+    async function decideProposal(id, kind, action, actionsEl) {
+      const cfg = kind === 'workflow' ? PROPOSAL_KINDS['workflow-proposal'] : PROPOSAL_KINDS['contract-proposal'];
+      const buttons = actionsEl.querySelectorAll('button');
+      buttons.forEach(b => b.disabled = true);
+      try {
+        const res = await fetch(action === 'approve' ? cfg.approveUrl : cfg.refuseUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body.success !== false) {
+          const name = body[cfg.nameField];
+          actionsEl.innerHTML = action === 'approve'
+            ? \`<span class="proposal-card-status">✅ Approved\${name ? ' — ' + escapeHtml(name) + ' is now active' : ''}</span>\`
+            : '<span class="proposal-card-status">Refused</span>';
+        } else {
+          actionsEl.innerHTML = \`<span class="proposal-card-status">Failed: \${escapeHtml(body.message || res.statusText)}</span>\`;
+        }
+      } catch (e) {
+        actionsEl.innerHTML = '<span class="proposal-card-status">Failed: network error</span>';
+      }
+    }
+
     function renderHistory(messages) {
       const container = document.getElementById('chat-history');
       container.innerHTML = '';
@@ -1028,7 +1230,11 @@ export default class ChattyAgent extends BaseDuty {
         content.className = 'message-content';
         
         // Render markdown for assistant messages, plain text for user messages
+        let proposalCards = [];
         if (msg.role === 'assistant') {
+          const extracted = extractProposalCards(msg.content);
+          const msgText = extracted.text;
+          proposalCards = extracted.cards;
           if (typeof marked !== 'undefined' && marked && marked.parse) {
             try {
               if (marked.setOptions) {
@@ -1039,8 +1245,8 @@ export default class ChattyAgent extends BaseDuty {
                   mangle: false
                 });
               }
-              content.innerHTML = marked.parse(msg.content);
-              
+              content.innerHTML = marked.parse(msgText);
+
               // Apply syntax highlighting to code blocks
               if (typeof hljs !== 'undefined' && hljs) {
                 content.querySelectorAll('pre code').forEach(block => {
@@ -1049,14 +1255,14 @@ export default class ChattyAgent extends BaseDuty {
               }
             } catch (e) {
               console.warn('Markdown parsing failed:', e);
-              const text = msg.content.replace(/&/g, '&amp;')
+              const text = msgText.replace(/&/g, '&amp;')
                                       .replace(/</g, '&lt;')
                                       .replace(/>/g, '&gt;')
                                       .replace(/\\n/g, '<br>');
               content.innerHTML = text;
             }
           } else {
-            const text = msg.content.replace(/&/g, '&amp;')
+            const text = msgText.replace(/&/g, '&amp;')
                                     .replace(/</g, '&lt;')
                                     .replace(/>/g, '&gt;')
                                     .replace(/\\n/g, '<br>');
@@ -1069,8 +1275,9 @@ export default class ChattyAgent extends BaseDuty {
                                   .replace(/\\n/g, '<br>');
           content.innerHTML = text;
         }
-        
+
         div.appendChild(content);
+        proposalCards.forEach(card => div.appendChild(renderProposalCard(card)));
         container.appendChild(div);
       });
       
@@ -1291,6 +1498,18 @@ export default class ChattyAgent extends BaseDuty {
       // Build Ronin context (memoized with decay)
       const context = await getRoninContext(this.api);
 
+      // Pull in a matching workflows/*.md guidance doc for this message, if
+      // any (see docs/WORKFLOWS_PLAN.md §4) — read-only, never a tool call,
+      // same "no match, no-op" contract as createWorkflowContextMiddleware.
+      const workflowMatch = discoverWorkflow(message);
+      const workflowSections = workflowMatch
+        ? [
+            `Workflow guidance (matched by ${workflowMatch.how}): "${workflowMatch.workflow.frontmatter.name}"\n` +
+              `This is operator-authored guidance for how this kind of work should go — follow it as a standard, not a rigid script. It is not a tool and cannot be called.\n\n` +
+              workflowMatch.workflow.body,
+          ]
+        : [];
+
       // Include architecture only on first message
       const isFirstMessage = history.length === 0;
       const systemPrompt = buildSystemPrompt(context, {
@@ -1298,6 +1517,7 @@ export default class ChattyAgent extends BaseDuty {
         includeRouteList: true,
         ontologyHint: context.hasOntology,
         artifactsHint: context.hasArtifacts,
+        sections: workflowSections,
       });
 
       // Log context for debugging
@@ -1570,7 +1790,13 @@ export default class ChattyAgent extends BaseDuty {
     }
 
     if (finalResponse) {
-      return injectMermaidLinkIntoResponse(finalResponse, toolResults);
+      return injectWorkflowProposalCardIntoResponse(
+        injectContractProposalCardIntoResponse(
+          injectMermaidLinkIntoResponse(finalResponse, toolResults),
+          toolResults
+        ),
+        toolResults
+      );
     }
 
     // If tools ran but failed and the model didn't return a reply, give a clear failure resolution

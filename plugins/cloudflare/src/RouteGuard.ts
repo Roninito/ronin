@@ -18,9 +18,13 @@ export class RouteGuard {
   private validator: PolicyValidator;
   private lastPolicyLoad: number = 0;
   private policyReloadInterval: number = 5000; // Reload every 5 seconds
+  private policyPath: string;
+  private auditLogPath: string;
 
-  constructor() {
+  constructor(policyPath: string = POLICY_PATH, auditLogPath: string = AUDIT_LOG_PATH) {
     this.validator = new PolicyValidator();
+    this.policyPath = policyPath;
+    this.auditLogPath = auditLogPath;
   }
 
   /**
@@ -33,12 +37,12 @@ export class RouteGuard {
       return this.policy;
     }
 
-    if (!existsSync(POLICY_PATH)) {
+    if (!existsSync(this.policyPath)) {
       return null;
     }
 
     try {
-      const content = readFileSync(POLICY_PATH, 'utf-8');
+      const content = readFileSync(this.policyPath, 'utf-8');
       const policy = JSON.parse(content);
       
       const validation = this.validator.validate(policy);
@@ -307,14 +311,9 @@ export class RouteGuard {
     }
 
     if (route.auth === 'jwt') {
-      // JWT validation would go here
-      // For now, just check format
-      if (!authHeader.startsWith('Bearer ')) {
-        return { valid: false, reason: 'JWT must use Bearer scheme' };
-      }
-      
-      // TODO: Implement actual JWT validation
-      return { valid: true };
+      // JWT signature verification is not implemented — fail closed rather than
+      // accept any Bearer token as if it were a verified JWT.
+      return { valid: false, reason: 'JWT auth is not implemented — use "token" auth instead' };
     }
 
     return { valid: false, reason: 'Unknown auth type' };
@@ -335,7 +334,7 @@ export class RouteGuard {
   private async logAudit(log: AuditLog): Promise<void> {
     try {
       const line = JSON.stringify(log) + '\n';
-      appendFileSync(AUDIT_LOG_PATH, line);
+      appendFileSync(this.auditLogPath, line);
     } catch (error) {
       console.error('[RouteGuard] Failed to write audit log:', error);
     }
@@ -346,11 +345,11 @@ export class RouteGuard {
    */
   async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
     try {
-      if (!existsSync(AUDIT_LOG_PATH)) {
+      if (!existsSync(this.auditLogPath)) {
         return [];
       }
 
-      const content = readFileSync(AUDIT_LOG_PATH, 'utf-8');
+      const content = readFileSync(this.auditLogPath, 'utf-8');
       const lines = content.trim().split('\n').filter(Boolean);
       
       return lines

@@ -68,6 +68,42 @@ CREATE INDEX IF NOT EXISTS idx_contracts_v2_enabled ON contracts_v2(enabled);
 CREATE INDEX IF NOT EXISTS idx_contracts_v2_next_run ON contracts_v2(next_scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_v2_target ON contracts_v2(target_kata);
 
+-- ── Contract Proposals (AI-drafted contracts awaiting approval) ──────────────
+
+CREATE TABLE IF NOT EXISTS contract_proposals (
+  id TEXT PRIMARY KEY,
+  chat_id TEXT,
+  intent TEXT NOT NULL,
+  contract_json TEXT NOT NULL,
+  kata_dsl TEXT,
+  preview TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  supersedes_id TEXT,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_contract_proposals_status ON contract_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_contract_proposals_chat ON contract_proposals(chat_id);
+
+-- ── Workflow Proposals (AI-drafted workflow markdown awaiting approval) ──────
+
+CREATE TABLE IF NOT EXISTS workflow_proposals (
+  id TEXT PRIMARY KEY,
+  chat_id TEXT,
+  intent TEXT NOT NULL,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  preview TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  supersedes_id TEXT,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_proposals_status ON workflow_proposals(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_proposals_chat ON workflow_proposals(chat_id);
+
 -- ── Tasks (v2 — enhanced schema with task_id and source tracking) ────────────
 
 CREATE TABLE IF NOT EXISTS tasks_v2 (

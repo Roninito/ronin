@@ -1,9 +1,10 @@
 # Ronin Architecture
 
-> **Status:** Canonical. This document is the single source of truth for Ronin's
-> conceptual model. Where any `*_SUMMARY.md`, `MODEL_SELECTION_*.md`, or
-> `PHASE*.md` file disagrees with this one, **this document wins** and the other
-> should be moved to `docs/history/`.
+> **Status:** Canonical. This is the single source of truth for Ronin's
+> conceptual model and current state. Where any other document disagrees
+> with this one — including anything outside this repository — **this
+> document wins**. Superseded material lives in `docs/history/`, labeled as
+> historical record, never as current guidance. See §12.
 
 ---
 
@@ -31,80 +32,159 @@ coordinating, scheduling, or planning *other* Duties.
 - **Analyze** — reason over signal + memory, using the model router. Decide.
 - **Respond** — execute Tools, emit events, write memory.
 
-MNGR is just the Duty whose Respond actions assign work to other Duties.
+**MNGR** is just the Duty whose Respond actions assign work to other Duties.
 
 ---
 
-## 2. The two nouns
+## 2. The three concepts
 
 Ronin has **three first-class concepts.** Two are capabilities (the things a Duty
-can invoke); one is the decider. Everything else is packaging or typing.
+can invoke); one is the decider. Everything else is packaging, typing, or
+engine-internal plumbing (§5).
 
 | Concept | Definition | Was called |
 |---------|------------|------------|
 | **Tool** | An atomic, typed, in-process capability (Bun/TS). Single typed input → typed output. MCP-exportable. Hot-path, model-callable via function-calling. | plugin methods |
-| **Skill** | A markdown-defined, declarative, **language-agnostic** capability. May be multi-step or out-of-process; can shell out to Python/shell, not just Bun. Discoverable via its manifest. The AgentSkills-style unit. | skills, techniques |
+| **Skill** | A markdown-defined, declarative, **language-agnostic** capability. May be multi-step or out-of-process; can shell out to Python/shell, not just Bun. Discoverable via its manifest. | skills, techniques |
 | **Duty** | A SAR loop instance with a persona, an allowlist of Skills + Tools, a budget, and memory. The thing that *decides*. (Formerly "Agent.") | agents |
 
 The Tool/Skill split is the one capability boundary worth keeping: **Tool** =
 fast, typed, in-runtime; **Skill** = portable, declarative, language-agnostic.
-They are different tiers, not synonyms. `technique` is dropped because it was a
-third synonym for Skill that bought nothing and (unlike Skill) couldn't cross
-language boundaries.
 
-Supporting structure (not capability concepts — do not let these grow their own
-runtimes):
+**technique was removed** (not deferred — deleted) because it was a third
+synonym for Skill that bought nothing and, unlike Skill, couldn't cross
+language boundaries. `src/techniques/` is gone; all authored `.technique`
+files were converted to `SKILL.md` format; the `technique` CLI verb is gone.
 
-| Concept | Definition | Was called |
-|---------|------------|------------|
-| **Tool Pack** | A namespaced bundle of Tools plus the adapter code backing them. Auto-discovered. | plugin (the file/folder) |
-| **Duty Preset** | The markdown file that declares a Duty: persona + the Skills/Tools it may use + budget. How a Duty is *defined*, not a capability itself. | (new — formalizes AGENTS.md / persona.md) |
-| **Schema** | The typed I/O contracts that Tools and Duties conform to. Cross-cutting. Not a "thing the system does." | contract |
+### Supporting structure (not capability concepts)
 
----
-
-## 3. Capability migration table
-
-The current tree carries **six** capability folders. They collapse to **Tool +
-Skill + Duty** as follows. Each row is an action item.
-
-| Current | Reclassify as | Action |
-|---------|---------------|--------|
-| `agents/` | **Duty** | **Hard rename** `Agent` → `Duty` across code, CLI, docs (single breaking PR — see §7.3). Rename folder to `duties/`. `ronin list` → lists duties. |
-| `plugins/` | **Tool Pack** (containing **Tools**) | Keep as bundles, but the unit of capability is the Tool, not the plugin. Each plugin method becomes a registered Tool with a Schema. |
-| `skills/` | **Skill** (keep) | Stays as-is, elevated to a first-class concept. Standardize on the markdown manifest format. Skills may invoke Python/shell, not just Bun — preserve that. |
-| `techniques/` | **— DROPPED —** | Delete. A technique was a synonym for Skill that couldn't cross language boundaries. Migrate any existing techniques into Skills (md defs). |
-| `katas/` | **— DROPPED / demoted —** | Remove as a runtime concept. A kata was "a combination of techniques" → now just "a combination of Skills," which a Duty Preset already expresses by listing them. If a bundle proves reused across 3+ duties, reintroduce only as a named `$ref` array in Preset config — never a class or folder. *(Final call: §7.1.)* |
-| `contracts/` | **Schema** | Promote to the shared type layer. Tools/Duties import from here. Not a capability — a dependency everything else conforms to. |
-
-**Net effect:** six capability abstractions → **Tool + Skill + Duty**, with three
-structural supports (Tool Pack, Duty Preset, Schema). Two whole concepts
-(technique, kata) are deleted outright. The number of capability concepts a
-contributor must hold drops from six to three.
-
-### Provider plugins are a special case
-
-`grok`, `gemini` (and the AI side of `langchain`, `rag`) are **not** Tools or
-Duties — they are **model providers** that leaked into the plugin system. Move
-them behind the model router (§5). After migration:
-
-- `grok` plugin → router adapter. Deleted as a user-facing plugin.
-- `gemini` plugin → router adapter. Deleted as a user-facing plugin.
-- `rag` → expose as Tools (`rag.query`, `rag.add`) backed by the router.
-- `langchain` → expose as Tools, or delete if the router covers the use case.
+| Concept | Definition |
+|---------|------------|
+| **Tool Pack** | A namespaced bundle of Tools plus the adapter code backing them. Auto-discovered. Formerly "plugin." |
+| **Duty Preset** | The markdown file that declares a Duty: persona + the Skills/Tools it may use + budget. |
+| **Workflow** | A markdown file (`workflows/<name>.md`) describing a category of work: purpose, standards/expectations, and steps. Discoverable like a Skill, but not callable — it only ever contributes read-only guidance text into a running SAR chain's context (`createWorkflowContextMiddleware`, §3). Hand-edited; never compiled or validated; the human-in-the-loop counterpart to Kata's compiled automation. See `docs/WORKFLOWS_PLAN.md`. Unrelated to the older, in-memory `WorkflowDefinition`/`WorkflowEngine` in `src/tools/` (a tool-step orchestration pipeline used by `duties/tool-orchestrator.ts`) — that naming overlap predates this feature and is a candidate for a future cleanup pass, not addressed here. |
+| **Schema** | The typed I/O contracts that Tools and Duties conform to. Cross-cutting. |
 
 ---
 
-## 4. Orchestration: one spine, many sensors
+## 3. The SAR envelope (runner-applied)
+
+**Every duty execution is wrapped in a SAR chain at the runner level** —
+budget, logging, and model-resolution middleware apply uniformly, without
+every duty having to opt in individually.
+
+```ts
+// DutyRegistry.executeDuty() wraps all duties:
+const executor = new Executor(api);
+const stack = new MiddlewareStack<ChainContext>();
+
+stack.use(createChainLoggingMiddleware({ level: "info" }));
+stack.use(createModelResolutionMiddleware(modelRegistry));
+stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
+stack.use(createTokenGuardMiddleware({ maxTokens: 12000 }));
+stack.use(createWorkflowContextMiddleware());  // pulls in a matching workflows/*.md guidance doc, if any
+stack.use(createExecutionTrackingMiddleware());
+
+const chain = new Chain(executor, stack, `duty:${dutyName}`);
+chain.withContext({ messages: [], metadata: { dutyName, ... } });
+await chain.run();
+await dutyInstance.execute();  // Respond phase
+```
+
+**Opt-out:** if a duty already has `this.middleware` and `this.executor`
+attached (via `use()`/`createChain()`), it manages its own SAR and skips the
+runner-applied envelope.
+
+**Known gap (pre-existing, not introduced by Workflow):** for most duties,
+the runner-applied envelope's `chain.run()` and `dutyInstance.execute()` are
+separate calls with no data threaded between them — `ctx.messages` built by
+the envelope's middleware is not passed into `execute()` unless a duty
+explicitly builds its own chain via `use()`/`createChain()` and reads from
+it (a few duties do — `messenger.ts`, `tool-calling-agent.ts`,
+`skill-maker.ts`, `refactory.ts`). `duties/chatty.ts`'s main `/chat` request
+handling is also route-driven and bypasses `executeDuty()` entirely, so
+`createWorkflowContextMiddleware` running there is a no-op in practice.
+Workflow context for live chat is therefore wired directly into
+`duties/chatty.ts`'s own message assembly (a `discoverWorkflow()` call
+against the live user message before `buildSystemPrompt()`), not through
+this envelope. `DutyRegistry.ts` also currently has a duplicate
+`executeDuty()` method definition (harmless — JS class semantics mean the
+second one silently wins) worth cleaning up in a future pass.
+
+---
+
+## 4. Capability migration (complete)
+
+| Current | Reclassified as | Status |
+|---------|-----------------|--------|
+| `agents/` | **Duty** | ✅ Renamed to `duties/`. Agent → Duty hard rename complete. |
+| `plugins/` | **Tool Pack** | ✅ Kept as bundles. Each plugin method is a registered Tool. |
+| `skills/` | **Skill** | ✅ Kept. Language-agnostic markdown defs. |
+| `techniques/` | **Skill** | ✅ Removed. Converted to SKILL.md format. Technique execution code deleted. |
+| `katas/`, `contracts/`, `src/task/` | **Engine-internal** (§5) | ✅ Kept permanently — see §5, this is not a removal candidate. |
+
+**Provider plugins:**
+- `plugins/grok.ts` → ✅ Removed. Provider is now an adapter behind ToolRouter.
+- `plugins/gemini.ts` → ✅ Removed. Provider is now an adapter behind ToolRouter.
+- `plugins/langchain.ts` → ✅ Kept (used by agent-creator-orchestrator for graph workflows).
+- `plugins/gemini-cli.ts` → ✅ Kept (used by coder-bot for CLI tooling).
+
+---
+
+## 5. Engine internals: Contract → Kata → Task → Skills/Tools
+
+**This corrects earlier drafts of this document, which framed kata as a
+removal candidate ("the one remaining open call to drop"). That framing was
+wrong and is retired.** Measured from the source (`src/task/engine.ts`
+hard-depends on `KataRegistry`; `src/realms/` is a whole distributed kata
+registry; `agents/dojo-agent.ts` has dozens of kata references): kata, task,
+and contract are not vestigial — they are a working execution engine,
+actively developed and extended. Only `technique` was ever vestigial, and
+it's the thing that was actually removed (§4).
+
+```
+  Contract ──targets──► Kata ──spawns──► Task ──runs phases──► Skills / Tools
+  (WHEN: schedule/       (compiled        (a running        (leaf
+   trigger)              phase-machine)   instance of a      capabilities)
+                                           kata)
+```
+
+- **Contract** — binds a trigger (cron schedule, or an event with an optional
+  condition guard) to a kata. `src/contract/engine.ts` (`CronEngine`,
+  `ContractEngine`) and `src/contract/event-engine.ts` (`EventTriggerEngine`)
+  evaluate triggers and spawn tasks. Contracts are drafted from plain English
+  via `contract propose` (`src/contract/propose.ts`, mirrors `kata propose`'s
+  AI-authoring pattern) and, from chat, via the `contracts.proposeReflex`
+  tool — nothing registers automatically; every AI-drafted contract is staged
+  as a pending proposal (`src/contract/proposal-storage.ts`) and only goes
+  live once approved via an inline chat card or the `/contracts` dashboard
+  page, never silently.
+- **Kata** — a compiled phase-graph (DSL: `kata <name> vN`, `phase`, `run
+  skill`, `next`). Pure action — no trigger or condition concept lives here;
+  that's Contract's job entirely. **Kata is engine-internal, not a
+  user-facing capability** — it is not presented alongside Tool/Skill/Duty as
+  a fourth concept. A contributor drafts a kata only as a side effect of
+  authoring a contract (`kata propose`, or inline kata drafting inside
+  `contract propose`), not as a standalone concept to reach for.
+- **Task** — a running instance of a kata; `src/task/engine.ts` spawns and
+  advances it phase by phase.
+
+**`contracts/` → `schema/` rename:** still deferred, out of scope for any
+pass to date. Not a removal — a possible future rename of the shared-type
+folder, unrelated to whether kata/contract/task stay (they do).
+
+---
+
+## 6. Orchestration: one spine, many sensors
 
 There is one event bus and one scheduler. The three things that previously felt
 like separate orchestration systems are reclassified:
 
 | Previously | Now |
 |------------|-----|
-| Reactive triggers (cron, file-watch, webhook) | **Sensors.** They emit events into the bus; they do not run logic. Sense pulls from them. |
-| Behavior tree (SAR/MNGR, katas) | **MNGR**, a coordinating Duty. Its tree is its Respond strategy; leaves are Tools. |
-| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (Todo, Coder) plus Sensors, wired on the same bus. Not a second engine. |
+| Reactive triggers (cron, file-watch, webhook, contract event-triggers) | **Sensors.** They emit events into the bus; they do not run logic. |
+| Behavior tree (SAR/MNGR) | **MNGR**, a coordinating Duty. Its tree is its Respond strategy; leaves are Tools. |
+| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (Todo, Coder) plus Sensors, wired on the same bus. |
 
 ```
 Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► effects ──► bus
@@ -114,17 +194,15 @@ Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► eff
 
 **Rules:**
 1. One scheduler. One bus. No Duty owns shared state except the designated
-   state-authority Duty for its domain (e.g. Todo owns the kanban).
+   state-authority Duty for its domain.
 2. Sensors are dumb. Logic lives in Duties.
-3. Cross-Duty communication is events only. No direct calls into another Duty's
-   internals. (This principle is already correct in the Plan Workflow — make it
-   universal.)
+3. Cross-Duty communication is events only. No direct calls into another Duty's internals.
 
 ---
 
-## 5. Model router (finish this once)
+## 7. Model router
 
-A single router is the only path to a model. There are two public entry points:
+A single router is the only path to a model. Two public entry points:
 
 ```ts
 api.ai.complete(prompt, opts)      // text in, text out
@@ -135,98 +213,162 @@ api.ai.callTools(prompt, opts)     // tool-calling loop
 - Providers (Ollama, Anthropic, Grok, Gemini, OpenAI) are **adapters** registered
   with the router, selected by tier (`local` / `smart` / `cloud`) or explicit
   `--model`.
-- Privacy-first default stays: `local` (Ollama) unless a Duty's policy opts into
-  cloud.
-- **The router already exists** (`src/tools/ToolRouter.ts` + adapters in
-  `src/tools/adapters/`). The task for Phase 2 is *consolidation* — routing the
-  duplicate provider plugins (grok, gemini, langchain) behind the existing
-  ToolRouter adapters — not building a new router.
-- `MODEL_SELECTION_COMPLETE.md` and `MODEL_SELECTION_IMPLEMENTATION.md` have been
-  archived to `docs/history/`.
+- Privacy-first default: `local` (Ollama) unless a Duty's policy opts into cloud.
 
 ---
 
-## 6. Safety boundary (new, non-optional)
+## 8. Safety boundary
 
 Ronin shares OpenClaw's attack surface: shell execution + file access + inbound
-channels (Telegram/Discord). The `#ronin #plan` → Coder Bot path means **untrusted
-channel input can propose executable work.** Manual approval is currently the only
-gate. Hardening required:
+channels. The `#ronin #plan` → Coder Bot path means **untrusted channel input
+can propose executable work.**
 
-1. **Per-run budgets.** Every Duty run has a hard cap on steps and tokens. Exceeding
-   it aborts the loop. (Loop-guard against runaway SAR cycles.)
-2. **Tool trust tiers.** Tag Tools `safe` / `guarded` / `dangerous`
-   (`shell.exec`, `file.write` are `dangerous`). A Duty's allowlist must explicitly
-   grant a tier. Channel-triggered Duties default to `safe` only.
-3. **Provenance on events.** Every event carries its origin (sensor, channel, user).
-   `dangerous` Tools refuse events whose provenance is an untrusted channel unless
-   an approval event with a trusted origin is present.
-4. **Approval is an event, not a side door.** Keep the existing approval API, but
-   model approval as a first-class event with trusted provenance so it audits
-   cleanly.
+Hardening:
 
----
-
-## 7. Decisions
-
-### 7.1 Kata — the one remaining open call
-`technique` is **dropped** (folded into Skill). That leaves kata, which was
-defined as "a combination of techniques" → now "a combination of Skills." Two
-options:
-
-- **Drop entirely (recommended).** A Duty Preset already lists the Skills/Tools a
-  Duty uses — that *is* the reuse mechanism. No kata concept, no `katas/` folder.
-- **Demote to config shorthand.** If you have a concrete case of 3+ duties sharing
-  an identical Skill bundle, allow a named `$ref` array inside Preset config
-  (e.g. `skills: [$ref: recon-bundle]`). Still no class, no folder, no loader —
-  just a reusable list.
-
-Default to drop; reach for the `$ref` only when real duplication appears.
-
-### 7.2 Skill format — LOCKED
-Skills are **markdown-defined and language-agnostic.** A Skill may invoke Python,
-shell, or any executable, not just Bun. This is the property that justified
-keeping Skill over technique — preserve it as a hard requirement.
-
-### 7.3 Naming sweep — LOCKED: hard rename
-`Agent` → `Duty` is a **hard rename in one breaking PR.** Touches the base class,
-loader, registry, CLI verbs, AGENTS.md, and persona files. No deprecated alias —
-the project is pre-1.0 and self-hosted, so absorb the break once and move on.
+1. **Per-run budgets.** Every Duty run has a hard cap on steps and tokens (tokenGuard).
+2. **Tool trust tiers.** (Planned) Tag Tools `safe` / `guarded` / `dangerous`.
+3. **Provenance on events.** Every event carries its origin.
+4. **Approval is an event.** Model approval as a first-class event with trusted provenance.
+5. **Remote access whitelist.** `RouteGuard` (`plugins/cloudflare/src/RouteGuard.ts`)
+   is wired into the real HTTP server (`src/duty/DutyRegistry.ts`'s `fetch`
+   handler) — a no-op until a route policy exists (`ronin cloudflare route
+   init`), then a fail-closed whitelist gating every request, local included.
+   See `docs/REMOTE_ACCESS.md`.
 
 ---
 
-## 8. Target tree (after migration)
+## 9. Target tree (current)
 
 ```
 ronin/
 ├── src/
-│   ├── sar/            # the loop: Sense / Analyze / Respond
-│   ├── duty/           # base Duty, loader, registry   (was agent/)
-│   ├── tools/          # Tool registry + Schema binding
-│   ├── router/         # model router + provider adapters (was grok/gemini plugins)
-│   ├── bus/            # event bus + sensors (cron, file-watch, webhook, channels)
-│   ├── memory/         # single store (SQLite/Drizzle)
-│   └── index.ts
-├── duties/             # your Duties               (was agents/)
-├── tool-packs/         # bundled Tools             (was plugins/)
-├── skills/             # markdown Skill defs (Python/shell/Bun)  (kept)
-├── presets/            # Duty Preset md files (persona + skills + tools + budget)
-├── schema/             # shared contracts          (was contracts/)
+│   ├── duty/           # BaseDuty, DutyLoader, DutyRegistry
+│   ├── tools/          # ToolRouter + adapters + LocalTools
+│   ├── api/            # DutyAPI, unified interface to all subsystems
+│   ├── chain/          # Chain, Executor — re-export from @ronin/sar
+│   ├── middleware/     # tokenGuard, modelResolution, executionTracking, etc.
+│   ├── memory/         # SQLite store (duty_state, conversations, memories)
+│   ├── kata/           # engine-internal — compiled phase-graphs (§5)
+│   ├── contract/        # engine-internal — trigger → kata binding, propose/approve flow (§5)
+│   └── task/            # engine-internal — running kata instances (§5)
+├── duties/             # Your Duties
+├── plugins/            # Capability plugins (langchain, gemini-cli, cloudflare, etc.)
+├── skills/             # Markdown Skill defs — language-agnostic
+├── workflows/          # Markdown Workflow SOPs — guidance only, never compiled (§2)
+├── contracts/          # .contract DSL source files (planned rename to schema/, deferred)
+├── packages/sar/       # @ronin/sar — Executor, Chain, MiddlewareStack
 └── docs/
-    ├── ARCHITECTURE.md # this file — canonical
-    └── history/        # archived PHASE*/SUMMARY/MODEL_SELECTION docs
+    ├── ARCHITECTURE.md   # This document — canonical
+    ├── REMOTE_ACCESS.md  # Cloudflare tunnel + dashboard-as-PWA guide
+    └── history/          # Archived, point-in-time — never authoritative (§12)
 ```
 
 ---
 
-## 9. Migration order (suggested)
+## 10. Key files
 
-1. Land this `ARCHITECTURE.md`; move contradicting docs to `docs/history/`.
-2. Promote `contracts/` → `schema/`. (No behavior change; unblocks the rest.)
-3. Build the model router; convert grok/gemini plugins to adapters.
-4. Establish the Tool registry; register plugin methods as Tools.
-5. Rename `Agent` → `Duty` (the breaking PR).
-6. Migrate `techniques/` into `skills/` (md defs); delete `techniques/`. Drop
-   `katas/` (or demote to Preset `$ref` per §7.1). Formalize `presets/`.
-7. Unify sensors onto one bus; fold Plan Workflow in as Duties.
-8. Add budgets + tool trust tiers (§6).
+| File | Purpose |
+|------|---------|
+| `src/duty/Duty.ts` | `BaseDuty` class with optional SAR (`use()`, `createChain()`) |
+| `src/duty/DutyRegistry.ts` | Duty registry + scheduler + webhook server + SAR envelope in `executeDuty()` + RouteGuard enforcement in `fetch()` |
+| `src/duty/DutyLoader.ts` | Discovers and loads duty files |
+| `src/types/duty.ts` | `interface Duty`, `DutyMetadata`, `DutyConstructor` |
+| `src/api/ai.ts` | AIAPI — single path to models via ToolRouter |
+| `src/tools/ToolRouter.ts` | Tool registration and execution with policy enforcement |
+| `src/memory/Memory.ts` | SQLite store with `duty_name` columns |
+| `src/contract/engine.ts`, `event-engine.ts`, `propose.ts` | Contract trigger evaluation, event sensors, AI-authoring |
+| `duties/contract-executor.ts` | Owns the contract/cron/event engines, the `contracts.proposeReflex` tool, and the `/contracts` review page |
+| `plugins/cloudflare/src/RouteGuard.ts`, `QuickTunnel.ts` | Route whitelist enforcement; real anonymous quick tunnels |
+| `packages/sar/` | Executor, Chain, MiddlewareStack — the shared SAR machinery |
+
+---
+
+## 11. CLI commands (current)
+
+### Core
+```
+ronin start                 Start and schedule all duties
+ronin run <duty>            Run a specific duty manually
+ronin list                  List all available duties
+ronin status                Show runtime status
+ronin stop / restart / kill Manage running instances
+```
+
+### Creation
+```
+ronin create duty [desc]    AI-powered duty creation
+ronin create skill "desc"   AI-powered skill creation
+ronin create plugin <name>  Create a new plugin template
+ronin kata propose "<intent>"       AI-drafts a kata from plain language
+ronin contract propose "<intent>"   AI-drafts a trigger + kata from plain language
+ronin workflow propose "<description>"   AI-drafts a Workflow SOP from plain language
+ronin workflow list / show / new / edit  Manage workflows/*.md directly (no compile step)
+```
+
+### Configuration
+```
+ronin config --show         Show current configuration
+ronin config --init        Initialize user directories
+ronin config --duty-dir    Set duty directory
+```
+
+### Remote access
+```
+ronin cloudflare route init          Opt into the route whitelist (required before any tunnel)
+ronin cloudflare route add <path>    Whitelist a path (--auth none|token, --methods)
+ronin cloudflare tunnel temp [ttl]   Real anonymous quick tunnel, prints URL + QR code
+```
+See `docs/REMOTE_ACCESS.md` for the full walkthrough.
+
+### Engine (kept, engine-internal — §5)
+```
+ronin kata list             Part of the execution engine
+ronin task list             Part of the execution engine
+ronin contract list         Part of the execution engine
+```
+
+See `ronin --help` for the full command list.
+
+---
+
+## 12. Documentation policy
+
+This file is the only canonical architecture document. Rules that exist
+specifically because they were violated before:
+
+- **Nothing outside this git repository is ever authoritative** — not a
+  file on someone's Desktop, not another machine, not a chat transcript. A
+  prior pass kept planning docs (`ARCHITECTURE_CHANGES_PLAN.md`,
+  `ARCHITECTURE_REMOVALS_PLAN.md`) only on a contributor's Desktop; they went
+  stale and conflicted with the real repo state because nothing forced them
+  to stay in sync. Both are now archived in `docs/history/` instead, marked
+  with their execution status, so this can't recur at that location.
+- **`docs/history/` is a point-in-time archive, never live guidance.** If a
+  file there disagrees with this document, this document wins.
+- When this document itself falls out of date, fix it in the same change
+  that changes the engine — don't defer it to a cleanup pass.
+
+---
+
+## 13. Migration notes (historical, all complete)
+
+### Agent → Duty
+- `BaseAgent` → `BaseDuty`, `AgentRegistry` → `DutyRegistry`, `AgentLoader` → `DutyLoader`
+- `agents/` → `duties/`, `--agent-dir` → `--duty-dir`
+- `setAgentState` → `setDutyState` (Memory); DB `agent_name` → `duty_name` columns
+
+### Provider consolidation
+- `plugins/grok.ts`, `plugins/gemini.ts` → removed, replaced by ToolRouter adapters
+- `plugins/langchain.ts`, `plugins/gemini-cli.ts` → kept (real call sites)
+
+### SAR envelope
+- `DutyRegistry.executeDuty()` wraps all duties in a SAR chain
+- Default budget: 12000 tokens, configurable per duty
+
+### Technique removal
+- `src/techniques/` deleted; substrate types moved to `src/types/shared.ts` and `src/database/migrations.ts`
+- All `.technique` files converted to `SKILL.md`; `technique` CLI verb removed
+
+---
+
+**Last updated:** August 2026.

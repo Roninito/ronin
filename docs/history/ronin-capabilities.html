@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RONIN — Autonomous AI Agent System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d10;
+    --panel: #12171c;
+    --panel-2: #161c22;
+    --border: #232b32;
+    --border-bright: #2f3b44;
+    --text: #c7d1d8;
+    --text-dim: #6e7a85;
+    --amber: #f0a830;
+    --cyan: #4fd6e0;
+    --gold: #d4af37;
+    --green: #5fd38a;
+    --red: #e0625f;
+    --purple: #b794f6;
+    --blue: #6b9bff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.65;
+    font-size: 16px;
+    padding-bottom: 80px;
+    overflow-x: hidden;
+  }
+
+  /* Grid + scanline texture */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79, 214, 224, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79, 214, 224, 0.022) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 3px);
+    pointer-events: none;
+    opacity: 0.35;
+    z-index: 0;
+  }
+
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+  .mono { font-family: 'Share Tech Mono', monospace; }
+  .eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+
+  /* ---------- HERO ---------- */
+  header.hero {
+    position: relative;
+    padding: 100px 0 70px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  header.hero::before {
+    content: "";
+    position: absolute;
+    top: -30%; right: -5%;
+    width: 65%; height: 160%;
+    background: radial-gradient(closest-side, rgba(240,168,48,0.12), transparent 65%);
+    pointer-events: none;
+  }
+  header.hero::after {
+    content: "";
+    position: absolute;
+    bottom: -30%; left: -10%;
+    width: 50%; height: 140%;
+    background: radial-gradient(closest-side, rgba(79,214,224,0.08), transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 7px 14px; border-radius: 2px;
+    margin-bottom: 32px;
+  }
+  .hero-tag b { color: var(--amber); font-weight: 400; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  h1.wordmark {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: clamp(64px, 14vw, 152px);
+    line-height: 0.86;
+    letter-spacing: 0.02em;
+    color: #eef3f6;
+    margin-bottom: 12px;
+  }
+  h1.wordmark span { color: var(--amber); }
+  .hero-sub {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    font-size: clamp(20px, 3vw, 32px);
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+    margin-bottom: 26px;
+  }
+  .hero-thesis {
+    max-width: 720px;
+    font-size: 18px;
+    color: var(--text);
+    line-height: 1.75;
+  }
+  .hero-thesis b { color: #eef3f6; font-weight: 600; }
+
+  .statrow {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); border-radius: 4px;
+    margin-top: 52px; overflow: hidden;
+  }
+  .stat { background: var(--panel); padding: 22px 18px; }
+  .stat .v { font-family: 'Share Tech Mono', monospace; font-size: 28px; color: var(--gold); }
+  .stat .k { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-top: 6px; }
+
+  /* ---------- SECTION ---------- */
+  section { padding: 72px 0 12px; }
+  .sec-head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 32px; }
+  .sec-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; color: var(--amber);
+    border: 1px solid var(--border-bright); border-radius: 2px;
+    padding: 4px 10px;
+  }
+  h2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: clamp(30px, 5vw, 44px);
+    letter-spacing: 0.01em;
+    color: #eef3f6;
+    line-height: 1.05;
+  }
+  .lede { color: var(--text-dim); max-width: 820px; margin-top: 10px; font-size: 17px; line-height: 1.7; }
+  .lede b { color: var(--text); font-weight: 600; }
+
+  /* ---------- FEATURE GRID ---------- */
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-top: 28px; }
+  .feature {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 24px;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .feature:hover { border-color: var(--border-bright); background: var(--panel-2); }
+  .feature .icon {
+    font-size: 32px;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .feature h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: #eef3f6;
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+  .feature .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 10px;
+    display: block;
+  }
+  .feature p {
+    font-size: 14.5px;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+  .feature .meta {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-bright);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Color-coded features */
+  .feature.ai .tag { color: var(--purple); }
+  .feature.ai h3 { border-bottom: 2px solid var(--purple); display: inline-block; }
+  .feature.comm .tag { color: var(--blue); }
+  .feature.comm h3 { border-bottom: 2px solid var(--blue); display: inline-block; }
+  .feature.auto .tag { color: var(--green); }
+  .feature.auto h3 { border-bottom: 2px solid var(--green); display: inline-block; }
+  .feature.data .tag { color: var(--gold); }
+  .feature.data h3 { border-bottom: 2px solid var(--gold); display: inline-block; }
+  .feature.dev .tag { color: var(--cyan); }
+  .feature.dev h3 { border-bottom: 2px solid var(--cyan); display: inline-block; }
+
+  /* ---------- PANEL ---------- */
+  .panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 32px;
+    margin-top: 28px;
+  }
+  .panel.highlight {
+    border-color: var(--amber);
+    background: linear-gradient(180deg, rgba(240,168,48,0.06), transparent 50%);
+  }
+  .panel h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: #eef3f6;
+    margin-bottom: 16px;
+  }
+  .panel p {
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ---------- TECH STACK ---------- */
+  .stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 28px; }
+  .stack-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px;
+    text-align: center;
+  }
+  .stack-item .label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+  .stack-item .val {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: #eef3f6;
+  }
+
+  /* ---------- CODE BLOCK ---------- */
+  .code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    overflow-x: auto;
+    margin-top: 20px;
+    line-height: 1.7;
+  }
+  .code .comment { color: var(--text-dim); }
+  .code .keyword { color: var(--purple); }
+  .code .string { color: var(--green); }
+  .code .func { color: var(--cyan); }
+
+  /* ---------- CALLOUT ---------- */
+  .callout {
+    border-left: 3px solid var(--amber);
+    background: rgba(240,168,48,0.05);
+    padding: 20px 24px;
+    border-radius: 0 4px 4px 0;
+    margin-top: 32px;
+  }
+  .callout .k {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 8px;
+  }
+  .callout p {
+    font-size: 15px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .callout p + p { margin-top: 12px; }
+
+  /* ---------- CAPABILITY LIST ---------- */
+  .cap-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .cap-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cap-item .bullet { color: var(--amber); font-size: 16px; }
+
+  footer {
+    margin-top: 100px;
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
+  }
+  footer .f {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer .f b { color: var(--cyan); font-weight: 400; }
+
+  @media (max-width: 760px) {
+    .statrow { grid-template-columns: repeat(2, 1fr); }
+    .feature-grid { grid-template-columns: 1fr; }
+    .stack-grid { grid-template-columns: repeat(2, 1fr); }
+    .cap-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-tag"><span class="dot"></span> AUTONOMOUS AI SYSTEM · <b>BUN-POWERED</b></div>
+    <h1 class="wordmark">RO<span>N</span>IN</h1>
+    <div class="hero-sub">Production-Ready AI Agent Framework</div>
+    <p class="hero-thesis">
+      <b>Ronin is a complete AI agent operating system.</b> Built on Bun and TypeScript, it provides a unified runtime for autonomous agents that can chat, schedule tasks, monitor systems, integrate with communication platforms, generate content, analyze data, and coordinate complex multi-agent workflows — all running locally with full privacy control.
+    </p>
+
+    <div class="statrow">
+      <div class="stat"><div class="v">57</div><div class="k">Built-in Duties</div></div>
+      <div class="stat"><div class="v">26</div><div class="k">Plugin Capabilities</div></div>
+      <div class="stat"><div class="v">17</div><div class="k">Language-Agnostic Skills</div></div>
+      <div class="stat"><div class="v">100%</div><div class="k">Local-First Privacy</div></div>
+      <div class="stat"><div class="v">SAR</div><div class="k">Unified Execution Loop</div></div>
+      <div class="stat"><div class="v">∞</div><div class="k">Extensible Architecture</div></div>
+    </div>
+  </div>
+</header>
+
+<!-- 01 CORE CAPABILITIES -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">01</span><div><h2>AI Intelligence Layer</h2></div></div>
+  <p class="lede">Multi-model AI orchestration with local-first privacy. Run entirely offline with Ollama or scale to cloud providers seamlessly.</p>
+
+  <div class="feature-grid">
+    <div class="feature ai">
+      <span class="tag">AI Core</span>
+      <h3>Multi-Provider AI</h3>
+      <p>Unified interface to Ollama (local), Anthropic Claude, OpenAI, Google Gemini, and custom providers. Automatic model selection, token budgeting, and failover.</p>
+      <div class="meta">Local-first · Privacy-focused · Cloud-optional</div>
+    </div>
+
+    <div class="feature ai">
+      <span class="tag">Conversational</span>
+      <h3>Context-Aware Chat</h3>
+      <p>Built-in chat interface with conversation memory, context windowing, and knowledge graph integration. Multi-turn reasoning with tool calling.</p>
+      <div class="meta">Web UI · REST API · Message history</div>
+    </div>
+
+    <div class="feature ai">
+      <span class="tag">Tool Execution</span>
+      <h3>Function Calling</h3>
+      <p>Native function calling support with automatic schema generation. Tools can invoke other tools, access databases, run shell commands, and coordinate complex workflows.</p>
+      <div class="meta">Type-safe · Composable · MCP-compatible</div>
+    </div>
+
+    <div class="feature ai">
+      <span class="tag">Memory System</span>
+      <h3>Knowledge Graph</h3>
+      <p>Persistent ontology system storing tasks, failures, skills, conversations, and documentation. Semantic search, relationship tracking, and context retrieval.</p>
+      <div class="meta">SQLite-backed · Graph relations · Semantic search</div>
+    </div>
+
+    <div class="feature ai">
+      <span class="tag">LangChain</span>
+      <h3>Advanced Workflows</h3>
+      <p>Full LangChain integration for chains, agents, and LangGraph state machines. Build complex reasoning workflows with memory, retrieval, and tool composition.</p>
+      <div class="meta">Chains · Graphs · Vector stores</div>
+    </div>
+
+    <div class="feature ai">
+      <span class="tag">Voice I/O</span>
+      <h3>Text-to-Speech</h3>
+      <p>Local neural TTS using Piper with multiple voice models. System announcements, audio notifications, and accessibility features.</p>
+      <div class="meta">Piper TTS · Multi-voice · Cross-platform</div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 COMMUNICATION & INTEGRATION -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">02</span><div><h2>Communication & Integration</h2></div></div>
+  <p class="lede">Connect to Telegram, Discord, email, RSS, and more. Build bots, monitor channels, send alerts, and bridge platforms.</p>
+
+  <div class="feature-grid">
+    <div class="feature comm">
+      <span class="tag">Messaging</span>
+      <h3>Telegram Integration</h3>
+      <p>Full-featured Telegram bot support with command handling, group management, channel monitoring, file uploads, and inline keyboards. Multi-bot coordination.</p>
+      <div class="meta">Grammy framework · Multi-bot · Rich media</div>
+    </div>
+
+    <div class="feature comm">
+      <span class="tag">Team Chat</span>
+      <h3>Discord Integration</h3>
+      <p>Discord bot with slash commands, message reactions, role management, voice channels, and webhook integrations. Perfect for community management.</p>
+      <div class="meta">discord.js · Slash commands · Event handling</div>
+    </div>
+
+    <div class="feature comm">
+      <span class="tag">Email</span>
+      <h3>IMAP & SMTP</h3>
+      <p>Monitor inboxes, send emails, process attachments, and automate email workflows. Full IMAP support with folder management and search.</p>
+      <div class="meta">imapflow · nodemailer · Attachments</div>
+    </div>
+
+    <div class="feature comm">
+      <span class="tag">Syndication</span>
+      <h3>RSS Feed Engine</h3>
+      <p>Generate and consume RSS feeds. Aggregate content, monitor news sources, publish updates, and bridge RSS to Telegram or Discord.</p>
+      <div class="meta">Feed generation · Aggregation · Cross-posting</div>
+    </div>
+
+    <div class="feature comm">
+      <span class="tag">Web Scraping</span>
+      <h3>Content Extraction</h3>
+      <p>Fetch and parse web content with Cheerio, Turndown (HTML→Markdown), and Readability mode. Extract articles, monitor websites, gather data.</p>
+      <div class="meta">Cheerio · Turndown · Readability</div>
+    </div>
+
+    <div class="feature comm">
+      <span class="tag">HTTP Server</span>
+      <h3>REST API & Webhooks</h3>
+      <p>Built-in HTTP server with route registration, webhook support, static file serving, and API endpoints. Expose agents as web services.</p>
+      <div class="meta">Bun.serve · RESTful · WebSocket ready</div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 AUTOMATION & SCHEDULING -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">03</span><div><h2>Automation & Scheduling</h2></div></div>
+  <p class="lede">Schedule tasks with cron, watch files, trigger on events, and coordinate complex multi-agent workflows.</p>
+
+  <div class="feature-grid">
+    <div class="feature auto">
+      <span class="tag">Scheduling</span>
+      <h3>Cron Scheduler</h3>
+      <p>Full-featured cron scheduling with timezone support, missed-run handling, and dynamic schedule updates. Run tasks on any schedule from minutes to months.</p>
+      <div class="meta">Cron syntax · Timezone-aware · Persistent state</div>
+    </div>
+
+    <div class="feature auto">
+      <span class="tag">File System</span>
+      <h3>Hot Reload & Watch</h3>
+      <p>Watch files and directories for changes. Automatic duty reloading during development. Trigger workflows on file creation, modification, or deletion.</p>
+      <div class="meta">fs.watch · Auto-reload · Pattern matching</div>
+    </div>
+
+    <div class="feature auto">
+      <span class="tag">Events</span>
+      <h3>Event Bus</h3>
+      <p>Global event system for inter-duty communication. Pub/sub pattern with typed events, provenance tracking, and event history. Decouple agents completely.</p>
+      <div class="meta">Typed events · Pub/sub · Event log</div>
+    </div>
+
+    <div class="feature auto">
+      <span class="tag">Orchestration</span>
+      <h3>Multi-Agent Coordination</h3>
+      <p>MNGR duty coordinates complex workflows across multiple agents. Task delegation, dependency tracking, parallel execution, and result aggregation.</p>
+      <div class="meta">SAR-based · Task graph · Parallel execution</div>
+    </div>
+
+    <div class="feature auto">
+      <span class="tag">State Management</span>
+      <h3>Persistent Memory</h3>
+      <p>SQLite-backed state storage per duty. Conversation history, task state, user preferences, and custom data. Automatic cleanup and retention policies.</p>
+      <div class="meta">SQLite · Per-duty storage · Automatic GC</div>
+    </div>
+
+    <div class="feature auto">
+      <span class="tag">System Integration</span>
+      <h3>OS Bridge</h3>
+      <p>System tray integration, desktop notifications, menu bar controls, and OS-level automation. Native desktop app via Electrobun.</p>
+      <div class="meta">systray2 · Notifications · Desktop UI</div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 CONTENT & DATA -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">04</span><div><h2>Content Creation & Data Processing</h2></div></div>
+  <p class="lede">Generate blogs, analyze portfolios, process documents, create diagrams, and transform data formats.</p>
+
+  <div class="feature-grid">
+    <div class="feature data">
+      <span class="tag">Content Generation</span>
+      <h3>Blog Generator</h3>
+      <p>AI-powered blog writing with topic research, SEO optimization, markdown formatting, and HTML rendering. Built-in CMS-style interface.</p>
+      <div class="meta">AI-assisted · SEO-friendly · Markdown + HTML</div>
+    </div>
+
+    <div class="feature data">
+      <span class="tag">Documentation</span>
+      <h3>Mermaid Diagrams</h3>
+      <p>Generate architecture diagrams, flowcharts, sequence diagrams, and ERDs from code or natural language. Auto-render to mermaid.live links.</p>
+      <div class="meta">Mermaid.js · Auto-generation · Live preview</div>
+    </div>
+
+    <div class="feature data">
+      <span class="tag">Data Processing</span>
+      <h3>Ronin Script</h3>
+      <p>Declarative query language for database operations, aggregations, and transformations. Type-safe with schema validation.</p>
+      <div class="meta">Type-safe DSL · SQLite backend · JSON I/O</div>
+    </div>
+
+    <div class="feature data">
+      <span class="tag">Analysis</span>
+      <h3>Portfolio Tracker</h3>
+      <p>Track projects, analyze codebases, monitor git repositories, and generate status reports. Insight into development activity and health.</p>
+      <div class="meta">Git integration · Code analysis · Reports</div>
+    </div>
+
+    <div class="feature data">
+      <span class="tag">Format Conversion</span>
+      <h3>Markdown Processing</h3>
+      <p>Parse, transform, and render markdown with the Marked library. Convert between HTML, markdown, and plain text. Extract metadata and structure.</p>
+      <div class="meta">Marked · Syntax highlighting · Metadata</div>
+    </div>
+
+    <div class="feature data">
+      <span class="tag">News Aggregation</span>
+      <h3>NOAA Weather & Alerts</h3>
+      <p>Fetch weather data, severe weather alerts, and forecasts from NOAA. Automated notifications for weather events.</p>
+      <div class="meta">NOAA API · Weather alerts · Forecasts</div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 DEVELOPER EXPERIENCE -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">05</span><div><h2>Developer Experience</h2></div></div>
+  <p class="lede">Built for developers. TypeScript-first, hot reload, CLI tools, plugin system, and comprehensive logging.</p>
+
+  <div class="feature-grid">
+    <div class="feature dev">
+      <span class="tag">Runtime</span>
+      <h3>Bun-Powered</h3>
+      <p>Lightning-fast TypeScript execution with Bun. Native TypeScript support, instant startup, built-in bundler, and package manager. 3x faster than Node.js.</p>
+      <div class="meta">Native TS · Fast startup · Built-in tools</div>
+    </div>
+
+    <div class="feature dev">
+      <span class="tag">CLI</span>
+      <h3>Command-Line Interface</h3>
+      <p>Comprehensive CLI for managing duties, skills, plugins, and configurations. Interactive prompts, status dashboards, and real-time logs.</p>
+      <div class="meta">Interactive · Status views · Config management</div>
+    </div>
+
+    <div class="feature dev">
+      <span class="tag">Plugin System</span>
+      <h3>Extensible Architecture</h3>
+      <p>Load custom plugins with hot reload. Tool packs auto-register. Create new capabilities without forking. Full TypeScript typing.</p>
+      <div class="meta">Hot reload · Type-safe · Auto-discovery</div>
+    </div>
+
+    <div class="feature dev">
+      <span class="tag">Logging</span>
+      <h3>Structured Logging</h3>
+      <p>JSON-structured logs with levels, timestamps, and metadata. Per-duty log files, centralized aggregation, and log rotation.</p>
+      <div class="meta">JSON format · Per-duty logs · Rotation</div>
+    </div>
+
+    <div class="feature dev">
+      <span class="tag">Type Safety</span>
+      <h3>Full TypeScript</h3>
+      <p>End-to-end type safety. Typed APIs, schemas, events, and tool definitions. Catch errors at compile time. IntelliSense everywhere.</p>
+      <div class="meta">Strict mode · Schema validation · Type inference</div>
+    </div>
+
+    <div class="feature dev">
+      <span class="tag">MCP Protocol</span>
+      <h3>Model Context Protocol</h3>
+      <p>Export tools as MCP servers for use in Claude Desktop, Cursor, and other MCP clients. Standardized tool interoperability.</p>
+      <div class="meta">MCP SDK · Claude Desktop · Cursor IDE</div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 ARCHITECTURE HIGHLIGHTS -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">06</span><div><h2>Architecture Highlights</h2></div></div>
+  <p class="lede">Production-ready architecture with governance, observability, and battle-tested patterns.</p>
+
+  <div class="panel highlight">
+    <h3>🔄 SAR Execution Model (Sense → Analyze → Respond)</h3>
+    <p>Every duty runs through a unified execution loop with built-in governance:</p>
+    <ul style="list-style: none; padding: 0; margin-top: 16px;">
+      <li style="padding: 8px 0; border-bottom: 1px dashed var(--border-bright);">
+        <span style="color: var(--cyan); font-family: 'Share Tech Mono', monospace; font-size: 12px;">SENSE</span> — Pull signals from sensors (cron, webhooks, file watches, events)
+      </li>
+      <li style="padding: 8px 0; border-bottom: 1px dashed var(--border-bright);">
+        <span style="color: var(--gold); font-family: 'Share Tech Mono', monospace; font-size: 12px;">ANALYZE</span> — Reason over context with AI, apply token budgets, resolve models
+      </li>
+      <li style="padding: 8px 0;">
+        <span style="color: var(--amber); font-family: 'Share Tech Mono', monospace; font-size: 12px;">RESPOND</span> — Execute tools, write memory, emit events, trigger other duties
+      </li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3>🛡️ Built-in Governance</h3>
+    <p><b>Token Guards:</b> Automatic budget enforcement prevents runaway model usage<br>
+    <b>Execution Tracking:</b> Full audit trail of every duty execution with timing, costs, and results<br>
+    <b>Model Resolution:</b> Intelligent model selection based on task complexity and budget<br>
+    <b>Middleware Stack:</b> Composable middleware for logging, budgets, trimming, and persistence</p>
+  </div>
+
+  <div class="callout">
+    <div class="k">Privacy-First Design</div>
+    <p><b>100% Local Operation:</b> Run entirely offline with local Ollama models. No data leaves your machine.</p>
+    <p><b>Cloud-Optional:</b> Add cloud providers (Anthropic, OpenAI, Gemini) only when needed. Automatic failback to local models.</p>
+    <p><b>SQLite Storage:</b> All data stored locally in ~/.ronin/ronin.db. Full ownership and control. Easy backup and migration.</p>
+  </div>
+</section>
+
+<!-- 07 TECH STACK -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">07</span><div><h2>Technology Stack</h2></div></div>
+  
+  <div class="stack-grid">
+    <div class="stack-item">
+      <div class="label">Runtime</div>
+      <div class="val">Bun 1.3+</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Language</div>
+      <div class="val">TypeScript</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Database</div>
+      <div class="val">SQLite</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">AI Framework</div>
+      <div class="val">LangChain</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Local AI</div>
+      <div class="val">Ollama</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">TTS</div>
+      <div class="val">Piper</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Telegram</div>
+      <div class="val">Grammy</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Discord</div>
+      <div class="val">discord.js</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Scraping</div>
+      <div class="val">Cheerio</div>
+    </div>
+    <div class="stack-item">
+      <div class="label">Markdown</div>
+      <div class="val">Marked</div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 USE CASES -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">08</span><div><h2>Real-World Use Cases</h2></div></div>
+
+  <div class="cap-list">
+    <div class="cap-item"><span class="bullet">●</span> Personal AI assistant with memory and context</div>
+    <div class="cap-item"><span class="bullet">●</span> Telegram/Discord community bots</div>
+    <div class="cap-item"><span class="bullet">●</span> Content publishing pipelines</div>
+    <div class="cap-item"><span class="bullet">●</span> System monitoring & alerting</div>
+    <div class="cap-item"><span class="bullet">●</span> Email automation workflows</div>
+    <div class="cap-item"><span class="bullet">●</span> RSS feed aggregation & distribution</div>
+    <div class="cap-item"><span class="bullet">●</span> Developer productivity tools</div>
+    <div class="cap-item"><span class="bullet">●</span> Knowledge base management</div>
+    <div class="cap-item"><span class="bullet">●</span> Portfolio & project tracking</div>
+    <div class="cap-item"><span class="bullet">●</span> Weather monitoring & alerts</div>
+    <div class="cap-item"><span class="bullet">●</span> Multi-agent research systems</div>
+    <div class="cap-item"><span class="bullet">●</span> Code generation & analysis</div>
+    <div class="cap-item"><span class="bullet">●</span> Document processing pipelines</div>
+    <div class="cap-item"><span class="bullet">●</span> Custom automation workflows</div>
+    <div class="cap-item"><span class="bullet">●</span> Mesh networking for distributed AI</div>
+    <div class="cap-item"><span class="bullet">●</span> Local-first LLM applications</div>
+  </div>
+</section>
+
+<!-- 09 GETTING STARTED -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">09</span><div><h2>Getting Started</h2></div></div>
+
+  <div class="code">
+<span class="comment"># Install Bun</span>
+curl -fsSL https://bun.sh/install | bash
+
+<span class="comment"># Clone Ronin</span>
+git clone https://github.com/yourusername/ronin.git
+cd ronin
+
+<span class="comment"># Install dependencies</span>
+bun install
+
+<span class="comment"># Initialize configuration</span>
+bun run ronin init
+
+<span class="comment"># Start the system</span>
+bun run ronin start
+
+<span class="comment"># Access web UI</span>
+<span class="comment"># Navigate to http://localhost:3777</span>
+  </div>
+
+  <div class="callout">
+    <div class="k">Quick Start Options</div>
+    <p><b>Local-Only Mode:</b> Install Ollama and run completely offline. Perfect for privacy-focused deployments.</p>
+    <p><b>Cloud-Enabled Mode:</b> Add Anthropic/OpenAI API keys for more powerful models. Local models used as fallback.</p>
+    <p><b>Desktop App:</b> Use Electrobun wrapper for native desktop experience with system tray and notifications.</p>
+  </div>
+</section>
+
+<!-- 10 WHAT MAKES RONIN UNIQUE -->
+<section class="wrap">
+  <div class="sec-head"><span class="sec-num">10</span><div><h2>What Makes Ronin Unique</h2></div></div>
+
+  <div class="feature-grid">
+    <div class="feature">
+      <h3>🔒 Privacy-First</h3>
+      <p>Run 100% locally with Ollama. Your data never leaves your machine. Cloud providers are optional add-ons, not requirements.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🏗️ Production-Ready</h3>
+      <p>Not a toy or experiment. Battle-tested architecture with 57 built-in duties, comprehensive error handling, and observability.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🧩 Truly Modular</h3>
+      <p>Three-tier capability model (Tool/Skill/Duty) with clean separation. Add capabilities without touching core code.</p>
+    </div>
+
+    <div class="feature">
+      <h3>⚡ Blazing Fast</h3>
+      <p>Bun runtime provides 3x faster startup and execution vs Node.js. Native TypeScript, built-in bundler, instant hot reload.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🎯 Unified Execution</h3>
+      <p>Every duty runs through the same SAR loop with governance. No fragmented execution models or special cases.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🔄 Multi-Agent Coordination</h3>
+      <p>Built-in orchestration for complex workflows. Duties coordinate via events, share context, and compose capabilities.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div class="f">
+    <span>RONIN · AUTONOMOUS AI AGENT SYSTEM · <b>PRODUCTION READY</b></span>
+    <span>RASTACAMP STUDIO · Building the future of AI agents</span>
+  </div>
+</footer>
+
+</body>
+</html>

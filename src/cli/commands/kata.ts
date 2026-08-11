@@ -25,6 +25,7 @@ import { KataParser } from "../../kata/parser.js";
 import { KataCompiler } from "../../kata/compiler.js";
 import { KataRegistry } from "../../kata/registry.js";
 import { KataStorageV2 } from "../../kata/storage-v2.js";
+import { KATA_DSL_GRAMMAR } from "../../kata/dsl-grammar.js";
 
 // ─── ANSI helpers ──────────────────────────────────────────────────────────────
 const c = {
@@ -128,29 +129,7 @@ async function generateKataDSL(
   const systemPrompt = `You are a Kata DSL expert for the Ronin agent system.
 Generate a Kata DSL definition from a user intent.
 
-Kata DSL grammar:
-  kata <name> v<N>
-    requires skill <skill-name>
-    ...
-    initial <phase-name>
-
-    phase <phase-name>
-      run skill <skill-name>
-      next <phase-name>
-
-    phase <last-phase>
-      run skill <skill-name>
-      complete
-
-Rules:
-- Name format: domain.action (e.g. system.log.monitor, finance.audit, data.pipeline)
-- Skill names use prefix convention:
-    py.<name>   = Python-based skill (data processing, ML, scripts, system calls)
-    ts.<name>   = TypeScript-based skill (API calls, file ops, web scraping, automation)
-  Use the prefix that best matches the work each phase does.
-- Every phase must either: next <phase>, complete, or fail
-- The initial phase must be defined
-- At least 2 phases for non-trivial intents
+${KATA_DSL_GRAMMAR}
 - Return ONLY the raw DSL text — no markdown fences, no explanation
 
 User intent: ${intent}`;

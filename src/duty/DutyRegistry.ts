@@ -21,8 +21,10 @@ import {
   createTokenGuardMiddleware,
   createExecutionTrackingMiddleware,
   createModelResolutionMiddleware,
+  createWorkflowContextMiddleware,
 } from "../middleware/index.js";
 import { modelSelector } from "../../plugins/model-selector.js";
+import { RouteGuard } from "../../plugins/cloudflare/src/RouteGuard.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {
@@ -79,6 +81,7 @@ export class DutyRegistry {
   private webhookHost?: string;
   private dependenciesInstalling = false;
   private homeFeeds: Map<string, HomeFeedItem> = new Map();
+  private routeGuard: RouteGuard;
 
   constructor(options: RegistryOptions) {
     this.files = options.files;
@@ -86,6 +89,7 @@ export class DutyRegistry {
     this.events = options.events;
     this.webhookHost = options.webhookHost;
     this.scheduler = new CronScheduler();
+    this.routeGuard = new RouteGuard();
     this.registerHomeFeedListener();
   }
 
@@ -213,18 +217,22 @@ export class DutyRegistry {
         // Add token budget (default 12000, configurable via duty.maxTokens)
         const maxTokens = (dutyInstance as any).maxTokens ?? 12000;
         stack.use(createTokenGuardMiddleware({ maxTokens }));
-        
+
+        // Pull in a matching workflows/*.md guidance doc, if any (no-op otherwise)
+        stack.use(createWorkflowContextMiddleware());
+
         // Add execution tracking for metrics
         stack.use(createExecutionTrackingMiddleware());
-        
+
         // Create chain for this duty execution
         const chain = new Chain(executor, stack, `duty:${dutyName}`);
-        
+
         // Initialize context with duty metadata
         chain.withContext({
           messages: [],
           metadata: {
             dutyName,
+            dutyDescription: duty.description,
             executionType: "manual",
             startTime,
           },
@@ -376,6 +384,17 @@ export class DutyRegistry {
       fetch: async (req) => {
         const url = new URL(req.url);
         const path = url.pathname;
+
+        // Cloudflare route whitelist/block/auth enforcement — a no-op unless
+        // the user has opted in by running `ronin cloudflare route init`
+        // (RouteGuard.handle() 403s everything when no policy file exists, so
+        // it must never be called unconditionally). Once opted in, this gates
+        // ALL traffic on this port uniformly, local requests included — see
+        // docs/REMOTE_ACCESS.md for which routes to whitelist.
+        if (await this.routeGuard.hasPolicy()) {
+          const blocked = await this.routeGuard.handle(req, "default");
+          if (blocked) return blocked;
+        }
 
         // Root route - Main dashboard
         if (path === "/") {
@@ -875,18 +894,22 @@ export class DutyRegistry {
       // Add token budget (default 12000, configurable per duty later)
       const maxTokens = (duty.instance as any).maxTokens ?? 12000;
       stack.use(createTokenGuardMiddleware({ maxTokens }));
-      
+
+      // Pull in a matching workflows/*.md guidance doc, if any (no-op otherwise)
+      stack.use(createWorkflowContextMiddleware());
+
       // Add execution tracking
       stack.use(createExecutionTrackingMiddleware());
-      
+
       // Create chain for this duty execution
       const chain = new Chain(executor, stack, `duty:${dutyName}`);
-      
+
       // Initialize context with duty name for logging
       chain.withContext({
         messages: [],
         metadata: {
           dutyName,
+          dutyDescription: duty.description,
           executionType: "manual",
           startTime,
         },
@@ -1049,7 +1072,7 @@ export class DutyRegistry {
   }
 
   private async getDashboardNavRoutes(allRoutes: Array<{ path: string }>): Promise<string[]> {
-    const defaults = ["/chat", "/analytics", "/config", "/skills", "/routes"];
+    const defaults = ["/chat", "/analytics", "/config", "/skills", "/routes", "/contracts"];
     const validSet = new Set(allRoutes.map((r) => r.path));
     const path = this.getDashboardNavConfigPath();
     try {

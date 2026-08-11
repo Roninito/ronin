@@ -186,6 +186,37 @@ function getVariableValue(variables: Record<string, any>, path: string): any {
   return current;
 }
 
+const OPERATOR_TEXT: Record<ConditionOperator, string> = {
+  "==": "is",
+  "!=": "is not",
+  ">": ">",
+  ">=": ">=",
+  "<": "<",
+  "<=": "<=",
+  in: "is one of",
+  not_in: "is not one of",
+  contains: "contains",
+  starts_with: "starts with",
+  ends_with: "ends with",
+};
+
+/**
+ * Render a condition/condition group as plain language, deterministically —
+ * no AI involved, so it can't misrepresent what was actually parsed. Used to
+ * build human-readable approval-card previews for AI-authored contracts.
+ */
+export function conditionToHuman(condition: Condition | ConditionGroup): string {
+  if ("type" in condition) {
+    const parts = condition.conditions.map(conditionToHuman);
+    const joined = parts.join(condition.type === "AND" ? " and " : " or ");
+    return parts.length > 1 ? `(${joined})` : joined;
+  }
+  const valueText = Array.isArray(condition.value)
+    ? `[${condition.value.join(", ")}]`
+    : JSON.stringify(condition.value);
+  return `${condition.variable} ${OPERATOR_TEXT[condition.operator] ?? condition.operator} ${valueText}`;
+}
+
 /**
  * Helper: Create simple condition
  */

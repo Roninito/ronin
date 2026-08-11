@@ -18,18 +18,19 @@
 
 import type { DutyAPI } from "../types/index.js";
 import { CronEvaluator } from "./cron.js";
-import { ContractStorage } from "./storage.js";
+import { ContractStorageV2 } from "./storage-v2.js";
+import type { CronTriggerConfig } from "../types/shared.js";
 
 /**
  * Cron Engine - evaluates cron contracts and emits events
  */
 export class CronEngine {
-  private storage: ContractStorage;
+  private storage: ContractStorageV2;
   private intervalId: NodeJS.Timeout | null = null;
   private lastMinute = -1;
 
   constructor(private api: DutyAPI) {
-    this.storage = new ContractStorage(api);
+    this.storage = new ContractStorageV2(api);
   }
 
   /**
@@ -80,38 +81,46 @@ export class CronEngine {
     this.lastMinute = currentMinute;
 
     try {
-      // Get all active cron contracts
-      const cronContracts = await this.storage.getByTrigger("cron");
+      // Get all active, enabled cron contracts (V2 storage/schema — the only
+      // schema anything actually writes contracts into)
+      const cronContracts = await this.storage.list({ triggerType: "cron", enabled: true });
 
-      for (const contract of cronContracts) {
-        if (contract.trigger.type !== "cron") continue;
+      for (const row of cronContracts) {
+        let triggerConfig: CronTriggerConfig;
+        try {
+          triggerConfig = JSON.parse(row.trigger_config) as CronTriggerConfig;
+        } catch (error) {
+          this.api.logger?.error(`Invalid trigger_config JSON for contract '${row.name}': ${error}`);
+          continue;
+        }
+        if (triggerConfig.type !== "cron") continue;
 
         try {
           // Check if this minute matches the cron expression
-          if (CronEvaluator.matches(contract.trigger.expression, now)) {
+          if (CronEvaluator.matches(triggerConfig.expression, now)) {
             // Emit event - Contract Engine will listen
             this.api.events?.emit(
               "contract.cron_triggered",
               {
                 type: "contract.cron_triggered",
-                contractId: contract.id,
-                contractName: contract.name,
-                contractVersion: contract.version,
-                kataName: contract.kata.name,
-                kataVersion: contract.kata.version,
-                expression: contract.trigger.expression,
+                contractId: String(row.id),
+                contractName: row.name,
+                contractVersion: row.version,
+                kataName: row.target_kata,
+                kataVersion: row.target_kata_version,
+                expression: triggerConfig.expression,
                 timestamp: now.getTime(),
               },
               "cron-engine"
             );
 
             this.api.logger?.info(
-              `Cron triggered: ${contract.name} (${contract.trigger.expression})`
+              `Cron triggered: ${row.name} (${triggerConfig.expression})`
             );
           }
         } catch (error) {
           this.api.logger?.error(
-            `Error evaluating cron '${contract.trigger.expression}': ${error}`
+            `Error evaluating cron '${triggerConfig.expression}': ${error}`
           );
         }
       }
@@ -125,10 +134,10 @@ export class CronEngine {
  * Contract Engine - listens to events and spawns tasks
  */
 export class ContractEngine {
-  private storage: ContractStorage;
+  private storage: ContractStorageV2;
 
   constructor(private api: DutyAPI) {
-    this.storage = new ContractStorage(api);
+    this.storage = new ContractStorageV2(api);
   }
 
   /**
@@ -153,6 +162,7 @@ export class ContractEngine {
    */
   private async handleCronTrigger(payload: {
     contractId: string;
+    contractName: string;
     kataName: string;
     kataVersion: string;
     timestamp: number;
@@ -172,6 +182,12 @@ export class ContractEngine {
         "contract-engine"
       );
 
+      // Best-effort: populate the execution_count/last_executed_at tracking
+      // columns the V2 schema already has but nothing previously updated.
+      this.storage.recordExecution(payload.contractName, "").catch((error) => {
+        this.api.logger?.error(`Failed to record execution for '${payload.contractName}': ${error}`);
+      });
+
       this.api.logger?.info(
         `Contract triggered task: ${payload.kataName} v${payload.kataVersion} (contract: ${payload.contractId})`
       );
@@ -185,9 +201,11 @@ export class ContractEngine {
    */
   private async handleEventTrigger(payload: {
     contractId: string;
+    contractName: string;
     kataName: string;
     kataVersion: string;
     timestamp: number;
+    eventPayload?: Record<string, unknown>;
   }): Promise<void> {
     try {
       this.api.events?.emit(
@@ -198,9 +216,14 @@ export class ContractEngine {
           kataVersion: payload.kataVersion,
           contractId: payload.contractId,
           timestamp: payload.timestamp,
+          initialVariables: payload.eventPayload,
         },
         "contract-engine"
       );
+
+      this.storage.recordExecution(payload.contractName, "").catch((error) => {
+        this.api.logger?.error(`Failed to record execution for '${payload.contractName}': ${error}`);
+      });
 
       this.api.logger?.info(
         `Contract triggered task via event: ${payload.kataName} v${payload.kataVersion}`

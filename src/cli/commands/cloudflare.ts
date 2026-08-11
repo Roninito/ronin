@@ -25,6 +25,8 @@ Auth:
 Route policy (required before creating tunnels):
   route init               Create default policy at ~/.ronin/cloudflare.routes.json
   route add <path>          Whitelist a path (e.g. /dashboard)
+    [--auth none|token]     Require a bearer token (checked against $CLOUDFLARE_ROUTE_TOKEN); default none
+    [--methods GET,POST]    Allowed HTTP methods; default GET,POST
   route remove <path>       Remove a path from whitelist
   route list                List allowed routes
   route validate            Validate policy file
@@ -99,10 +101,19 @@ export async function cloudflareCommand(
         } else if (sub === "add") {
           const path = args[2];
           if (!path) {
-            console.error("❌ Path required. Usage: ronin cloudflare route add <path>");
+            console.error("❌ Path required. Usage: ronin cloudflare route add <path> [--auth none|token] [--methods GET,POST]");
             process.exit(1);
           }
-          await call("cloudflare", "routeAdd", path);
+          const authFlagIdx = args.indexOf("--auth");
+          const authArg = authFlagIdx >= 0 ? args[authFlagIdx + 1] : undefined;
+          if (authArg && authArg !== "none" && authArg !== "token") {
+            console.error(`❌ --auth must be "none" or "token" (jwt auth is not implemented, so it's not a selectable option here).`);
+            process.exit(1);
+          }
+          const methodsFlagIdx = args.indexOf("--methods");
+          const methodsArg = methodsFlagIdx >= 0 ? args[methodsFlagIdx + 1] : undefined;
+          const methods = methodsArg ? methodsArg.split(",").map((m) => m.trim().toUpperCase()).filter(Boolean) : undefined;
+          await call("cloudflare", "routeAdd", path, methods, authArg as "none" | "token" | undefined);
         } else if (sub === "remove") {
           const path = args[2];
           if (!path) {

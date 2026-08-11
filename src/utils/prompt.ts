@@ -398,6 +398,52 @@ export function injectMermaidLinkIntoResponse(
 }
 
 /**
+ * Ensure the reply includes a renderable approval card for any contract
+ * proposal drafted this turn (contracts.proposeReflex). The chat UI detects
+ * a fenced \`\`\`contract-proposal block and renders it as a card with
+ * Allow/Refuse buttons — deterministic injection here means the card always
+ * appears regardless of what the model chose to say in prose, mirroring
+ * injectMermaidLinkIntoResponse's pattern above.
+ */
+export function injectContractProposalCardIntoResponse(
+  response: string,
+  toolResults: Array<ToolResultEntry>
+): string {
+  const fences: string[] = [];
+  for (const tr of toolResults) {
+    if (tr.name !== "contracts.proposeReflex" || !tr.success || !tr.result) continue;
+    const data = tr.result as Record<string, unknown>;
+    if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
+    const fence = "```contract-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
+    if (!response.includes(data.id)) fences.push(fence);
+  }
+  if (fences.length === 0) return response;
+  return response + "\n\n" + fences.join("\n\n");
+}
+
+/**
+ * Same pattern as injectContractProposalCardIntoResponse, for AI-drafted
+ * Workflow proposals (workflows.propose, duties/workflow-manager.ts). The
+ * chat UI detects a fenced \`\`\`workflow-proposal block and renders it as an
+ * Allow/Refuse card.
+ */
+export function injectWorkflowProposalCardIntoResponse(
+  response: string,
+  toolResults: Array<ToolResultEntry>
+): string {
+  const fences: string[] = [];
+  for (const tr of toolResults) {
+    if (tr.name !== "workflows.propose" || !tr.success || !tr.result) continue;
+    const data = tr.result as Record<string, unknown>;
+    if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
+    const fence = "```workflow-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
+    if (!response.includes(data.id)) fences.push(fence);
+  }
+  if (fences.length === 0) return response;
+  return response + "\n\n" + fences.join("\n\n");
+}
+
+/**
  * Invalidate conversation summary for a chat (call when new message is appended).
  */
 export function invalidateChatSummary(chatId: string): void {
@@ -504,6 +550,12 @@ export function filterToolSchemas(
   const isAboutDuties = /\b(duty|duties|intent-ingress|chatty|ronin)\b/.test(msg);
   const isCreationRequest = /\b(create|make|build|generate|write me|new duty|new skill)\b/.test(msg);
   const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool)\b/.test(msg);
+  // "when X happens, do Y" / "whenever" / "every time" / "automatically" — reflex
+  // (event/schedule-triggered automation) requests. contracts.proposeReflex has no
+  // other way into the tool set: it isn't a lookup, isn't a greeting, and the
+  // wording rarely overlaps isCreationRequest's create/make/build vocabulary.
+  const isReflexRequest = /\b(whenever|automatically|every time|reflex)\b/.test(msg)
+    || /\bwhen\b.{0,80}\b(do|run|notify|alert|trigger|send|handoff|hand off)\b/.test(msg);
 
   // Hand-tuned keyword regexes above can't anticipate every plugin (they missed "list
   // mngr tasks" and "show me the last 3 git commits" entirely — "tasks"/"commits" aren't
@@ -518,11 +570,11 @@ export function filterToolSchemas(
   const mentionsKnownPlugin = Array.from(knownPluginPrefixes).some((p) => msg.includes(p));
 
   // Only include tools for genuine action requests, not for explanatory questions
-  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest && !mentionsKnownPlugin) {
+  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest && !isReflexRequest && !mentionsKnownPlugin) {
     return []; // Return empty for simple chat/questions - let the model answer from knowledge
   }
   // Greetings should never get tools
-  if (isGreeting && !isToolQuery && !isCreationRequest) {
+  if (isGreeting && !isToolQuery && !isCreationRequest && !isReflexRequest) {
     return [];
   }
 

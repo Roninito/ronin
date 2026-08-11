@@ -3,6 +3,8 @@
  * Extracted from techniques/types.ts during architecture refactor
  */
 
+import type { Condition, ConditionGroup } from "../kata/conditions.js";
+
 // ── Schema Utilities ────────────────────────────────────────────────────────────
 
 /** Schema field definition */
@@ -74,6 +76,8 @@ export interface EventTriggerConfig {
   type: "event";
   eventType: string;
   description?: string;
+  /** Optional guard evaluated against the firing event's payload before the contract runs. */
+  condition?: Condition | ConditionGroup;
 }
 
 export interface WebhookTriggerConfig {

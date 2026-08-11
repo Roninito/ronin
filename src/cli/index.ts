@@ -32,6 +32,7 @@ import { kdbCommand } from "./commands/kdb.js";
 import { kataCommand } from "./commands/kata.js";
 import { contractCommand } from "./commands/contract.js";
 import { taskCommand } from "./commands/task.js";
+import { workflowCommand } from "./commands/workflow.js";
 import { handleVersionCommand } from "./commands/version.js";
 import { handleUpdateCommand } from "./commands/update.js";
 import { existsSync, readFileSync } from "fs";
@@ -310,9 +311,24 @@ async function main() {
           local: args.includes("--local"),
           yes: args.includes("--yes") || args.includes("-y"),
         });
+      } else if (args[0] === "workflow") {
+        const description = args.slice(1).filter((a) => !a.startsWith("--")).join(" ");
+        if (!description.trim()) {
+          console.error("❌ Description required");
+          console.log('Usage: ronin create workflow "how we launch and market a shipped app"');
+          process.exit(1);
+        }
+        await workflowCommand(["propose", ...args.slice(1)], {
+          dbPath: getArg("--db-path", args),
+          pluginDir: getArg("--plugin-dir", args),
+          userPluginDir: getArg("--user-plugin-dir", args),
+          ollamaUrl: getArg("--ollama-url", args),
+          ollamaModel: getArg("--ollama-model", args),
+          yes: args.includes("--yes") || args.includes("-y"),
+        });
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
-        console.log("Available: ronin create plugin <name>, ronin create duty [description], ronin create skill \"<description>\", ronin create kata \"<intent>\"");
+        console.log("Available: ronin create plugin <name>, ronin create duty [description], ronin create skill \"<description>\", ronin create kata \"<intent>\", ronin create workflow \"<description>\"");
         process.exit(1);
       }
       break;
@@ -697,6 +713,25 @@ async function main() {
         force: args.includes("--force"),
         history: getArg("--history", args) ? parseInt(getArg("--history", args)!) : undefined,
         nextRuns: getArg("--next-runs", args) ? parseInt(getArg("--next-runs", args)!) : undefined,
+        yes: args.includes("--yes") || args.includes("-y"),
+      });
+      break;
+    }
+
+    case "workflow": {
+      const workflowFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model"]);
+      const workflowArgs = args.filter((a, i) => {
+        if (workflowFlags.has(a)) return false;
+        if (i > 0 && workflowFlags.has(args[i - 1])) return false;
+        return true;
+      });
+      await workflowCommand(workflowArgs, {
+        dbPath: getArg("--db-path", args),
+        pluginDir: getArg("--plugin-dir", args),
+        userPluginDir: getArg("--user-plugin-dir", args),
+        ollamaUrl: getArg("--ollama-url", args),
+        ollamaModel: getArg("--ollama-model", args),
+        yes: args.includes("--yes") || args.includes("-y"),
       });
       break;
     }

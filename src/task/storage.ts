@@ -344,4 +344,21 @@ export class KataStorage {
     if (!rows || rows.length === 0) return false;
     return rows[0].count > 0;
   }
+
+  /**
+   * List all registered katas (name, version, required skills). Same query
+   * `kata list` (src/cli/commands/kata.ts) already runs inline — kept here so
+   * other callers (e.g. contract propose) don't have to duplicate it.
+   */
+  async list(): Promise<Array<{ name: string; version: string; requiredSkills: string[] }>> {
+    const rows = await this.api.db?.query<{ name: string; version: string; required_skills: string }>(
+      "SELECT name, version, required_skills FROM kata_definitions ORDER BY name, version"
+    ) ?? [];
+
+    return rows.map((row) => {
+      let requiredSkills: string[] = [];
+      try { requiredSkills = JSON.parse(row.required_skills) ?? []; } catch { /* leave empty */ }
+      return { name: row.name, version: row.version, requiredSkills };
+    });
+  }
 }

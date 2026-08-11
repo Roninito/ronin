@@ -4,6 +4,14 @@
 
 A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features (cron, file watching, HTTP) and integrating with Ollama (qwen3:1.7b) for local AI capabilities.
 
+## Documentation
+
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — canonical, always current. If any other document disagrees with it, this one wins.
+- [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md) — markdown SOPs Duties consult as guidance (`/workflows` page, `ronin workflow` CLI).
+- [`docs/REMOTE_ACCESS.md`](./docs/REMOTE_ACCESS.md) — using the dashboard from your phone via a Cloudflare Tunnel.
+- [`docs/history/`](./docs/history/) — archived planning docs and phase summaries. Point-in-time record, never live guidance.
+- Nothing outside this repository is ever authoritative — not a file on someone's Desktop, not another machine. Architecture docs live here, under version control, or they go stale.
+
 ## Features
 
 - **Simple Agent Classes**: Write agents as TypeScript/JavaScript classes that extend a base `Agent` class
@@ -16,6 +24,7 @@ A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript 
 - **Function Calling**: AI agents can use plugins as tools via Ollama's function calling API
 - **Hybrid Intelligence**: Tool orchestration system with local + cloud AI support
 - **MCP Client**: Connect to external MCP servers for filesystem, GitHub, web search, and database tools
+- **Workflows**: Markdown SOPs (`workflows/*.md`) describing how a category of work should go — hand-edited or AI-drafted, discovered and folded into a Duty's context automatically, never compiled or executed directly. See [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md).
 - **Desktop Mode**: macOS integration with Quick Actions, menubar, and notifications
 - **Optional Desktop Client**: ElectronBun shell with built-in Home/Dashboard view
 - **CLI Management**: Simple CLI to start, run, list, and check status of agents
@@ -35,7 +44,7 @@ ronin init --quick
 The setup wizard will guide you through:
 - **Privacy Mode**: Choose between Offline Mode (most private) or Hybrid Mode
 - **Desktop Integration** (macOS): Enable Quick Actions, menubar controls, and notifications
-- **Cloudflare**: Optional secure tunnel setup for remote access
+- **Cloudflare**: Optional secure tunnel setup for remote access — see [`docs/REMOTE_ACCESS.md`](./docs/REMOTE_ACCESS.md) for using the dashboard from your phone
 - **AI Providers**: Configure Grok/Gemini (optional - uses local AI by default)
 
 ### Manual Setup
@@ -121,7 +130,7 @@ ronin init --skip-cloudflare --skip-desktop
 The wizard will help you:
 1. **Choose Privacy Mode**: Offline Mode (local AI only) or Hybrid Mode
 2. **Enable Desktop Mode** (macOS): Right-click integration, menubar, notifications
-3. **Set up Cloudflare**: Secure remote access with zero-trust security
+3. **Set up Cloudflare**: Secure remote access with zero-trust security ([remote access guide](./docs/REMOTE_ACCESS.md))
 4. **Configure AI Providers**: Optional Grok/Gemini keys
 
 ### Privacy-First Defaults

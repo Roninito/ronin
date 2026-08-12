@@ -1,4 +1,4 @@
-kata morning-briefing v1
+ kata morning-briefing v1
   requires skill weather
   requires skill apple-mail-skill
   requires skill discord
@@ -6,8 +6,15 @@ kata morning-briefing v1
   initial weather
 
   # Phase 1: Get weather forecast
+  # Note: on systems with the "weather" marketplace skill installed under
+  # ~/.ronin/skills (abilities: current, forecast), that installed copy
+  # shadows the repo-bundled skills/weather (ability: morning-briefing) —
+  # user-level skills dirs are checked before the project dir. "current" is
+  # the ability that's actually reachable on such systems; the bundled
+  # morning-briefing ability only resolves on a fresh install with no
+  # marketplace weather skill installed.
   phase weather
-    run skill weather
+    run skill weather ability current
     next mail
 
   # Phase 2: Check email inbox for overnight messages

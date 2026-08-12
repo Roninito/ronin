@@ -1,27 +1,22 @@
 ---
-name: Git Operations
-description: Git operations including commit summary generation
+name: git
+description: Git operations including AI commit-summary generation for review or changelogs.
 ---
 
 # Git Skill
 
-Perform git operations including generating formatted commit summaries.
+Generate formatted, AI-written summaries of recent commits. For ordinary git operations (status, log, diff, show, commit, push, pull, branch, checkout), use the `git` chat tools (git_status, git_log, git_diff, git_show, etc.) instead — this skill is specifically for the AI summarization step those tools don't do on their own.
 
-## Operations
+## Abilities
 
 ### commit-summary
-Generate a formatted summary of recent commits for review or changelog.
-
-**Description:** Scrape a git log and return a concise AI summary of changes.
-
-**Inputs:**
-- `count` (number, optional) - Number of recent commits to summarize (default: 10)
-
-**Outputs:**
-- `summary` (string) - Formatted summary of commits
-- `files_changed` (number) - Total files changed across commits
+Generate an AI-written summary of recent commits, grouped and readable, for review or changelog use.
+- Input: count (optional number, default 10), repoPath (optional string, defaults to cwd)
+- Output: { success, summary: string, files_changed: number }. Requires Ollama running (optional env OLLAMA_HOST, default http://localhost:11434; OLLAMA_MODEL, default phi3).
+- Run: bun run scripts/commit-summary.ts --count={count} --repoPath={repoPath}
 
 ## Requirements
 
-- Git repository in current working directory
+- Git repository at repoPath (or the current working directory)
 - Git CLI installed
+- Ollama running and reachable at OLLAMA_HOST

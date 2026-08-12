@@ -127,12 +127,23 @@ export class DutyProposalStorage {
    * decisions (approved/refused) — a proposal marked `superseded` by a newer
    * revision keeps its original decided_at state (null, since no one acted
    * on it directly). Mirrors ContractProposalStorage.decide exactly.
+   *
+   * `finalDutyName`: the AI-derived name is a first guess; the human can
+   * rename it at approval time (see duties/duty-executor.ts), so the stored
+   * record should reflect what the duty is actually called, not the guess.
    */
-  async decide(id: string, status: Exclude<DutyProposalStatus, "pending">): Promise<void> {
+  async decide(id: string, status: Exclude<DutyProposalStatus, "pending">, finalDutyName?: string): Promise<void> {
     const decidedAt = status === "superseded" ? null : Date.now();
-    await this.api.db?.execute?.(
-      `UPDATE duty_proposals SET status = ?, decided_at = ? WHERE id = ?`,
-      [status, decidedAt, id]
-    );
+    if (finalDutyName) {
+      await this.api.db?.execute?.(
+        `UPDATE duty_proposals SET status = ?, decided_at = ?, duty_name = ? WHERE id = ?`,
+        [status, decidedAt, finalDutyName, id]
+      );
+    } else {
+      await this.api.db?.execute?.(
+        `UPDATE duty_proposals SET status = ?, decided_at = ? WHERE id = ?`,
+        [status, decidedAt, id]
+      );
+    }
   }
 }

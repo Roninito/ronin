@@ -26,6 +26,7 @@ import {
 } from "../src/contract/index.js";
 import { ContractStorageV2 } from "../src/contract/storage-v2.js";
 import { KataRegistry } from "../src/kata/registry.js";
+import { toKebabCase } from "../src/duty/duty-authoring.js";
 import { cronToHuman } from "../src/contract/cron.js";
 import { conditionToHuman } from "../src/kata/conditions.js";
 import type { TriggerConfig } from "../src/types/shared.js";
@@ -381,7 +382,7 @@ export default class ContractExecutorAgent extends BaseDuty {
   private async handleApproveProposal(req: Request): Promise<Response> {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
     try {
-      const { id } = await req.json() as { id?: string };
+      const { id, name: nameOverride } = await req.json() as { id?: string; name?: string };
       if (!id) return new Response("Missing id", { status: 400 });
 
       const proposal = await this.proposalStorage.getById(id);
@@ -396,17 +397,32 @@ export default class ContractExecutorAgent extends BaseDuty {
       }
 
       const contractStorage = new ContractStorageV2(this.api);
-      await contractStorage.create({ ...proposal.contract, enabled: true });
-      await this.proposalStorage.decide(id, "approved");
+
+      // The AI-derived name is just a first guess — let the human rename it
+      // at approval time, since that's the only name they'll look it up by.
+      let finalName = proposal.contract.name;
+      if (nameOverride && nameOverride.trim()) {
+        const candidate = toKebabCase(nameOverride.trim());
+        if (!candidate) {
+          return Response.json({ success: false, message: "Contract name can't be empty after normalizing" }, { status: 400 });
+        }
+        if (candidate !== proposal.contract.name && (await contractStorage.getByName(candidate))) {
+          return Response.json({ success: false, message: `A contract named '${candidate}' already exists` }, { status: 409 });
+        }
+        finalName = candidate;
+      }
+
+      await contractStorage.create({ ...proposal.contract, name: finalName, enabled: true });
+      await this.proposalStorage.decide(id, "approved", finalName);
 
       this.api.events?.emit(
         "contract.proposal_approved",
-        { id, contractName: proposal.contract.name, timestamp: Date.now() },
+        { id, contractName: finalName, timestamp: Date.now() },
         "contract-executor"
       );
 
-      console.log(`[contract-executor] Contract proposal approved: ${proposal.contract.name} (${id})`);
-      return Response.json({ success: true, contractName: proposal.contract.name });
+      console.log(`[contract-executor] Contract proposal approved: ${finalName} (${id})`);
+      return Response.json({ success: true, contractName: finalName });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[contract-executor] Failed to approve contract proposal: ${msg}`);

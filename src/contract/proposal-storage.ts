@@ -129,8 +129,25 @@ export class ContractProposalStorage {
    * revision keeps its original `decided_at` state (null, since no one acted
    * on it directly).
    */
-  async decide(id: string, status: Exclude<ProposalStatus, "pending">): Promise<void> {
+  /**
+   * `finalName`: the AI-derived name is a first guess; the human can rename
+   * it at approval time (see duties/contract-executor.ts). When set, this
+   * patches contract_json's embedded name too, so a re-read of a decided
+   * row reflects what the contract is actually called.
+   */
+  async decide(id: string, status: Exclude<ProposalStatus, "pending">, finalName?: string): Promise<void> {
     const decidedAt = status === "superseded" ? null : Date.now();
+    if (finalName) {
+      const existing = await this.getById(id);
+      const contractJson = existing ? JSON.stringify({ ...existing.contract, name: finalName }) : undefined;
+      if (contractJson) {
+        await this.api.db?.execute?.(
+          `UPDATE contract_proposals SET status = ?, decided_at = ?, contract_json = ? WHERE id = ?`,
+          [status, decidedAt, contractJson, id]
+        );
+        return;
+      }
+    }
     await this.api.db?.execute?.(
       `UPDATE contract_proposals SET status = ?, decided_at = ? WHERE id = ?`,
       [status, decidedAt, id]

@@ -384,6 +384,18 @@ async function use_skill(
       );
       logs.push(log);
       lastOutput = output;
+    } else if (detail.abilities.length === 1) {
+      // Neither ability nor pipeline given, but the skill only has one
+      // ability — no ambiguity, so just run it.
+      const ability = detail.abilities[0];
+      const { output, log } = await runAbility(
+        skillDir,
+        ability,
+        params,
+        blocklist
+      );
+      logs.push(log);
+      lastOutput = output;
     } else {
       return {
         success: false,

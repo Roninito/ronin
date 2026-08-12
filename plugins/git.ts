@@ -312,6 +312,56 @@ const gitPlugin: Plugin = {
     },
 
     /**
+     * Show a diff: working tree vs. a ref (or unstaged changes if no ref
+     * given), optionally scoped to one path. Same positional-args convention
+     * as log() — the generic plugin-tool dispatcher flattens model args
+     * positionally, so an options object here would never receive its value.
+     */
+    diff: async (ref?: string, path?: string) => {
+      await ensureGitRepo();
+      const args = ["diff", ...(ref ? [ref] : []), ...(path ? ["--", path] : [])];
+
+      const proc = Bun.spawn(["git", ...args], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      await proc.exited;
+
+      if (proc.exitCode !== 0) {
+        throw new Error(`Git diff failed: ${stderr}`);
+      }
+
+      return { diff: stdout };
+    },
+
+    /**
+     * Show a commit (full patch), or a single file's content at a ref when
+     * path is given (git's `ref:path` blob syntax).
+     */
+    show: async (ref: string, path?: string) => {
+      await ensureGitRepo();
+      const target = path ? `${ref}:${path}` : ref;
+
+      const proc = Bun.spawn(["git", "show", target], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      await proc.exited;
+
+      if (proc.exitCode !== 0) {
+        throw new Error(`Git show failed: ${stderr}`);
+      }
+
+      return { content: stdout };
+    },
+
+    /**
      * Checkout a branch
      */
     checkout: async (branch: string) => {
@@ -416,6 +466,30 @@ const gitPlugin: Plugin = {
         type: "object",
         properties: { branch: { type: "string", description: "Branch name to check out" } },
         required: ["branch"],
+      },
+    },
+    diff: {
+      description:
+        "Show a diff — unstaged working-tree changes, or against a ref (branch/tag/commit) when given. Optionally scoped to a single file. Use this for \"what changed in X\" instead of running raw shell git diff commands.",
+      parameters: {
+        type: "object",
+        properties: {
+          ref: { type: "string", description: "Ref to diff against, e.g. a branch, tag, or commit hash. Omit to see unstaged changes." },
+          path: { type: "string", description: "Limit the diff to this file path." },
+        },
+        required: [],
+      },
+    },
+    show: {
+      description:
+        "Show a commit's full patch, or a single file's content at a specific ref when path is given. Use this for \"what did commit X change\" or \"show me file Y as of commit Z\" instead of running raw shell git show commands.",
+      parameters: {
+        type: "object",
+        properties: {
+          ref: { type: "string", description: "Commit hash, branch, or tag to show" },
+          path: { type: "string", description: "Optional file path — returns that file's content at ref instead of the full commit patch" },
+        },
+        required: ["ref"],
       },
     },
   },

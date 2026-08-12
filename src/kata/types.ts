@@ -11,7 +11,7 @@
  * Phase Action: run skill, spawn kata, or wait for event
  */
 export type PhaseAction =
-  | { type: "run"; skill: string }
+  | { type: "run"; skill: string; ability?: string }
   | { type: "spawn"; kata: string; version: string }
   | { type: "wait"; eventName: string; timeout?: number };
 

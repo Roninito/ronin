@@ -17,8 +17,9 @@ import { writeFile } from "fs/promises";
 import { join } from "path";
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
+import { existsSync } from "fs";
 import { proposeDuty, DutyProposeError, DutyProposalStorage } from "../src/duty/index.js";
-import { validateDutyCode } from "../src/duty/duty-authoring.js";
+import { validateDutyCode, toKebabCase } from "../src/duty/duty-authoring.js";
 import { ensureDefaultDutyDir } from "../src/cli/commands/config.js";
 import {
   dramTheme,
@@ -346,7 +347,7 @@ export default class DutyExecutorAgent extends BaseDuty {
   private async handleApproveProposal(req: Request): Promise<Response> {
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
     try {
-      const { id } = await req.json() as { id?: string };
+      const { id, dutyName: nameOverride } = await req.json() as { id?: string; dutyName?: string };
       if (!id) return new Response("Missing id", { status: 400 });
 
       const proposal = await this.proposalStorage.getById(id);
@@ -365,8 +366,23 @@ export default class DutyExecutorAgent extends BaseDuty {
         );
       }
 
+      // The AI-derived name is just a first guess (first few words of the
+      // intent, kebab-cased) — let the human rename it at approval time,
+      // since that's the only name they'll ever look it up by afterward.
       const dutyDir = ensureDefaultDutyDir();
-      const filePath = join(dutyDir, `${proposal.dutyName}.ts`);
+      let finalDutyName = proposal.dutyName;
+      if (nameOverride && nameOverride.trim()) {
+        const candidate = toKebabCase(nameOverride.trim());
+        if (!candidate) {
+          return Response.json({ success: false, message: "Duty name can't be empty after normalizing" }, { status: 400 });
+        }
+        if (candidate !== proposal.dutyName && existsSync(join(dutyDir, `${candidate}.ts`))) {
+          return Response.json({ success: false, message: `A duty named '${candidate}' already exists` }, { status: 409 });
+        }
+        finalDutyName = candidate;
+      }
+
+      const filePath = join(dutyDir, `${finalDutyName}.ts`);
       await writeFile(filePath, proposal.code, "utf-8");
 
       // The only "go live" step needed: the existing duty_file_updated
@@ -375,16 +391,16 @@ export default class DutyExecutorAgent extends BaseDuty {
       // duty never touches HotReloadService or DutyRegistry directly.
       this.api.events?.emit("duty_file_updated", { filePath }, "duty-executor");
 
-      await this.proposalStorage.decide(id, "approved");
+      await this.proposalStorage.decide(id, "approved", finalDutyName);
 
       this.api.events?.emit(
         "duty.proposal_approved",
-        { id, dutyName: proposal.dutyName, filePath, timestamp: Date.now() },
+        { id, dutyName: finalDutyName, filePath, timestamp: Date.now() },
         "duty-executor"
       );
 
-      console.log(`[duty-executor] Duty proposal approved: ${proposal.dutyName} (${id})`);
-      return Response.json({ success: true, dutyName: proposal.dutyName });
+      console.log(`[duty-executor] Duty proposal approved: ${finalDutyName} (${id})`);
+      return Response.json({ success: true, dutyName: finalDutyName });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[duty-executor] Failed to approve duty proposal: ${msg}`);

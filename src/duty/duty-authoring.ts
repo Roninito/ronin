@@ -62,12 +62,17 @@ Available APIs via this.api:
 - api.events - Events (emit, on, off, beam, query, reply)
 - api.plugins - Plugin calls (call)
 
-The duty class should:
-1. Import BaseDuty from "../src/duty/index.js"
-2. Import DutyAPI type from "../src/types/index.js"
-3. Export default class that extends BaseDuty
-4. Have a constructor that calls super(api)
-5. Implement execute() method with the main logic
+The duty class must start with exactly these two import lines (BaseDuty is a
+NAMED export — curly braces are required, "import BaseDuty from ..." without
+braces is a default import and will fail to load):
+
+import { BaseDuty } from "../src/duty/index.js";
+import type { DutyAPI } from "../src/types/index.js";
+
+Then:
+1. Export default class that extends BaseDuty
+2. Have a constructor that calls super(api)
+3. Implement execute() method with the main logic
 
 Generate complete, working TypeScript code for the duty.`;
 }
@@ -82,12 +87,22 @@ export interface DutyValidationResult {
  * `ronin create duty` has always used. Intentionally not a real TS parse:
  * matches the existing bar rather than inventing a stricter one here.
  */
+const NAMED_BASEDUTY_IMPORT = /import\s*\{[^}]*\bBaseDuty\b[^}]*\}\s*from/;
+
 export function validateDutyCode(code: string): DutyValidationResult {
   const errors: string[] = [];
   if (!code.includes("import")) errors.push("Generated code is missing imports");
   if (!code.includes("export default class")) errors.push("Generated code is missing 'export default class'");
   if (!code.includes("extends BaseDuty")) errors.push("Generated code doesn't extend BaseDuty");
   if (!code.includes("execute()")) errors.push("Generated code is missing execute() method");
+  // BaseDuty is a named export — "import BaseDuty from ..." (no braces) is a
+  // default import and throws "does not have an export named 'default'" the
+  // moment HotReloadService tries to load it. Caught twice in practice
+  // before this check existed, so it's worth a real structural test, not
+  // just relying on the authoring prompt being followed.
+  if (code.includes("extends BaseDuty") && !NAMED_BASEDUTY_IMPORT.test(code)) {
+    errors.push('BaseDuty must be imported as a named import: import { BaseDuty } from "../src/duty/index.js" — not a default import');
+  }
   return { valid: errors.length === 0, errors };
 }
 

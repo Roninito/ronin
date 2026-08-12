@@ -1,137 +1,90 @@
 /**
- * Skill Adapter — Phase 7
+ * Skill Adapter
  *
- * Bridges Task Engine to SAR Chain execution
- * Delegates "run" phase actions to SAR for skill execution
+ * Bridges the Task Engine to the real skill system (plugins/skills.ts,
+ * bound onto DutyAPI as api.skills.*) — every kata "run skill X" phase
+ * action ends up here.
  *
- * Converts:
- *   TaskContext → ChainContext
- *   Skill invocation → SAR Chain execution
- *   Results → Task variables
+ * Corrected: this used to check api.tools.getSchemas() for a TOOL literally
+ * named the same as the skill — a completely different, disconnected
+ * mechanism from the real skill system (SKILL.md + scripts/, driven by
+ * api.skills.use_skill/discover_skills/explore_skill). Confirmed by direct
+ * testing against every real .kata file in the repo: only one phase in one
+ * kata passed the old check; every phase of morning-briefing.kata (and
+ * effectively every kata-driven skill invocation) silently failed with
+ * "not registered" — nothing about the skill itself was ever wrong.
  */
 
 import type { DutyAPI } from "../types/index.js";
-import type { Chain } from "../chain/index.js";
-import { useMiddlewareStack } from "../chains/templates.js";
-import type { ChainContext } from "../chain/types.js";
-import type { TaskContext } from "./types.js";
+import type { TaskContext } from "../task/types.js";
+import type { UseSkillResult } from "../types/skills.js";
 
-/**
- * Skill Adapter — delegates task execution to SAR Chain
- */
 export class SkillAdapter {
   constructor(private api: DutyAPI) {}
 
   /**
-   * Execute a skill via SAR Chain
-   * Creates minimal ChainContext, runs executor, captures result
+   * Execute a skill via the real skill system. `ability` comes from the
+   * kata phase's optional `ability <name>` clause — when omitted,
+   * use_skill resolves it itself if the skill has exactly one ability.
    */
   async executeSkill(
     skillName: string,
     input: Record<string, unknown>,
-    taskContext: TaskContext
-  ): Promise<unknown> {
-    // Validate skill exists
-    const tools = this.api.tools?.getSchemas() || [];
-    const skillTool = tools.find(
-      (t) => t.type === "function" && t.function?.name === skillName
-    );
-
-    if (!skillTool) {
-      throw new Error(`Skill '${skillName}' not registered`);
+    _taskContext: TaskContext,
+    ability?: string
+  ): Promise<UseSkillResult> {
+    if (!this.api.skills) {
+      throw new Error("Skills API not available — the skills plugin isn't loaded.");
     }
-
-    // Create minimal ChainContext
-    const chainContext: ChainContext = {
-      conversationId: taskContext.taskId,
-      messages: [
-        {
-          role: "user",
-          content: `Execute skill '${skillName}' with input: ${JSON.stringify(input)}`,
-        },
-      ],
-      metadata: {
-        taskId: taskContext.taskId,
-        phase: taskContext.currentPhase,
-        variables: taskContext.variables,
-      },
-    };
-
-    // Use standardSAR template for execution
-    const chain = useMiddlewareStack("standardSAR", this.api, chainContext);
-
-    // Execute skill via chain
-    const result = await chain.run([
-      {
-        role: "assistant",
-        content: `Executing ${skillName}...`,
-      },
-    ]);
-
-    // Tool call if skill execution needs explicit invocation
-    if (result.toolCalls && result.toolCalls.length > 0) {
-      for (const toolCall of result.toolCalls) {
-        if (toolCall.name === skillName) {
-          return await this.api.tools?.execute?.(
-            skillName,
-            toolCall.arguments as Record<string, unknown>,
-            {
-              conversationId: taskContext.taskId,
-              metadata: chainContext.metadata,
-            }
-          );
-        }
-      }
-    }
-
-    // Otherwise return chain result as skill output
-    return result;
+    return this.api.skills.use_skill(skillName, { ability, params: input });
   }
 
   /**
-   * Validate skill exists before execution
+   * Validate a skill exists before execution — checks the real skill
+   * directories via discover_skills, not tool names.
    */
-  validateSkillExists(skillName: string): boolean {
-    const tools = this.api.tools?.getSchemas() || [];
-    return tools.some(
-      (t) => t.type === "function" && t.function?.name === skillName
-    );
+  async validateSkillExists(skillName: string): Promise<boolean> {
+    if (!this.api.skills) return false;
+    try {
+      const matches = await this.api.skills.discover_skills(skillName);
+      return matches.some((s) => s.name.toLowerCase() === skillName.toLowerCase());
+    } catch {
+      return false;
+    }
   }
 
   /**
-   * Get skill metadata (parameters, description)
+   * Get skill metadata (description, abilities) via the real skill explorer.
    */
-  getSkillMetadata(
+  async getSkillMetadata(
     skillName: string
-  ): { name: string; description: string; parameters: unknown } | null {
-    const tools = this.api.tools?.getSchemas() || [];
-    const skillTool = tools.find(
-      (t) => t.type === "function" && t.function?.name === skillName
-    );
-
-    if (!skillTool || skillTool.type !== "function" || !skillTool.function) {
+  ): Promise<{ name: string; description: string; abilities: Array<{ name: string; description?: string; input: string[] }> } | null> {
+    if (!this.api.skills) return null;
+    try {
+      const detail = await this.api.skills.explore_skill(skillName, false);
+      return {
+        name: detail.frontmatter.name,
+        description: detail.frontmatter.description,
+        abilities: detail.abilities,
+      };
+    } catch {
       return null;
     }
-
-    return {
-      name: skillTool.function.name,
-      description: skillTool.function.description || "",
-      parameters: skillTool.function.parameters,
-    };
   }
 
   /**
-   * Execute skill with timeout protection
+   * Execute skill with timeout protection.
    */
   async executeSkillWithTimeout(
     skillName: string,
     input: Record<string, unknown>,
     taskContext: TaskContext,
+    ability?: string,
     timeoutMs: number = 30000
-  ): Promise<unknown> {
+  ): Promise<UseSkillResult> {
     return Promise.race([
-      this.executeSkill(skillName, input, taskContext),
-      new Promise((_, reject) =>
+      this.executeSkill(skillName, input, taskContext, ability),
+      new Promise<UseSkillResult>((_, reject) =>
         setTimeout(
           () => reject(new Error(`Skill '${skillName}' timed out after ${timeoutMs}ms`)),
           timeoutMs

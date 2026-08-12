@@ -81,7 +81,7 @@ export class TaskExecutor {
 
       // Execute phase action
       if (phase.action.type === "run") {
-        await this.executeSkillPhase(taskId, phase.action.skill);
+        await this.executeSkillPhase(taskId, phase.action.skill, phase.action.ability);
       } else if (phase.action.type === "spawn") {
         await this.spawnChildPhase(
           taskId,
@@ -119,7 +119,8 @@ export class TaskExecutor {
    */
   private async executeSkillPhase(
     taskId: string,
-    skillName: string
+    skillName: string,
+    ability?: string
   ): Promise<void> {
     const task = await this.engine.getTask(taskId);
     if (!task) {
@@ -127,7 +128,7 @@ export class TaskExecutor {
     }
 
     // Validate skill exists
-    if (!this.adapter.validateSkillExists(skillName)) {
+    if (!(await this.adapter.validateSkillExists(skillName))) {
       throw new Error(`Skill '${skillName}' not registered`);
     }
 
@@ -139,7 +140,8 @@ export class TaskExecutor {
         taskId,
         currentPhase: task.currentPhase,
         variables: task.variables,
-      }
+      },
+      ability
     );
 
     // Store result in task variables

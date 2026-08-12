@@ -41,6 +41,51 @@ describe("filterToolSchemas — reflex requests reach contracts.proposeReflex", 
   });
 });
 
+const dutySchema: OpenAIFunctionSchema = {
+  type: "function",
+  function: {
+    name: "duties.proposeDuty",
+    description: "Draft a duty",
+    parameters: { type: "object", properties: {} },
+  },
+};
+
+describe("filterToolSchemas — conversational (non-reflex) propose requests", () => {
+  // Real bug: a user asked Chatty this exact question and got a looping
+  // "let me search the ontology" hallucination instead of a tool call,
+  // because this phrasing matched none of isAboutDuties/isCreationRequest/
+  // isReflexRequest — contracts.proposeReflex was never even offered to the
+  // model. Fixed by adding "contract"/"kata" to isAboutDuties and
+  // "propose"/"proposal" to isCreationRequest.
+  it("surfaces contracts.proposeReflex for the exact real-world failing phrasing", () => {
+    const result = filterToolSchemas([reflexSchema], {
+      message: "I want to test your ability to propose a new contract. can you do a basic test contract proposal now?",
+    });
+    expect(result.some((s) => s.function.name === "contracts.proposeReflex")).toBe(true);
+  });
+
+  it("surfaces contracts.proposeReflex for plain 'propose a contract' phrasing", () => {
+    const result = filterToolSchemas([reflexSchema], {
+      message: "propose a contract that runs the finance audit kata",
+    });
+    expect(result.some((s) => s.function.name === "contracts.proposeReflex")).toBe(true);
+  });
+
+  it("surfaces duties.proposeDuty for plain 'propose a duty' phrasing", () => {
+    const result = filterToolSchemas([dutySchema], {
+      message: "can you propose a duty that watches the #design channel",
+    });
+    expect(result.some((s) => s.function.name === "duties.proposeDuty")).toBe(true);
+  });
+
+  it("surfaces tools for a plain 'list contracts' lookup", () => {
+    const result = filterToolSchemas([reflexSchema], {
+      message: "show me the active contracts",
+    });
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
 describe("injectContractProposalCardIntoResponse", () => {
   it("appends a contract-proposal fence when the tool succeeded", () => {
     const response = "I've drafted that for you.";

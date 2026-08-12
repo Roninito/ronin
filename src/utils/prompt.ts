@@ -571,10 +571,17 @@ export function filterToolSchemas(
   const isToolQuery = /\b(weather|email|mail|discord|telegram|search|run|execute|list files|read file|write file|delete|database|ronin\.db|diagram|mermaid|flowchart|recall|remember|memory)\b/.test(msg);
   const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
   const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
-  // Include tools when user asks about duties/architecture (so memory + ontology can be used)
-  const isAboutDuties = /\b(duty|duties|intent-ingress|chatty|ronin)\b/.test(msg);
-  const isCreationRequest = /\b(create|make|build|generate|write me|new duty|new skill)\b/.test(msg);
-  const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool)\b/.test(msg);
+  // Include tools when user asks about duties/architecture (so memory + ontology can be used).
+  // "contract"/"kata" belong in this bucket too — they're first-class engine
+  // concepts exactly like "duty", not an oversight to leave out.
+  const isAboutDuties = /\b(duty|duties|contract|contracts|kata|katas|intent-ingress|chatty|ronin)\b/.test(msg);
+  // "propose"/"proposal" added after a real bug: "can you propose a contract"
+  // matched none of create/make/build/generate/new-duty/new-skill, so
+  // contracts.proposeReflex (and duties.proposeDuty) never entered the tool
+  // set for the most natural way to ask for one — the model had nothing to
+  // call and hallucinated a search instead, looping on it.
+  const isCreationRequest = /\b(create|make|build|generate|write me|propose|proposal|proposing|new duty|new skill|new contract)\b/.test(msg);
+  const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool|contract|contracts|kata|katas)\b/.test(msg);
   // "when X happens, do Y" / "whenever" / "every time" / "automatically" — reflex
   // (event/schedule-triggered automation) requests. contracts.proposeReflex has no
   // other way into the tool set: it isn't a lookup, isn't a greeting, and the

@@ -166,8 +166,49 @@ export default class CanvasEditorDuty extends BaseDuty {
       --forge-danger: #E05252;
     }
 
+    #main-row { flex: 1; display: flex; min-height: 0; }
     #canvas-shell { flex: 1; position: relative; min-height: 0; }
     #cy { width: 100%; height: 100%; background: ${dramTheme.colors.background}; }
+
+    #palette {
+      width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${dramTheme.colors.border};
+      overflow: hidden;
+    }
+    #palette-search-wrap { padding: ${dramTheme.spacing.sm}; border-bottom: 1px solid ${dramTheme.colors.border}; }
+    #palette-search {
+      width: 100%; box-sizing: border-box;
+      background: ${dramTheme.colors.background};
+      border: 1px solid ${dramTheme.colors.border};
+      color: ${dramTheme.colors.textPrimary};
+      border-radius: ${dramTheme.borderRadius.sm};
+      padding: 6px 8px; font-size: 0.78rem;
+    }
+    #palette-pinned { border-bottom: 1px solid ${dramTheme.colors.border}; }
+    #palette-list { flex: 1; overflow-y: auto; }
+    .palette-group-label {
+      padding: 8px 12px 4px; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: ${dramTheme.colors.textTertiary};
+    }
+    .palette-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; font-size: 0.78rem; color: ${dramTheme.colors.textSecondary};
+      cursor: grab; user-select: none;
+    }
+    .palette-item:hover { background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textPrimary}; }
+    .palette-item.placed { opacity: 0.4; }
+    .palette-item.placed:hover { opacity: 0.7; }
+    .palette-item .p-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .palette-item.palette-action { color: var(--forge-amber); font-weight: 600; cursor: pointer; }
+    .palette-item.palette-action:hover { background: ${dramTheme.colors.backgroundTertiary}; }
+    .palette-empty { padding: 12px; font-size: 0.75rem; color: ${dramTheme.colors.textTertiary}; }
+
+    #canvas-hint {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: ${dramTheme.colors.textTertiary}; font-size: 0.85rem; text-align: center;
+      pointer-events: none; max-width: 320px; line-height: 1.6;
+    }
 
     #status-bar {
       position: absolute; top: 12px; left: 12px; z-index: 10;
@@ -237,8 +278,8 @@ export default class CanvasEditorDuty extends BaseDuty {
     }
     .panel.open { display: block; }
     .panel h3 { margin: 0 0 ${dramTheme.spacing.sm}; font-size: 0.85rem; color: ${dramTheme.colors.textPrimary}; }
-    .panel textarea {
-      width: 100%; min-height: 64px; resize: vertical;
+    .panel textarea, .panel input[type="text"] {
+      width: 100%; resize: vertical;
       background: ${dramTheme.colors.background};
       border: 1px solid ${dramTheme.colors.border};
       color: ${dramTheme.colors.textPrimary};
@@ -246,6 +287,8 @@ export default class CanvasEditorDuty extends BaseDuty {
       padding: 6px 8px; font-size: 0.8rem; font-family: inherit;
       box-sizing: border-box;
     }
+    .panel textarea { min-height: 64px; }
+    .panel .name-field-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: ${dramTheme.colors.textTertiary}; margin: 8px 0 4px; }
     .panel .actions { display: flex; gap: ${dramTheme.spacing.sm}; margin-top: ${dramTheme.spacing.sm}; }
     .panel .actions button {
       flex: 1; padding: 6px; border-radius: ${dramTheme.borderRadius.sm}; border: 1px solid ${dramTheme.colors.border};
@@ -258,6 +301,8 @@ export default class CanvasEditorDuty extends BaseDuty {
     .panel .status { font-size: 0.72rem; color: ${dramTheme.colors.textTertiary}; margin-top: 6px; }
 
     #toolbar button.active { border-color: var(--forge-cyan); color: var(--forge-cyan); }
+    #toolbar button:disabled { opacity: 0.4; cursor: default; }
+    #toolbar button:disabled:hover { border-color: ${dramTheme.colors.border}; }
 
     #exec-feed {
       position: absolute; bottom: 12px; left: 12px; z-index: 10;
@@ -275,6 +320,63 @@ export default class CanvasEditorDuty extends BaseDuty {
     #exec-feed .row .type { color: var(--forge-amber); font-family: monospace; }
     #exec-feed .row .time { color: ${dramTheme.colors.textTertiary}; flex-shrink: 0; }
     #exec-feed h4 { margin: 0 0 6px; font-size: 0.72rem; color: ${dramTheme.colors.textPrimary}; }
+
+    #tooltip {
+      position: fixed; z-index: 100; pointer-events: none;
+      max-width: 340px;
+      background: ${dramTheme.colors.backgroundSecondary};
+      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${dramTheme.borderRadius.md};
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      color: ${dramTheme.colors.textSecondary};
+      display: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    #tooltip.open { display: block; }
+    #tooltip .tt-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    #tooltip .tt-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+    #tooltip .tt-title { color: ${dramTheme.colors.textPrimary}; font-weight: 600; font-size: 0.8rem; }
+    #tooltip .tt-kind { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${dramTheme.colors.textTertiary}; }
+    #tooltip .tt-desc { font-style: italic; margin-bottom: 6px; }
+    #tooltip .tt-section { margin-top: 6px; }
+    #tooltip .tt-label { color: ${dramTheme.colors.textTertiary}; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    #tooltip .tt-port-row { display: flex; align-items: center; gap: 5px; margin: 2px 0; }
+    #tooltip .tt-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    #tooltip .tt-empty { color: ${dramTheme.colors.textTertiary}; font-style: italic; }
+    #tooltip .tt-warn { color: var(--forge-danger); }
+
+    #code-panel {
+      position: absolute; top: 0; right: 0; bottom: 0; z-index: 15;
+      width: 420px; max-width: 45vw;
+      background: ${dramTheme.colors.backgroundSecondary};
+      border-left: 1px solid ${dramTheme.colors.border};
+      box-shadow: -4px 0 16px rgba(0,0,0,0.35);
+      display: none;
+      flex-direction: column;
+    }
+    #code-panel.open { display: flex; }
+    #code-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      border-bottom: 1px solid ${dramTheme.colors.border};
+      font-size: 0.8rem; color: ${dramTheme.colors.textPrimary}; font-weight: 600;
+    }
+    #code-panel-close {
+      background: none; border: none; color: ${dramTheme.colors.textTertiary};
+      font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 2px 6px;
+    }
+    #code-panel-close:hover { color: ${dramTheme.colors.textPrimary}; }
+    #code-panel-body { flex: 1; overflow: auto; padding: ${dramTheme.spacing.md}; }
+    #code-panel-body pre {
+      margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.75rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+      color: ${dramTheme.colors.textSecondary};
+    }
+    #code-panel-note {
+      font-size: 0.7rem; color: var(--forge-amber); margin-bottom: ${dramTheme.spacing.sm};
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -284,8 +386,21 @@ export default class CanvasEditorDuty extends BaseDuty {
     <div class="header-meta"><span id="header-status">connecting…</span></div>
   </div>
 
+  <div id="main-row">
+  <div id="palette">
+    <div id="palette-search-wrap">
+      <input id="palette-search" type="text" placeholder="Search duties, contracts, katas…">
+    </div>
+    <div id="palette-pinned">
+      <div class="palette-item palette-action" id="palette-new-duty">+ New duty</div>
+      <div class="palette-item palette-action" id="palette-new-contract">+ New contract</div>
+    </div>
+    <div id="palette-list"><div class="palette-empty">Loading…</div></div>
+  </div>
+
   <div id="canvas-shell">
     <div id="cy"></div>
+    <div id="canvas-hint">Drag a duty or contract in from the left to start.<br>Nodes you place bring their real connections with them.</div>
     <div id="status-bar">
       <span id="node-count">0 nodes</span>
       <span id="edge-count">0 edges</span>
@@ -301,8 +416,8 @@ export default class CanvasEditorDuty extends BaseDuty {
     <div id="lint-tray"><div class="empty">No lint findings yet.</div></div>
 
     <div id="toolbar">
-      <button id="btn-propose-contract">+ Propose contract</button>
-      <button id="btn-propose-duty">+ Propose duty</button>
+      <button id="btn-expand" disabled>🔗 Expand connections</button>
+      <button id="btn-clear-canvas">Clear canvas</button>
       <button id="btn-execution">Execution: off</button>
       <button id="btn-simulate">▶ Simulate</button>
     </div>
@@ -327,6 +442,16 @@ export default class CanvasEditorDuty extends BaseDuty {
       <div id="exec-feed-body"><div style="color:${dramTheme.colors.textTertiary}">No events captured yet.</div></div>
     </div>
 
+    <div id="tooltip"></div>
+
+    <div id="code-panel">
+      <div id="code-panel-header">
+        <span id="code-panel-title">—</span>
+        <button id="code-panel-close" title="Close">×</button>
+      </div>
+      <div id="code-panel-body"><div class="palette-empty">Select a node to view its source.</div></div>
+    </div>
+
     <div id="contract-panel" class="panel">
       <h3>Propose a contract (reflex)</h3>
       <textarea id="contract-intent" placeholder="e.g. when trust drops below 40, do a quiet handoff, then notify me"></textarea>
@@ -335,6 +460,10 @@ export default class CanvasEditorDuty extends BaseDuty {
         <button id="contract-cancel-btn">Cancel</button>
       </div>
       <div class="preview" id="contract-preview" style="display:none"></div>
+      <div id="contract-name-wrap" style="display:none">
+        <div class="name-field-label">Name (editable before you approve)</div>
+        <input id="contract-name-field" type="text">
+      </div>
       <div class="actions" id="contract-decide-actions" style="display:none">
         <button class="allow" id="contract-allow-btn">Allow</button>
         <button class="refuse" id="contract-refuse-btn">Refuse</button>
@@ -350,6 +479,10 @@ export default class CanvasEditorDuty extends BaseDuty {
         <button id="duty-cancel-btn">Cancel</button>
       </div>
       <div class="preview" id="duty-preview" style="display:none"></div>
+      <div id="duty-name-wrap" style="display:none">
+        <div class="name-field-label">Name (editable before you approve)</div>
+        <input id="duty-name-field" type="text">
+      </div>
       <details id="duty-code-details" style="display:none">
         <summary>View generated code</summary>
         <pre id="duty-code" style="max-height:240px;overflow:auto;font-size:0.7rem;white-space:pre-wrap;"></pre>
@@ -361,8 +494,20 @@ export default class CanvasEditorDuty extends BaseDuty {
       <div class="status" id="duty-status"></div>
     </div>
   </div>
+  </div>
 
   <script>
+    // Cytoscape renders to <canvas>, not the DOM — its style engine parses
+    // color strings itself and has no concept of CSS custom properties, so
+    // var(--forge-*) is silently invalid wherever it's used as a Cytoscape
+    // style value (mappers or static selectors). Literal hex, mirroring the
+    // :root values above, is required for anything Cytoscape draws.
+    const FORGE_AMBER = '#E8A33D';
+    const FORGE_CYAN = '#4DD0E1';
+    const FORGE_GOLD = '#C9A24B';
+    const FORGE_DANGER = '#E05252';
+    const FORGE_KATA = '#9B7EDE';
+
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '${WS_PATH}';
     let ws;
     let reqCounter = 0;
@@ -389,7 +534,7 @@ export default class CanvasEditorDuty extends BaseDuty {
         document.getElementById('conn-status').textContent = 'online';
         document.getElementById('conn-status').className = '';
         document.getElementById('header-status').textContent = 'live';
-        loadGraph();
+        refreshGraphData();
         ws.send(JSON.stringify({ op: 'subscribe', events: ['graph.updated', 'lint.finding', 'lint.summary'] }));
       };
       ws.onclose = () => {
@@ -411,7 +556,7 @@ export default class CanvasEditorDuty extends BaseDuty {
           return;
         }
         if (msg.op === 'event' && msg.event === 'graph.updated') {
-          loadGraph();
+          refreshGraphData();
         }
         if (msg.op === 'event' && msg.event === 'lint.finding') {
           addLintFinding(msg.data);
@@ -439,20 +584,61 @@ export default class CanvasEditorDuty extends BaseDuty {
     }
 
     let cy;
+    let lastGraph = null; // full node/edge objects from the last successful refreshGraphData(), for tooltip detail and palette listing
+    let nodesById = new Map();
+    let edgesById = new Map();
+    // Only nodes the user has explicitly dragged/clicked into the canvas are
+    // ever rendered — everything else is just an entry in the left palette.
+    // This directly answers "we end up with an unreadable web": nothing
+    // appears until you ask for it, and its real edges come with it.
+    let placedIds = new Set();
+
+    const LAYOUT_STORAGE_KEY = 'ronin-canvas-layout-v1';
+
     function colorForKind(kind) {
-      if (kind === 'duty') return 'var(--forge-cyan)';
-      if (kind === 'contract' || kind === 'sensor') return 'var(--forge-gold)';
-      if (kind === 'kata') return '#9B7EDE';
-      if (kind === 'phantom') return 'var(--forge-danger)';
+      if (kind === 'duty') return FORGE_CYAN;
+      if (kind === 'contract' || kind === 'sensor') return FORGE_GOLD;
+      if (kind === 'kata') return FORGE_KATA;
+      if (kind === 'phantom') return FORGE_DANGER;
       return '#888';
     }
     function colorForEdgeKind(kind, dangling) {
-      if (dangling) return 'var(--forge-danger)';
-      if (kind === 'contract-run') return 'var(--forge-gold)';
-      return 'var(--forge-amber)';
+      if (dangling) return FORGE_DANGER;
+      if (kind === 'contract-run') return FORGE_GOLD;
+      return FORGE_AMBER;
     }
 
-    async function loadGraph(force) {
+    // Sensor node ids are derived deterministically from the owning duty/
+    // contract name (see src/graph/derive.ts) — placing a duty or contract
+    // silently brings its own sensor along, the same way its ports do.
+    function sensorIdsFor(nodeId) {
+      const idx = nodeId.indexOf(':');
+      const kind = nodeId.slice(0, idx);
+      const name = nodeId.slice(idx + 1);
+      if (kind === 'duty') return ['sensor:cron:' + name, 'sensor:watch:' + name, 'sensor:webhook:' + name];
+      if (kind === 'contract') return ['sensor:cron:' + name];
+      return [];
+    }
+
+    function saveLayout() {
+      try {
+        const positions = {};
+        if (cy) cy.nodes().not('.phantom').forEach((n) => { positions[n.id()] = n.position(); });
+        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ placed: [...placedIds], positions }));
+      } catch (e) { /* localStorage unavailable — layout just won't persist across reloads */ }
+    }
+    function loadLayout() {
+      try {
+        const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : { placed: [], positions: {} };
+      } catch (e) {
+        return { placed: [], positions: {} };
+      }
+    }
+
+    let restoredOnce = false;
+
+    async function refreshGraphData(force) {
       let graph;
       try {
         graph = await send({ op: 'query', target: 'graph-keeper', type: 'get-graph', payload: { force: !!force }, timeoutMs: 30000 });
@@ -462,59 +648,129 @@ export default class CanvasEditorDuty extends BaseDuty {
       }
       if (!graph) return;
 
-      document.getElementById('node-count').textContent = graph.nodes.length + ' nodes';
-      document.getElementById('edge-count').textContent = graph.edges.length + ' edges';
+      lastGraph = graph;
+      nodesById = new Map(graph.nodes.map(n => [n.id, n]));
+      edgesById = new Map(graph.edges.map(e => [e.id, e]));
       document.getElementById('header-status').textContent = 'live — ' + new Date(graph.derivedAt).toLocaleTimeString();
 
-      // Cytoscape requires every edge's source/target to reference a real
-      // node in the same elements array — but a dangling edge (E-BEAM-TARGET /
-      // E-CONTRACT-TARGET) points at an id that, by definition, doesn't exist
-      // as a real node. Synthesize a small phantom node for each unique
-      // dangling target so the edge has somewhere to point (rather than
-      // Cytoscape throwing/dropping it) — the missing-target signal is one of
-      // the most useful things this canvas can show, not something to hide.
-      const realNodeIds = new Set(graph.nodes.map(n => n.id));
-      const phantomIds = new Set();
-      for (const e of graph.edges) {
-        if (e.danglingTarget && !realNodeIds.has(e.targetNodeId)) phantomIds.add(e.targetNodeId);
+      if (!restoredOnce) {
+        restoredOnce = true;
+        const saved = loadLayout();
+        for (const id of saved.placed) if (nodesById.has(id)) placedIds.add(id);
       }
 
-      const elements = [
-        ...graph.nodes.map(n => ({
-          data: { id: n.id, label: n.name, kind: n.kind, ghost: n.ghost },
-          classes: (n.ghost ? 'ghost ' : '') + n.kind,
-        })),
-        ...[...phantomIds].map(id => ({
-          data: { id, label: id.split(':').slice(1).join(':') + ' (missing)', kind: 'phantom' },
-          classes: 'phantom',
-        })),
-        ...graph.edges.map(e => ({
-          data: {
-            id: e.id, source: e.sourceNodeId, target: e.targetNodeId, kind: e.kind, dangling: e.danglingTarget,
-            eventName: e.eventName, eventType: e.eventType,
-          },
-          classes: (e.danglingTarget ? 'dangling ' : '') + e.kind,
-        })),
-      ];
+      // Drop placed nodes that no longer exist (e.g. a refused proposal).
+      for (const id of [...placedIds]) if (!nodesById.has(id)) placedIds.delete(id);
+
+      renderPalette();
+      syncCanvas();
+    }
+
+    function renderPalette() {
+      const search = (document.getElementById('palette-search').value || '').toLowerCase();
+      const groups = { duty: [], contract: [], kata: [] };
+      for (const n of nodesById.values()) {
+        if (!groups[n.kind]) continue; // sensors/phantoms never listed — they ride along with their owner
+        if (search && !n.name.toLowerCase().includes(search)) continue;
+        groups[n.kind].push(n);
+      }
+      for (const key of Object.keys(groups)) groups[key].sort((a, b) => a.name.localeCompare(b.name));
+
+      const labelFor = { duty: 'Duties', contract: 'Contracts', kata: 'Katas' };
+      let html = '';
+      for (const kind of ['duty', 'contract', 'kata']) {
+        const items = groups[kind];
+        if (items.length === 0) continue;
+        html += '<div class="palette-group-label">' + labelFor[kind] + ' (' + items.length + ')</div>';
+        html += items.map((n) =>
+          '<div class="palette-item' + (placedIds.has(n.id) ? ' placed' : '') + '" draggable="true" data-id="' + escapeHtml(n.id) + '" title="Drag onto canvas, or click to add">' +
+          '<span class="p-dot" style="background:' + colorForKind(n.kind) + '"></span>' +
+          escapeHtml(n.name) + (n.ghost ? ' <em style="opacity:0.6">(pending)</em>' : '') +
+          '</div>'
+        ).join('');
+      }
+      const list = document.getElementById('palette-list');
+      list.innerHTML = html || '<div class="palette-empty">Nothing matches.</div>';
+
+      list.querySelectorAll('.palette-item').forEach((el) => {
+        el.addEventListener('dragstart', (evt) => {
+          evt.dataTransfer.setData('text/plain', el.dataset.id);
+          evt.dataTransfer.effectAllowed = 'copy';
+        });
+        el.addEventListener('click', () => placeNode(el.dataset.id, null));
+      });
+    }
+
+    function placeNode(nodeId, dropPosition) {
+      if (!nodesById.has(nodeId)) return;
+      const newlyPlaced = [];
+      if (!placedIds.has(nodeId)) { placedIds.add(nodeId); newlyPlaced.push(nodeId); }
+      for (const sid of sensorIdsFor(nodeId)) {
+        if (nodesById.has(sid) && !placedIds.has(sid)) { placedIds.add(sid); newlyPlaced.push(sid); }
+      }
+      renderPalette();
+      syncCanvas(dropPosition ? { [nodeId]: dropPosition } : {}, newlyPlaced);
+      saveLayout();
+    }
+
+    function removeNode(nodeId) {
+      placedIds.delete(nodeId);
+      if (selectedNodeId === nodeId) selectNode(null);
+      renderPalette();
+      syncCanvas();
+      saveLayout();
+    }
+
+    function clearCanvas() {
+      placedIds.clear();
+      renderPalette();
+      syncCanvas();
+      saveLayout();
+    }
+
+    /** Reconcile cy's actual elements with what placedIds/edgesById say should
+     *  be shown — adds/removes/updates in place so existing node positions
+     *  are never disturbed, and only genuinely new elements get laid out. */
+    function syncCanvas(explicitPositions, newlyPlacedIds) {
+      explicitPositions = explicitPositions || {};
+      newlyPlacedIds = newlyPlacedIds || [];
+
+      const phantomIds = new Set();
+      const desiredEdges = new Map();
+      for (const e of edgesById.values()) {
+        if (!placedIds.has(e.sourceNodeId)) continue;
+        if (e.danglingTarget && !nodesById.has(e.targetNodeId)) {
+          phantomIds.add(e.targetNodeId);
+          desiredEdges.set(e.id, e);
+        } else if (placedIds.has(e.targetNodeId)) {
+          desiredEdges.set(e.id, e);
+        }
+      }
+      const desiredNodeIds = new Set([...placedIds, ...phantomIds]);
+
+      document.getElementById('canvas-hint').style.display = placedIds.size === 0 ? 'block' : 'none';
+      document.getElementById('node-count').textContent = placedIds.size + ' / ' + nodesById.size + ' shown';
+      document.getElementById('edge-count').textContent = desiredEdges.size + ' edges';
 
       if (!cy) {
         cy = cytoscape({
           container: document.getElementById('cy'),
-          elements,
+          elements: [],
           style: [
             { selector: 'node', style: {
                 'background-color': (el) => colorForKind(el.data('kind')),
                 'label': 'data(label)',
                 'color': '${dramTheme.colors.textPrimary}',
-                'font-size': '9px',
+                'font-size': '10px',
                 'text-valign': 'bottom',
                 'text-margin-y': 4,
-                'width': 24, 'height': 24,
+                'width': 30, 'height': 30,
               } },
             { selector: 'node.ghost', style: { 'border-width': 2, 'border-style': 'dashed', 'border-color': '#fff', 'opacity': 0.55 } },
-            { selector: 'node.sensor', style: { width: 12, height: 12 } },
-            { selector: 'node.phantom', style: { shape: 'diamond', width: 10, height: 10, 'border-width': 1, 'border-style': 'dashed', 'border-color': 'var(--forge-danger)', 'font-style': 'italic' } },
-            { selector: 'node.simulated', style: { 'border-width': 3, 'border-color': 'var(--forge-cyan)' } },
+            { selector: 'node.sensor', style: { width: 14, height: 14 } },
+            { selector: 'node.phantom', style: { shape: 'diamond', width: 12, height: 12, 'border-width': 1, 'border-style': 'dashed', 'border-color': FORGE_DANGER, 'font-style': 'italic' } },
+            { selector: 'node.simulated', style: { 'border-width': 3, 'border-color': FORGE_CYAN } },
+            { selector: 'node.selected', style: { 'border-width': 3, 'border-color': '#ffffff' } },
             { selector: 'edge', style: {
                 'width': 1.5,
                 'line-color': (el) => colorForEdgeKind(el.data('kind'), el.data('dangling')),
@@ -526,21 +782,310 @@ export default class CanvasEditorDuty extends BaseDuty {
             { selector: 'edge.beam', style: { width: 2.5 } },
             { selector: 'edge.query', style: { 'line-style': 'dashed' } },
             { selector: 'edge.dangling', style: { 'line-style': 'dashed' } },
-            { selector: 'edge.live', style: { 'line-color': 'var(--forge-cyan)', 'target-arrow-color': 'var(--forge-cyan)' } },
+            { selector: 'edge.live', style: { 'line-color': FORGE_CYAN, 'target-arrow-color': FORGE_CYAN } },
             { selector: 'edge.hot', style: { width: 4, opacity: 1 } },
           ],
-          layout: { name: 'cose', animate: false, padding: 40 },
+          layout: { name: 'preset' },
         });
-      } else {
-        cy.json({ elements });
-        cy.layout({ name: 'cose', animate: false, padding: 40 }).run();
+        bindTooltipEvents();
+        bindCanvasDragDrop();
+        bindNodeRemoval();
+        bindPositionPersistence();
+        bindSelection();
       }
+
+      // Remove elements no longer desired. Removing a node removes its
+      // incident edges automatically; the explicit edge pass after catches
+      // any edge that should disappear while both endpoints remain (e.g. an
+      // edge kind that's no longer derivable).
+      cy.nodes().forEach((n) => { if (!desiredNodeIds.has(n.id())) cy.remove(n); });
+      cy.edges().forEach((e) => { if (cy.getElementById(e.id()).length && !desiredEdges.has(e.id())) cy.remove(e); });
+
+      // Update data on nodes already present (e.g. ghost -> solid). Only
+      // touch the base kind/ghost classes — .classes(...) replaces the
+      // whole class string, which would otherwise silently wipe transient
+      // UI state like .selected or .simulated every time the graph re-syncs.
+      for (const id of desiredNodeIds) {
+        const n = nodesById.get(id);
+        if (!n) continue; // phantom
+        const el = cy.getElementById(id);
+        if (el.length) {
+          el.data({ label: n.name, kind: n.kind, ghost: n.ghost });
+          el.removeClass('duty contract kata sensor ghost');
+          el.addClass((n.ghost ? 'ghost ' : '') + n.kind);
+        }
+      }
+
+      const savedPositions = loadLayout().positions || {};
+      const toAdd = [];
+      const genuinelyNewIds = [];
+      for (const id of desiredNodeIds) {
+        if (cy.getElementById(id).length > 0) continue;
+        const n = nodesById.get(id);
+        const el = n
+          ? { data: { id: n.id, label: n.name, kind: n.kind, ghost: n.ghost }, classes: (n.ghost ? 'ghost ' : '') + n.kind }
+          : { data: { id, label: id.split(':').slice(1).join(':') + ' (missing)', kind: 'phantom' }, classes: 'phantom' };
+        const pos = explicitPositions[id] || savedPositions[id];
+        if (pos) el.position = pos;
+        else genuinelyNewIds.push(id);
+        toAdd.push(el);
+      }
+      for (const [id, e] of desiredEdges) {
+        if (cy.getElementById(id).length > 0) continue;
+        toAdd.push({
+          data: { id: e.id, source: e.sourceNodeId, target: e.targetNodeId, kind: e.kind, dangling: e.danglingTarget, eventName: e.eventName, eventType: e.eventType },
+          classes: (e.danglingTarget ? 'dangling ' : '') + e.kind,
+        });
+      }
+      if (toAdd.length) cy.add(toAdd);
+
+      // Lay out only elements with no known position (freshly added, no
+      // explicit drop position, no saved position) — everything else stays
+      // exactly where it already was.
+      if (genuinelyNewIds.length > 0) {
+        const toLayout = cy.collection();
+        for (const id of genuinelyNewIds) {
+          const el = cy.getElementById(id);
+          if (el.length) toLayout.merge(el);
+        }
+        if (toLayout.length > 0) {
+          toLayout.layout({ name: 'cose', animate: false, fit: false, randomize: true, nodeRepulsion: 8000 }).run();
+        }
+      }
+    }
+
+    function bindCanvasDragDrop() {
+      const container = document.getElementById('cy');
+      container.addEventListener('dragover', (evt) => evt.preventDefault());
+      container.addEventListener('drop', (evt) => {
+        evt.preventDefault();
+        const nodeId = evt.dataTransfer.getData('text/plain');
+        if (!nodeId) return;
+        const rect = container.getBoundingClientRect();
+        const pan = cy.pan();
+        const zoom = cy.zoom();
+        const pos = { x: (evt.clientX - rect.left - pan.x) / zoom, y: (evt.clientY - rect.top - pan.y) / zoom };
+        placeNode(nodeId, pos);
+      });
+    }
+
+    function bindNodeRemoval() {
+      cy.on('dbltap', 'node', (evt) => {
+        if (evt.target.hasClass('phantom')) return;
+        removeNode(evt.target.id());
+      });
+    }
+
+    // Select a node (single tap) to enable "Expand connections" — pulls in
+    // every node directly connected to it that isn't already on canvas, and
+    // draws the real edges to them. Tapping empty canvas deselects.
+    let selectedNodeId = null;
+
+    function bindSelection() {
+      cy.on('tap', 'node', (evt) => {
+        if (evt.target.hasClass('phantom')) return;
+        selectNode(evt.target.id());
+      });
+      cy.on('tap', (evt) => {
+        if (evt.target === cy) selectNode(null);
+      });
+    }
+
+    function selectNode(id) {
+      cy.nodes().removeClass('selected');
+      selectedNodeId = id;
+      if (id) {
+        const el = cy.getElementById(id);
+        if (el.length) el.addClass('selected');
+      }
+      const btn = document.getElementById('btn-expand');
+      if (id && nodesById.has(id)) {
+        btn.disabled = false;
+        btn.textContent = '🔗 Expand ' + nodesById.get(id).name;
+      } else {
+        btn.disabled = true;
+        btn.textContent = '🔗 Expand connections';
+      }
+      openCodePanel(id);
+    }
+
+    let codePanelRequestSeq = 0;
+
+    async function openCodePanel(id) {
+      const panel = document.getElementById('code-panel');
+      if (!id || !nodesById.has(id)) {
+        panel.classList.remove('open');
+        return;
+      }
+      const node = nodesById.get(id);
+      panel.classList.add('open');
+      document.getElementById('code-panel-title').textContent = node.kind + ': ' + node.name;
+      document.getElementById('code-panel-body').innerHTML = '<div class="palette-empty">Loading…</div>';
+
+      const mySeq = ++codePanelRequestSeq;
+      let source;
+      try {
+        source = await send({ op: 'query', target: 'graph-keeper', type: 'get-node-source', payload: { id }, timeoutMs: 10000 });
+      } catch (e) {
+        if (mySeq !== codePanelRequestSeq) return; // a newer selection superseded this request
+        document.getElementById('code-panel-body').innerHTML = '<div class="palette-empty">Failed to load: ' + escapeHtml(e.message) + '</div>';
+        return;
+      }
+      if (mySeq !== codePanelRequestSeq) return; // user selected something else while this was in flight
+
+      const body = document.getElementById('code-panel-body');
+      if (!source) {
+        body.innerHTML = '<div class="palette-empty">No source available for this node.</div>';
+        return;
+      }
+      const note = source.reconstructed
+        ? '<div id="code-panel-note">Reconstructed from stored fields — not a real file on disk.</div>'
+        : '';
+      body.innerHTML = note + '<pre>' + escapeHtml(source.code) + '</pre>';
+    }
+
+    function expandConnections(nodeId) {
+      if (!nodeId || !nodesById.has(nodeId)) return;
+      const toPlace = new Set();
+      for (const e of edgesById.values()) {
+        if (e.sourceNodeId === nodeId && nodesById.has(e.targetNodeId) && !placedIds.has(e.targetNodeId)) toPlace.add(e.targetNodeId);
+        if (e.targetNodeId === nodeId && nodesById.has(e.sourceNodeId) && !placedIds.has(e.sourceNodeId)) toPlace.add(e.sourceNodeId);
+      }
+      if (toPlace.size === 0) return;
+
+      const newlyPlaced = [];
+      for (const id of toPlace) {
+        placedIds.add(id);
+        newlyPlaced.push(id);
+        for (const sid of sensorIdsFor(id)) {
+          if (nodesById.has(sid) && !placedIds.has(sid)) { placedIds.add(sid); newlyPlaced.push(sid); }
+        }
+      }
+      renderPalette();
+      syncCanvas({}, newlyPlaced);
+      saveLayout();
+    }
+
+    function bindPositionPersistence() {
+      let saveTimer = null;
+      cy.on('dragfree', 'node', () => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveLayout, 300);
+      });
+    }
+
+    function bindTooltipEvents() {
+      const tooltip = document.getElementById('tooltip');
+
+      cy.on('mouseover', 'node', (evt) => {
+        const node = nodesById.get(evt.target.id());
+        if (!node || evt.target.hasClass('phantom')) {
+          if (evt.target.hasClass('phantom')) {
+            tooltip.innerHTML = tooltipHeader('phantom', evt.target.data('label'), FORGE_DANGER) +
+              '<div class="tt-warn">This node does not exist in the real system — something points at it that shouldn\\'t.</div>';
+            tooltip.classList.add('open');
+          }
+          return;
+        }
+        tooltip.innerHTML = renderNodeTooltip(node);
+        tooltip.classList.add('open');
+      });
+      cy.on('mouseover', 'edge', (evt) => {
+        const edge = edgesById.get(evt.target.id());
+        if (!edge) return;
+        tooltip.innerHTML = renderEdgeTooltip(edge);
+        tooltip.classList.add('open');
+      });
+      cy.on('mouseout', 'node, edge', () => {
+        tooltip.classList.remove('open');
+      });
+      cy.on('mousemove', (evt) => {
+        if (!tooltip.classList.contains('open')) return;
+        const orig = evt.originalEvent;
+        if (!orig) return;
+        const x = orig.clientX + 16;
+        const y = orig.clientY + 16;
+        const maxX = window.innerWidth - 360;
+        const maxY = window.innerHeight - 40;
+        tooltip.style.left = Math.min(x, maxX) + 'px';
+        tooltip.style.top = Math.min(y, maxY) + 'px';
+      });
+    }
+
+    function tooltipHeader(kind, name, color) {
+      return '<div class="tt-header"><span class="tt-swatch" style="background:' + color + '"></span>' +
+        '<span class="tt-title">' + escapeHtml(name) + '</span></div>' +
+        '<div class="tt-kind">' + escapeHtml(kind) + '</div>';
+    }
+
+    function portList(label, items, dotColor) {
+      if (!items || items.length === 0) return '';
+      return '<div class="tt-section"><div class="tt-label">' + escapeHtml(label) + '</div>' +
+        items.map((i) => '<div class="tt-port-row"><span class="tt-dot" style="background:' + dotColor + '"></span>' + escapeHtml(i) + '</div>').join('') +
+        '</div>';
+    }
+
+    function renderNodeTooltip(node) {
+      const color = colorForKind(node.kind);
+      let html = tooltipHeader(node.kind, node.name, color);
+      if (node.ghost) html += '<div class="tt-warn">Ghost — pending proposal' + (node.proposalId ? ' (' + escapeHtml(node.proposalId) + ')' : '') + '</div>';
+      if (node.description) html += '<div class="tt-desc">' + escapeHtml(node.description) + '</div>';
+
+      if (node.kind === 'duty') {
+        html += portList('Consumes (in)', node.ports.eventsIn, FORGE_AMBER);
+        html += portList('Emits (out)', node.ports.eventsOut, FORGE_AMBER);
+        html += portList('Beams to', node.ports.beamsOut.map(b => b.target + ' · ' + b.eventType), FORGE_AMBER);
+        html += portList('Queries', node.ports.queriesOut.map(q => q.target + ' · ' + q.queryType), FORGE_CYAN);
+        html += portList('Serves queries', node.ports.queriesServed, FORGE_CYAN);
+        html += portList('Tools', node.tools.map(t => t.name), FORGE_CYAN);
+        html += portList('Skills', node.skills.map(s => s.name), FORGE_CYAN);
+        if (node.schedule) html += '<div class="tt-section"><div class="tt-label">Schedule</div>' + escapeHtml(node.schedule) + '</div>';
+        if (node.webhook) html += '<div class="tt-section"><div class="tt-label">Webhook</div>' + escapeHtml(node.webhook) + '</div>';
+        const hasAnyPort = node.ports.eventsIn.length || node.ports.eventsOut.length || node.ports.beamsOut.length ||
+          node.ports.queriesOut.length || node.ports.queriesServed.length || node.tools.length || node.skills.length || node.schedule || node.webhook;
+        if (!hasAnyPort) html += '<div class="tt-empty">No declared or scanned topology.</div>';
+      } else if (node.kind === 'contract') {
+        html += '<div class="tt-section"><div class="tt-label">Trigger</div>' +
+          (node.triggerType === 'cron' ? 'cron: ' + escapeHtml(node.cronExpression || '') :
+           node.triggerType === 'event' ? 'event: ' + escapeHtml(node.eventName || '') :
+           'webhook: ' + escapeHtml(node.webhookPath || '')) + '</div>';
+        html += '<div class="tt-section"><div class="tt-label">Runs</div>kata ' + escapeHtml(node.targetName) + (node.targetVersion ? ' ' + escapeHtml(node.targetVersion) : '') + '</div>';
+        html += '<div class="tt-section"><div class="tt-label">Status</div>' + (node.active ? 'active' : node.approvalStatus === 'pending' ? 'pending approval' : 'inactive') + '</div>';
+        if (node.nextExecutions && node.nextExecutions.length) {
+          html += portList('Next runs', node.nextExecutions.slice(0, 3).map(d => new Date(d).toLocaleString()), FORGE_GOLD);
+        }
+      } else if (node.kind === 'kata') {
+        html += '<div class="tt-section"><div class="tt-label">Phases</div>' +
+          (node.phases.length
+            ? node.phases.map(p => '<div class="tt-port-row"><span class="tt-dot" style="background:' + FORGE_KATA + '"></span>' +
+                escapeHtml(p.name) + (p.skill ? ' (' + escapeHtml(p.skill) + ')' : '') + (p.next ? ' → ' + escapeHtml(p.next) : '') + '</div>').join('')
+            : '<span class="tt-empty">No phases derived.</span>') +
+          '</div>';
+      } else if (node.kind === 'sensor') {
+        html += '<div class="tt-section"><div class="tt-label">' + escapeHtml(node.sensorType) + '</div>' +
+          Object.entries(node.config || {}).map(([k, v]) => escapeHtml(k) + ': ' + escapeHtml(String(v))).join('<br>') + '</div>';
+      }
+      return html;
+    }
+
+    function renderEdgeTooltip(edge) {
+      const source = nodesById.get(edge.sourceNodeId);
+      const target = nodesById.get(edge.targetNodeId);
+      const color = colorForEdgeKind(edge.kind, edge.danglingTarget);
+      let html = tooltipHeader(edge.kind, (source ? source.name : edge.sourceNodeId) + ' → ' + (target ? target.name : edge.targetNodeId), color);
+      if (edge.kind === 'broadcast') html += '<div class="tt-section"><div class="tt-label">Event</div>' + escapeHtml(edge.eventName) + '</div>';
+      if (edge.kind === 'beam') html += '<div class="tt-section"><div class="tt-label">Beam</div>' + escapeHtml(edge.eventType) + '</div>';
+      if (edge.kind === 'query') html += '<div class="tt-section"><div class="tt-label">Query</div>' + escapeHtml(edge.queryType) + ' (timeout ' + edge.timeoutMs + 'ms)</div>';
+      html += '<div class="tt-section"><div class="tt-label">Derivation</div>' + escapeHtml(edge.derivation) + '</div>';
+      if (edge.danglingTarget) html += '<div class="tt-warn">Target does not exist — likely a rename or a typo.</div>';
+      if (edge.ghost) html += '<div class="tt-warn">Ghost — part of a pending proposal.</div>';
+      return html;
     }
 
     // --- Propose Contract panel ---------------------------------------
     let pendingContractProposal = null;
 
-    document.getElementById('btn-propose-contract').onclick = () => {
+    document.getElementById('palette-new-contract').onclick = () => {
       document.getElementById('contract-panel').classList.add('open');
     };
     document.getElementById('contract-cancel-btn').onclick = () => {
@@ -550,9 +1095,11 @@ export default class CanvasEditorDuty extends BaseDuty {
     function resetContractPanel() {
       pendingContractProposal = null;
       document.getElementById('contract-preview').style.display = 'none';
+      document.getElementById('contract-name-wrap').style.display = 'none';
       document.getElementById('contract-decide-actions').style.display = 'none';
       document.getElementById('contract-status').textContent = '';
       document.getElementById('contract-intent').value = '';
+      document.getElementById('contract-name-field').value = '';
     }
 
     document.getElementById('contract-draft-btn').onclick = async () => {
@@ -568,9 +1115,12 @@ export default class CanvasEditorDuty extends BaseDuty {
         pendingContractProposal = result.data;
         document.getElementById('contract-preview').textContent = result.data.preview;
         document.getElementById('contract-preview').style.display = 'block';
+        document.getElementById('contract-name-field').value = result.data.contractName;
+        document.getElementById('contract-name-wrap').style.display = 'block';
         document.getElementById('contract-decide-actions').style.display = 'flex';
-        document.getElementById('contract-status').textContent = 'Drafted — showing as a ghost node on canvas.';
-        loadGraph(true);
+        document.getElementById('contract-status').textContent = 'Drafted — placing as a ghost node on canvas.';
+        await refreshGraphData(true);
+        placeNode('contract:' + result.data.contractName, null);
       } catch (e) {
         document.getElementById('contract-status').textContent = 'Failed: ' + e.message;
       }
@@ -580,17 +1130,23 @@ export default class CanvasEditorDuty extends BaseDuty {
       if (!pendingContractProposal) return;
       document.getElementById('contract-status').textContent = action === 'approve' ? 'Approving…' : 'Refusing…';
       try {
+        const nameField = document.getElementById('contract-name-field').value.trim();
+        const originalGhostId = 'contract:' + pendingContractProposal.contractName;
         const res = await fetch('/api/contracts/proposals/' + action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: pendingContractProposal.id }),
+          body: JSON.stringify(action === 'approve' ? { id: pendingContractProposal.id, name: nameField } : { id: pendingContractProposal.id }),
         });
         const body = await res.json().catch(() => ({}));
         if (res.ok && body.success !== false) {
           document.getElementById('contract-status').textContent = action === 'approve' ? 'Approved.' : 'Refused.';
           document.getElementById('contract-panel').classList.remove('open');
           resetContractPanel();
-          loadGraph(true);
+          if (action === 'approve' && body.contractName) {
+            await settleAndReveal(originalGhostId, 'contract:' + body.contractName);
+          } else {
+            refreshGraphData(true);
+          }
         } else {
           document.getElementById('contract-status').textContent = 'Failed: ' + (body.message || res.statusText);
         }
@@ -601,10 +1157,26 @@ export default class CanvasEditorDuty extends BaseDuty {
     document.getElementById('contract-allow-btn').onclick = () => decideContractProposal('approve');
     document.getElementById('contract-refuse-btn').onclick = () => decideContractProposal('refuse');
 
+    // After approving a proposal (possibly renamed), the ghost placeholder's
+    // id may no longer match the real thing that just landed — drop the old
+    // one, wait briefly for it to actually exist, then place, select, and
+    // center on it so "where did the thing I just made go" has one obvious answer.
+    async function settleAndReveal(oldId, newId) {
+      if (oldId !== newId) placedIds.delete(oldId);
+      await new Promise((r) => setTimeout(r, 1200));
+      await refreshGraphData(true);
+      placeNode(newId, null);
+      selectNode(newId);
+      if (cy) {
+        const el = cy.getElementById(newId);
+        if (el.length) cy.animate({ center: { eles: el }, zoom: Math.max(cy.zoom(), 1) }, { duration: 400 });
+      }
+    }
+
     // --- Propose Duty panel -------------------------------------------
     let pendingDutyProposal = null;
 
-    document.getElementById('btn-propose-duty').onclick = () => {
+    document.getElementById('palette-new-duty').onclick = () => {
       document.getElementById('duty-panel').classList.add('open');
     };
     document.getElementById('duty-cancel-btn').onclick = () => {
@@ -614,10 +1186,12 @@ export default class CanvasEditorDuty extends BaseDuty {
     function resetDutyPanel() {
       pendingDutyProposal = null;
       document.getElementById('duty-preview').style.display = 'none';
+      document.getElementById('duty-name-wrap').style.display = 'none';
       document.getElementById('duty-code-details').style.display = 'none';
       document.getElementById('duty-decide-actions').style.display = 'none';
       document.getElementById('duty-status').textContent = '';
       document.getElementById('duty-intent').value = '';
+      document.getElementById('duty-name-field').value = '';
     }
 
     document.getElementById('duty-draft-btn').onclick = async () => {
@@ -633,11 +1207,14 @@ export default class CanvasEditorDuty extends BaseDuty {
         pendingDutyProposal = result.data;
         document.getElementById('duty-preview').textContent = result.data.preview;
         document.getElementById('duty-preview').style.display = 'block';
+        document.getElementById('duty-name-field').value = result.data.dutyName;
+        document.getElementById('duty-name-wrap').style.display = 'block';
         document.getElementById('duty-code').textContent = result.data.code;
         document.getElementById('duty-code-details').style.display = 'block';
         document.getElementById('duty-decide-actions').style.display = 'flex';
-        document.getElementById('duty-status').textContent = 'Drafted — showing as a ghost node on canvas.';
-        loadGraph(true);
+        document.getElementById('duty-status').textContent = 'Drafted — placing as a ghost node on canvas.';
+        await refreshGraphData(true);
+        placeNode('duty:' + result.data.dutyName, null);
       } catch (e) {
         document.getElementById('duty-status').textContent = 'Failed: ' + e.message;
       }
@@ -647,10 +1224,12 @@ export default class CanvasEditorDuty extends BaseDuty {
       if (!pendingDutyProposal) return;
       document.getElementById('duty-status').textContent = action === 'approve' ? 'Approving…' : 'Refusing…';
       try {
+        const nameField = document.getElementById('duty-name-field').value.trim();
+        const originalGhostId = 'duty:' + pendingDutyProposal.dutyName;
         const res = await fetch('/api/duties/proposals/' + action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: pendingDutyProposal.id }),
+          body: JSON.stringify(action === 'approve' ? { id: pendingDutyProposal.id, dutyName: nameField } : { id: pendingDutyProposal.id }),
         });
         const body = await res.json().catch(() => ({}));
         if (res.ok && body.success !== false) {
@@ -659,7 +1238,11 @@ export default class CanvasEditorDuty extends BaseDuty {
             : 'Refused.';
           document.getElementById('duty-panel').classList.remove('open');
           resetDutyPanel();
-          loadGraph(true);
+          if (action === 'approve' && body.dutyName) {
+            await settleAndReveal(originalGhostId, 'duty:' + body.dutyName);
+          } else {
+            refreshGraphData(true);
+          }
         } else {
           document.getElementById('duty-status').textContent = 'Failed: ' + (body.message || res.statusText);
         }
@@ -792,6 +1375,11 @@ export default class CanvasEditorDuty extends BaseDuty {
         resultsEl.textContent = 'Failed: ' + e.message;
       }
     };
+
+    document.getElementById('palette-search').addEventListener('input', renderPalette);
+    document.getElementById('btn-clear-canvas').onclick = clearCanvas;
+    document.getElementById('btn-expand').onclick = () => expandConnections(selectedNodeId);
+    document.getElementById('code-panel-close').onclick = () => selectNode(null);
 
     connect();
   </script>

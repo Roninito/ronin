@@ -1,48 +1,39 @@
 ---
-name: Alpaca Trading
-description: Trading operations with Alpaca (positions, orders, account health, risk validation)
+name: alpaca
+description: Trading operations with Alpaca Markets — account health, positions, and order placement. Uses the same REST endpoints as plugins/alpaca.ts.
 ---
 
 # Alpaca Trading Skill
 
-Execute trading operations via Alpaca API including position management, order placement, portfolio synchronization, and risk validation.
+Read account/position state and place orders via the Alpaca API. Defaults to paper trading — set `ALPACA_MODE=live` explicitly to trade a live account.
 
-## Available Operations
+## When to Use
 
-### generate-orders
-Prepare candidate order actions from current account state and provided targets.
+- Check account health (buying power, equity, day P&L, margin used)
+- List current open positions
+- Place a market/limit/stop order
 
-**Inputs:**
-- `limit` (number, optional) - Number of recent orders to inspect (default: 50)
-- `proposedActions` (array, optional) - Candidate actions supplied by planner/rules (default: [])
-
-**Outputs:**
-- `currentPositions` (array) - Current open positions
-- `recentOrders` (array) - Recently closed orders
-- `proposedActions` (array) - Candidate actions forwarded to risk review
+## Abilities
 
 ### get-account-health
-Get account health metrics including buying power, margin used, and risk status.
+Get account health metrics: buying power, equity, day P&L, margin used.
+- Input: (none)
+- Output: { success, status, currency, cash, equity, buyingPower, dayPnl, dayPnlPct, marginUsedPct, dayTradeCount, patternDayTrader }
+- Run: bun run scripts/get-account-health.ts
 
 ### get-positions
 Retrieve all current open positions.
+- Input: (none)
+- Output: { success, positions: Array<{ symbol, qty, side, avgEntryPrice, currentPrice, marketValue, unrealizedPl, unrealizedPlPct }>, count }
+- Run: bun run scripts/get-positions.ts
 
 ### place-order
-Place a single order (market, limit, stop, etc.).
-
-### place-orders-batch
-Place multiple orders in a single batch operation.
-
-### sync-portfolio
-Synchronize local portfolio state with Alpaca's current state.
-
-### validate-risk
-Validate proposed actions against risk parameters before execution.
-
-### write-run-report
-Generate a run report summarizing trading session results.
+Place a single order. Defaults to a market, day-in-force order.
+- Input: symbol (string), qty (number), side ("buy" | "sell"), type (optional: "market" | "limit" | "stop" | "stop_limit", default "market"), limitPrice (optional number, required for limit/stop_limit)
+- Output: { success, orderId, symbol, qty, side, type, status, submittedAt }
+- Run: bun run scripts/place-order.ts --symbol={symbol} --qty={qty} --side={side} --type={type} --limitPrice={limitPrice}
 
 ## Requirements
 
-- Alpaca API credentials configured in environment or Ronin config
 - `ALPACA_API_KEY` and `ALPACA_API_SECRET` environment variables
+- `ALPACA_MODE` — "paper" (default) or "live"

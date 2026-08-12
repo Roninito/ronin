@@ -8,7 +8,7 @@
  * reads for duties/contracts/katas, merged with provenance tags.
  * Respond: write the graph store (src/graph/store.ts), emit graph.updated.
  *
- * Serves queries: get-graph, get-subgraph, get-node, simulate-event.
+ * Serves queries: get-graph, get-subgraph, get-node, get-node-source, simulate-event.
  */
 
 import { BaseDuty } from "@ronin/duty/index.js";
@@ -16,6 +16,7 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { deriveGraph } from "../src/graph/derive.js";
 import { GraphStore } from "../src/graph/store.js";
 import { simulateEventPropagation } from "../src/graph/simulate.js";
+import { getNodeSource } from "../src/graph/source.js";
 import type { DerivedGraph } from "../src/graph/types.js";
 
 interface QueryPayload {
@@ -122,6 +123,21 @@ export default class GraphKeeperDuty extends BaseDuty {
       const graph = await this.getOrDeriveGraph();
       const node = graph.nodes.find((n) => n.id === id) ?? null;
       this.api.events.reply(requestId, node);
+    });
+
+    // Separate from get-node, and only ever called for the one node the user
+    // has selected — including full source in every node of get-graph would
+    // bloat that payload for no reason on every load.
+    this.api.events.on("target:graph-keeper:get-node-source", async (payload: unknown) => {
+      const { requestId, id } = payload as QueryPayload & { id?: string };
+      const graph = await this.getOrDeriveGraph();
+      const node = graph.nodes.find((n) => n.id === id);
+      if (!node) {
+        this.api.events.reply(requestId, null);
+        return;
+      }
+      const source = await getNodeSource(node, this.api);
+      this.api.events.reply(requestId, source);
     });
 
     this.api.events.on("target:graph-keeper:simulate-event", async (payload: unknown) => {

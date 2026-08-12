@@ -5,6 +5,8 @@ description: Bun CLI reference for package management, script running, testing, 
 
 # Bun CLI
 
+**Reference only** — this skill is a cheat-sheet, not an executable ability; it has no `scripts/` directory or `## Abilities` section. Anything that needs to actually run a shell/Bun command should use `DutyAPI.shell.exec` directly rather than `skills.use_skill`.
+
 Bun is an all-in-one JavaScript/TypeScript runtime, package manager, bundler, and test runner. Bun runs TypeScript natively — `bun file.ts` directly, no compile step, no `tsc`, no `ts-node`. Always use `bun` instead of `node`, `npm`, `npx`, `yarn`, or `pnpm` in Bun projects.
 
 ## Detecting Bun Projects

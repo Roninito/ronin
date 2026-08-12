@@ -33,6 +33,7 @@ function tokenize(source: string): Token[] {
     "wait",
     "event",
     "timeout",
+    "ability",
     "next",
     "complete",
     "fail",
@@ -258,7 +259,14 @@ export class KataParser {
       this.consumeKeyword("run");
       this.expectKeyword("skill");
       const skill = this.expectIdentifier();
-      action = { type: "run", skill };
+
+      let ability: string | undefined;
+      if (this.peekKeyword("ability")) {
+        this.consumeKeyword("ability");
+        ability = this.expectIdentifier();
+      }
+
+      action = { type: "run", skill, ability };
     } else if (this.peekKeyword("spawn")) {
       this.consumeKeyword("spawn");
       this.expectKeyword("kata");

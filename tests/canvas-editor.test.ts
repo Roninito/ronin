@@ -58,6 +58,16 @@ describe("CanvasEditorDuty — /canvas route", () => {
     expect(html).toContain("btn-execution");
     expect(html).toContain("simulate-event");
     expect(html).toContain("btn-simulate");
+    expect(html).toContain("palette-list");
+    expect(html).toContain("palette-new-duty");
+    expect(html).toContain("palette-new-contract");
+    expect(html).toContain("btn-clear-canvas");
+    expect(html).toContain("canvas-hint");
+    expect(html).toContain("btn-expand");
+    expect(html).toContain("code-panel");
+    expect(html).toContain("get-node-source");
+    expect(html).toContain("duty-name-field");
+    expect(html).toContain("contract-name-field");
 
     // The whole page is one big script — syntax-check the inline JS the same
     // way the chatty proposal-card tests do, to catch template-literal escaping bugs.

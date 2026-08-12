@@ -162,36 +162,83 @@ export class OllamaProvider extends BaseProvider implements AIProvider {
     tools: Tool[],
     options?: CompletionOptions,
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
-    // Ollama doesn't natively support tool use, so we use prompt engineering
+    // `tools` is always OpenAIFunctionSchema-shaped ({type, function:{name,
+    // description, parameters}}) at every real call site (chatty.ts, etc.) —
+    // never the flat {name, description, parameters} this used to assume,
+    // which meant every tool rendered as "undefined: undefined" and the
+    // model was never told what tools actually existed. Reading
+    // tool.function.* fixes that regardless of which calling path is used
+    // below.
+    const model = options?.model || this.model;
+
+    // Ollama's /api/chat accepts an OpenAI-compatible `tools` array directly
+    // for tool-calling-capable models — no prompt engineering required.
+    // Also embed a plain-text tool listing in the prompt as a fallback for
+    // models that don't honor the native `tools` field, matching the
+    // "TOOL: name, ARGS: {...}" format the shared system prompt documents.
     const toolsDescription = tools
-      .map(
-        (tool) =>
-          `- ${tool.name}: ${tool.description}${tool.parameters ? ` (parameters: ${JSON.stringify(tool.parameters)})` : ""}`,
-      )
+      .map((tool) => {
+        const fn = tool.function;
+        return `- ${fn?.name}: ${fn?.description}${fn?.parameters ? ` (parameters: ${JSON.stringify(fn.parameters)})` : ""}`;
+      })
       .join("\n");
+    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolsDescription}\n\nIf your model doesn't support native tool calls, respond with tool calls in format: TOOL: name, ARGS: {...}`;
 
-    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolsDescription}\n\nRespond with tool calls in format: TOOL: name, ARGS: {...}`;
+    const response = await this.request<{
+      message: { role: string; content: string; tool_calls?: Array<{ function: { name: string; arguments: unknown } }> };
+    }>("/api/chat", {
+      method: "POST",
+      body: {
+        model,
+        messages: [{ role: "user", content: enhancedPrompt }],
+        tools,
+        stream: false,
+        temperature: options?.temperature ?? this.temperature,
+      },
+    });
 
-    const response = await this.complete(enhancedPrompt, options);
-
-    // Parse tool calls from response
+    const content = response.message?.content ?? "";
     const toolCalls: ToolCall[] = [];
-    const toolPattern = /TOOL:\s*(\w+),\s*ARGS:\s*({.*?})/g;
-    let match;
-    while ((match = toolPattern.exec(response)) !== null) {
-      try {
-        toolCalls.push({
-          id: `${match[1]}_${Date.now()}`,
-          name: match[1],
-          arguments: JSON.parse(match[2]),
-        });
-      } catch {
-        // Skip unparseable tool calls
+
+    for (const call of response.message?.tool_calls ?? []) {
+      const rawArgs = call.function?.arguments;
+      let parsedArgs: Record<string, unknown>;
+      if (typeof rawArgs === "string") {
+        try {
+          parsedArgs = JSON.parse(rawArgs);
+        } catch {
+          continue;
+        }
+      } else {
+        parsedArgs = (rawArgs as Record<string, unknown>) ?? {};
+      }
+      toolCalls.push({
+        id: `${call.function.name}_${Date.now()}`,
+        name: call.function.name,
+        arguments: parsedArgs,
+      });
+    }
+
+    // Fallback: some models ignore the native `tools` field and only follow
+    // the text instruction. Only used when native tool_calls came back empty.
+    if (toolCalls.length === 0) {
+      const toolPattern = /TOOL:\s*([\w.]+),\s*ARGS:\s*({.*?})/g;
+      let match;
+      while ((match = toolPattern.exec(content)) !== null) {
+        try {
+          toolCalls.push({
+            id: `${match[1]}_${Date.now()}`,
+            name: match[1],
+            arguments: JSON.parse(match[2]),
+          });
+        } catch {
+          // Skip unparseable tool calls
+        }
       }
     }
 
     return {
-      message: { role: "assistant", content: response },
+      message: { role: "assistant", content },
       toolCalls,
     };
   }

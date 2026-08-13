@@ -391,7 +391,7 @@ export class OllamaProvider implements AIProvider {
 // Works with OpenAI, Together AI, Groq, Fireworks, OpenRouter, etc.
 
 export class OpenAICompatibleProvider implements AIProvider {
-  readonly name = "openai";
+  readonly name: string;
   private apiKey: string;
   private baseUrl: string;
   private defaultModel: string;
@@ -404,7 +404,9 @@ export class OpenAICompatibleProvider implements AIProvider {
     defaultModel: string,
     timeoutMs: number,
     temperature: number,
+    name = "openai",
   ) {
+    this.name = name;
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.defaultModel = defaultModel;
@@ -778,6 +780,19 @@ export function createProvider(
         timeout,
         temp,
       );
+    case "lmstudio": {
+      // LM Studio's server is OpenAI-compatible (/v1/chat/completions, /v1/models),
+      // so it reuses OpenAICompatibleProvider rather than a bespoke client.
+      const lmBaseUrl = providerCfg?.lmstudio?.baseUrl || providerCfg?.lmstudio?.cloudUrl || "http://localhost:1234";
+      return new OpenAICompatibleProvider(
+        providerCfg?.lmstudio?.apiKey || process.env.LMSTUDIO_API_KEY || "lm-studio",
+        `${lmBaseUrl.replace(/\/+$/, "")}/v1`,
+        providerCfg?.lmstudio?.model || "local-model",
+        providerCfg?.lmstudio?.timeout ?? timeout,
+        temp,
+        "lmstudio",
+      );
+    }
     case "anthropic":
       const anthropicApiKey = providerCfg?.anthropic?.apiKey || (aiConfig as any).anthropic?.apiKey || process.env.ANTHROPIC_API_KEY;
       if (!anthropicApiKey) throw new Error("Anthropic API key not configured. Set anthropic.apiKey in config or ANTHROPIC_API_KEY env var.");

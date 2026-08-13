@@ -260,9 +260,9 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
     // Anthropic only allows a-z, A-Z, 0-9, _, - in tool names
     const nameMapping: Record<string, string> = {};
     const anthropicTools = tools.map((tool) => {
-      const toolName = (tool as any).name || tool.function?.name;
-      const toolDescription = (tool as any).description || tool.function?.description || "";
-      const toolParameters = (tool as any).parameters || tool.function?.parameters || {};
+      const toolName = tool.function?.name;
+      const toolDescription = tool.function?.description || "";
+      const toolParameters = tool.function?.parameters || { type: "object" as const, properties: {} };
       if (!toolName) {
         throw new Error("Invalid tool schema: missing tool name");
       }
@@ -306,7 +306,6 @@ export class AnthropicProvider extends BaseProvider implements AIProvider {
         // Map the sanitized name back to the original name with dots
         const toolName = nameMapping[block.tool_use.name] || block.tool_use.name;
         toolCalls.push({
-          id: block.tool_use.id,
           name: toolName,
           arguments: block.tool_use.input,
         });

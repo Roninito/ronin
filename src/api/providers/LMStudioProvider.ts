@@ -171,36 +171,81 @@ export class LMStudioProvider extends BaseProvider implements AIProvider {
     tools: Tool[],
     options?: CompletionOptions,
   ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
-    // LM Studio doesn't natively support tool use, so we use prompt engineering
+    // `tools` is always OpenAIFunctionSchema-shaped ({type, function:{name,
+    // description, parameters}}), not the flat {name, description, parameters}
+    // this used to assume — reading tool.function.* fixes the "undefined:
+    // undefined" tool listing that resulted.
+    const model = options?.model || this.model;
+
+    // LM Studio's /v1/chat/completions is OpenAI-compatible and accepts a
+    // native `tools` array for tool-calling-capable models. Also embed a
+    // plain-text tool listing as a fallback for models that ignore it,
+    // matching the "TOOL: name, ARGS: {...}" format the shared system
+    // prompt documents.
     const toolsDescription = tools
-      .map(
-        (tool) =>
-          `- ${tool.name}: ${tool.description}${tool.parameters ? ` (parameters: ${JSON.stringify(tool.parameters)})` : ""}`,
-      )
+      .map((tool) => {
+        const fn = tool.function;
+        return `- ${fn?.name}: ${fn?.description}${fn?.parameters ? ` (parameters: ${JSON.stringify(fn.parameters)})` : ""}`;
+      })
       .join("\n");
+    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolsDescription}\n\nIf your model doesn't support native tool calls, respond with tool calls in format: TOOL: name, ARGS: {...}`;
 
-    const enhancedPrompt = `${prompt}\n\nAvailable tools:\n${toolsDescription}\n\nRespond with tool calls in format: TOOL: name, ARGS: {...}`;
+    const response = await this.request<{
+      choices: Array<{ message: { role: string; content: string; tool_calls?: Array<{ function: { name: string; arguments: unknown } }> } }>;
+    }>("/v1/chat/completions", {
+      method: "POST",
+      body: {
+        model,
+        messages: [{ role: "user", content: enhancedPrompt }],
+        tools,
+        max_tokens: options?.maxTokens || 2048,
+        temperature: options?.temperature ?? 0.7,
+        top_p: options?.topP,
+        stop: options?.stopSequences,
+      },
+    });
 
-    const response = await this.complete(enhancedPrompt, options);
-
-    // Parse tool calls from response
+    const choiceMessage = response.choices[0]?.message;
+    const content = choiceMessage?.content ?? "";
     const toolCalls: ToolCall[] = [];
-    const toolPattern = /TOOL:\s*(\w+),\s*ARGS:\s*({.*?})/g;
-    let match;
-    while ((match = toolPattern.exec(response)) !== null) {
-      try {
-        toolCalls.push({
-          id: `${match[1]}_${Date.now()}`,
-          name: match[1],
-          arguments: JSON.parse(match[2]),
-        });
-      } catch {
-        // Skip unparseable tool calls
+
+    for (const call of choiceMessage?.tool_calls ?? []) {
+      const rawArgs = call.function?.arguments;
+      let parsedArgs: Record<string, unknown>;
+      if (typeof rawArgs === "string") {
+        try {
+          parsedArgs = JSON.parse(rawArgs);
+        } catch {
+          continue;
+        }
+      } else {
+        parsedArgs = (rawArgs as Record<string, unknown>) ?? {};
+      }
+      toolCalls.push({
+        name: call.function.name,
+        arguments: parsedArgs,
+      });
+    }
+
+    // Fallback: some models ignore the native `tools` field and only follow
+    // the text instruction. Only used when native tool_calls came back empty.
+    if (toolCalls.length === 0) {
+      const toolPattern = /TOOL:\s*([\w.]+),\s*ARGS:\s*({.*?})/g;
+      let match;
+      while ((match = toolPattern.exec(content)) !== null) {
+        try {
+          toolCalls.push({
+            name: match[1],
+            arguments: JSON.parse(match[2]),
+          });
+        } catch {
+          // Skip unparseable tool calls
+        }
       }
     }
 
     return {
-      message: { role: "assistant", content: response },
+      message: { role: "assistant", content },
       toolCalls,
     };
   }

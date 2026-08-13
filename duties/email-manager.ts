@@ -1,6 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML, dramTheme } from "../src/utils/theme.js";
+import { getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML, hankoTheme } from "../src/utils/theme.js";
 
 export default class EmailManagerAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -119,20 +119,20 @@ export default class EmailManagerAgent extends BaseDuty {
   <title>Email Manager - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
     body { margin: 0; padding: 0; }
-    .page-content { max-width: 1100px; margin: 0 auto; padding: ${dramTheme.spacing.lg}; }
-    .grid { display: grid; gap: ${dramTheme.spacing.md}; grid-template-columns: 1fr 1fr; }
-    .card { background: ${dramTheme.colors.backgroundSecondary}; border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.md}; padding: ${dramTheme.spacing.md}; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: ${dramTheme.spacing.sm}; margin-bottom: ${dramTheme.spacing.sm}; }
-    input, button { width: 100%; padding: 8px; background: ${dramTheme.colors.background}; color: ${dramTheme.colors.textPrimary}; border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.sm}; }
+    .page-content { max-width: 1100px; margin: 0 auto; padding: ${hankoTheme.spacing.lg}; }
+    .grid { display: grid; gap: ${hankoTheme.spacing.md}; grid-template-columns: 1fr 1fr; }
+    .card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; padding: ${hankoTheme.spacing.md}; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: ${hankoTheme.spacing.sm}; margin-bottom: ${hankoTheme.spacing.sm}; }
+    input, button { width: 100%; padding: 8px; background: ${hankoTheme.colors.background}; color: ${hankoTheme.colors.textPrimary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm}; }
     button { cursor: pointer; }
-    .list { display: grid; gap: ${dramTheme.spacing.sm}; }
-    .acct { border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.sm}; padding: 10px; }
-    .muted { color: ${dramTheme.colors.textSecondary}; font-size: 12px; }
-    .status { margin-bottom: ${dramTheme.spacing.sm}; }
+    .list { display: grid; gap: ${hankoTheme.spacing.sm}; }
+    .acct { border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm}; padding: 10px; }
+    .muted { color: ${hankoTheme.colors.textSecondary}; font-size: 12px; }
+    .status { margin-bottom: ${hankoTheme.spacing.sm}; }
   </style>
 </head>
 <body>

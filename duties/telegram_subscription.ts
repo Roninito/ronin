@@ -1,5 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import { getThemeCSS, getHeaderBarCSS, getSharedUIPrimitivesCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export interface SendTelegramMessagePayload {
   text: string;
@@ -147,28 +148,27 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
     const saved = new URL(req.url).searchParams.get("saved") === "1";
     const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Telegram Subscription Config</title>
       <style>
-        body{font-family:Arial,sans-serif;background:#111;color:#eee;margin:0;padding:20px}
-        .card{max-width:720px;margin:0 auto;background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px}
-        h1{font-size:20px;margin:0 0 12px}
-        label{display:block;font-size:12px;color:#aaa;margin:12px 0 6px}
-        input,select{width:100%;background:#111;border:1px solid #333;color:#eee;border-radius:6px;padding:8px}
-        .row{display:flex;gap:12px}.row>div{flex:1}
-        .check{display:flex;align-items:center;gap:8px;margin:8px 0}
-        .check input{width:auto}
-        button{margin-top:14px;background:#84cc16;border:none;color:#111;padding:10px 14px;border-radius:6px;font-weight:700;cursor:pointer}
-        .ok{background:#16320d;border:1px solid #2d6a1f;color:#9be67a;padding:8px;border-radius:6px;margin-bottom:10px}
-        a{color:#84cc16}
+        ${getThemeCSS()}
+        ${getHeaderBarCSS()}
+        ${getSharedUIPrimitivesCSS()}
+        body { padding: 0; }
+        .page { max-width: 720px; margin: 0 auto; padding: 1.25rem; }
+        label { display: block; font-size: 12px; margin: 12px 0 6px; }
+        .row { display: flex; gap: 12px; } .row > div { flex: 1; }
+        .check { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+        .check input { width: auto; }
+        .ok { padding: 8px; border-radius: 4px; margin-bottom: 10px; }
       </style></head><body>
-      <div class="card">
-        <h1>Telegram Subscription Configuration</h1>
-        ${saved ? '<div class="ok">Saved.</div>' : ""}
+      <div class="header">${getHeaderHomeIconHTML()}<h1>Telegram Subscription</h1></div>
+      <div class="page"><div class="ui-panel">
+        ${saved ? '<div class="ok ui-badge ui-badge--success">Saved.</div>' : ""}
         <form method="POST" action="/telegram-subscription">
           <div class="check"><input id="enabled" name="enabled" type="checkbox" ${cfg.enabled ? "checked" : ""}/><label for="enabled" style="margin:0">Enabled</label></div>
           <div class="check"><input id="processPrivate" name="processPrivate" type="checkbox" ${cfg.processPrivate ? "checked" : ""}/><label for="processPrivate" style="margin:0">Process private chats</label></div>
           <div class="row">
-            <div><label for="pollLimit">Poll limit (1-100)</label><input id="pollLimit" name="pollLimit" type="number" min="1" max="100" value="${cfg.pollLimit}"/></div>
+            <div><label for="pollLimit">Poll limit (1-100)</label><input class="ui-input" id="pollLimit" name="pollLimit" type="number" min="1" max="100" value="${cfg.pollLimit}"/></div>
             <div><label for="defaultParseMode">Default parse mode</label>
-              <select id="defaultParseMode" name="defaultParseMode">
+              <select class="ui-input" id="defaultParseMode" name="defaultParseMode">
                 <option value="HTML" ${cfg.defaultParseMode === "HTML" ? "selected" : ""}>HTML</option>
                 <option value="Markdown" ${cfg.defaultParseMode === "Markdown" ? "selected" : ""}>Markdown</option>
                 <option value="MarkdownV2" ${cfg.defaultParseMode === "MarkdownV2" ? "selected" : ""}>MarkdownV2</option>
@@ -176,12 +176,12 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
             </div>
           </div>
           <label for="defaultChatId">Default outbound chat ID (optional override)</label>
-          <input id="defaultChatId" name="defaultChatId" value="${cfg.defaultChatId ?? ""}" placeholder="e.g. -1001234567890"/>
+          <input class="ui-input" id="defaultChatId" name="defaultChatId" value="${cfg.defaultChatId ?? ""}" placeholder="e.g. -1001234567890"/>
           <div class="check"><input id="resetOffset" name="resetOffset" type="checkbox"/><label for="resetOffset" style="margin:0">Reset update offset on save</label></div>
-          <button type="submit">Save</button>
+          <button class="ui-btn ui-btn--primary" type="submit" style="margin-top:14px">Save</button>
         </form>
-        <p style="color:#888;font-size:12px;margin-top:14px">Schedule is managed via <a href="/schedule">/schedule</a>.</p>
-      </div></body></html>`;
+        <p style="font-size:12px;margin-top:14px">Schedule is managed via <a href="/schedule">/schedule</a>.</p>
+      </div></div></body></html>`;
     return new Response(html, { headers: { "Content-Type": "text/html" } });
   }
 

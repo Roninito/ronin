@@ -3,7 +3,7 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
 
 /**
  * Onboarding Wizard Agent
@@ -437,12 +437,12 @@ export default class OnboardingWizardAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Setup</title>
   <style>
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
     ${getAdobeCleanFontFaceCSS()}
 
     body {
-      padding: ${dramTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
       min-height: 100vh;
     }
 
@@ -452,20 +452,20 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     header {
-      margin-bottom: ${dramTheme.spacing.xl};
-      padding-bottom: ${dramTheme.spacing.lg};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.xl};
+      padding-bottom: ${hankoTheme.spacing.lg};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
 
     .subtitle {
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
 
     .progress-bar {
-      background: ${dramTheme.colors.accent};
+      background: ${hankoTheme.colors.accent};
       height: 2px;
-      margin: ${dramTheme.spacing.lg} 0;
+      margin: ${hankoTheme.spacing.lg} 0;
     }
 
     .progress-fill {
@@ -477,17 +477,17 @@ export default class OnboardingWizardAgent extends BaseDuty {
     .steps {
       display: flex;
       flex-direction: column;
-      gap: ${dramTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
 
     .step {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
       transition: all 0.2s;
     }
 
     .step:hover {
-      border-color: ${dramTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .step.complete {
@@ -495,10 +495,10 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .step-header {
-      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.md};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.md};
       display: flex;
       align-items: center;
-      gap: ${dramTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
       cursor: pointer;
     }
 
@@ -511,8 +511,8 @@ export default class OnboardingWizardAgent extends BaseDuty {
       justify-content: center;
       font-size: 0.75rem;
       font-weight: 500;
-      background: ${dramTheme.colors.accent};
-      color: ${dramTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.accent};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .step.complete .step-number {
@@ -531,13 +531,13 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .step-title p {
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.8125rem;
     }
 
     .step-status {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .step.complete .step-status {
@@ -545,7 +545,7 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .step-content {
-      padding: 0 ${dramTheme.spacing.md} ${dramTheme.spacing.md};
+      padding: 0 ${hankoTheme.spacing.md} ${hankoTheme.spacing.md};
       display: none;
     }
 
@@ -554,50 +554,50 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .form-group {
-      margin-bottom: ${dramTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${dramTheme.spacing.sm};
-      color: ${dramTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.sm};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 0.875rem;
       font-family: inherit;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: ${dramTheme.colors.borderHover};
-      background: ${dramTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .btn {
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
       cursor: pointer;
       transition: all 0.2s;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     .btn:hover {
-      background: ${dramTheme.colors.backgroundTertiary};
-      border-color: ${dramTheme.colors.borderHover};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .btn:disabled {
@@ -616,43 +616,43 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .password-section {
-      padding: ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      margin-bottom: ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     .password-section h4 {
       font-size: 0.875rem;
       font-weight: 400;
-      margin-bottom: ${dramTheme.spacing.md};
-      color: ${dramTheme.colors.textPrimary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .info-box {
-      padding: ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-left: 2px solid ${dramTheme.colors.borderHover};
-      margin-bottom: ${dramTheme.spacing.md};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-left: 2px solid ${hankoTheme.colors.borderHover};
+      margin-bottom: ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
-      color: ${dramTheme.colors.textSecondary};
-      border-radius: ${dramTheme.borderRadius.md};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     small {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       display: block;
       margin-top: 0.25rem;
     }
 
     code {
-      font-family: ${dramTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem;
-      background: ${dramTheme.colors.accent};
-      padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.sm};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.accent};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
     }
 
     .checkbox-group input[type="checkbox"] {

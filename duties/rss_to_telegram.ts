@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconSVG } from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconSVG } from "../src/utils/theme.js";
 
 interface RSSItem {
   id: number;
@@ -500,9 +500,9 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
 
     body {
-      font-family: ${roninTheme.fonts.primary};
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
+      font-family: ${hankoTheme.fonts.primary};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
       min-height: 100vh;
       padding: 0;
       line-height: 1.6;
@@ -512,7 +512,7 @@ export default class RSSToTelegramAgent extends BaseDuty {
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .content {
@@ -521,29 +521,29 @@ export default class RSSToTelegramAgent extends BaseDuty {
 
     .status-section,
     .form-section {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.xl};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .status-section h2,
     .form-section h2 {
       font-size: 0.9375rem;
       font-weight: 300;
-      margin-bottom: ${roninTheme.spacing.md};
-      padding-bottom: ${roninTheme.spacing.sm};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      padding-bottom: ${hankoTheme.spacing.sm};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .status-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: ${roninTheme.spacing.sm} 0;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${hankoTheme.spacing.sm} 0;
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
 
     .status-item:last-child {
@@ -551,88 +551,88 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
 
     .status-label {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
       font-weight: 500;
     }
 
     .status-value {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 0.8125rem;
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
     }
 
     .status-badge {
       display: inline-block;
       padding: 0.25rem 0.5rem;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
     }
 
     .status-badge.configured {
-      background: ${roninTheme.colors.success}20;
-      color: ${roninTheme.colors.success};
-      border: 1px solid ${roninTheme.colors.success}40;
+      background: ${hankoTheme.colors.success}20;
+      color: ${hankoTheme.colors.success};
+      border: 1px solid ${hankoTheme.colors.success}40;
     }
 
     .status-badge.not-configured {
-      background: ${roninTheme.colors.error}20;
-      color: ${roninTheme.colors.error};
-      border: 1px solid ${roninTheme.colors.error}40;
+      background: ${hankoTheme.colors.error}20;
+      color: ${hankoTheme.colors.error};
+      border: 1px solid ${hankoTheme.colors.error}40;
     }
 
     .form-group {
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      color: ${roninTheme.colors.textSecondary};
-      margin-bottom: ${roninTheme.spacing.xs};
+      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.xs};
       font-size: 0.8125rem;
       font-weight: 500;
     }
 
     .form-group .help-text {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       margin-top: 0.25rem;
       font-style: italic;
     }
 
     .form-group input {
       width: 100%;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      color: ${hankoTheme.colors.textPrimary};
       font-family: inherit;
       transition: all 0.3s;
     }
 
     .form-group input::placeholder {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .form-group input:focus {
       outline: none;
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .form-group .required {
-      color: ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
 
     .button {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.8125rem;
       font-family: inherit;
@@ -641,8 +641,8 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
     
     .button:hover {
-      background: ${roninTheme.colors.accent};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accent};
+      border-color: ${hankoTheme.colors.borderHover};
     }
     
     .button:disabled {
@@ -651,43 +651,43 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
     
     .button-primary {
-      background: ${roninTheme.colors.accent};
-      border-color: ${roninTheme.colors.borderHover};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .button-primary:hover:not(:disabled) {
-      background: ${roninTheme.colors.accentHover};
+      background: ${hankoTheme.colors.accentHover};
     }
 
     .error {
-      background: ${roninTheme.colors.error}20;
-      border: 1px solid ${roninTheme.colors.error}40;
-      color: ${roninTheme.colors.error};
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
-      margin: ${roninTheme.spacing.md} 0;
+      background: ${hankoTheme.colors.error}20;
+      border: 1px solid ${hankoTheme.colors.error}40;
+      color: ${hankoTheme.colors.error};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
+      margin: ${hankoTheme.spacing.md} 0;
     }
 
     .success {
-      background: ${roninTheme.colors.success}20;
-      border: 1px solid ${roninTheme.colors.success}40;
-      color: ${roninTheme.colors.success};
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
-      margin: ${roninTheme.spacing.md} 0;
+      background: ${hankoTheme.colors.success}20;
+      border: 1px solid ${hankoTheme.colors.success}40;
+      color: ${hankoTheme.colors.success};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
+      margin: ${hankoTheme.spacing.md} 0;
     }
 
     .loading {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textTertiary};
       font-weight: 300;
     }
 
     @media (max-width: 768px) {
       .container {
-        padding: ${roninTheme.spacing.md};
+        padding: ${hankoTheme.spacing.md};
       }
     }
   </style>

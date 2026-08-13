@@ -12,15 +12,7 @@ import {
   type CronParts,
 } from "../src/utils/cron.js";
 import { resolve, basename } from "path";
-import {
-  roninTheme,
-  dramTheme,
-  getSharedUIPrimitivesCSS,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /**
  * Schedule Manager Duty
@@ -944,7 +936,7 @@ Respond with a JSON object containing:
       dutiesWithSchedules,
       allDuties,
       getCommonSchedules(),
-      roninTheme.colors.textSecondary
+      hankoTheme.colors.textSecondary
     );
 
     const html = `<!DOCTYPE html>
@@ -955,9 +947,9 @@ Respond with a JSON object containing:
   <title>Schedule Manager - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
     
     body {
       padding: 0;
@@ -967,34 +959,34 @@ Respond with a JSON object containing:
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .tabs {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      margin-bottom: ${roninTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.sm};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .tab {
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
       font-size: 0.875rem;
       transition: all 0.2s;
     }
 
     .tab:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .tab.active {
-      color: ${roninTheme.colors.link};
-      border-bottom-color: ${roninTheme.colors.link};
+      color: ${hankoTheme.colors.link};
+      border-bottom-color: ${hankoTheme.colors.link};
     }
 
     .tab-content {
@@ -1047,95 +1039,95 @@ Respond with a JSON object containing:
     }
 
     .agent-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.lg};
       transition: all 0.3s;
     }
 
     .agent-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .agent-card h3 {
-      margin: 0 0 ${roninTheme.spacing.sm} 0;
-      color: ${roninTheme.colors.link};
+      margin: 0 0 ${hankoTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.link};
     }
 
     .agent-card .schedule {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
-      margin: ${roninTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.textSecondary};
+      margin: ${hankoTheme.spacing.sm} 0;
     }
 
     .agent-card .description {
-      color: ${roninTheme.colors.textSecondary};
-      margin: ${roninTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.textSecondary};
+      margin: ${hankoTheme.spacing.sm} 0;
     }
 
     .agent-card .next-runs {
-      margin-top: ${roninTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .agent-card .next-runs ul {
-      margin: ${roninTheme.spacing.xs} 0 0 0;
-      padding-left: ${roninTheme.spacing.lg};
+      margin: ${hankoTheme.spacing.xs} 0 0 0;
+      padding-left: ${hankoTheme.spacing.lg};
     }
 
     .builder-mode-selector {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .mode-button {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       transition: all 0.2s;
     }
 
     .mode-button:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
-      border-color: ${roninTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .mode-button.active {
-      background: ${roninTheme.colors.backgroundTertiary};
-      border-color: ${roninTheme.colors.link};
-      color: ${roninTheme.colors.link};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.link};
+      color: ${hankoTheme.colors.link};
     }
 
     .builder-section {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .builder-section h3 {
-      margin: 0 0 ${roninTheme.spacing.md} 0;
-      color: ${roninTheme.colors.textPrimary};
+      margin: 0 0 ${hankoTheme.spacing.md} 0;
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 1rem;
     }
 
     .form-group {
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${roninTheme.spacing.xs};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.xs};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
 
@@ -1147,8 +1139,8 @@ Respond with a JSON object containing:
     .table-editor {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .table-field {
@@ -1158,116 +1150,116 @@ Respond with a JSON object containing:
 
     .table-field label {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
-      margin-bottom: ${roninTheme.spacing.xs};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
 
     .table-field input {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.875rem;
     }
 
     .preview-section {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .preview-section h3 {
-      margin: 0 0 ${roninTheme.spacing.md} 0;
-      color: ${roninTheme.colors.textPrimary};
+      margin: 0 0 ${hankoTheme.spacing.md} 0;
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 1rem;
     }
 
     .cron-expression {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 1rem;
-      background: ${roninTheme.colors.background};
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.sm};
-      margin: ${roninTheme.spacing.sm} 0;
+      background: ${hankoTheme.colors.background};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      margin: ${hankoTheme.spacing.sm} 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     .copy-button {
-      padding: ${roninTheme.spacing.xs} ${roninTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
       font-size: 0.75rem;
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       transition: all 0.2s;
     }
 
     .copy-button:hover {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-color: ${roninTheme.colors.borderHover};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .description-text {
-      color: ${roninTheme.colors.textSecondary};
-      margin: ${roninTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.textSecondary};
+      margin: ${hankoTheme.spacing.sm} 0;
     }
 
     .next-runs-list {
       list-style: none;
       padding: 0;
-      margin: ${roninTheme.spacing.sm} 0 0 0;
+      margin: ${hankoTheme.spacing.sm} 0 0 0;
     }
 
     .next-runs-list li {
-      padding: ${roninTheme.spacing.xs} 0;
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.xs} 0;
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.8125rem;
     }
 
     .code-snippet {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.8125rem;
-      background: ${roninTheme.colors.background};
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.sm};
-      margin: ${roninTheme.spacing.sm} 0;
+      background: ${hankoTheme.colors.background};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      margin: ${hankoTheme.spacing.sm} 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .apply-section {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .apply-section h3 {
-      margin: 0 0 ${roninTheme.spacing.md} 0;
-      color: ${roninTheme.colors.textPrimary};
+      margin: 0 0 ${hankoTheme.spacing.md} 0;
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 1rem;
     }
 
     .apply-button {
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.link};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.link};
       border: none;
-      color: ${roninTheme.colors.background};
+      color: ${hankoTheme.colors.background};
       font-weight: 500;
       cursor: pointer;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       transition: all 0.2s;
-      margin-top: ${roninTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
     }
 
     .apply-button:hover:not(:disabled) {
-      background: ${roninTheme.colors.linkHover};
+      background: ${hankoTheme.colors.linkHover};
     }
 
     .apply-button:disabled {
@@ -1276,65 +1268,65 @@ Respond with a JSON object containing:
     }
 
     .error-message {
-      color: ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
       font-size: 0.8125rem;
-      margin-top: ${roninTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
     }
 
     .success-message {
-      color: ${roninTheme.colors.success};
+      color: ${hankoTheme.colors.success};
       font-size: 0.8125rem;
-      margin-top: ${roninTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
     }
 
     .template-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
 
     .template-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .template-card:hover {
-      border-color: ${roninTheme.colors.link};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.link};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .template-card h4 {
-      margin: 0 0 ${roninTheme.spacing.xs} 0;
-      color: ${roninTheme.colors.link};
+      margin: 0 0 ${hankoTheme.spacing.xs} 0;
+      color: ${hankoTheme.colors.link};
       font-size: 0.875rem;
     }
 
     .template-card .cron {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
-      margin: ${roninTheme.spacing.xs} 0;
+      color: ${hankoTheme.colors.textSecondary};
+      margin: ${hankoTheme.spacing.xs} 0;
     }
 
     .template-card .desc {
       font-size: 0.8125rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .ai-prompt-section {
-      margin-top: ${roninTheme.spacing.md};
-      padding-top: ${roninTheme.spacing.md};
-      border-top: 1px solid ${roninTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.md};
+      padding-top: ${hankoTheme.spacing.md};
+      border-top: 1px solid ${hankoTheme.colors.border};
     }
 
     .ai-prompt-input {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      margin-top: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
     }
 
     .ai-prompt-input input {
@@ -1342,17 +1334,17 @@ Respond with a JSON object containing:
     }
 
     .ai-prompt-button {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.link};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.link};
       border: none;
-      color: ${roninTheme.colors.background};
+      color: ${hankoTheme.colors.background};
       cursor: pointer;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8125rem;
     }
 
     .ai-prompt-button:hover:not(:disabled) {
-      background: ${roninTheme.colors.linkHover};
+      background: ${hankoTheme.colors.linkHover};
     }
 
     .ai-prompt-button:disabled {
@@ -1361,64 +1353,64 @@ Respond with a JSON object containing:
     }
 
     .ai-result {
-      margin-top: ${roninTheme.spacing.sm};
-      padding: ${roninTheme.spacing.sm};
-      border-radius: ${roninTheme.borderRadius.sm};
+      margin-top: ${hankoTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.8125rem;
     }
 
     .ai-result.success {
       background: rgba(40, 167, 69, 0.1);
-      color: ${roninTheme.colors.success};
-      border: 1px solid ${roninTheme.colors.success};
+      color: ${hankoTheme.colors.success};
+      border: 1px solid ${hankoTheme.colors.success};
     }
 
     .ai-result.error {
       background: rgba(220, 53, 69, 0.1);
-      color: ${roninTheme.colors.error};
-      border: 1px solid ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
+      border: 1px solid ${hankoTheme.colors.error};
     }
 
     .tools-list {
       display: grid;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
 
     .tool-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
     }
 
     .tool-card h4 {
-      margin: 0 0 ${roninTheme.spacing.xs} 0;
-      color: ${roninTheme.colors.link};
+      margin: 0 0 ${hankoTheme.spacing.xs} 0;
+      color: ${hankoTheme.colors.link};
       font-size: 0.875rem;
     }
 
     .tool-card .tool-name {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
-      margin-bottom: ${roninTheme.spacing.xs};
+      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
 
     .tool-card .tool-description {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
 
     .tool-card .tool-meta {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .schedule-error {
-      color: ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
       font-size: 0.8125rem;
-      margin-top: ${roninTheme.spacing.xs};
+      margin-top: ${hankoTheme.spacing.xs};
     }
   </style>
 </head>
@@ -1505,7 +1497,7 @@ Respond with a JSON object containing:
             <input type="text" id="table-weekday" value="*" />
           </div>
         </div>
-        <p style="font-size: 0.75rem; color: ${roninTheme.colors.textTertiary}; margin-top: ${roninTheme.spacing.md};">
+        <p style="font-size: 0.75rem; color: ${hankoTheme.colors.textTertiary}; margin-top: ${hankoTheme.spacing.md};">
           💡 Tips: Use * for "every", */N for "every N units", or a number for specific value. Weekday: 0=Sun, 1=Mon, ..., 6=Sat
         </p>
       </div>
@@ -1519,7 +1511,7 @@ Respond with a JSON object containing:
         </div>
         <div class="description-text" id="description">At the start of every 6 hours</div>
         <div id="next-runs-container">
-          <strong style="font-size: 0.8125rem; color: ${roninTheme.colors.textSecondary};">Next runs:</strong>
+          <strong style="font-size: 0.8125rem; color: ${hankoTheme.colors.textSecondary};">Next runs:</strong>
           <ul class="next-runs-list" id="next-runs"></ul>
         </div>
         <div id="validation-error" class="error-message" style="display: none;"></div>

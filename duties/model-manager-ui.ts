@@ -7,7 +7,7 @@
 
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelManagerUIAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -46,9 +46,9 @@ export default class ModelManagerUIAgent extends BaseDuty {
   <title>Model Manager - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       min-height: 100vh;
@@ -59,27 +59,27 @@ export default class ModelManagerUIAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .provider-section {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
       overflow: hidden;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .provider-section:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .provider-header {
-      background: linear-gradient(135deg, ${roninTheme.colors.backgroundTertiary}, ${roninTheme.colors.backgroundSecondary});
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
+      background: linear-gradient(135deg, ${hankoTheme.colors.backgroundTertiary}, ${hankoTheme.colors.backgroundSecondary});
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -89,7 +89,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .provider-header:hover {
-      background: linear-gradient(135deg, ${roninTheme.colors.backgroundTertiary}, ${roninTheme.colors.accent});
+      background: linear-gradient(135deg, ${hankoTheme.colors.backgroundTertiary}, ${hankoTheme.colors.accent});
     }
 
     .provider-header h2 {
@@ -97,12 +97,12 @@ export default class ModelManagerUIAgent extends BaseDuty {
       margin: 0;
       font-weight: 400;
       letter-spacing: -0.01em;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .provider-header .info {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 300;
@@ -110,12 +110,12 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .provider-header .toggle {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       transition: transform 0.3s;
     }
 
     .provider-content {
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
       display: none;
     }
 
@@ -125,20 +125,20 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .models-list {
       display: grid;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
 
     .model-card {
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .model-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.accent};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accent};
       transform: translateY(-2px);
     }
 
@@ -146,23 +146,23 @@ export default class ModelManagerUIAgent extends BaseDuty {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .model-info h3 {
       font-size: 0.95rem;
-      margin: 0 0 ${roninTheme.spacing.xs} 0;
+      margin: 0 0 ${hankoTheme.spacing.xs} 0;
       font-weight: 400;
       letter-spacing: -0.01em;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .model-nametag {
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.link};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.link};
       padding: 2px 8px;
-      border-radius: ${roninTheme.borderRadius.sm};
-      font-family: ${roninTheme.fonts.mono};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem;
       display: inline-block;
       letter-spacing: 0.02em;
@@ -170,47 +170,47 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .model-actions {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
 
     .btn {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.8125rem;
-      font-family: ${roninTheme.fonts.primary};
+      font-family: ${hankoTheme.fonts.primary};
       font-weight: 400;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       white-space: nowrap;
     }
 
     .btn:hover:not(:disabled) {
-      background: ${roninTheme.colors.backgroundTertiary};
-      border-color: ${roninTheme.colors.borderHover};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
       transform: translateY(-1px);
     }
 
     .btn-danger {
-      border-color: ${roninTheme.colors.error};
-      color: ${roninTheme.colors.error};
+      border-color: ${hankoTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
 
     .btn-danger:hover {
       background: rgba(220, 53, 69, 0.1);
-      border-color: ${roninTheme.colors.error};
+      border-color: ${hankoTheme.colors.error};
     }
 
     .settings {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: ${roninTheme.spacing.md};
-      margin-top: ${roninTheme.spacing.md};
-      padding-top: ${roninTheme.spacing.md};
-      border-top: 1px solid ${roninTheme.colors.border};
+      gap: ${hankoTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
+      padding-top: ${hankoTheme.spacing.md};
+      border-top: 1px solid ${hankoTheme.colors.border};
       font-size: 0.8125rem;
     }
 
@@ -221,16 +221,16 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .setting label {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
       font-weight: 500;
     }
 
     .setting span {
-      color: ${roninTheme.colors.textSecondary};
-      font-family: ${roninTheme.fonts.mono};
+      color: ${hankoTheme.colors.textSecondary};
+      font-family: ${hankoTheme.fonts.mono};
       line-height: 1.4;
     }
 
@@ -253,10 +253,10 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .modal-content {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.xl};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.xl};
       max-width: 500px;
       width: 90%;
       max-height: 85vh;
@@ -265,7 +265,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .modal-header {
-      margin-bottom: ${roninTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -276,13 +276,13 @@ export default class ModelManagerUIAgent extends BaseDuty {
       font-size: 1.1rem;
       font-weight: 400;
       letter-spacing: -0.01em;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .modal-close {
       background: none;
       border: none;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 1.5rem;
       cursor: pointer;
       padding: 0;
@@ -295,52 +295,52 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .modal-close:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .form-group {
-      margin-bottom: ${roninTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
       font-weight: 400;
       font-size: 0.8125rem;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       letter-spacing: -0.01em;
     }
 
     .form-group input {
       width: 100%;
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      border-radius: ${roninTheme.borderRadius.md};
-      font-family: ${roninTheme.fonts.primary};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.md};
+      font-family: ${hankoTheme.fonts.primary};
       font-size: 0.875rem;
       transition: all 0.3s;
     }
 
     .form-group input:focus {
       outline: none;
-      border-color: ${roninTheme.colors.link};
-      background: ${roninTheme.colors.background};
+      border-color: ${hankoTheme.colors.link};
+      background: ${hankoTheme.colors.background};
       box-shadow: 0 0 0 2px rgba(132, 204, 22, 0.1);
     }
 
     .form-group input::placeholder {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .modal-actions {
       display: flex;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
       justify-content: flex-end;
-      margin-top: ${roninTheme.spacing.lg};
-      padding-top: ${roninTheme.spacing.lg};
-      border-top: 1px solid ${roninTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.lg};
+      padding-top: ${hankoTheme.spacing.lg};
+      border-top: 1px solid ${hankoTheme.colors.border};
     }
 
     .modal-actions .btn {
@@ -348,50 +348,50 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .provider-empty {
-      color: ${roninTheme.colors.textTertiary};
-      padding: ${roninTheme.spacing.lg};
+      color: ${hankoTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.lg};
       text-align: center;
       font-size: 0.875rem;
       font-style: italic;
     }
 
     #providers-container {
-      margin-top: ${roninTheme.spacing.lg};
+      margin-top: ${hankoTheme.spacing.lg};
     }
 
     .loading {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
 
     .tabs {
       display: flex;
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      padding-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding-bottom: ${hankoTheme.spacing.md};
     }
 
     .tab-button {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
       background: none;
       border: none;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
       font-size: 0.9rem;
-      font-family: ${roninTheme.fonts.primary};
+      font-family: ${hankoTheme.fonts.primary};
       transition: all 0.2s;
       border-bottom: 2px solid transparent;
-      margin-bottom: -${roninTheme.spacing.md};
+      margin-bottom: -${hankoTheme.spacing.md};
     }
 
     .tab-button.active {
-      color: ${roninTheme.colors.link};
-      border-bottom-color: ${roninTheme.colors.link};
+      color: ${hankoTheme.colors.link};
+      border-bottom-color: ${hankoTheme.colors.link};
     }
 
     .tab-button:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .tab-content {
@@ -404,35 +404,35 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .provider-list {
       display: grid;
-      gap: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .provider-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .provider-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .provider-card h3 {
-      margin: 0 0 ${roninTheme.spacing.md} 0;
+      margin: 0 0 ${hankoTheme.spacing.md} 0;
       font-size: 1.05rem;
       font-weight: 400;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .provider-info {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
     }
 
@@ -442,40 +442,40 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .provider-info-item label {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-size: 0.75rem;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
 
     .provider-info-item span {
-      color: ${roninTheme.colors.textSecondary};
-      font-family: ${roninTheme.fonts.mono};
+      color: ${hankoTheme.colors.textSecondary};
+      font-family: ${hankoTheme.fonts.mono};
       word-break: break-all;
     }
 
     .provider-actions {
       display: flex;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
 
     .add-button {
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.link};
-      color: ${roninTheme.colors.link};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.link};
+      color: ${hankoTheme.colors.link};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
-      font-family: ${roninTheme.fonts.primary};
+      font-family: ${hankoTheme.fonts.primary};
       font-weight: 400;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .add-button:hover {
-      background: ${roninTheme.colors.link};
-      color: ${roninTheme.colors.background};
+      background: ${hankoTheme.colors.link};
+      color: ${hankoTheme.colors.background};
     }
   </style>
 </head>
@@ -484,7 +484,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
     ${getHeaderHomeIconHTML()}
     <h1>Model Manager</h1>
     <div class="header-meta">
-      <a href="/models" style="color: ${roninTheme.colors.link}; text-decoration: none;">← Back to Dashboard</a>
+      <a href="/models" style="color: ${hankoTheme.colors.link}; text-decoration: none;">← Back to Dashboard</a>
     </div>
   </div>
 
@@ -550,7 +550,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         </div>
         <div class="modal-actions">
           <button type="button" class="btn" onclick="closeModal()">Cancel</button>
-          <button type="button" class="btn" style="background: ${roninTheme.colors.link}; color: ${roninTheme.colors.background}; border-color: ${roninTheme.colors.link};" onclick="saveEdits()">Save Changes</button>
+          <button type="button" class="btn" style="background: ${hankoTheme.colors.link}; color: ${hankoTheme.colors.background}; border-color: ${hankoTheme.colors.link};" onclick="saveEdits()">Save Changes</button>
         </div>
       </form>
     </div>
@@ -569,7 +569,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         </div>
         <div class="form-group">
           <label>Provider Type</label>
-          <select id="provider-type" style="width: 100%; padding: ${roninTheme.spacing.md}; background: ${roninTheme.colors.backgroundTertiary}; border: 1px solid ${roninTheme.colors.border}; color: ${roninTheme.colors.textPrimary}; border-radius: ${roninTheme.borderRadius.md}; font-family: ${roninTheme.fonts.primary};">
+          <select id="provider-type" style="width: 100%; padding: ${hankoTheme.spacing.md}; background: ${hankoTheme.colors.backgroundTertiary}; border: 1px solid ${hankoTheme.colors.border}; color: ${hankoTheme.colors.textPrimary}; border-radius: ${hankoTheme.borderRadius.md}; font-family: ${hankoTheme.fonts.primary};">
             <option value="">Select type...</option>
             <option value="remote">Remote API</option>
             <option value="local">Local Service</option>
@@ -589,7 +589,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         </div>
         <div class="modal-actions">
           <button type="button" class="btn" onclick="closeProviderModal()">Cancel</button>
-          <button type="button" class="btn" style="background: ${roninTheme.colors.link}; color: ${roninTheme.colors.background}; border-color: ${roninTheme.colors.link};" onclick="saveProvider()">Add Provider</button>
+          <button type="button" class="btn" style="background: ${hankoTheme.colors.link}; color: ${hankoTheme.colors.background}; border-color: ${hankoTheme.colors.link};" onclick="saveProvider()">Add Provider</button>
         </div>
       </form>
     </div>
@@ -620,7 +620,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         </div>
         <div class="modal-actions">
           <button type="button" class="btn" onclick="closeEditProviderModal()">Cancel</button>
-          <button type="button" class="btn" style="background: ${roninTheme.colors.link}; color: ${roninTheme.colors.background}; border-color: ${roninTheme.colors.link};" onclick="saveEditProvider()">Save Changes</button>
+          <button type="button" class="btn" style="background: ${hankoTheme.colors.link}; color: ${hankoTheme.colors.background}; border-color: ${hankoTheme.colors.link};" onclick="saveEditProvider()">Save Changes</button>
         </div>
       </form>
     </div>
@@ -671,7 +671,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         </div>
         <div class="modal-actions">
           <button type="button" class="btn" onclick="closeAddModelModal()">Cancel</button>
-          <button type="button" class="btn" style="background: ${roninTheme.colors.link}; color: ${roninTheme.colors.background}; border-color: ${roninTheme.colors.link};" onclick="saveNewModel()">Add Model</button>
+          <button type="button" class="btn" style="background: ${hankoTheme.colors.link}; color: ${hankoTheme.colors.background}; border-color: ${hankoTheme.colors.link};" onclick="saveNewModel()">Add Model</button>
         </div>
       </form>
     </div>

@@ -1,14 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import {
-  roninTheme,
-  dramTheme,
-  getSharedUIPrimitivesCSS,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -182,104 +174,104 @@ async function alpacaStatus(api: DutyAPI): Promise<{ connected: boolean; mode: "
 function sharedCSS(): string {
   return `
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body { min-height: 100vh; padding: 0; font-size: 0.8125rem; }
 
     .nav-tabs {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      padding: 0 ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: 0 ${hankoTheme.spacing.lg};
       display: flex;
       gap: 0;
       overflow-x: auto;
     }
     .nav-tab {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.lg};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.lg};
+      color: ${hankoTheme.colors.textTertiary};
       text-decoration: none;
       border-bottom: 2px solid transparent;
       font-size: 0.8125rem;
       transition: all 0.2s;
       white-space: nowrap;
     }
-    .nav-tab:hover { color: ${roninTheme.colors.textSecondary}; }
+    .nav-tab:hover { color: ${hankoTheme.colors.textSecondary}; }
     .nav-tab.active {
-      color: ${roninTheme.colors.link};
-      border-bottom-color: ${roninTheme.colors.link};
+      color: ${hankoTheme.colors.link};
+      border-bottom-color: ${hankoTheme.colors.link};
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
       transition: all 0.3s;
     }
-    .stat-card:hover { border-color: ${roninTheme.colors.borderHover}; }
+    .stat-card:hover { border-color: ${hankoTheme.colors.borderHover}; }
     .stat-card .label {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.6875rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
     .stat-card .value {
       font-size: 1.5rem;
       font-weight: 300;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     .stat-card .sub {
       font-size: 0.6875rem;
-      color: ${roninTheme.colors.textTertiary};
-      margin-top: ${roninTheme.spacing.xs};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-top: ${hankoTheme.spacing.xs};
     }
-    .positive { color: ${roninTheme.colors.success} !important; }
-    .negative { color: ${roninTheme.colors.error} !important; }
+    .positive { color: ${hankoTheme.colors.success} !important; }
+    .negative { color: ${hankoTheme.colors.error} !important; }
 
-    .section { margin-bottom: ${roninTheme.spacing.xl}; }
+    .section { margin-bottom: ${hankoTheme.spacing.xl}; }
     .section-title {
       font-size: 0.9375rem;
       font-weight: 300;
-      margin-bottom: ${roninTheme.spacing.md};
-      padding-bottom: ${roninTheme.spacing.sm};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      padding-bottom: ${hankoTheme.spacing.sm};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
     th {
       text-align: left;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textTertiary};
       font-weight: 400;
       font-size: 0.6875rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     td {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
-    tr:hover td { background: ${roninTheme.colors.backgroundTertiary}; }
+    tr:hover td { background: ${hankoTheme.colors.backgroundTertiary}; }
 
     .badge {
       display: inline-block;
@@ -287,70 +279,70 @@ function sharedCSS(): string {
       border-radius: 10px;
       font-size: 0.6875rem;
     }
-    .badge-buy { background: rgba(40,167,69,0.15); color: ${roninTheme.colors.success}; }
-    .badge-sell { background: rgba(220,53,69,0.15); color: ${roninTheme.colors.error}; }
-    .badge-completed { background: rgba(40,167,69,0.15); color: ${roninTheme.colors.success}; }
-    .badge-running { background: rgba(245,158,11,0.15); color: ${roninTheme.colors.warning}; }
-    .badge-failed { background: rgba(220,53,69,0.15); color: ${roninTheme.colors.error}; }
+    .badge-buy { background: rgba(40,167,69,0.15); color: ${hankoTheme.colors.success}; }
+    .badge-sell { background: rgba(220,53,69,0.15); color: ${hankoTheme.colors.error}; }
+    .badge-completed { background: rgba(40,167,69,0.15); color: ${hankoTheme.colors.success}; }
+    .badge-running { background: rgba(245,158,11,0.15); color: ${hankoTheme.colors.warning}; }
+    .badge-failed { background: rgba(220,53,69,0.15); color: ${hankoTheme.colors.error}; }
 
     .chart-box {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
     .chart-box h3 {
       font-size: 0.8125rem;
       font-weight: 400;
-      margin-bottom: ${roninTheme.spacing.md};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      color: ${hankoTheme.colors.textSecondary};
     }
     .chart-box canvas { width: 100% !important; max-height: 280px; }
 
     .charts-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .empty-state {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .filter-bar {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.md};
       flex-wrap: wrap;
     }
     .filter-bar select, .filter-bar input {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      padding: ${roninTheme.spacing.xs} ${roninTheme.spacing.sm};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8125rem;
     }
 
-    .trend-up { color: ${roninTheme.colors.success}; }
-    .trend-down { color: ${roninTheme.colors.error}; }
-    .trend-flat { color: ${roninTheme.colors.textTertiary}; }
+    .trend-up { color: ${hankoTheme.colors.success}; }
+    .trend-down { color: ${hankoTheme.colors.error}; }
+    .trend-flat { color: ${hankoTheme.colors.textTertiary}; }
 
     .progress-bar {
       width: 100%;
       height: 4px;
-      background: ${roninTheme.colors.border};
+      background: ${hankoTheme.colors.border};
       border-radius: 2px;
       overflow: hidden;
       margin-top: 4px;
     }
     .progress-fill {
       height: 100%;
-      background: ${roninTheme.colors.link};
+      background: ${hankoTheme.colors.link};
       border-radius: 2px;
       transition: width 0.4s;
     }
@@ -358,22 +350,22 @@ function sharedCSS(): string {
     .back-link {
       display: inline-flex;
       align-items: center;
-      gap: ${roninTheme.spacing.xs};
-      color: ${roninTheme.colors.textTertiary};
-      margin-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.xs};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-bottom: ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
       text-decoration: none;
     }
-    .back-link:hover { color: ${roninTheme.colors.link}; }
+    .back-link:hover { color: ${hankoTheme.colors.link}; }
 
     .phase-chip {
       display: inline-block;
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
       border-radius: 10px;
       padding: 2px 8px;
       font-size: 0.6875rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       margin: 2px;
     }
 
@@ -487,20 +479,20 @@ export default class PortfolioAgent extends BaseDuty {
     const mode = (status.mode || "paper").toUpperCase();
     const dayChange = stats?.dayChange ?? 0;
     const daySign = dayChange >= 0 ? "+" : "";
-    const dayColor = dayChange >= 0 ? roninTheme.colors.success : roninTheme.colors.error;
-    const pnlColor = totalUnrealizedPnl >= 0 ? roninTheme.colors.success : roninTheme.colors.error;
-    const card = `<div style="font-size:12px;line-height:1.35;color:${roninTheme.colors.textSecondary}">
+    const dayColor = dayChange >= 0 ? hankoTheme.colors.success : hankoTheme.colors.error;
+    const pnlColor = totalUnrealizedPnl >= 0 ? hankoTheme.colors.success : hankoTheme.colors.error;
+    const card = `<div style="font-size:12px;line-height:1.35;color:${hankoTheme.colors.textSecondary}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <strong style="font-size:13px;color:${roninTheme.colors.textPrimary}">Portfolio</strong>
-        <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:${status.connected ? "rgba(40,167,69,0.18)" : "rgba(220,53,69,0.18)"};color:${status.connected ? roninTheme.colors.success : roninTheme.colors.error};border:1px solid ${status.connected ? "rgba(40,167,69,0.35)" : "rgba(220,53,69,0.35)"}">${status.connected ? "Connected" : "Disconnected"}</span>
+        <strong style="font-size:13px;color:${hankoTheme.colors.textPrimary}">Portfolio</strong>
+        <span style="font-size:10px;padding:1px 6px;border-radius:999px;background:${status.connected ? "rgba(40,167,69,0.18)" : "rgba(220,53,69,0.18)"};color:${status.connected ? hankoTheme.colors.success : hankoTheme.colors.error};border:1px solid ${status.connected ? "rgba(40,167,69,0.35)" : "rgba(220,53,69,0.35)"}">${status.connected ? "Connected" : "Disconnected"}</span>
       </div>
-      <div style="color:${roninTheme.colors.textTertiary};font-size:10px;margin-top:2px">${mode}</div>
+      <div style="color:${hankoTheme.colors.textTertiary};font-size:10px;margin-top:2px">${mode}</div>
       <div style="margin-top:6px;display:grid;grid-template-columns:auto 1fr;gap:2px 8px">
-        <span style="color:${roninTheme.colors.textTertiary}">Total</span><span style="color:${roninTheme.colors.textPrimary}">${fmtCurrency(stats?.totalValue ?? 0)}</span>
-        <span style="color:${roninTheme.colors.textTertiary}">Day</span><span style="color:${dayColor}">${daySign}${fmtCurrency(dayChange)}</span>
-        <span style="color:${roninTheme.colors.textTertiary}">Exposure</span><span>${fmtCurrency(totalExposure)}</span>
-        <span style="color:${roninTheme.colors.textTertiary}">UPNL</span><span style="color:${pnlColor}">${totalUnrealizedPnl >= 0 ? "+" : ""}${fmtCurrency(totalUnrealizedPnl)}</span>
-        <span style="color:${roninTheme.colors.textTertiary}">Shares</span><span>${totalShares.toFixed(2)}</span>
+        <span style="color:${hankoTheme.colors.textTertiary}">Total</span><span style="color:${hankoTheme.colors.textPrimary}">${fmtCurrency(stats?.totalValue ?? 0)}</span>
+        <span style="color:${hankoTheme.colors.textTertiary}">Day</span><span style="color:${dayColor}">${daySign}${fmtCurrency(dayChange)}</span>
+        <span style="color:${hankoTheme.colors.textTertiary}">Exposure</span><span>${fmtCurrency(totalExposure)}</span>
+        <span style="color:${hankoTheme.colors.textTertiary}">UPNL</span><span style="color:${pnlColor}">${totalUnrealizedPnl >= 0 ? "+" : ""}${fmtCurrency(totalUnrealizedPnl)}</span>
+        <span style="color:${hankoTheme.colors.textTertiary}">Shares</span><span>${totalShares.toFixed(2)}</span>
       </div>
     </div>`;
     this.emitHomeFeed(status.connected ? "Connected" : "Disconnected", `Mode: ${mode}`, 82, card);
@@ -749,16 +741,16 @@ export default class PortfolioAgent extends BaseDuty {
   <title>Portfolio Settings</title>
   <style>
     ${sharedCSS()}
-    .settings-card { background:${roninTheme.colors.backgroundSecondary};border:1px solid ${roninTheme.colors.border};border-radius:${roninTheme.borderRadius.lg};padding:${roninTheme.spacing.xl};margin-bottom:${roninTheme.spacing.lg}; }
-    .settings-card h2 { margin:0 0 0.5rem;font-size:1rem;color:${roninTheme.colors.textPrimary}; }
-    .settings-card p { margin:0 0 1rem;font-size:0.8125rem;color:${roninTheme.colors.textTertiary}; }
+    .settings-card { background:${hankoTheme.colors.backgroundSecondary};border:1px solid ${hankoTheme.colors.border};border-radius:${hankoTheme.borderRadius.lg};padding:${hankoTheme.spacing.xl};margin-bottom:${hankoTheme.spacing.lg}; }
+    .settings-card h2 { margin:0 0 0.5rem;font-size:1rem;color:${hankoTheme.colors.textPrimary}; }
+    .settings-card p { margin:0 0 1rem;font-size:0.8125rem;color:${hankoTheme.colors.textTertiary}; }
     .field { margin-bottom:1rem; }
-    .field label { display:block;font-size:0.75rem;color:${roninTheme.colors.textTertiary};margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
-    .field input[type=text], .field input[type=password] { width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box; }
-    .field input:focus { outline:none;border-color:${roninTheme.colors.link}; }
+    .field label { display:block;font-size:0.75rem;color:${hankoTheme.colors.textTertiary};margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em; }
+    .field input[type=text], .field input[type=password] { width:100%;background:${hankoTheme.colors.background};border:1px solid ${hankoTheme.colors.border};border-radius:6px;padding:8px 12px;color:${hankoTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box; }
+    .field input:focus { outline:none;border-color:${hankoTheme.colors.link}; }
     .radio-group { display:flex;gap:1.5rem; }
-    .radio-option { display:flex;align-items:center;gap:6px;cursor:pointer;color:${roninTheme.colors.textSecondary};font-size:0.875rem; }
-    .btn-save { background:${roninTheme.colors.link};color:#000;border:none;padding:10px 24px;border-radius:6px;font-size:0.875rem;font-weight:600;cursor:pointer; }
+    .radio-option { display:flex;align-items:center;gap:6px;cursor:pointer;color:${hankoTheme.colors.textSecondary};font-size:0.875rem; }
+    .btn-save { background:${hankoTheme.colors.link};color:#000;border:none;padding:10px 24px;border-radius:6px;font-size:0.875rem;font-weight:600;cursor:pointer; }
     .status-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
     .dot-on { background:#22c55e; }
     .dot-off { background:#6b7280; }
@@ -782,7 +774,7 @@ export default class PortfolioAgent extends BaseDuty {
       <input type="hidden" name="formType" value="alpaca">
       <div class="settings-card">
         <h2>Alpaca API Credentials ${connected ? '<span style="color:#22c55e;font-size:0.75rem">● Saved</span>' : ""}</h2>
-        <p>Get your API Key ID and Secret Key from <a href="https://app.alpaca.markets" target="_blank" style="color:${roninTheme.colors.link}">app.alpaca.markets</a> → API Keys. Use Paper Trading keys to test safely.</p>
+        <p>Get your API Key ID and Secret Key from <a href="https://app.alpaca.markets" target="_blank" style="color:${hankoTheme.colors.link}">app.alpaca.markets</a> → API Keys. Use Paper Trading keys to test safely.</p>
         <div class="field">
           <label>API Key ID</label>
           <input type="text" name="apiKey" placeholder="${connected ? "•••••••••••• (saved — enter new value to replace)" : "Paste your API Key ID"}" autocomplete="off">
@@ -810,7 +802,7 @@ export default class PortfolioAgent extends BaseDuty {
       </div>
 
       <button type="submit" class="btn-save">Save Settings</button>
-      <a href="/portfolio" style="margin-left:1rem;color:${roninTheme.colors.textTertiary};font-size:0.875rem">← Back to Dashboard</a>
+      <a href="/portfolio" style="margin-left:1rem;color:${hankoTheme.colors.textTertiary};font-size:0.875rem">← Back to Dashboard</a>
     </form>
 
     ${tradingSavedBanner}
@@ -842,7 +834,7 @@ export default class PortfolioAgent extends BaseDuty {
         </div>
         <div class="field">
           <label>Universe (comma or newline separated symbols)</label>
-          <textarea name="universe" rows="3" style="width:100%;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};border-radius:6px;padding:8px 12px;color:${roninTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box;">${escapeHtml((tradingRules.universe ?? []).join(", "))}</textarea>
+          <textarea name="universe" rows="3" style="width:100%;background:${hankoTheme.colors.background};border:1px solid ${hankoTheme.colors.border};border-radius:6px;padding:8px 12px;color:${hankoTheme.colors.textPrimary};font-size:0.875rem;box-sizing:border-box;">${escapeHtml((tradingRules.universe ?? []).join(", "))}</textarea>
         </div>
         <div class="field">
           <label>Max Position Notional (USD)</label>
@@ -864,7 +856,7 @@ export default class PortfolioAgent extends BaseDuty {
     <div class="settings-card">
       <h2>Trading Chain State (Preview)</h2>
       <p>Shared markdown state used by chain personas.</p>
-      <pre style="max-height:320px;overflow:auto;background:${roninTheme.colors.background};border:1px solid ${roninTheme.colors.border};padding:0.75rem;border-radius:6px;white-space:pre-wrap;">${escapeHtml(tradingStatePreview)}</pre>
+      <pre style="max-height:320px;overflow:auto;background:${hankoTheme.colors.background};border:1px solid ${hankoTheme.colors.border};padding:0.75rem;border-radius:6px;white-space:pre-wrap;">${escapeHtml(tradingStatePreview)}</pre>
     </div>
   </div>
   <script>
@@ -947,7 +939,7 @@ export default class PortfolioAgent extends BaseDuty {
       const pnlClass = p.unrealizedPnl >= 0 ? "positive" : "negative";
       const sign = p.unrealizedPnl >= 0 ? "+" : "";
       return `<tr>
-        <td><a href="/portfolio/assets/${p.symbol}" style="color:${roninTheme.colors.link}">${p.symbol}</a></td>
+        <td><a href="/portfolio/assets/${p.symbol}" style="color:${hankoTheme.colors.link}">${p.symbol}</a></td>
         <td>${p.qty}</td>
         <td>${fmtCurrency(p.entryPrice, 2)}</td>
         <td>${fmtCurrency(p.currentPrice, 2)}</td>
@@ -962,7 +954,7 @@ export default class PortfolioAgent extends BaseDuty {
       const badgeClass = t.action === "BUY" ? "badge-buy" : "badge-sell";
       return `<tr>
         <td>${fmtDate(t.date)}</td>
-        <td><a href="/portfolio/assets/${t.symbol}" style="color:${roninTheme.colors.link}">${t.symbol}</a></td>
+        <td><a href="/portfolio/assets/${t.symbol}" style="color:${hankoTheme.colors.link}">${t.symbol}</a></td>
         <td><span class="badge ${badgeClass}">${t.action}</span></td>
         <td>${t.qty}</td>
         <td>${fmtCurrency(t.price, 2)}</td>
@@ -1005,7 +997,7 @@ export default class PortfolioAgent extends BaseDuty {
     <div class="header-meta">
       ${modeBadge}
       <span style="margin-left:0.75rem">Updated ${new Date().toLocaleTimeString()}</span>
-      <a href="/portfolio/settings" style="margin-left:0.75rem;color:${roninTheme.colors.textTertiary};font-size:0.75rem">⚙ Settings</a>
+      <a href="/portfolio/settings" style="margin-left:0.75rem;color:${hankoTheme.colors.textTertiary};font-size:0.75rem">⚙ Settings</a>
     </div>
   </div>
   ${navTabs("/portfolio")}
@@ -1042,9 +1034,9 @@ export default class PortfolioAgent extends BaseDuty {
           <h3>Recent Trade Price Trend</h3>
           ${sparklinePath
             ? `<svg viewBox="0 0 260 70" width="100%" height="90" style="display:block">
-                 <path d="${sparklinePath}" fill="none" stroke="${roninTheme.colors.link}" stroke-width="2.5" />
+                 <path d="${sparklinePath}" fill="none" stroke="${hankoTheme.colors.link}" stroke-width="2.5" />
                </svg>
-               <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:${roninTheme.colors.textTertiary}">
+               <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:${hankoTheme.colors.textTertiary}">
                  <span>Low ${fmtCurrency(recentLow, 2)}</span>
                  <span>High ${fmtCurrency(recentHigh, 2)}</span>
                </div>`
@@ -1052,7 +1044,7 @@ export default class PortfolioAgent extends BaseDuty {
         </div>
         <div class="chart-box">
           <h3>Totals</h3>
-          <div style="display:grid;grid-template-columns:1fr auto;gap:0.45rem 1rem;font-size:0.8125rem;color:${roninTheme.colors.textSecondary}">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:0.45rem 1rem;font-size:0.8125rem;color:${hankoTheme.colors.textSecondary}">
             <div>Position Exposure</div><div>${fmtCurrency(totalExposure)}</div>
             <div>Unrealized P&amp;L</div><div class="${totalUnrealizedPnl >= 0 ? "positive" : "negative"}">${pnlSign}${fmtCurrency(totalUnrealizedPnl)}</div>
             <div>Average Position Size</div><div>${fmtCurrency(avgPositionSize)}</div>
@@ -1106,7 +1098,7 @@ export default class PortfolioAgent extends BaseDuty {
       const trendClass = a.trend === "up" ? "trend-up" : a.trend === "down" ? "trend-down" : "trend-flat";
       const incorrect = a.votes - a.correct;
       return `<tr>
-        <td style="font-weight:500;color:${roninTheme.colors.textPrimary}">${a.name}</td>
+        <td style="font-weight:500;color:${hankoTheme.colors.textPrimary}">${a.name}</td>
         <td>${a.votes}</td>
         <td>${a.correct}</td>
         <td>${incorrect}</td>
@@ -1230,7 +1222,7 @@ export default class PortfolioAgent extends BaseDuty {
       const correctIcon = t.correct === true ? `<span class="positive">✓</span>` : t.correct === false ? `<span class="negative">✗</span>` : "—";
       return `<tr>
         <td>${fmtDate(t.date)}</td>
-        <td><a href="/portfolio/assets/${t.symbol}" style="color:${roninTheme.colors.link}">${t.symbol}</a></td>
+        <td><a href="/portfolio/assets/${t.symbol}" style="color:${hankoTheme.colors.link}">${t.symbol}</a></td>
         <td><span class="badge ${badgeClass}">${t.action}</span></td>
         <td>${t.qty}</td>
         <td>${fmtCurrency(t.price, 2)}</td>
@@ -1278,7 +1270,7 @@ export default class PortfolioAgent extends BaseDuty {
             <option value="SELL"${filterAction === "SELL" ? " selected" : ""}>SELL</option>
           </select>
           <button type="submit">Filter</button>
-          <a href="/portfolio/trades" style="padding:4px 12px;color:${roninTheme.colors.textTertiary};align-self:center">Clear</a>
+          <a href="/portfolio/trades" style="padding:4px 12px;color:${hankoTheme.colors.textTertiary};align-self:center">Clear</a>
         </form>
       </div>
 
@@ -1349,10 +1341,10 @@ export default class PortfolioAgent extends BaseDuty {
     const rows = tasks.map(t => {
       const badgeClass = `badge-${t.status}`;
       const phases = t.phases.map(p => `<span class="phase-chip">${p}</span>`).join("");
-      const commit = t.gitCommit ? `<code style="font-size:0.6875rem;color:${roninTheme.colors.textTertiary}">${t.gitCommit}</code>` : "—";
+      const commit = t.gitCommit ? `<code style="font-size:0.6875rem;color:${hankoTheme.colors.textTertiary}">${t.gitCommit}</code>` : "—";
       return `<tr>
-        <td style="font-family:${roninTheme.fonts.mono};font-size:0.75rem;color:${roninTheme.colors.textTertiary}">${t.id}</td>
-        <td style="color:${roninTheme.colors.textPrimary}">${t.name}</td>
+        <td style="font-family:${hankoTheme.fonts.mono};font-size:0.75rem;color:${hankoTheme.colors.textTertiary}">${t.id}</td>
+        <td style="color:${hankoTheme.colors.textPrimary}">${t.name}</td>
         <td><span class="badge ${badgeClass}">${t.status}</span></td>
         <td>${fmtDate(t.startedAt)}</td>
         <td>${t.completedAt ? fmtDate(t.completedAt) : "—"}</td>
@@ -1380,7 +1372,7 @@ export default class PortfolioAgent extends BaseDuty {
     <h1>Task Execution Log</h1>
     <div class="header-meta">
       <span class="positive">${completed} completed</span>
-      <span style="color:${roninTheme.colors.warning}">&nbsp;${running} running</span>
+      <span style="color:${hankoTheme.colors.warning}">&nbsp;${running} running</span>
       <span class="negative">&nbsp;${failed} failed</span>
     </div>
   </div>
@@ -1409,7 +1401,7 @@ export default class PortfolioAgent extends BaseDuty {
       const pnlClass = p.unrealizedPnl >= 0 ? "positive" : "negative";
       const sign = p.unrealizedPnl >= 0 ? "+" : "";
       return `<tr>
-        <td><a href="/portfolio/assets/${p.symbol}" style="color:${roninTheme.colors.link}">${p.symbol}</a></td>
+        <td><a href="/portfolio/assets/${p.symbol}" style="color:${hankoTheme.colors.link}">${p.symbol}</a></td>
         <td>${p.qty}</td>
         <td>${fmtCurrency(p.entryPrice, 2)}</td>
         <td>${fmtCurrency(p.currentPrice, 2)}</td>
@@ -1468,7 +1460,7 @@ export default class PortfolioAgent extends BaseDuty {
     const assetTrades = trades.filter(t => t.symbol === symbol);
 
     const posCard = pos ? `
-      <div class="cards" style="margin-bottom:${roninTheme.spacing.xl}">
+      <div class="cards" style="margin-bottom:${hankoTheme.spacing.xl}">
         <div class="stat-card">
           <div class="label">Current Price</div>
           <div class="value">${fmtCurrency(pos.currentPrice, 2)}</div>
@@ -1541,7 +1533,7 @@ export default class PortfolioAgent extends BaseDuty {
     ${getHeaderHomeIconHTML()}
     <h1>${symbol}</h1>
     <div class="header-actions">
-      <a href="/portfolio/comparison/${symbol}" style="color:${roninTheme.colors.link};font-size:0.8125rem">View Predictions →</a>
+      <a href="/portfolio/comparison/${symbol}" style="color:${hankoTheme.colors.link};font-size:0.8125rem">View Predictions →</a>
     </div>
   </div>
   ${navTabs("")}
@@ -1654,7 +1646,7 @@ export default class PortfolioAgent extends BaseDuty {
     ${getHeaderHomeIconHTML()}
     <h1>${symbol} – Prediction Comparison</h1>
     <div class="header-actions">
-      <a href="/portfolio/assets/${symbol}" style="color:${roninTheme.colors.textTertiary};font-size:0.8125rem">← Asset Detail</a>
+      <a href="/portfolio/assets/${symbol}" style="color:${hankoTheme.colors.textTertiary};font-size:0.8125rem">← Asset Detail</a>
     </div>
   </div>
   ${navTabs("")}

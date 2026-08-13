@@ -2,7 +2,7 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import {
   getRoninContext,
   buildSystemPrompt,
@@ -281,8 +281,8 @@ export default class ChattyAgent extends BaseDuty {
       start_url: "/chat",
       scope: "/chat",
       display: "standalone",
-      background_color: dramTheme.colors.background,
-      theme_color: dramTheme.colors.background,
+      background_color: hankoTheme.colors.background,
+      theme_color: hankoTheme.colors.background,
       icons: [
         { src: "/chat/icon.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any" },
         { src: "/chat/icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any" },
@@ -324,7 +324,7 @@ self.addEventListener("fetch", (event) => {
   private async handleIcon(req: Request): Promise<Response> {
     if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="${dramTheme.colors.background}"/>
+  <rect width="512" height="512" rx="96" fill="${hankoTheme.colors.background}"/>
   <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="280">🥷</text>
 </svg>`;
     return new Response(svg, { headers: { "Content-Type": "image/svg+xml" } });
@@ -393,15 +393,15 @@ self.addEventListener("fetch", (event) => {
   <title>Ronin Chat</title>
   <link rel="manifest" href="/chat/manifest.json">
   <link rel="icon" href="/chat/icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="${dramTheme.colors.background}">
+  <meta name="theme-color" content="${hankoTheme.colors.background}">
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       height: 100vh;
@@ -421,45 +421,45 @@ self.addEventListener("fetch", (event) => {
     
     .sidebar {
       width: 280px;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${dramTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${hankoTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
     }
     
     .sidebar-header {
-      padding: ${dramTheme.spacing.md};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .new-chat-button {
       width: 100%;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8125rem;
       cursor: pointer;
       transition: all 0.3s;
     }
     
     .new-chat-button:hover {
-      background: ${dramTheme.colors.accent};
-      border-color: ${dramTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accent};
+      border-color: ${hankoTheme.colors.borderHover};
     }
     
     .chat-list {
       flex: 1;
       overflow-y: auto;
-      padding: ${dramTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.sm};
     }
     
     .chat-item {
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      margin-bottom: ${dramTheme.spacing.xs};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.xs};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       transition: all 0.2s;
       display: flex;
@@ -469,12 +469,12 @@ self.addEventListener("fetch", (event) => {
     }
     
     .chat-item:hover {
-      background: ${dramTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
     
     .chat-item.active {
-      background: ${dramTheme.colors.accent};
-      border: 1px solid ${dramTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accent};
+      border: 1px solid ${hankoTheme.colors.borderHover};
     }
     
     .chat-item-content {
@@ -484,7 +484,7 @@ self.addEventListener("fetch", (event) => {
     
     .chat-item-title {
       font-size: 0.8125rem;
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -493,7 +493,7 @@ self.addEventListener("fetch", (event) => {
     
     .chat-item-time {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
     
     .chat-item-delete {
@@ -501,7 +501,7 @@ self.addEventListener("fetch", (event) => {
       padding: 0.25rem;
       background: transparent;
       border: none;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       cursor: pointer;
       font-size: 0.75rem;
       transition: all 0.2s;
@@ -512,13 +512,13 @@ self.addEventListener("fetch", (event) => {
     }
     
     .chat-item-delete:hover {
-      color: ${dramTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
     
     .empty-state {
-      padding: ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
       text-align: center;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.75rem;
     }
     
@@ -526,15 +526,15 @@ self.addEventListener("fetch", (event) => {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: ${dramTheme.colors.background};
+      background: ${hankoTheme.colors.background};
       overflow: hidden;
     }
     
     #chat-history {
       flex: 1;
       overflow-y: auto;
-      padding: ${dramTheme.spacing.lg};
-      background: ${dramTheme.colors.background};
+      padding: ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.background};
     }
     
     .message {
@@ -547,58 +547,58 @@ self.addEventListener("fetch", (event) => {
     
     .message-content {
       max-width: 70%;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       word-wrap: break-word;
       font-size: 0.8125rem; /* 13px - smaller */
       line-height: 1.5;
     }
     
     .message.user .message-content {
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-bottom-right-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-bottom-right-radius: ${hankoTheme.borderRadius.sm};
     }
     
     .message.assistant .message-content {
-      background: ${dramTheme.colors.backgroundSecondary};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-bottom-left-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-bottom-left-radius: ${hankoTheme.borderRadius.sm};
     }
     
     .proposal-card {
-      margin-top: ${dramTheme.spacing.sm};
-      padding: ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
-      background: ${dramTheme.colors.backgroundTertiary};
-      border: 1px solid ${dramTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
     }
 
     .proposal-card-preview {
       font-size: 0.8125rem;
       line-height: 1.6;
-      color: ${dramTheme.colors.textPrimary};
-      margin-bottom: ${dramTheme.spacing.sm};
+      color: ${hankoTheme.colors.textPrimary};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
 
     .proposal-card-code-details {
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
 
     .proposal-card-code-details summary {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
     }
 
     .proposal-card-code {
-      margin-top: ${dramTheme.spacing.xs};
-      padding: ${dramTheme.spacing.sm};
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.sm};
+      margin-top: ${hankoTheme.spacing.xs};
+      padding: ${hankoTheme.spacing.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.75rem;
       line-height: 1.5;
@@ -610,14 +610,14 @@ self.addEventListener("fetch", (event) => {
 
     .proposal-card-actions {
       display: flex;
-      gap: ${dramTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
 
     .proposal-card-actions button {
       flex: 1;
-      padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.sm};
-      border: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${hankoTheme.colors.border};
       background: transparent;
       cursor: pointer;
       font-size: 0.75rem;
@@ -625,13 +625,13 @@ self.addEventListener("fetch", (event) => {
     }
 
     .proposal-card-allow {
-      color: ${dramTheme.colors.success};
-      border-color: ${dramTheme.colors.success} !important;
+      color: ${hankoTheme.colors.success};
+      border-color: ${hankoTheme.colors.success} !important;
     }
 
     .proposal-card-refuse {
-      color: ${dramTheme.colors.error};
-      border-color: ${dramTheme.colors.error} !important;
+      color: ${hankoTheme.colors.error};
+      border-color: ${hankoTheme.colors.error} !important;
     }
 
     .proposal-card-actions button:disabled {
@@ -641,14 +641,14 @@ self.addEventListener("fetch", (event) => {
 
     .proposal-card-status {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .message-content h1,
     .message-content h2,
     .message-content h3 {
-      margin-top: ${dramTheme.spacing.sm};
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
       font-weight: 300;
     }
     
@@ -657,27 +657,27 @@ self.addEventListener("fetch", (event) => {
     .message-content h3 { font-size: 1rem; /* Smaller */ }
     
     .message-content p {
-      margin: ${dramTheme.spacing.sm} 0;
+      margin: ${hankoTheme.spacing.sm} 0;
       line-height: 1.6;
       font-size: 0.8125rem; /* 13px */
     }
     
     .message-content ul,
     .message-content ol {
-      margin: ${dramTheme.spacing.sm} 0;
-      padding-left: ${dramTheme.spacing.lg};
+      margin: ${hankoTheme.spacing.sm} 0;
+      padding-left: ${hankoTheme.spacing.lg};
     }
     
     .message-content li {
-      margin: ${dramTheme.spacing.xs} 0;
+      margin: ${hankoTheme.spacing.xs} 0;
       font-size: 0.8125rem; /* 13px */
     }
     
     .message-content code {
-      background: ${dramTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
-      border-radius: ${dramTheme.borderRadius.sm};
-      font-family: ${dramTheme.fonts.mono};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem; /* 12px - smaller */
     }
     
@@ -687,16 +687,16 @@ self.addEventListener("fetch", (event) => {
     
     .message-content pre {
       background: #161b22 !important;
-      padding: ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       overflow-x: auto;
-      margin: ${dramTheme.spacing.sm} 0;
-      border: 1px solid ${dramTheme.colors.border};
+      margin: ${hankoTheme.spacing.sm} 0;
+      border: 1px solid ${hankoTheme.colors.border};
     }
     
     .message.user .message-content pre {
       background: rgba(255, 255, 255, 0.05) !important;
-      border-color: ${dramTheme.colors.border};
+      border-color: ${hankoTheme.colors.border};
     }
     
     .message-content pre code {
@@ -707,10 +707,10 @@ self.addEventListener("fetch", (event) => {
     }
     
     .message-content blockquote {
-      border-left: 2px solid ${dramTheme.colors.borderHover};
-      padding-left: ${dramTheme.spacing.md};
-      margin: ${dramTheme.spacing.sm} 0;
-      color: ${dramTheme.colors.textSecondary};
+      border-left: 2px solid ${hankoTheme.colors.borderHover};
+      padding-left: ${hankoTheme.spacing.md};
+      margin: ${hankoTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.textSecondary};
       font-style: italic;
     }
     
@@ -723,63 +723,63 @@ self.addEventListener("fetch", (event) => {
     }
     
     .message-content a {
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: none;
     }
     
     .message-content a:hover {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       text-decoration: underline;
     }
     
     .message.user .message-content a {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .input-area {
-      padding: ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-top: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-top: 1px solid ${hankoTheme.colors.border};
       display: flex;
-      gap: ${dramTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
       flex-shrink: 0;
     }
     
     #message-input {
       flex: 1;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8125rem; /* 13px - smaller */
-      background: ${dramTheme.colors.background};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
       outline: none;
       transition: all 0.3s;
     }
     
     #message-input:focus {
-      border-color: ${dramTheme.colors.borderHover};
-      background: ${dramTheme.colors.backgroundSecondary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundSecondary};
     }
     
     #message-input::placeholder {
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
     
     #send-button {
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.lg};
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8125rem; /* 13px - smaller */
       cursor: pointer;
       transition: all 0.3s;
     }
     
     #send-button:hover:not(:disabled) {
-      background: ${dramTheme.colors.accent};
-      border-color: ${dramTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accent};
+      border-color: ${hankoTheme.colors.borderHover};
     }
     
     #send-button:disabled {
@@ -788,27 +788,27 @@ self.addEventListener("fetch", (event) => {
     }
     
     #drop-zone {
-      padding: ${dramTheme.spacing.md};
-      border: 2px dashed ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
+      border: 2px dashed ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       text-align: center;
-      color: ${dramTheme.colors.textTertiary};
-      margin-bottom: ${dramTheme.spacing.sm};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-bottom: ${hankoTheme.spacing.sm};
       display: none;
       font-size: 0.75rem; /* 12px */
     }
     
     #drop-zone.drag-over {
-      border-color: ${dramTheme.colors.borderHover};
-      background: ${dramTheme.colors.backgroundSecondary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundSecondary};
     }
     
     .loading {
       display: inline-block;
       width: 10px;
       height: 10px;
-      border: 2px solid ${dramTheme.colors.border};
-      border-top-color: ${dramTheme.colors.textPrimary};
+      border: 2px solid ${hankoTheme.colors.border};
+      border-top-color: ${hankoTheme.colors.textPrimary};
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
@@ -832,17 +832,17 @@ self.addEventListener("fetch", (event) => {
 
     /* Fresh-chat visual override */
     .main-container {
-      background: radial-gradient(circle at top left, rgba(124,58,237,0.18), transparent 28%), ${dramTheme.colors.background};
+      background: radial-gradient(circle at top left, ${hankoTheme.colors.accent}2e, transparent 28%), ${hankoTheme.colors.background};
     }
     .sidebar {
       width: 260px;
-      background: ${dramTheme.colors.backgroundSecondary};
+      background: ${hankoTheme.colors.backgroundSecondary};
       border-right: 1px solid rgba(255,255,255,0.08);
       align-items: stretch;
-      padding: ${dramTheme.spacing.md};
+      padding: ${hankoTheme.spacing.md};
     }
     .sidebar-header {
-      padding: 0 0 ${dramTheme.spacing.sm};
+      padding: 0 0 ${hankoTheme.spacing.sm};
       border-bottom: 1px solid rgba(255,255,255,0.06);
       display: block;
     }
@@ -852,44 +852,46 @@ self.addEventListener("fetch", (event) => {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      border-radius: ${dramTheme.borderRadius.sm};
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(124,58,237,0.1);
-      color: ${dramTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${hankoTheme.colors.border};
+      background: ${hankoTheme.colors.accent}1a;
+      color: ${hankoTheme.colors.textPrimary};
+      transition: background 150ms ease, border-color 150ms ease;
     }
     .chat-container {
-      background: #050506;
+      background: ${hankoTheme.colors.background};
     }
     .chat-topbar { display: none; }
     .chat-list {
-      margin-top: ${dramTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
       display: block;
       overflow-y: auto;
       padding: 0;
     }
     .chat-tabs-empty {
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.75rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
     .chat-item {
-      margin-bottom: ${dramTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
       padding: 0.4rem 0.6rem;
-      border-radius: ${dramTheme.borderRadius.sm};
-      background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: ${hankoTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
       max-width: none;
       gap: 0.4rem;
+      transition: background 150ms ease, border-color 150ms ease;
     }
     .chat-item.active {
-      background: rgba(124,58,237,0.18);
-      border-color: #7c3aed;
-      box-shadow: 0 0 0 1px rgba(124,58,237,0.35);
+      background: ${hankoTheme.colors.accent}22;
+      border-color: ${hankoTheme.colors.accent};
+      box-shadow: 0 0 0 1px ${hankoTheme.colors.accent}55;
     }
     .chat-item:hover {
-      background: rgba(124,58,237,0.12);
-      border-color: rgba(124,58,237,0.55);
+      background: ${hankoTheme.colors.accent}18;
+      border-color: ${hankoTheme.colors.accentHover};
     }
     .chat-item-title {
       font-size: 0.7rem;
@@ -918,19 +920,19 @@ self.addEventListener("fetch", (event) => {
       letter-spacing: 0.2em;
     }
     .hero-subtitle {
-      margin-top: ${dramTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.22em;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
     .hero-console {
-      margin: ${dramTheme.spacing.md} auto 0;
+      margin: ${hankoTheme.spacing.md} auto 0;
       display: inline-flex;
       padding: 0.2rem 0.7rem;
       border: 1px solid rgba(255,255,255,0.12);
-      color: ${dramTheme.colors.textTertiary};
-      font-family: ${dramTheme.fonts.mono};
+      color: ${hankoTheme.colors.textTertiary};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
@@ -947,13 +949,13 @@ self.addEventListener("fetch", (event) => {
       justify-content: center;
       background: transparent;
       border-top: none;
-      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.lg} ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg} ${hankoTheme.spacing.lg};
     }
     #message-input {
       flex: 0 1 780px;
       background: rgba(10,10,12,0.95);
       border: 1px solid rgba(255,255,255,0.1);
-      border-radius: ${dramTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.78rem;
       padding: 0.8rem 0.9rem;
       min-height: 2.6rem;
@@ -968,16 +970,16 @@ self.addEventListener("fetch", (event) => {
       font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      border-radius: ${dramTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.02);
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       padding: 0.8rem 1rem;
     }
     #send-button:hover:not(:disabled) {
-      background: rgba(124,58,237,0.16);
-      border-color: rgba(124,58,237,0.6);
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent}29;
+      border-color: ${hankoTheme.colors.accent}99;
+      color: ${hankoTheme.colors.textPrimary};
     }
   </style>
 </head>

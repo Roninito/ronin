@@ -2,7 +2,7 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { readdir, readFile, stat } from "fs/promises";
 import { join, relative, extname, basename } from "path";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface DocumentItem {
   type: "markdown" | "book-chapter";
@@ -489,9 +489,9 @@ export default class DocsAgent extends BaseDuty {
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       height: 100vh;
@@ -511,8 +511,8 @@ export default class DocsAgent extends BaseDuty {
     
     .sidebar {
       width: 300px;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${dramTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${hankoTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -520,8 +520,8 @@ export default class DocsAgent extends BaseDuty {
     }
     
     .sidebar-section {
-      padding: ${dramTheme.spacing.md};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .sidebar-section-title {
@@ -529,41 +529,41 @@ export default class DocsAgent extends BaseDuty {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: ${dramTheme.colors.textTertiary};
-      margin-bottom: ${dramTheme.spacing.sm};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
     
     .doc-item {
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      margin-bottom: ${dramTheme.spacing.xs};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.xs};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       transition: all 0.2s;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
     
     .doc-item:hover {
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .doc-item.active {
-      background: ${dramTheme.colors.accent};
-      color: ${dramTheme.colors.textPrimary};
-      border-left: 2px solid ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      color: ${hankoTheme.colors.textPrimary};
+      border-left: 2px solid ${hankoTheme.colors.textPrimary};
     }
     
     .content-area {
       flex: 1;
       overflow-y: auto;
-      background: ${dramTheme.colors.background};
+      background: ${hankoTheme.colors.background};
     }
     
     .content-wrapper {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
       min-height: 100%;
     }
     
@@ -574,16 +574,16 @@ export default class DocsAgent extends BaseDuty {
     
     .loading {
       text-align: center;
-      padding: ${dramTheme.spacing.xl};
-      color: ${dramTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textSecondary};
     }
     
     .error {
-      padding: ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.error}20;
-      border: 1px solid ${dramTheme.colors.error};
-      border-radius: ${dramTheme.borderRadius.md};
-      color: ${dramTheme.colors.error};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.error}20;
+      border: 1px solid ${hankoTheme.colors.error};
+      border-radius: ${hankoTheme.borderRadius.md};
+      color: ${hankoTheme.colors.error};
     }
     
     /* Markdown styling */
@@ -593,41 +593,41 @@ export default class DocsAgent extends BaseDuty {
     
     .markdown-content h1 {
       font-size: 2rem;
-      margin-top: ${dramTheme.spacing.xl};
-      margin-bottom: ${dramTheme.spacing.md};
-      padding-bottom: ${dramTheme.spacing.sm};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.xl};
+      margin-bottom: ${hankoTheme.spacing.md};
+      padding-bottom: ${hankoTheme.spacing.sm};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .markdown-content h2 {
       font-size: 1.5rem;
-      margin-top: ${dramTheme.spacing.lg};
-      margin-bottom: ${dramTheme.spacing.md};
-      padding-bottom: ${dramTheme.spacing.xs};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.md};
+      padding-bottom: ${hankoTheme.spacing.xs};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .markdown-content h3 {
       font-size: 1.25rem;
-      margin-top: ${dramTheme.spacing.md};
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
     
     .markdown-content code {
-      background: ${dramTheme.colors.backgroundSecondary};
+      background: ${hankoTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${dramTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.85em;
-      font-family: ${dramTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
     }
     
     .markdown-content pre {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       overflow-x: auto;
-      margin: ${dramTheme.spacing.md} 0;
+      margin: ${hankoTheme.spacing.md} 0;
     }
     
     .markdown-content pre code {
@@ -646,49 +646,49 @@ export default class DocsAgent extends BaseDuty {
     }
     
     .hljs {
-      background: ${dramTheme.colors.backgroundSecondary} !important;
+      background: ${hankoTheme.colors.backgroundSecondary} !important;
     }
     
     .markdown-content blockquote {
-      border-left: 3px solid ${dramTheme.colors.accent};
-      padding-left: ${dramTheme.spacing.md};
-      margin: ${dramTheme.spacing.md} 0;
-      color: ${dramTheme.colors.textSecondary};
+      border-left: 3px solid ${hankoTheme.colors.accent};
+      padding-left: ${hankoTheme.spacing.md};
+      margin: ${hankoTheme.spacing.md} 0;
+      color: ${hankoTheme.colors.textSecondary};
     }
     
     .markdown-content ul, .markdown-content ol {
-      margin: ${dramTheme.spacing.md} 0;
-      padding-left: ${dramTheme.spacing.lg};
+      margin: ${hankoTheme.spacing.md} 0;
+      padding-left: ${hankoTheme.spacing.lg};
     }
     
     .markdown-content li {
-      margin: ${dramTheme.spacing.xs} 0;
+      margin: ${hankoTheme.spacing.xs} 0;
     }
     
     .markdown-content a {
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: underline;
     }
     
     .markdown-content a:hover {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .markdown-content table {
       width: 100%;
       border-collapse: collapse;
-      margin: ${dramTheme.spacing.md} 0;
+      margin: ${hankoTheme.spacing.md} 0;
     }
     
     .markdown-content th,
     .markdown-content td {
-      padding: ${dramTheme.spacing.sm};
-      border: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.sm};
+      border: 1px solid ${hankoTheme.colors.border};
       text-align: left;
     }
     
     .markdown-content th {
-      background: ${dramTheme.colors.backgroundSecondary};
+      background: ${hankoTheme.colors.backgroundSecondary};
       font-weight: 600;
     }
     
@@ -700,21 +700,21 @@ export default class DocsAgent extends BaseDuty {
     
     /* Override any book chapter specific elements to match our theme */
     .book-chapter-content .chapter-header {
-      margin-bottom: ${dramTheme.spacing.lg};
-      padding-bottom: ${dramTheme.spacing.md};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      padding-bottom: ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .book-chapter-content .chapter-number {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: ${dramTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
     
     .book-chapter-content .chapter-title {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       font-size: 2rem;
       font-weight: 300;
       margin: 0;
@@ -722,7 +722,7 @@ export default class DocsAgent extends BaseDuty {
     
     /* Ensure all text uses our theme colors - but NOT hljs syntax tokens */
     .book-chapter-content {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .book-chapter-content p,
@@ -734,21 +734,21 @@ export default class DocsAgent extends BaseDuty {
     .book-chapter-content h4,
     .book-chapter-content span:not([class*="hljs"]),
     .book-chapter-content div:not([class*="hljs"]) {
-      color: ${dramTheme.colors.textPrimary} !important;
+      color: ${hankoTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content :not(pre) > code {
-      background: ${dramTheme.colors.backgroundSecondary} !important;
-      color: ${dramTheme.colors.textPrimary} !important;
+      background: ${hankoTheme.colors.backgroundSecondary} !important;
+      color: ${hankoTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content pre {
-      background: ${dramTheme.colors.backgroundSecondary} !important;
-      border: 1px solid ${dramTheme.colors.border} !important;
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary} !important;
+      border: 1px solid ${hankoTheme.colors.border} !important;
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       overflow-x: auto;
-      margin: ${dramTheme.spacing.md} 0;
+      margin: ${hankoTheme.spacing.md} 0;
     }
     
     .book-chapter-content pre code {
@@ -764,24 +764,24 @@ export default class DocsAgent extends BaseDuty {
     }
     
     .book-chapter-content a {
-      color: ${dramTheme.colors.textSecondary} !important;
+      color: ${hankoTheme.colors.textSecondary} !important;
     }
     
     .book-chapter-content a:hover {
-      color: ${dramTheme.colors.textPrimary} !important;
+      color: ${hankoTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content table {
-      border-color: ${dramTheme.colors.border} !important;
+      border-color: ${hankoTheme.colors.border} !important;
     }
     
     .book-chapter-content th {
-      background: ${dramTheme.colors.backgroundSecondary} !important;
-      color: ${dramTheme.colors.textPrimary} !important;
+      background: ${hankoTheme.colors.backgroundSecondary} !important;
+      color: ${hankoTheme.colors.textPrimary} !important;
     }
     
     .book-chapter-content td {
-      border-color: ${dramTheme.colors.border} !important;
+      border-color: ${hankoTheme.colors.border} !important;
     }
     
     /* Code example titles */
@@ -790,8 +790,8 @@ export default class DocsAgent extends BaseDuty {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: ${dramTheme.colors.textTertiary} !important;
-      margin-bottom: ${dramTheme.spacing.xs};
+      color: ${hankoTheme.colors.textTertiary} !important;
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
   </style>
 </head>
@@ -899,7 +899,7 @@ export default class DocsAgent extends BaseDuty {
       (documents.skillsDuties || []).forEach(doc => {
         if (doc.category !== lastCategory) {
           const catHeader = document.createElement('div');
-          catHeader.style.cssText = 'font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${dramTheme.colors.textTertiary}; margin-top: 0.5rem; margin-bottom: 0.25rem; padding-left: 0.75rem;';
+          catHeader.style.cssText = 'font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${hankoTheme.colors.textTertiary}; margin-top: 0.5rem; margin-bottom: 0.25rem; padding-left: 0.75rem;';
           catHeader.textContent = doc.category;
           skillsDutiesList.appendChild(catHeader);
           lastCategory = doc.category;

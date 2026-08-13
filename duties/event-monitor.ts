@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface EventRecord {
   id: string;
@@ -333,9 +333,9 @@ export default class EventMonitorAgent extends BaseDuty {
   <title>Event Timeline - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     .container {
       max-width: 1400px;
@@ -351,7 +351,7 @@ export default class EventMonitorAgent extends BaseDuty {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
 
@@ -360,9 +360,9 @@ export default class EventMonitorAgent extends BaseDuty {
     }
 
     .filters {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
@@ -378,7 +378,7 @@ export default class EventMonitorAgent extends BaseDuty {
       font-size: 0.875rem;
       font-weight: 500;
       margin-bottom: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .checkbox-group {
@@ -388,9 +388,9 @@ export default class EventMonitorAgent extends BaseDuty {
       max-height: 150px;
       overflow-y: auto;
       padding: 0.5rem;
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
     }
 
     .checkbox-item {
@@ -413,36 +413,36 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .search-box input {
       flex: 1;
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.5rem 0.75rem;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-family: inherit;
     }
 
     .btn {
-      background: ${dramTheme.colors.accent};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.5rem 1rem;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
     }
 
     .btn:hover {
-      background: ${dramTheme.colors.accentHover};
+      background: ${hankoTheme.colors.accentHover};
     }
 
     .btn-secondary {
       background: transparent;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .btn-secondary:hover {
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .stats {
@@ -450,7 +450,7 @@ export default class EventMonitorAgent extends BaseDuty {
       gap: 1rem;
       margin-bottom: 1.5rem;
       font-size: 0.875rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .stat-item {
@@ -475,15 +475,15 @@ export default class EventMonitorAgent extends BaseDuty {
     }
 
     .event {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 1rem;
       transition: all 0.2s;
     }
 
     .event:hover {
-      border-color: ${dramTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .event-new {
@@ -511,19 +511,19 @@ export default class EventMonitorAgent extends BaseDuty {
     .event-timestamp {
       font-family: 'Agave', monospace;
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .event-type {
       font-weight: 600;
       font-size: 0.875rem;
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .event-source {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
-      background: ${dramTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
       border-radius: 3px;
     }
@@ -540,12 +540,12 @@ export default class EventMonitorAgent extends BaseDuty {
     .event-payload {
       margin-top: 0.5rem;
       padding: 0.75rem;
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-family: 'Agave', monospace;
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       white-space: pre-wrap;
       word-break: break-all;
       max-height: 150px;
@@ -558,13 +558,13 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .payload-toggle {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.accent};
+      color: ${hankoTheme.colors.accent};
       cursor: pointer;
       margin-top: 0.5rem;
     }
 
     .payload-toggle:hover {
-      color: ${dramTheme.colors.accentHover};
+      color: ${hankoTheme.colors.accentHover};
     }
 
     .pagination {
@@ -574,21 +574,21 @@ export default class EventMonitorAgent extends BaseDuty {
       gap: 1rem;
       margin-top: 2rem;
       padding-top: 1rem;
-      border-top: 1px solid ${dramTheme.colors.border};
+      border-top: 1px solid ${hankoTheme.colors.border};
     }
 
     .pagination button {
       background: transparent;
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       padding: 0.5rem 1rem;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
     }
 
     .pagination button:hover:not(:disabled) {
-      background: ${dramTheme.colors.backgroundSecondary};
-      color: ${dramTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .pagination button:disabled {
@@ -598,13 +598,13 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .page-info {
       font-size: 0.875rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .loading {
       text-align: center;
       padding: 2rem;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .error {
@@ -612,7 +612,7 @@ export default class EventMonitorAgent extends BaseDuty {
       border: 1px solid rgba(220, 53, 69, 0.3);
       color: #dc3545;
       padding: 1rem;
-      border-radius: ${dramTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       margin-bottom: 1rem;
     }
   </style>

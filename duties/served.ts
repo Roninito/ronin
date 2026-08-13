@@ -2,7 +2,7 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 const execAsync = promisify(exec);
 
@@ -98,9 +98,9 @@ export default class ServedAgent extends BaseDuty {
   <title>Servers - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       margin: 0;
@@ -115,25 +115,25 @@ export default class ServedAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .servers-container {
       display: grid;
-      gap: ${dramTheme.spacing.md};
-      margin-top: ${dramTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.lg};
     }
 
     .server-card {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       transition: all 0.2s;
     }
 
     .server-card:hover {
-      border-color: ${dramTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -141,32 +141,32 @@ export default class ServedAgent extends BaseDuty {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
 
     .server-port {
       font-size: 1.25rem;
       font-weight: 600;
-      color: ${dramTheme.colors.accent};
+      color: ${hankoTheme.colors.accent};
       font-family: 'Courier New', monospace;
     }
 
     .server-protocol {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: ${dramTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
       text-transform: uppercase;
-      background: ${dramTheme.colors.backgroundTertiary};
-      color: ${dramTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .server-info {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${dramTheme.spacing.sm};
-      margin-top: ${dramTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
     }
 
     .info-item {
@@ -176,47 +176,47 @@ export default class ServedAgent extends BaseDuty {
 
     .info-label {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       margin-bottom: 2px;
     }
 
     .info-value {
       font-weight: 500;
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       font-family: 'Courier New', monospace;
     }
 
     .empty-state {
       text-align: center;
-      padding: ${dramTheme.spacing.xl};
-      color: ${dramTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .refresh-button {
-      margin-top: ${dramTheme.spacing.md};
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.accent};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      margin-top: ${hankoTheme.spacing.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.accent};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.8125rem;
       transition: all 0.2s;
     }
 
     .refresh-button:hover {
-      background: ${dramTheme.colors.accentHover};
-      border-color: ${dramTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accentHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .stats {
       display: flex;
-      gap: ${dramTheme.spacing.lg};
-      margin-bottom: ${dramTheme.spacing.lg};
-      padding: ${dramTheme.spacing.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      gap: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     .stat-item {
@@ -227,12 +227,12 @@ export default class ServedAgent extends BaseDuty {
     .stat-value {
       font-size: 1.5rem;
       font-weight: 600;
-      color: ${dramTheme.colors.accent};
+      color: ${hankoTheme.colors.accent};
     }
 
     .stat-label {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
   </style>
 </head>

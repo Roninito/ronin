@@ -3,7 +3,7 @@ import type { DutyAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface BlogPost {
   id: string;
@@ -285,9 +285,9 @@ export default class BlogsAgent extends BaseDuty {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       min-height: 100vh;
@@ -298,56 +298,56 @@ export default class BlogsAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .posts-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: ${roninTheme.spacing.lg};
-      margin-top: ${roninTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.lg};
+      margin-top: ${hankoTheme.spacing.lg};
     }
 
     .post-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
-      margin: ${roninTheme.spacing.xs};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
+      margin: ${hankoTheme.spacing.xs};
       transition: all 0.3s;
       cursor: pointer;
       text-decoration: none;
       display: block;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .post-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
       transform: translateY(-2px);
     }
     
     .post-card h2 {
       font-size: 1.5rem;
-      margin-bottom: ${roninTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
     
     .post-card .excerpt {
-      color: ${roninTheme.colors.textSecondary};
-      margin-top: ${roninTheme.spacing.sm};
+      color: ${hankoTheme.colors.textSecondary};
+      margin-top: ${hankoTheme.spacing.sm};
       line-height: 1.6;
     }
     
     .post-card .meta {
-      margin-top: ${roninTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
     
     .empty-state {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textSecondary};
     }
   </style>
 </head>
@@ -421,73 +421,73 @@ export default class BlogsAgent extends BaseDuty {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
     
     body {
       min-height: 100vh;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
       max-width: 800px;
       margin: 0 auto;
     }
     
     .back-link {
       display: inline-block;
-      margin-bottom: ${roninTheme.spacing.lg};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: none;
     }
     
     .back-link:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .post-header {
-      margin-bottom: ${roninTheme.spacing.xl};
-      padding-bottom: ${roninTheme.spacing.lg};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.xl};
+      padding-bottom: ${hankoTheme.spacing.lg};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .post-header h1 {
       font-size: 2.5rem;
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .post-meta {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
     
     .post-content {
       line-height: 1.8;
-      margin-top: ${roninTheme.spacing.xl};
+      margin-top: ${hankoTheme.spacing.xl};
     }
     
     .post-content h1,
     .post-content h2,
     .post-content h3 {
-      margin-top: ${roninTheme.spacing.xl};
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.xl};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .post-content p {
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .post-content code {
-      background: ${roninTheme.colors.backgroundSecondary};
+      background: ${hankoTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.9em;
     }
     
     .post-content pre {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       overflow-x: auto;
-      margin: ${roninTheme.spacing.lg} 0;
+      margin: ${hankoTheme.spacing.lg} 0;
     }
     
     .post-content pre code {
@@ -496,19 +496,19 @@ export default class BlogsAgent extends BaseDuty {
     }
     
     .post-content blockquote {
-      border-left: 3px solid ${roninTheme.colors.border};
-      padding-left: ${roninTheme.spacing.md};
-      margin: ${roninTheme.spacing.lg} 0;
-      color: ${roninTheme.colors.textSecondary};
+      border-left: 3px solid ${hankoTheme.colors.border};
+      padding-left: ${hankoTheme.spacing.md};
+      margin: ${hankoTheme.spacing.lg} 0;
+      color: ${hankoTheme.colors.textSecondary};
     }
     
     .post-content a {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: underline;
     }
     
     .post-content a:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
   </style>
 </head>
@@ -709,9 +709,9 @@ export default class BlogsAgent extends BaseDuty {
   <title>Blog Admin - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       min-height: 100vh;
@@ -722,53 +722,53 @@ export default class BlogsAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .posts-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: ${roninTheme.spacing.lg};
+      margin-top: ${hankoTheme.spacing.lg};
     }
     
     .posts-table th,
     .posts-table td {
-      padding: ${roninTheme.spacing.md};
+      padding: ${hankoTheme.spacing.md};
       text-align: left;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
     
     .posts-table th {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-weight: 300;
       font-size: 0.875rem;
     }
     
     .posts-table td {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
     
     .status-badge {
       display: inline-block;
       padding: 0.25em 0.5em;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
     }
     
     .status-published {
-      background: ${roninTheme.colors.success}20;
-      color: ${roninTheme.colors.success};
+      background: ${hankoTheme.colors.success}20;
+      color: ${hankoTheme.colors.success};
     }
     
     .status-draft {
-      background: ${roninTheme.colors.warning}20;
-      color: ${roninTheme.colors.warning};
+      background: ${hankoTheme.colors.warning}20;
+      color: ${hankoTheme.colors.warning};
     }
     
     .action-buttons {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
     
     .btn-small {
@@ -777,21 +777,21 @@ export default class BlogsAgent extends BaseDuty {
     }
     
     .generate-section {
-      margin-top: ${roninTheme.spacing.xl};
-      padding: ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      margin-top: ${hankoTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
     
     .generate-section h2 {
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .generate-form {
       display: flex;
-      gap: ${roninTheme.spacing.md};
-      margin-top: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
     }
     
     .generate-form input {
@@ -847,7 +847,7 @@ export default class BlogsAgent extends BaseDuty {
   
   <div class="generate-section">
     <h2>Generate AI Article</h2>
-    <p style="color: ${roninTheme.colors.textSecondary}; margin-bottom: ${roninTheme.spacing.md};">
+    <p style="color: ${hankoTheme.colors.textSecondary}; margin-bottom: ${hankoTheme.spacing.md};">
       Let Blogs write an article about Ronin features, agents, or plugins.
     </p>
     <div class="generate-form">
@@ -1034,41 +1034,41 @@ export default class BlogsAgent extends BaseDuty {
   <title>Blog Admin Login - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
     
     body {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
     
     .login-container {
       width: 100%;
       max-width: 400px;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.xl};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.xl};
     }
     
     .login-container h1 {
       text-align: center;
-      margin-bottom: ${roninTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
     
     .login-form {
       display: flex;
       flex-direction: column;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
     
     .error-message {
-      color: ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
       font-size: 0.875rem;
-      margin-top: ${roninTheme.spacing.sm};
+      margin-top: ${hankoTheme.spacing.sm};
       display: none;
     }
     
@@ -1584,8 +1584,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
     
     body {
       height: 100vh;
@@ -1595,9 +1595,9 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     }
     
     .editor-header {
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1610,7 +1610,7 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     
     .editor-header-actions {
       display: flex;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
     
     .editor-container {
@@ -1623,15 +1623,15 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
       flex: 1;
       display: flex;
       flex-direction: column;
-      border-right: 1px solid ${roninTheme.colors.border};
+      border-right: 1px solid ${hankoTheme.colors.border};
     }
     
     .editor-toolbar {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
       display: flex;
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
     
     .editor-toolbar input {
@@ -1647,8 +1647,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     .preview-panel {
       flex: 1;
       overflow-y: auto;
-      padding: ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.background};
+      padding: ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.background};
     }
     
     .preview-content {
@@ -1660,27 +1660,27 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     .preview-content h1,
     .preview-content h2,
     .preview-content h3 {
-      margin-top: ${roninTheme.spacing.xl};
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.xl};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .preview-content p {
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
     
     .preview-content code {
-      background: ${roninTheme.colors.backgroundSecondary};
+      background: ${hankoTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
     }
     
     .preview-content pre {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       overflow-x: auto;
-      margin: ${roninTheme.spacing.lg} 0;
+      margin: ${hankoTheme.spacing.lg} 0;
     }
     
     .preview-content pre code {
@@ -1689,10 +1689,10 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     }
     
     .preview-content blockquote {
-      border-left: 3px solid ${roninTheme.colors.border};
-      padding-left: ${roninTheme.spacing.md};
-      margin: ${roninTheme.spacing.lg} 0;
-      color: ${roninTheme.colors.textSecondary};
+      border-left: 3px solid ${hankoTheme.colors.border};
+      padding-left: ${hankoTheme.spacing.md};
+      margin: ${hankoTheme.spacing.lg} 0;
+      color: ${hankoTheme.colors.textSecondary};
     }
   </style>
 </head>

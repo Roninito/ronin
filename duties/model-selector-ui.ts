@@ -6,7 +6,7 @@
 
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelSelectorUIAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -36,9 +36,9 @@ export default class ModelSelectorUIAgent extends BaseDuty {
   <title>AI Model Selector - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       min-height: 100vh;
@@ -49,97 +49,97 @@ export default class ModelSelectorUIAgent extends BaseDuty {
     .page-content {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .page-intro {
-      margin-bottom: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.95rem;
       line-height: 1.6;
     }
 
     .models {
       display: grid;
-      gap: ${roninTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.lg};
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
 
     .model-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: default;
     }
 
     .model-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
       transform: translateY(-4px);
     }
 
     .model-card h3 {
-      margin: 0 0 ${roninTheme.spacing.sm} 0;
+      margin: 0 0 ${hankoTheme.spacing.sm} 0;
       font-size: 1.05rem;
       font-weight: 400;
       letter-spacing: -0.01em;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .model-provider {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: ${roninTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .model-description {
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
-      margin-bottom: ${roninTheme.spacing.md};
+      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
       line-height: 1.5;
     }
 
     .model-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .tag {
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.link};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.link};
       padding: 3px 8px;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.7rem;
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       letter-spacing: 0.02em;
       border: 1px solid rgba(132, 204, 22, 0.2);
     }
 
     .btn {
       width: 100%;
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
-      font-family: ${roninTheme.fonts.primary};
+      font-family: ${hankoTheme.fonts.primary};
       font-weight: 400;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       letter-spacing: -0.005em;
     }
 
     .btn:hover:not(:disabled) {
-      background: ${roninTheme.colors.link};
-      color: ${roninTheme.colors.background};
-      border-color: ${roninTheme.colors.link};
+      background: ${hankoTheme.colors.link};
+      color: ${hankoTheme.colors.background};
+      border-color: ${hankoTheme.colors.link};
       transform: translateY(-2px);
     }
 
@@ -150,23 +150,23 @@ export default class ModelSelectorUIAgent extends BaseDuty {
 
     .action-links {
       display: flex;
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.xl};
       align-items: center;
     }
 
     .action-links a {
-      color: ${roninTheme.colors.link};
+      color: ${hankoTheme.colors.link};
       text-decoration: none;
       font-size: 0.875rem;
       transition: color 0.2s;
       display: flex;
       align-items: center;
-      gap: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
 
     .action-links a:hover {
-      color: ${roninTheme.colors.linkHover};
+      color: ${hankoTheme.colors.linkHover};
     }
   </style>
 </head>
@@ -186,7 +186,7 @@ export default class ModelSelectorUIAgent extends BaseDuty {
     </div>
 
     <div class="models" id="models-container">
-      <p style="color: ${roninTheme.colors.textTertiary}; grid-column: 1/-1;">Loading models...</p>
+      <p style="color: ${hankoTheme.colors.textTertiary}; grid-column: 1/-1;">Loading models...</p>
     </div>
   </div>
 
@@ -196,7 +196,7 @@ export default class ModelSelectorUIAgent extends BaseDuty {
         const response = await fetch('/models/api/list');
         const data = await response.json();
         if (!data.success && !Array.isArray(data)) {
-          document.getElementById('models-container').innerHTML = '<p style="color: ${roninTheme.colors.error}; grid-column: 1/-1;">Failed to load models</p>';
+          document.getElementById('models-container').innerHTML = '<p style="color: ${hankoTheme.colors.error}; grid-column: 1/-1;">Failed to load models</p>';
           return;
         }
         const models = Array.isArray(data) ? data : data.models || [];
@@ -221,7 +221,7 @@ export default class ModelSelectorUIAgent extends BaseDuty {
         \`).join('');
         document.getElementById('models-container').innerHTML = html;
       } catch (e) {
-        document.getElementById('models-container').innerHTML = '<p style="color: ${roninTheme.colors.error}; grid-column: 1/-1;">Error: ' + e.message + '</p>';
+        document.getElementById('models-container').innerHTML = '<p style="color: ${hankoTheme.colors.error}; grid-column: 1/-1;">Error: ' + e.message + '</p>';
       }
     }
 

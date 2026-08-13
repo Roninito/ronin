@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface ConfigBackup {
   id: string;
@@ -988,15 +988,15 @@ export default class ConfigEditorAgent extends BaseDuty {
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
-      font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif;
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
+      font-family: ${hankoTheme.fonts.primary};
     }
 
     .login-container {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 2.5rem;
       width: 100%;
       max-width: 400px;
@@ -1012,7 +1012,7 @@ export default class ConfigEditorAgent extends BaseDuty {
 
     .subtitle {
       text-align: center;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
       margin-bottom: 2rem;
     }
@@ -1025,16 +1025,16 @@ export default class ConfigEditorAgent extends BaseDuty {
       display: block;
       margin-bottom: 0.5rem;
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     input[type="password"] {
       width: 100%;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-family: inherit;
       font-size: 0.875rem;
       box-sizing: border-box;
@@ -1042,32 +1042,32 @@ export default class ConfigEditorAgent extends BaseDuty {
 
     input[type="password"]:focus {
       outline: none;
-      border-color: ${roninTheme.colors.accent};
+      border-color: ${hankoTheme.colors.accent};
     }
 
     button {
       width: 100%;
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
       font-weight: 500;
     }
 
     button:hover {
-      background: ${roninTheme.colors.accentHover};
+      background: ${hankoTheme.colors.accentHover};
     }
 
     .info {
       margin-top: 1.5rem;
       padding: 0.75rem;
-      background: ${roninTheme.colors.backgroundTertiary};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-align: center;
     }
 
@@ -1076,7 +1076,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       border: 1px solid rgba(220, 53, 69, 0.3);
       color: #dc3545;
       padding: 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       margin-bottom: 1rem;
       font-size: 0.875rem;
       display: none;
@@ -1163,9 +1163,9 @@ export default class ConfigEditorAgent extends BaseDuty {
 
     body {
       margin: 0;
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
-      font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif;
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
+      font-family: ${hankoTheme.fonts.primary};
     }
 
     .container {
@@ -1184,9 +1184,9 @@ export default class ConfigEditorAgent extends BaseDuty {
     .category-nav {
       position: sticky;
       top: 70px;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 0.65rem;
       max-height: calc(100vh - 90px);
       overflow-y: auto;
@@ -1197,13 +1197,13 @@ export default class ConfigEditorAgent extends BaseDuty {
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-weight: 600;
     }
 
     .category-link {
       display: block;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: none;
       font-size: 0.78rem;
       padding: 0.4rem 0.5rem;
@@ -1213,9 +1213,9 @@ export default class ConfigEditorAgent extends BaseDuty {
     }
 
     .category-link:hover {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textPrimary};
-      border-color: ${roninTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.border};
     }
 
     .editor-main {
@@ -1230,7 +1230,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       gap: 0.3rem;
       min-height: 30px;
       padding: 0.35rem 0.8rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       border: 1px solid #7c3aed;
       background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
       color: #f7f3ff;
@@ -1249,16 +1249,16 @@ export default class ConfigEditorAgent extends BaseDuty {
     }
 
     .btn-secondary {
-      border-color: ${roninTheme.colors.border};
+      border-color: ${hankoTheme.colors.border};
       background: linear-gradient(180deg, #171717 0%, #101010 100%);
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
 
     .btn-secondary:hover {
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
       background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .btn-save {
@@ -1278,7 +1278,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       display: flex;
       gap: 0.5rem;
       margin-bottom: 0.75rem;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
       padding-bottom: 0.55rem;
       flex-wrap: wrap;
     }
@@ -1287,9 +1287,9 @@ export default class ConfigEditorAgent extends BaseDuty {
       min-height: 30px;
       padding: 0.35rem 0.8rem;
       background: linear-gradient(180deg, #171717 0%, #101010 100%);
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      color: ${roninTheme.colors.textSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
       font-size: 0.8125rem;
       font-weight: 600;
@@ -1299,8 +1299,8 @@ export default class ConfigEditorAgent extends BaseDuty {
     }
 
     .tab:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      color: ${roninTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
       background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
     }
 
@@ -1312,18 +1312,18 @@ export default class ConfigEditorAgent extends BaseDuty {
     }
 
     .editor-container {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 0.85rem;
     }
 
     .section {
       margin-bottom: 0.75rem;
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 0.65rem 0.85rem;
-      background: ${roninTheme.colors.background};
+      background: ${hankoTheme.colors.background};
       scroll-margin-top: 86px;
     }
 
@@ -1340,29 +1340,29 @@ export default class ConfigEditorAgent extends BaseDuty {
       font-size: 1.125rem;
       font-weight: 500;
       margin: 0;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .reset-section-btn, .reset-all-btn {
       font-size: 0.75rem;
       padding: 0.35rem 0.6rem;
       background: transparent;
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
     }
 
     .reset-section-btn:hover, .reset-all-btn:hover {
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .subsection {
       margin-left: 0.5rem;
       margin-top: 0.75rem;
       padding-left: 1rem;
-      border-left: 2px solid ${roninTheme.colors.border};
+      border-left: 2px solid ${hankoTheme.colors.border};
     }
 
     .array-item {
@@ -1394,16 +1394,16 @@ export default class ConfigEditorAgent extends BaseDuty {
       display: block;
       margin-bottom: 0.5rem;
       font-size: 0.875rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     input[type="text"], input[type="number"], select {
       width: 100%;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.625rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-family: inherit;
       font-size: 0.875rem;
       box-sizing: border-box;
@@ -1411,12 +1411,12 @@ export default class ConfigEditorAgent extends BaseDuty {
 
     input:focus, select:focus {
       outline: none;
-      border-color: ${roninTheme.colors.accent};
+      border-color: ${hankoTheme.colors.accent};
     }
 
     .help-text {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       margin-top: 0.25rem;
     }
 
@@ -1425,7 +1425,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       border: 1px solid rgba(220, 53, 69, 0.3);
       color: #dc3545;
       padding: 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       margin-bottom: 1rem;
       font-size: 0.875rem;
     }
@@ -1435,7 +1435,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       border: 1px solid rgba(40, 167, 69, 0.3);
       color: #28a745;
       padding: 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       margin-bottom: 1rem;
       font-size: 0.875rem;
     }
@@ -1443,11 +1443,11 @@ export default class ConfigEditorAgent extends BaseDuty {
     textarea {
       width: 100%;
       min-height: 300px;
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.75rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-family: 'Agave', monospace;
       font-size: 0.875rem;
       resize: vertical;
@@ -1566,7 +1566,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       };
     }
 
-    const roninTheme = {
+    const hankoTheme = {
       colors: {
         background: '#1a1a1a',
         backgroundSecondary: '#242424',
@@ -1671,7 +1671,7 @@ export default class ConfigEditorAgent extends BaseDuty {
           \${help ? \`<div class="help-text">\${escapeHtml(help)}</div>\` : ''}</div>\`;
       }
       if ((schemaNode.type === 'nested' || schemaNode.fields) && schemaNode.fields) {
-        let html = \`<div class="subsection"><div class="subsection-title" style="font-size:0.9rem;color:\${roninTheme.colors.textSecondary};margin-bottom:0.5rem">\${escapeHtml(desc)}</div>\`;
+        let html = \`<div class="subsection"><div class="subsection-title" style="font-size:0.9rem;color:\${hankoTheme.colors.textSecondary};margin-bottom:0.5rem">\${escapeHtml(desc)}</div>\`;
         const obj = typeof value === 'object' && value !== null ? value : {};
         for (const [k, subSchema] of Object.entries(schemaNode.fields)) {
           if (subSchema.optional && (obj[k] === undefined || obj[k] === null)) continue;
@@ -1862,7 +1862,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       }
       listEl.innerHTML = routes.map((route, idx) => \`
         <div class="array-item" draggable="true" ondragstart="dashNavDragStart(\${idx})" ondragend="dashNavDragEnd()" ondragover="dashNavDragOver(event)" ondrop="dashNavDrop(\${idx})">
-          <span title="Drag to reorder" style="cursor:grab;color:\${roninTheme.colors.textSecondary};font-size:0.95rem;padding:0 0.25rem;">≡</span>
+          <span title="Drag to reorder" style="cursor:grab;color:\${hankoTheme.colors.textSecondary};font-size:0.95rem;padding:0 0.25rem;">≡</span>
           <input type="text" value="\${escapeHtml(formatDashNavRoute(route))}" readonly>
           <button type="button" class="btn btn-secondary" style="padding:0.25rem 0.5rem" onclick="removeDashNavRoute(\${idx})">Remove</button>
         </div>

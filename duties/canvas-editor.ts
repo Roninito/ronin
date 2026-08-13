@@ -11,14 +11,7 @@
 
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import {
-  dramTheme,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getSharedUIPrimitivesCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface BridgeMessage {
   id?: string;
@@ -152,9 +145,9 @@ export default class CanvasEditorDuty extends BaseDuty {
   <script src="https://unpkg.com/cytoscape@3.30.0/dist/cytoscape.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body { padding: 0; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -168,85 +161,85 @@ export default class CanvasEditorDuty extends BaseDuty {
 
     #main-row { flex: 1; display: flex; min-height: 0; }
     #canvas-shell { flex: 1; position: relative; min-height: 0; }
-    #cy { width: 100%; height: 100%; background: ${dramTheme.colors.background}; }
+    #cy { width: 100%; height: 100%; background: ${hankoTheme.colors.background}; }
 
     #palette {
       width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${dramTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${hankoTheme.colors.border};
       overflow: hidden;
     }
-    #palette-search-wrap { padding: ${dramTheme.spacing.sm}; border-bottom: 1px solid ${dramTheme.colors.border}; }
+    #palette-search-wrap { padding: ${hankoTheme.spacing.sm}; border-bottom: 1px solid ${hankoTheme.colors.border}; }
     #palette-search {
       width: 100%; box-sizing: border-box;
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.sm};
       padding: 6px 8px; font-size: 0.78rem;
     }
-    #palette-pinned { border-bottom: 1px solid ${dramTheme.colors.border}; }
+    #palette-pinned { border-bottom: 1px solid ${hankoTheme.colors.border}; }
     #palette-list { flex: 1; overflow-y: auto; }
     .palette-group-label {
       padding: 8px 12px 4px; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
     .palette-item {
       display: flex; align-items: center; gap: 8px;
-      padding: 6px 12px; font-size: 0.78rem; color: ${dramTheme.colors.textSecondary};
+      padding: 6px 12px; font-size: 0.78rem; color: ${hankoTheme.colors.textSecondary};
       cursor: grab; user-select: none;
     }
-    .palette-item:hover { background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textPrimary}; }
+    .palette-item:hover { background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; }
     .palette-item.placed { opacity: 0.4; }
     .palette-item.placed:hover { opacity: 0.7; }
     .palette-item .p-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
     .palette-item.palette-action { color: var(--forge-amber); font-weight: 600; cursor: pointer; }
-    .palette-item.palette-action:hover { background: ${dramTheme.colors.backgroundTertiary}; }
-    .palette-empty { padding: 12px; font-size: 0.75rem; color: ${dramTheme.colors.textTertiary}; }
+    .palette-item.palette-action:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
+    .palette-empty { padding: 12px; font-size: 0.75rem; color: ${hankoTheme.colors.textTertiary}; }
 
     #canvas-hint {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      color: ${dramTheme.colors.textTertiary}; font-size: 0.85rem; text-align: center;
+      color: ${hankoTheme.colors.textTertiary}; font-size: 0.85rem; text-align: center;
       pointer-events: none; max-width: 320px; line-height: 1.6;
     }
 
     #status-bar {
       position: absolute; top: 12px; left: 12px; z-index: 10;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       display: flex;
-      gap: ${dramTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
     #status-bar .offline { color: var(--forge-danger); }
 
     #lint-tray {
       position: absolute; bottom: 12px; right: 12px; z-index: 10;
       max-width: 360px; max-height: 40vh; overflow-y: auto;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm};
       font-size: 0.72rem;
     }
-    #lint-tray .finding { padding: 4px 6px; border-bottom: 1px solid ${dramTheme.colors.border}; }
+    #lint-tray .finding { padding: 4px 6px; border-bottom: 1px solid ${hankoTheme.colors.border}; }
     #lint-tray .finding:last-child { border-bottom: none; }
     #lint-tray .finding.error { color: var(--forge-danger); }
     #lint-tray .finding.warn { color: var(--forge-amber); }
-    #lint-tray .finding.info { color: ${dramTheme.colors.textSecondary}; }
-    #lint-tray .empty { color: ${dramTheme.colors.textTertiary}; padding: 4px 6px; }
+    #lint-tray .finding.info { color: ${hankoTheme.colors.textSecondary}; }
+    #lint-tray .empty { color: ${hankoTheme.colors.textTertiary}; padding: 4px 6px; }
 
     .legend {
       position: absolute; top: 12px; right: 12px; z-index: 10;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
       font-size: 0.7rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       display: flex; flex-direction: column; gap: 4px;
     }
     .legend .row { display: flex; align-items: center; gap: 6px; }
@@ -254,13 +247,13 @@ export default class CanvasEditorDuty extends BaseDuty {
 
     #toolbar {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
-      display: flex; gap: ${dramTheme.spacing.sm};
+      display: flex; gap: ${hankoTheme.spacing.sm};
     }
     #toolbar button {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.sm};
       padding: 6px 12px;
       font-size: 0.75rem;
       cursor: pointer;
@@ -270,87 +263,87 @@ export default class CanvasEditorDuty extends BaseDuty {
     .panel {
       position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 20;
       width: min(480px, 90vw);
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
       display: none;
     }
     .panel.open { display: block; }
-    .panel h3 { margin: 0 0 ${dramTheme.spacing.sm}; font-size: 0.85rem; color: ${dramTheme.colors.textPrimary}; }
+    .panel h3 { margin: 0 0 ${hankoTheme.spacing.sm}; font-size: 0.85rem; color: ${hankoTheme.colors.textPrimary}; }
     .panel textarea, .panel input[type="text"] {
       width: 100%; resize: vertical;
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
-      border-radius: ${dramTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.sm};
       padding: 6px 8px; font-size: 0.8rem; font-family: inherit;
       box-sizing: border-box;
     }
     .panel textarea { min-height: 64px; }
-    .panel .name-field-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: ${dramTheme.colors.textTertiary}; margin: 8px 0 4px; }
-    .panel .actions { display: flex; gap: ${dramTheme.spacing.sm}; margin-top: ${dramTheme.spacing.sm}; }
+    .panel .name-field-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: ${hankoTheme.colors.textTertiary}; margin: 8px 0 4px; }
+    .panel .actions { display: flex; gap: ${hankoTheme.spacing.sm}; margin-top: ${hankoTheme.spacing.sm}; }
     .panel .actions button {
-      flex: 1; padding: 6px; border-radius: ${dramTheme.borderRadius.sm}; border: 1px solid ${dramTheme.colors.border};
-      background: transparent; color: ${dramTheme.colors.textPrimary}; cursor: pointer; font-size: 0.78rem;
+      flex: 1; padding: 6px; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border};
+      background: transparent; color: ${hankoTheme.colors.textPrimary}; cursor: pointer; font-size: 0.78rem;
     }
     .panel .actions button.primary { border-color: var(--forge-amber); color: var(--forge-amber); }
-    .panel .actions button.allow { border-color: ${dramTheme.colors.success}; color: ${dramTheme.colors.success}; }
+    .panel .actions button.allow { border-color: ${hankoTheme.colors.success}; color: ${hankoTheme.colors.success}; }
     .panel .actions button.refuse { border-color: var(--forge-danger); color: var(--forge-danger); }
-    .panel .preview { font-size: 0.78rem; color: ${dramTheme.colors.textSecondary}; margin-top: ${dramTheme.spacing.sm}; line-height: 1.5; }
-    .panel .status { font-size: 0.72rem; color: ${dramTheme.colors.textTertiary}; margin-top: 6px; }
+    .panel .preview { font-size: 0.78rem; color: ${hankoTheme.colors.textSecondary}; margin-top: ${hankoTheme.spacing.sm}; line-height: 1.5; }
+    .panel .status { font-size: 0.72rem; color: ${hankoTheme.colors.textTertiary}; margin-top: 6px; }
 
     #toolbar button.active { border-color: var(--forge-cyan); color: var(--forge-cyan); }
     #toolbar button:disabled { opacity: 0.4; cursor: default; }
-    #toolbar button:disabled:hover { border-color: ${dramTheme.colors.border}; }
+    #toolbar button:disabled:hover { border-color: ${hankoTheme.colors.border}; }
 
     #exec-feed {
       position: absolute; bottom: 12px; left: 12px; z-index: 10;
       width: 300px; max-height: 30vh; overflow-y: auto;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      padding: ${dramTheme.spacing.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm};
       font-size: 0.7rem;
       display: none;
     }
     #exec-feed.open { display: block; }
-    #exec-feed .row { padding: 3px 4px; border-bottom: 1px solid ${dramTheme.colors.border}; color: ${dramTheme.colors.textSecondary}; display: flex; justify-content: space-between; gap: 6px; }
+    #exec-feed .row { padding: 3px 4px; border-bottom: 1px solid ${hankoTheme.colors.border}; color: ${hankoTheme.colors.textSecondary}; display: flex; justify-content: space-between; gap: 6px; }
     #exec-feed .row:last-child { border-bottom: none; }
     #exec-feed .row .type { color: var(--forge-amber); font-family: monospace; }
-    #exec-feed .row .time { color: ${dramTheme.colors.textTertiary}; flex-shrink: 0; }
-    #exec-feed h4 { margin: 0 0 6px; font-size: 0.72rem; color: ${dramTheme.colors.textPrimary}; }
+    #exec-feed .row .time { color: ${hankoTheme.colors.textTertiary}; flex-shrink: 0; }
+    #exec-feed h4 { margin: 0 0 6px; font-size: 0.72rem; color: ${hankoTheme.colors.textPrimary}; }
 
     #tooltip {
       position: fixed; z-index: 100; pointer-events: none;
       max-width: 340px;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 10px 12px;
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       display: none;
       box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     }
     #tooltip.open { display: block; }
     #tooltip .tt-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     #tooltip .tt-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-    #tooltip .tt-title { color: ${dramTheme.colors.textPrimary}; font-weight: 600; font-size: 0.8rem; }
-    #tooltip .tt-kind { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${dramTheme.colors.textTertiary}; }
+    #tooltip .tt-title { color: ${hankoTheme.colors.textPrimary}; font-weight: 600; font-size: 0.8rem; }
+    #tooltip .tt-kind { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${hankoTheme.colors.textTertiary}; }
     #tooltip .tt-desc { font-style: italic; margin-bottom: 6px; }
     #tooltip .tt-section { margin-top: 6px; }
-    #tooltip .tt-label { color: ${dramTheme.colors.textTertiary}; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    #tooltip .tt-label { color: ${hankoTheme.colors.textTertiary}; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
     #tooltip .tt-port-row { display: flex; align-items: center; gap: 5px; margin: 2px 0; }
     #tooltip .tt-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    #tooltip .tt-empty { color: ${dramTheme.colors.textTertiary}; font-style: italic; }
+    #tooltip .tt-empty { color: ${hankoTheme.colors.textTertiary}; font-style: italic; }
     #tooltip .tt-warn { color: var(--forge-danger); }
 
     #code-panel {
       position: absolute; top: 0; right: 0; bottom: 0; z-index: 15;
       width: 420px; max-width: 45vw;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-left: 1px solid ${dramTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-left: 1px solid ${hankoTheme.colors.border};
       box-shadow: -4px 0 16px rgba(0,0,0,0.35);
       display: none;
       flex-direction: column;
@@ -358,23 +351,23 @@ export default class CanvasEditorDuty extends BaseDuty {
     #code-panel.open { display: flex; }
     #code-panel-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border-bottom: 1px solid ${dramTheme.colors.border};
-      font-size: 0.8rem; color: ${dramTheme.colors.textPrimary}; font-weight: 600;
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      font-size: 0.8rem; color: ${hankoTheme.colors.textPrimary}; font-weight: 600;
     }
     #code-panel-close {
-      background: none; border: none; color: ${dramTheme.colors.textTertiary};
+      background: none; border: none; color: ${hankoTheme.colors.textTertiary};
       font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 2px 6px;
     }
-    #code-panel-close:hover { color: ${dramTheme.colors.textPrimary}; }
-    #code-panel-body { flex: 1; overflow: auto; padding: ${dramTheme.spacing.md}; }
+    #code-panel-close:hover { color: ${hankoTheme.colors.textPrimary}; }
+    #code-panel-body { flex: 1; overflow: auto; padding: ${hankoTheme.spacing.md}; }
     #code-panel-body pre {
       margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.75rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
     #code-panel-note {
-      font-size: 0.7rem; color: var(--forge-amber); margin-bottom: ${dramTheme.spacing.sm};
+      font-size: 0.7rem; color: var(--forge-amber); margin-bottom: ${hankoTheme.spacing.sm};
       font-style: italic;
     }
   </style>
@@ -424,12 +417,12 @@ export default class CanvasEditorDuty extends BaseDuty {
 
     <div id="simulate-panel" class="panel">
       <h3>Simulate event propagation (dry-run)</h3>
-      <p style="font-size:0.72rem;color:${dramTheme.colors.textTertiary};margin:0 0 8px;">
+      <p style="font-size:0.72rem;color:${hankoTheme.colors.textTertiary};margin:0 0 8px;">
         Pure registry walk from the current graph — no tools run, no AI calls, nothing actually fires.
         Shows reachability, not real conditional logic.
       </p>
       <input id="simulate-event-name" type="text" placeholder="event name, e.g. finance.audit.completed"
-        style="width:100%;box-sizing:border-box;background:${dramTheme.colors.background};border:1px solid ${dramTheme.colors.border};color:${dramTheme.colors.textPrimary};border-radius:${dramTheme.borderRadius.sm};padding:6px 8px;font-size:0.8rem;">
+        style="width:100%;box-sizing:border-box;background:${hankoTheme.colors.background};border:1px solid ${hankoTheme.colors.border};color:${hankoTheme.colors.textPrimary};border-radius:${hankoTheme.borderRadius.sm};padding:6px 8px;font-size:0.8rem;">
       <div class="actions">
         <button class="primary" id="simulate-run-btn">Run</button>
         <button id="simulate-cancel-btn">Close</button>
@@ -439,7 +432,7 @@ export default class CanvasEditorDuty extends BaseDuty {
 
     <div id="exec-feed">
       <h4>Recent events (live)</h4>
-      <div id="exec-feed-body"><div style="color:${dramTheme.colors.textTertiary}">No events captured yet.</div></div>
+      <div id="exec-feed-body"><div style="color:${hankoTheme.colors.textTertiary}">No events captured yet.</div></div>
     </div>
 
     <div id="tooltip"></div>
@@ -760,7 +753,7 @@ export default class CanvasEditorDuty extends BaseDuty {
             { selector: 'node', style: {
                 'background-color': (el) => colorForKind(el.data('kind')),
                 'label': 'data(label)',
-                'color': '${dramTheme.colors.textPrimary}',
+                'color': '${hankoTheme.colors.textPrimary}',
                 'font-size': '10px',
                 'text-valign': 'bottom',
                 'text-margin-y': 4,
@@ -1320,7 +1313,7 @@ export default class CanvasEditorDuty extends BaseDuty {
     function renderExecFeed(events) {
       const body = document.getElementById('exec-feed-body');
       if (!events || events.length === 0) {
-        body.innerHTML = '<div style="color:${dramTheme.colors.textTertiary}">No events captured yet.</div>';
+        body.innerHTML = '<div style="color:${hankoTheme.colors.textTertiary}">No events captured yet.</div>';
         return;
       }
       body.innerHTML = events.map(e =>
@@ -1356,8 +1349,8 @@ export default class CanvasEditorDuty extends BaseDuty {
           return;
         }
         resultsEl.innerHTML = result.steps.map((s) =>
-          '<div style="padding:3px 0;border-bottom:1px solid ${dramTheme.colors.border}">' +
-          '<span style="color:${dramTheme.colors.textTertiary}">depth ' + s.depth + '</span> — ' +
+          '<div style="padding:3px 0;border-bottom:1px solid ${hankoTheme.colors.border}">' +
+          '<span style="color:${hankoTheme.colors.textTertiary}">depth ' + s.depth + '</span> — ' +
           '<strong>' + escapeHtml(s.dutyName) + '</strong> (via ' + escapeHtml(s.triggeredByEvent) + ')' +
           (s.emits.length ? ' → emits ' + s.emits.map(escapeHtml).join(', ') : '') +
           '</div>'

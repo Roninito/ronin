@@ -1,6 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { roninTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface SavedUrl {
   id: string;
@@ -362,13 +362,13 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .header-meta .status {
       display: inline-flex;
       align-items: center;
-      gap: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.sm};
     }
 
     .status-dot {
@@ -378,19 +378,19 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
       background: ${this.isConnected ? '#22c55e' : '#ef4444'};
     }
     
-    .url-list { display: flex; flex-direction: column; gap: ${roninTheme.spacing.md}; }
+    .url-list { display: flex; flex-direction: column; gap: ${hankoTheme.spacing.md}; }
     
     .url-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
     }
     
-    .url-card:hover { border-color: ${roninTheme.colors.borderHover}; }
+    .url-card:hover { border-color: ${hankoTheme.colors.borderHover}; }
     
     .url-link {
-      color: ${roninTheme.colors.accent};
+      color: ${hankoTheme.colors.accent};
       text-decoration: none;
       word-break: break-all;
     }
@@ -399,13 +399,13 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
     
     .url-meta {
       display: flex;
-      gap: ${roninTheme.spacing.lg};
-      margin-top: ${roninTheme.spacing.sm};
+      gap: ${hankoTheme.spacing.lg};
+      margin-top: ${hankoTheme.spacing.sm};
       font-size: 0.85rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
     
-    .empty { text-align: center; padding: ${roninTheme.spacing.xl}; color: ${roninTheme.colors.textSecondary}; }
+    .empty { text-align: center; padding: ${hankoTheme.spacing.xl}; color: ${hankoTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>

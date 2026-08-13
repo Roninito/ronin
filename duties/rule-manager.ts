@@ -3,7 +3,7 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /**
  * Rule Manager Agent
@@ -289,9 +289,9 @@ export default class RuleManagerAgent extends BaseDuty {
   <title>Ronin Security Rules</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       padding: 0;
@@ -302,138 +302,138 @@ export default class RuleManagerAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .toolbar {
       display: flex;
-      gap: ${roninTheme.spacing.sm};
-      margin-bottom: ${roninTheme.spacing.lg};
-      padding: ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
+      gap: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
     }
 
     .btn-primary {
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
     }
-    .btn-primary:hover { background: ${roninTheme.colors.accentHover}; border-color: ${roninTheme.colors.borderHover}; }
+    .btn-primary:hover { background: ${hankoTheme.colors.accentHover}; border-color: ${hankoTheme.colors.borderHover}; }
 
     .btn-secondary {
-      background: ${roninTheme.colors.backgroundTertiary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
-    .btn-secondary:hover { background: ${roninTheme.colors.accent}; color: ${roninTheme.colors.textPrimary}; }
+    .btn-secondary:hover { background: ${hankoTheme.colors.accent}; color: ${hankoTheme.colors.textPrimary}; }
 
     .btn-danger {
-      background: ${roninTheme.colors.error}30;
-      border: 1px solid ${roninTheme.colors.error};
-      color: ${roninTheme.colors.error};
+      background: ${hankoTheme.colors.error}30;
+      border: 1px solid ${hankoTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
-    .btn-danger:hover { background: ${roninTheme.colors.error}50; color: ${roninTheme.colors.textPrimary}; }
+    .btn-danger:hover { background: ${hankoTheme.colors.error}50; color: ${hankoTheme.colors.textPrimary}; }
 
     .editor-container {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
       overflow: hidden;
-      margin-bottom: ${roninTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
 
     .editor-header {
-      background: ${roninTheme.colors.backgroundTertiary};
-      padding: ${roninTheme.spacing.md} ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
 
     .editor-header h2 {
       font-size: 0.9375rem;
       font-weight: 300;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .status {
       font-size: 0.75rem;
-      padding: ${roninTheme.spacing.xs} ${roninTheme.spacing.sm};
-      border-radius: ${roninTheme.borderRadius.sm};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
     }
-    .status.saved { background: ${roninTheme.colors.success}30; color: ${roninTheme.colors.success}; }
-    .status.unsaved { background: ${roninTheme.colors.warning}30; color: ${roninTheme.colors.warning}; }
+    .status.saved { background: ${hankoTheme.colors.success}30; color: ${hankoTheme.colors.success}; }
+    .status.unsaved { background: ${hankoTheme.colors.warning}30; color: ${hankoTheme.colors.warning}; }
 
     textarea {
       width: 100%;
       min-height: 480px;
-      padding: ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
+      padding: ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
       border: none;
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.8125rem;
       line-height: 1.6;
       resize: vertical;
       outline: none;
     }
-    textarea:focus { background: ${roninTheme.colors.background}; }
+    textarea:focus { background: ${hankoTheme.colors.background}; }
 
     .preview {
-      padding: ${roninTheme.spacing.lg};
-      background: ${roninTheme.colors.background};
-      border-top: 1px solid ${roninTheme.colors.border};
+      padding: ${hankoTheme.spacing.lg};
+      background: ${hankoTheme.colors.background};
+      border-top: 1px solid ${hankoTheme.colors.border};
       max-height: 400px;
       overflow-y: auto;
     }
 
     .preview-content {
-      font-family: ${roninTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       white-space: pre-wrap;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
-    .preview-content h3 { color: ${roninTheme.colors.link}; margin: ${roninTheme.spacing.md} 0 ${roninTheme.spacing.sm} 0; font-size: 1rem; }
-    .preview-content strong { color: ${roninTheme.colors.link}; }
-    .preview-content code { background: ${roninTheme.colors.backgroundSecondary}; padding: 2px 6px; border-radius: ${roninTheme.borderRadius.sm}; font-size: 0.75rem; }
+    .preview-content h3 { color: ${hankoTheme.colors.link}; margin: ${hankoTheme.spacing.md} 0 ${hankoTheme.spacing.sm} 0; font-size: 1rem; }
+    .preview-content strong { color: ${hankoTheme.colors.link}; }
+    .preview-content code { background: ${hankoTheme.colors.backgroundSecondary}; padding: 2px 6px; border-radius: ${hankoTheme.borderRadius.sm}; font-size: 0.75rem; }
 
     .info-box {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      padding: ${roninTheme.spacing.lg};
-      border-radius: ${roninTheme.borderRadius.lg};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      padding: ${hankoTheme.spacing.lg};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      margin-bottom: ${hankoTheme.spacing.lg};
     }
-    .info-box h3 { color: ${roninTheme.colors.link}; margin-bottom: ${roninTheme.spacing.sm}; font-size: 0.9375rem; }
-    .info-box ul { margin-left: ${roninTheme.spacing.lg}; color: ${roninTheme.colors.textSecondary}; }
-    .info-box li { margin-bottom: ${roninTheme.spacing.xs}; }
+    .info-box h3 { color: ${hankoTheme.colors.link}; margin-bottom: ${hankoTheme.spacing.sm}; font-size: 0.9375rem; }
+    .info-box ul { margin-left: ${hankoTheme.spacing.lg}; color: ${hankoTheme.colors.textSecondary}; }
+    .info-box li { margin-bottom: ${hankoTheme.spacing.xs}; }
 
     .success-message {
-      background: ${roninTheme.colors.success}20;
-      border: 1px solid ${roninTheme.colors.success}50;
-      color: ${roninTheme.colors.success};
-      padding: ${roninTheme.spacing.md};
-      border-radius: ${roninTheme.borderRadius.md};
-      margin-bottom: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.success}20;
+      border: 1px solid ${hankoTheme.colors.success}50;
+      color: ${hankoTheme.colors.success};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
+      margin-bottom: ${hankoTheme.spacing.lg};
       display: none;
     }
     .success-message.show { display: block; }
 
-    .tabs { display: flex; gap: ${roninTheme.spacing.xs}; margin-bottom: ${roninTheme.spacing.lg}; }
+    .tabs { display: flex; gap: ${hankoTheme.spacing.xs}; margin-bottom: ${hankoTheme.spacing.lg}; }
 
     .tab {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${roninTheme.borderRadius.md} ${roninTheme.borderRadius.md} 0 0;
+      border-radius: ${hankoTheme.borderRadius.md} ${hankoTheme.borderRadius.md} 0 0;
       font-size: 0.8125rem;
     }
-    .tab.active { background: ${roninTheme.colors.backgroundTertiary}; color: ${roninTheme.colors.textPrimary}; border-bottom-color: transparent; }
+    .tab.active { background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; border-bottom-color: transparent; }
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }

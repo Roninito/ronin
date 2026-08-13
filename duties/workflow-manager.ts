@@ -22,14 +22,7 @@ import {
   listWorkflows,
   loadWorkflow,
 } from "../src/workflow/index.js";
-import {
-  dramTheme,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getSharedUIPrimitivesCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -381,26 +374,26 @@ ${contextLine}`;
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 1280px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
       display: grid;
       grid-template-columns: 320px minmax(0, 1fr);
-      gap: ${dramTheme.spacing.lg};
+      gap: ${hankoTheme.spacing.lg};
     }
 
     .section-title {
       font-size: 0.9375rem;
       font-weight: 500;
-      margin: 0 0 ${dramTheme.spacing.sm};
-      color: ${dramTheme.colors.textPrimary};
+      margin: 0 0 ${hankoTheme.spacing.sm};
+      color: ${hankoTheme.colors.textPrimary};
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -409,85 +402,85 @@ ${contextLine}`;
     .btn-new {
       font-size: 0.75rem;
       padding: 4px 10px;
-      border-radius: ${dramTheme.borderRadius.sm};
-      border: 1px solid ${dramTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${hankoTheme.colors.border};
       background: transparent;
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       cursor: pointer;
     }
-    .btn-new:hover { background: ${dramTheme.colors.backgroundTertiary}; }
+    .btn-new:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
 
     .workflow-item {
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      margin-bottom: ${dramTheme.spacing.xs};
-      background: ${dramTheme.colors.backgroundSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      margin-bottom: ${hankoTheme.spacing.xs};
+      background: ${hankoTheme.colors.backgroundSecondary};
       cursor: pointer;
     }
-    .workflow-item:hover { border-color: ${dramTheme.colors.textTertiary}; }
-    .workflow-item.selected { border-color: ${dramTheme.colors.success}; }
-    .workflow-item-main { display: flex; align-items: center; justify-content: space-between; gap: ${dramTheme.spacing.sm}; }
+    .workflow-item:hover { border-color: ${hankoTheme.colors.textTertiary}; }
+    .workflow-item.selected { border-color: ${hankoTheme.colors.success}; }
+    .workflow-item-main { display: flex; align-items: center; justify-content: space-between; gap: ${hankoTheme.spacing.sm}; }
     .workflow-status { font-size: 0.625rem; padding: 1px 7px; border-radius: 999px; border: 1px solid; text-transform: uppercase; letter-spacing: 0.04em; }
-    .workflow-status.draft { color: ${dramTheme.colors.textTertiary}; border-color: ${dramTheme.colors.border}; }
-    .workflow-status.active { color: ${dramTheme.colors.success}; border-color: ${dramTheme.colors.success}; }
-    .workflow-status.deprecated { color: ${dramTheme.colors.error}; border-color: ${dramTheme.colors.error}; }
-    .workflow-item-desc { font-size: 0.75rem; color: ${dramTheme.colors.textSecondary}; margin-top: 2px; }
+    .workflow-status.draft { color: ${hankoTheme.colors.textTertiary}; border-color: ${hankoTheme.colors.border}; }
+    .workflow-status.active { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success}; }
+    .workflow-status.deprecated { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error}; }
+    .workflow-item-desc { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; margin-top: 2px; }
     .workflow-item-tags { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
-    .tag { font-size: 0.625rem; padding: 1px 6px; border-radius: 999px; background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textTertiary}; }
+    .tag { font-size: 0.625rem; padding: 1px 6px; border-radius: 999px; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textTertiary}; }
 
-    .empty-state { color: ${dramTheme.colors.textTertiary}; font-size: 0.8125rem; padding: ${dramTheme.spacing.md} 0; }
+    .empty-state { color: ${hankoTheme.colors.textTertiary}; font-size: 0.8125rem; padding: ${hankoTheme.spacing.md} 0; }
 
     .detail-panel {
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      background: ${dramTheme.colors.backgroundSecondary};
-      padding: ${dramTheme.spacing.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      padding: ${hankoTheme.spacing.md};
       min-height: 240px;
     }
-    .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: ${dramTheme.spacing.sm}; gap: ${dramTheme.spacing.sm}; }
-    .detail-header input { flex: 1; background: transparent; border: none; color: ${dramTheme.colors.textPrimary}; font-size: 1rem; font-weight: 500; }
-    .detail-actions { display: flex; gap: ${dramTheme.spacing.xs}; flex-shrink: 0; }
+    .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: ${hankoTheme.spacing.sm}; gap: ${hankoTheme.spacing.sm}; }
+    .detail-header input { flex: 1; background: transparent; border: none; color: ${hankoTheme.colors.textPrimary}; font-size: 1rem; font-weight: 500; }
+    .detail-actions { display: flex; gap: ${hankoTheme.spacing.xs}; flex-shrink: 0; }
     .detail-actions button {
-      font-size: 0.75rem; padding: 5px 10px; border-radius: ${dramTheme.borderRadius.sm};
-      border: 1px solid ${dramTheme.colors.border}; background: transparent; color: ${dramTheme.colors.textPrimary}; cursor: pointer;
+      font-size: 0.75rem; padding: 5px 10px; border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${hankoTheme.colors.border}; background: transparent; color: ${hankoTheme.colors.textPrimary}; cursor: pointer;
     }
-    .detail-actions button:hover { background: ${dramTheme.colors.backgroundTertiary}; }
-    .detail-actions .btn-save { color: ${dramTheme.colors.success}; border-color: ${dramTheme.colors.success}; }
-    .detail-actions .btn-delete { color: ${dramTheme.colors.error}; border-color: ${dramTheme.colors.error}; }
+    .detail-actions button:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
+    .detail-actions .btn-save { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success}; }
+    .detail-actions .btn-delete { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error}; }
 
-    #workflow-preview { font-size: 0.8125rem; line-height: 1.6; color: ${dramTheme.colors.textPrimary}; }
+    #workflow-preview { font-size: 0.8125rem; line-height: 1.6; color: ${hankoTheme.colors.textPrimary}; }
     #workflow-preview h1, #workflow-preview h2 { font-size: 1rem; margin: 0.9em 0 0.4em; }
-    #workflow-preview code { background: ${dramTheme.colors.backgroundTertiary}; padding: 1px 4px; border-radius: 3px; }
+    #workflow-preview code { background: ${hankoTheme.colors.backgroundTertiary}; padding: 1px 4px; border-radius: 3px; }
     #workflow-editor {
       width: 100%; min-height: 360px; box-sizing: border-box;
-      background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.sm};
-      padding: ${dramTheme.spacing.sm}; font-family: 'Agave', monospace; font-size: 0.8125rem; line-height: 1.5;
+      background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm};
+      padding: ${hankoTheme.spacing.sm}; font-family: 'Agave', monospace; font-size: 0.8125rem; line-height: 1.5;
       resize: vertical; display: none;
     }
-    .save-status { font-size: 0.75rem; color: ${dramTheme.colors.textSecondary}; margin-top: ${dramTheme.spacing.xs}; min-height: 1.1em; }
+    .save-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; margin-top: ${hankoTheme.spacing.xs}; min-height: 1.1em; }
 
-    .discuss-panel { margin-top: ${dramTheme.spacing.lg}; border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.md}; background: ${dramTheme.colors.backgroundSecondary}; padding: ${dramTheme.spacing.md}; }
-    #discuss-log { max-height: 260px; overflow-y: auto; margin-bottom: ${dramTheme.spacing.sm}; }
-    .discuss-msg { font-size: 0.8125rem; line-height: 1.5; margin-bottom: ${dramTheme.spacing.sm}; }
-    .discuss-msg.user { color: ${dramTheme.colors.textPrimary}; }
-    .discuss-msg.assistant { color: ${dramTheme.colors.textSecondary}; }
-    .discuss-msg .who { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${dramTheme.colors.textTertiary}; display: block; margin-bottom: 2px; }
+    .discuss-panel { margin-top: ${hankoTheme.spacing.lg}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundSecondary}; padding: ${hankoTheme.spacing.md}; }
+    #discuss-log { max-height: 260px; overflow-y: auto; margin-bottom: ${hankoTheme.spacing.sm}; }
+    .discuss-msg { font-size: 0.8125rem; line-height: 1.5; margin-bottom: ${hankoTheme.spacing.sm}; }
+    .discuss-msg.user { color: ${hankoTheme.colors.textPrimary}; }
+    .discuss-msg.assistant { color: ${hankoTheme.colors.textSecondary}; }
+    .discuss-msg .who { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${hankoTheme.colors.textTertiary}; display: block; margin-bottom: 2px; }
     .discuss-draft-actions { margin-top: 4px; }
-    .discuss-draft-actions button { font-size: 0.75rem; padding: 3px 9px; border-radius: ${dramTheme.borderRadius.sm}; border: 1px solid ${dramTheme.colors.success}; color: ${dramTheme.colors.success}; background: transparent; cursor: pointer; }
-    .discuss-input-row { display: flex; gap: ${dramTheme.spacing.sm}; }
-    .discuss-input-row textarea { flex: 1; min-height: 44px; resize: vertical; background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textPrimary}; border: 1px solid ${dramTheme.colors.border}; border-radius: ${dramTheme.borderRadius.sm}; padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.sm}; font-family: inherit; font-size: 0.8125rem; }
-    .discuss-input-row button { align-self: flex-end; padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.md}; border-radius: ${dramTheme.borderRadius.sm}; border: 1px solid ${dramTheme.colors.border}; background: ${dramTheme.colors.backgroundTertiary}; color: ${dramTheme.colors.textPrimary}; cursor: pointer; }
+    .discuss-draft-actions button { font-size: 0.75rem; padding: 3px 9px; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.success}; color: ${hankoTheme.colors.success}; background: transparent; cursor: pointer; }
+    .discuss-input-row { display: flex; gap: ${hankoTheme.spacing.sm}; }
+    .discuss-input-row textarea { flex: 1; min-height: 44px; resize: vertical; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm}; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm}; font-family: inherit; font-size: 0.8125rem; }
+    .discuss-input-row button { align-self: flex-end; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border}; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; cursor: pointer; }
 
-    .proposal-card { margin-bottom: ${dramTheme.spacing.sm}; padding: ${dramTheme.spacing.md}; border-radius: ${dramTheme.borderRadius.md}; background: ${dramTheme.colors.backgroundTertiary}; border: 1px solid ${dramTheme.colors.border}; }
-    .proposal-card-preview { font-size: 0.8125rem; line-height: 1.6; color: ${dramTheme.colors.textPrimary}; margin-bottom: ${dramTheme.spacing.sm}; }
-    .proposal-card-actions { display: flex; gap: ${dramTheme.spacing.sm}; }
-    .proposal-card-actions button { flex: 1; padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.md}; border-radius: ${dramTheme.borderRadius.sm}; border: 1px solid ${dramTheme.colors.border}; background: transparent; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
-    .proposal-card-allow { color: ${dramTheme.colors.success}; border-color: ${dramTheme.colors.success} !important; }
-    .proposal-card-refuse { color: ${dramTheme.colors.error}; border-color: ${dramTheme.colors.error} !important; }
+    .proposal-card { margin-bottom: ${hankoTheme.spacing.sm}; padding: ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundTertiary}; border: 1px solid ${hankoTheme.colors.border}; }
+    .proposal-card-preview { font-size: 0.8125rem; line-height: 1.6; color: ${hankoTheme.colors.textPrimary}; margin-bottom: ${hankoTheme.spacing.sm}; }
+    .proposal-card-actions { display: flex; gap: ${hankoTheme.spacing.sm}; }
+    .proposal-card-actions button { flex: 1; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border}; background: transparent; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
+    .proposal-card-allow { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success} !important; }
+    .proposal-card-refuse { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error} !important; }
     .proposal-card-actions button:disabled { opacity: 0.5; cursor: default; }
-    .proposal-card-status { font-size: 0.75rem; color: ${dramTheme.colors.textSecondary}; }
+    .proposal-card-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>
@@ -502,7 +495,7 @@ ${contextLine}`;
       <div class="section-title">Workflows <button class="btn-new" onclick="newWorkflow()">+ New</button></div>
       <div id="workflow-list">${listItems}</div>
 
-      ${proposalCards ? `<div class="section-title" style="margin-top:${dramTheme.spacing.lg}">Pending Proposals</div><div id="proposals">${proposalCards}</div>` : ""}
+      ${proposalCards ? `<div class="section-title" style="margin-top:${hankoTheme.spacing.lg}">Pending Proposals</div><div id="proposals">${proposalCards}</div>` : ""}
     </div>
 
     <div>

@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
+import { getThemeCSS, getHeaderBarCSS, getSharedUIPrimitivesCSS, getHeaderHomeIconHTML, hankoTheme } from "../src/utils/theme.js";
 
 interface TelegramWatcherConfig {
   enabled: boolean;
@@ -421,29 +422,40 @@ ${relatedBlock}`;
     const cfg = await this.getConfig();
     const saved = new URL(req.url).searchParams.get("saved") === "1";
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Telegram Watcher</title>
-      <style>body{font-family:Arial;background:#111;color:#eee;padding:20px}.card{max-width:820px;margin:auto;background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px}textarea,input,select{width:100%;background:#111;border:1px solid #333;color:#eee;border-radius:6px;padding:8px}label{display:block;color:#aaa;font-size:12px;margin:10px 0 6px}.check{display:flex;gap:8px;align-items:center;margin:8px 0}.check input{width:auto}button{background:#84cc16;color:#111;border:0;padding:10px 14px;border-radius:6px;font-weight:700;cursor:pointer;margin-top:12px}a{color:#84cc16}.ok{background:#16320d;border:1px solid #2d6a1f;color:#9be67a;padding:8px;border-radius:6px;margin-bottom:10px}</style></head><body><div class="card">
-      <h1>Telegram Watcher</h1>
-      ${saved ? '<div class="ok">Saved.</div>' : ""}
+      <style>
+        ${getThemeCSS()}
+        ${getHeaderBarCSS()}
+        ${getSharedUIPrimitivesCSS()}
+        body { padding: 0; }
+        .page { max-width: 820px; margin: 0 auto; padding: 1.25rem; }
+        label { display: block; color: ${hankoTheme.colors.textSecondary}; font-size: 12px; margin: 10px 0 6px; }
+        .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+        .check input { width: auto; }
+        .ok { padding: 8px; border-radius: 4px; margin-bottom: 10px; }
+      </style></head><body>
+      <div class="header">${getHeaderHomeIconHTML()}<h1>Telegram Watcher</h1></div>
+      <div class="page"><div class="ui-panel">
+      ${saved ? '<div class="ok ui-badge ui-badge--success">Saved.</div>' : ""}
       <form method="POST" action="/telegram-watcher">
       <div class="check"><input id="enabled" name="enabled" type="checkbox" ${cfg.enabled ? "checked" : ""}><label for="enabled" style="margin:0">Enabled</label></div>
       <label for="sourceChats">Source chats/channels (IDs or @usernames, comma/newline separated)</label>
-      <textarea id="sourceChats" name="sourceChats" rows="5">${escapeHtml(cfg.sourceChats.join("\n"))}</textarea>
+      <textarea class="ui-input" id="sourceChats" name="sourceChats" rows="5">${escapeHtml(cfg.sourceChats.join("\n"))}</textarea>
       <label for="targetChat">Target chat/channel ID</label>
-      <input id="targetChat" name="targetChat" value="${escapeHtml(cfg.targetChat)}" placeholder="-1001234567890">
+      <input class="ui-input" id="targetChat" name="targetChat" value="${escapeHtml(cfg.targetChat)}" placeholder="-1001234567890">
       <label for="rewriteModel">Rewrite model</label>
-      <input id="rewriteModel" name="rewriteModel" value="${escapeHtml(cfg.rewriteModel)}" placeholder="smart">
+      <input class="ui-input" id="rewriteModel" name="rewriteModel" value="${escapeHtml(cfg.rewriteModel)}" placeholder="smart">
       <label for="parseMode">Parse mode</label>
-      <select id="parseMode" name="parseMode">
+      <select class="ui-input" id="parseMode" name="parseMode">
         <option value="HTML" ${cfg.parseMode === "HTML" ? "selected" : ""}>HTML</option>
         <option value="Markdown" ${cfg.parseMode === "Markdown" ? "selected" : ""}>Markdown</option>
         <option value="MarkdownV2" ${cfg.parseMode === "MarkdownV2" ? "selected" : ""}>MarkdownV2</option>
       </select>
       <label for="maxContextItems">Related context items (0-6)</label>
-      <input id="maxContextItems" name="maxContextItems" type="number" min="0" max="6" value="${cfg.maxContextItems}">
-      <button type="submit">Save</button>
+      <input class="ui-input" id="maxContextItems" name="maxContextItems" type="number" min="0" max="6" value="${cfg.maxContextItems}">
+      <button class="ui-btn ui-btn--primary" type="submit" style="margin-top:12px">Save</button>
       </form>
-      <p style="font-size:12px;color:#888;margin-top:12px">Edit persona: <a href="/telegram-watcher/persona">/telegram-watcher/persona</a></p>
-      </div></body></html>`;
+      <p style="font-size:12px;margin-top:12px">Edit persona: <a href="/telegram-watcher/persona">/telegram-watcher/persona</a></p>
+      </div></div></body></html>`;
     return new Response(html, { headers: { "Content-Type": "text/html" } });
   }
 
@@ -458,13 +470,22 @@ ${relatedBlock}`;
     const content = await this.readPersona();
     const saved = new URL(req.url).searchParams.get("saved") === "1";
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Telegram Watcher Persona</title>
-      <style>body{font-family:Arial;background:#111;color:#eee;padding:20px}.card{max-width:860px;margin:auto;background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:16px}textarea{width:100%;height:65vh;background:#111;border:1px solid #333;color:#eee;border-radius:6px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:12px}button{background:#84cc16;color:#111;border:0;padding:10px 14px;border-radius:6px;font-weight:700;cursor:pointer;margin-top:12px}.ok{background:#16320d;border:1px solid #2d6a1f;color:#9be67a;padding:8px;border-radius:6px;margin-bottom:10px}a{color:#84cc16}</style></head><body><div class="card">
-      <h1>telegram-watcher.persona.md</h1>
-      ${saved ? '<div class="ok">Saved.</div>' : ""}
+      <style>
+        ${getThemeCSS()}
+        ${getHeaderBarCSS()}
+        ${getSharedUIPrimitivesCSS()}
+        body { padding: 0; }
+        .page { max-width: 860px; margin: 0 auto; padding: 1.25rem; }
+        textarea.ui-input { height: 65vh; font-family: ${hankoTheme.fonts.mono}; font-size: 12px; }
+        .ok { padding: 8px; border-radius: 4px; margin-bottom: 10px; }
+      </style></head><body>
+      <div class="header">${getHeaderHomeIconHTML()}<h1>Persona</h1></div>
+      <div class="page"><div class="ui-panel">
+      ${saved ? '<div class="ok ui-badge ui-badge--success">Saved.</div>' : ""}
       <form method="POST" action="/telegram-watcher/persona">
-      <textarea name="content">${escapeHtml(content)}</textarea>
-      <div><button type="submit">Save Persona</button> <a href="/telegram-watcher" style="margin-left:12px">Back</a></div>
-      </form></div></body></html>`;
+      <textarea class="ui-input" name="content">${escapeHtml(content)}</textarea>
+      <div style="margin-top:12px"><button class="ui-btn ui-btn--primary" type="submit">Save Persona</button> <a href="/telegram-watcher" style="margin-left:12px">Back</a></div>
+      </form></div></div></body></html>`;
     return new Response(html, { headers: { "Content-Type": "text/html" } });
   }
 

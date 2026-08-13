@@ -1,6 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import { runTaskingExecutorMigrations } from "../src/tasking/migrations.js";
 import { resolveExecutor, isCodingExecutor, runCodingExecutor, type ExecutorName } from "../src/tasking/executors.js";
 import { provisionWorktree, releaseWorktree } from "../src/tasking/worktree.js";
@@ -2584,9 +2584,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
   <title>${this.escapeHtml(board.name)} - Kanban</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     * {
       margin: 0;
@@ -2595,9 +2595,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     body {
-      font-family: ${roninTheme.fonts.primary};
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
+      font-family: ${hankoTheme.fonts.primary};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
       min-height: 100vh;
       overflow-x: auto;
     }
@@ -2609,33 +2609,33 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .back-link {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       text-decoration: none;
       font-size: 0.875rem;
     }
 
     .back-link:hover {
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .board-description {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.875rem;
       margin-top: 0.25rem;
     }
 
     .add-card-btn {
-      background: ${roninTheme.colors.accent};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.5rem 1rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
     }
 
     .add-card-btn:hover {
-      background: ${roninTheme.colors.accentHover};
+      background: ${hankoTheme.colors.accentHover};
     }
 
     .workspace-toolbar {
@@ -2653,28 +2653,28 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .toolbar-row input,
     .toolbar-row select {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.8rem;
       padding: 0.45rem 0.55rem;
       min-width: 130px;
     }
 
     .toolbar-chip {
-      border: 1px solid ${roninTheme.colors.border};
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.75rem;
       padding: 0.35rem 0.55rem;
       cursor: pointer;
     }
 
     .toolbar-chip:hover {
-      color: ${roninTheme.colors.textPrimary};
-      border-color: ${roninTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .metrics-row {
@@ -2685,17 +2685,17 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .metric-pill {
       font-size: 0.72rem;
-      color: ${roninTheme.colors.textSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      background: ${roninTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
       padding: 0.2rem 0.5rem;
     }
 
     .ops-panel {
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
       padding: 0.75rem;
     }
 
@@ -2711,18 +2711,18 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .ops-tab {
       font-size: 0.75rem;
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 0.25rem 0.5rem;
       background: transparent;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
     }
 
     .ops-tab.active {
-      color: ${roninTheme.colors.textPrimary};
-      border-color: ${roninTheme.colors.borderHover};
-      background: ${roninTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.background};
     }
 
     .ops-tab-content {
@@ -2730,7 +2730,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
       max-height: 200px;
       overflow: auto;
       font-size: 0.75rem;
-      border-top: 1px solid ${roninTheme.colors.border};
+      border-top: 1px solid ${hankoTheme.colors.border};
       padding-top: 0.5rem;
     }
 
@@ -2744,9 +2744,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .ops-list-item {
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.sm};
-      background: ${roninTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.background};
       padding: 0.35rem 0.45rem;
       white-space: pre-wrap;
       word-break: break-word;
@@ -2755,10 +2755,10 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .rules-editor {
       width: 100%;
       min-height: 90px;
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      background: ${roninTheme.colors.background};
-      color: ${roninTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.45rem;
       font-family: 'Agave', monospace;
       font-size: 0.72rem;
@@ -2773,9 +2773,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .column {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       min-width: 300px;
       max-width: 300px;
       display: flex;
@@ -2785,7 +2785,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .column-header {
       padding: 1rem;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -2797,11 +2797,11 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .column-count {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.5rem;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .column-content {
@@ -2812,13 +2812,13 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .column-content.drag-over {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .card {
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
       padding: 0.75rem;
       margin-bottom: 0.5rem;
       cursor: grab;
@@ -2826,7 +2826,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .card:hover {
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .card.dragging {
@@ -2835,8 +2835,8 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .card.focused {
-      border-color: ${roninTheme.colors.borderHover};
-      box-shadow: 0 0 0 1px ${roninTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
+      box-shadow: 0 0 0 1px ${hankoTheme.colors.borderHover};
     }
 
     .card-title {
@@ -2849,7 +2849,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .task-line-icon {
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.7rem;
       letter-spacing: -0.08em;
     }
@@ -2880,9 +2880,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .label {
       font-size: 0.6875rem;
       padding: 0.125rem 0.375rem;
-      border-radius: ${roninTheme.borderRadius.sm};
-      background: ${roninTheme.colors.accent};
-      color: ${roninTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      background: ${hankoTheme.colors.accent};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .due-date {
@@ -2898,7 +2898,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .dependency-indicator {
       font-size: 0.75rem;
-      color: ${roninTheme.colors.warning};
+      color: ${hankoTheme.colors.warning};
     }
 
     .card-badges {
@@ -2912,7 +2912,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
       font-size: 0.625rem;
       font-weight: 600;
       padding: 0.125rem 0.375rem;
-      border-radius: ${roninTheme.borderRadius.sm};
+      border-radius: ${hankoTheme.borderRadius.sm};
       text-transform: uppercase;
       letter-spacing: 0.025em;
     }
@@ -2952,8 +2952,8 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .badge-app {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textSecondary};
       font-family: 'Agave', monospace;
       font-size: 0.625rem;
     }
@@ -2962,17 +2962,17 @@ Execute the task using the available tools and emit events as needed. Provide a 
       width: 100%;
       padding: 0.5rem;
       background: transparent;
-      border: 1px dashed ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
-      border-radius: ${roninTheme.borderRadius.md};
+      border: 1px dashed ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
       margin-top: 0.5rem;
     }
 
     .add-card-column-btn:hover {
-      border-color: ${roninTheme.colors.borderHover};
-      color: ${roninTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.borderHover};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     /* Modal Styles */
@@ -2995,9 +2995,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .modal-content {
-      background: ${roninTheme.colors.background};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
       padding: 1.5rem;
       max-width: 600px;
       width: 100%;
@@ -3022,18 +3022,18 @@ Execute the task using the available tools and emit events as needed. Provide a 
       display: block;
       margin-bottom: 0.25rem;
       font-size: 0.75rem;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .form-group input,
     .form-group textarea,
     .form-group select {
       width: 100%;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
       padding: 0.5rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-family: inherit;
       font-size: 0.75rem;
     }
@@ -3045,19 +3045,19 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .markdown-preview-container {
       margin-top: 0.5rem;
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
-      background: ${roninTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
     }
 
     .preview-label {
       display: block;
       padding: 0.25rem 0.5rem;
       font-size: 0.7rem;
-      color: ${roninTheme.colors.textSecondary};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      background: ${roninTheme.colors.background};
-      border-radius: ${roninTheme.borderRadius.md} ${roninTheme.borderRadius.md} 0 0;
+      color: ${hankoTheme.colors.textSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      background: ${hankoTheme.colors.background};
+      border-radius: ${hankoTheme.borderRadius.md} ${hankoTheme.borderRadius.md} 0 0;
     }
 
     .markdown-preview {
@@ -3096,16 +3096,16 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .markdown-preview code {
-      background: ${roninTheme.colors.background};
+      background: ${hankoTheme.colors.background};
       padding: 0.1rem 0.25rem;
       border-radius: 3px;
       font-family: monospace;
     }
 
     .markdown-preview pre {
-      background: ${roninTheme.colors.background};
+      background: ${hankoTheme.colors.background};
       padding: 0.5rem;
-      border-radius: ${roninTheme.borderRadius.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       overflow-x: auto;
       margin: 0.5rem 0;
     }
@@ -3116,14 +3116,14 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .markdown-preview blockquote {
-      border-left: 3px solid ${roninTheme.colors.border};
+      border-left: 3px solid ${hankoTheme.colors.border};
       padding-left: 0.75rem;
       margin: 0.5rem 0;
-      color: ${roninTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .markdown-preview a {
-      color: ${roninTheme.colors.accent};
+      color: ${hankoTheme.colors.accent};
       text-decoration: none;
     }
 
@@ -3140,20 +3140,20 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .markdown-preview th,
     .markdown-preview td {
-      border: 1px solid ${roninTheme.colors.border};
+      border: 1px solid ${hankoTheme.colors.border};
       padding: 0.25rem 0.5rem;
       text-align: left;
     }
 
     .markdown-preview th {
-      background: ${roninTheme.colors.background};
+      background: ${hankoTheme.colors.background};
     }
 
     .form-group input:focus,
     .form-group textarea:focus,
     .form-group select:focus {
       outline: none;
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .form-row {
@@ -3169,9 +3169,9 @@ Execute the task using the available tools and emit events as needed. Provide a 
       max-height: 150px;
       overflow-y: auto;
       padding: 0.5rem;
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
 
     .checkbox-item {
@@ -3194,13 +3194,13 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .btn-secondary {
       background: transparent;
-      color: ${roninTheme.colors.textSecondary};
-      border: 1px solid ${roninTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
     }
 
     .btn-secondary:hover {
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .btn-danger {

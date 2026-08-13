@@ -21,14 +21,7 @@ import { existsSync } from "fs";
 import { proposeDuty, DutyProposeError, DutyProposalStorage } from "../src/duty/index.js";
 import { validateDutyCode, toKebabCase } from "../src/duty/duty-authoring.js";
 import { ensureDefaultDutyDir } from "../src/cli/commands/config.js";
-import {
-  dramTheme,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getSharedUIPrimitivesCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "../src/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -191,69 +184,69 @@ export default class DutyExecutorAgent extends BaseDuty {
   <title>Duties - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .section-title {
       font-size: 0.9375rem;
       font-weight: 500;
-      margin: ${dramTheme.spacing.lg} 0 ${dramTheme.spacing.sm};
-      color: ${dramTheme.colors.textPrimary};
+      margin: ${hankoTheme.spacing.lg} 0 ${hankoTheme.spacing.sm};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .duty-row {
-      padding: ${dramTheme.spacing.md};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.md};
-      margin-bottom: ${dramTheme.spacing.sm};
-      background: ${dramTheme.colors.backgroundSecondary};
+      padding: ${hankoTheme.spacing.md};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.md};
+      margin-bottom: ${hankoTheme.spacing.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
     }
 
-    .duty-row-main { margin-bottom: ${dramTheme.spacing.xs}; }
-    .duty-row-detail { font-size: 0.8125rem; color: ${dramTheme.colors.textSecondary}; }
+    .duty-row-main { margin-bottom: ${hankoTheme.spacing.xs}; }
+    .duty-row-detail { font-size: 0.8125rem; color: ${hankoTheme.colors.textSecondary}; }
 
     .empty-state {
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.8125rem;
-      padding: ${dramTheme.spacing.md} 0;
+      padding: ${hankoTheme.spacing.md} 0;
     }
 
     .proposal-card {
-      margin-bottom: ${dramTheme.spacing.sm};
-      padding: ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
-      background: ${dramTheme.colors.backgroundTertiary};
-      border: 1px solid ${dramTheme.colors.border};
+      margin-bottom: ${hankoTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
     }
     .proposal-card-preview {
       font-size: 0.8125rem;
       line-height: 1.6;
-      color: ${dramTheme.colors.textPrimary};
-      margin-bottom: ${dramTheme.spacing.sm};
+      color: ${hankoTheme.colors.textPrimary};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
     .proposal-card-code-details {
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
     }
     .proposal-card-code-details summary {
       font-size: 0.75rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
     }
     .proposal-card-code {
-      margin-top: ${dramTheme.spacing.xs};
-      padding: ${dramTheme.spacing.sm};
-      background: ${dramTheme.colors.background};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.sm};
+      margin-top: ${hankoTheme.spacing.xs};
+      padding: ${hankoTheme.spacing.sm};
+      background: ${hankoTheme.colors.background};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.75rem;
       line-height: 1.5;
@@ -262,21 +255,21 @@ export default class DutyExecutorAgent extends BaseDuty {
       max-height: 360px;
       overflow-y: auto;
     }
-    .proposal-card-actions { display: flex; gap: ${dramTheme.spacing.sm}; }
+    .proposal-card-actions { display: flex; gap: ${hankoTheme.spacing.sm}; }
     .proposal-card-actions button {
       flex: 1;
-      padding: ${dramTheme.spacing.xs} ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.sm};
-      border: 1px solid ${dramTheme.colors.border};
+      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${hankoTheme.colors.border};
       background: transparent;
       cursor: pointer;
       font-size: 0.75rem;
       font-weight: 500;
     }
-    .proposal-card-allow { color: ${dramTheme.colors.success}; border-color: ${dramTheme.colors.success} !important; }
-    .proposal-card-refuse { color: ${dramTheme.colors.error}; border-color: ${dramTheme.colors.error} !important; }
+    .proposal-card-allow { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success} !important; }
+    .proposal-card-refuse { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error} !important; }
     .proposal-card-actions button:disabled { opacity: 0.5; cursor: default; }
-    .proposal-card-status { font-size: 0.75rem; color: ${dramTheme.colors.textSecondary}; }
+    .proposal-card-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>

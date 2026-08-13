@@ -3,14 +3,7 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { loadTunnelState } from "../plugins/cloudflare/src/tunnelState.js";
 import type { TunnelConfig } from "../plugins/cloudflare/src/types.js";
 import { renderQrSvg } from "../plugins/cloudflare/src/qr.js";
-import {
-  dramTheme,
-  getAdobeCleanFontFaceCSS,
-  getThemeCSS,
-  getSharedUIPrimitivesCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-} from "@ronin/utils/theme.js";
+import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "@ronin/utils/theme.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -65,45 +58,45 @@ export default class CloudflareConnectAgent extends BaseDuty {
   <title>Connect - Ronin</title>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 480px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
       text-align: center;
     }
 
     .connect-url {
-      font-family: ${dramTheme.fonts.mono};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.8125rem;
-      color: ${dramTheme.colors.link};
+      color: ${hankoTheme.colors.link};
       word-break: break-all;
-      margin-bottom: ${dramTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
     }
 
     .connect-qr {
       background: #fff;
       display: inline-block;
-      padding: ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
     }
     .connect-qr svg { display: block; width: 260px; height: 260px; }
 
     .connect-meta {
-      margin-top: ${dramTheme.spacing.md};
+      margin-top: ${hankoTheme.spacing.md};
       font-size: 0.8125rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .empty-state {
-      color: ${dramTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.875rem;
-      padding: ${dramTheme.spacing.lg} 0 ${dramTheme.spacing.sm};
+      padding: ${hankoTheme.spacing.lg} 0 ${hankoTheme.spacing.sm};
     }
   </style>
 </head>

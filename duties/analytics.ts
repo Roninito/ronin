@@ -13,7 +13,7 @@ import type {
   AIStreamEvent,
   AIToolCallEvent,
 } from "../src/tools/types.js";
-import { roninTheme, dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /**
  * Ring buffer that keeps the last N items in memory.
@@ -755,9 +755,9 @@ export default class AnalyticsAgent extends BaseDuty {
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       min-height: 100vh;
@@ -768,83 +768,83 @@ export default class AnalyticsAgent extends BaseDuty {
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${roninTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     /* Overview cards */
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: ${roninTheme.spacing.md};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
       transition: all 0.3s;
     }
 
     .stat-card:hover {
-      border-color: ${roninTheme.colors.borderHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .stat-card .label {
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.6875rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: ${roninTheme.spacing.xs};
+      margin-bottom: ${hankoTheme.spacing.xs};
     }
 
     .stat-card .value {
       font-size: 1.75rem;
       font-weight: 300;
-      color: ${roninTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .stat-card .sub {
       font-size: 0.6875rem;
-      color: ${roninTheme.colors.textTertiary};
-      margin-top: ${roninTheme.spacing.xs};
+      color: ${hankoTheme.colors.textTertiary};
+      margin-top: ${hankoTheme.spacing.xs};
     }
 
     /* Sections */
     .section {
-      margin-bottom: ${roninTheme.spacing.xl};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .section-title {
       font-size: 0.9375rem;
       font-weight: 300;
-      margin-bottom: ${roninTheme.spacing.md};
-      padding-bottom: ${roninTheme.spacing.sm};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      padding-bottom: ${hankoTheme.spacing.sm};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     /* Charts grid */
     .charts-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: ${roninTheme.spacing.lg};
-      margin-bottom: ${roninTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .chart-box {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
     }
 
     .chart-box h3 {
       font-size: 0.8125rem;
       font-weight: 400;
-      margin-bottom: ${roninTheme.spacing.md};
-      color: ${roninTheme.colors.textSecondary};
+      margin-bottom: ${hankoTheme.spacing.md};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .chart-box canvas {
@@ -861,24 +861,24 @@ export default class AnalyticsAgent extends BaseDuty {
 
     th {
       text-align: left;
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      background: ${roninTheme.colors.backgroundSecondary};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      color: ${hankoTheme.colors.textTertiary};
       font-weight: 400;
       font-size: 0.6875rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      border-bottom: 1px solid ${roninTheme.colors.border};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
 
     td {
-      padding: ${roninTheme.spacing.sm} ${roninTheme.spacing.md};
-      border-bottom: 1px solid ${roninTheme.colors.border};
-      color: ${roninTheme.colors.textSecondary};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     tr:hover td {
-      background: ${roninTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     /* Status badges */
@@ -892,61 +892,61 @@ export default class AnalyticsAgent extends BaseDuty {
 
     .badge-active {
       background: rgba(40, 167, 69, 0.15);
-      color: ${roninTheme.colors.success};
+      color: ${hankoTheme.colors.success};
     }
 
     .badge-idle {
-      background: ${roninTheme.colors.backgroundTertiary};
-      color: ${roninTheme.colors.textTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .badge-error {
       background: rgba(220, 53, 69, 0.15);
-      color: ${roninTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
 
     /* Metrics panel */
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: ${roninTheme.spacing.md};
+      gap: ${hankoTheme.spacing.md};
     }
 
     .metric-card {
-      background: ${roninTheme.colors.backgroundSecondary};
-      border: 1px solid ${roninTheme.colors.border};
-      border-radius: ${roninTheme.borderRadius.lg};
-      padding: ${roninTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.md};
     }
 
     .metric-card .metric-label {
       font-size: 0.6875rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
 
     .metric-card .metric-agent {
       font-size: 0.625rem;
-      color: ${roninTheme.colors.textTertiary};
+      color: ${hankoTheme.colors.textTertiary};
     }
 
     .metric-card .metric-value {
       font-size: 1.375rem;
       font-weight: 300;
-      margin-top: ${roninTheme.spacing.xs};
+      margin-top: ${hankoTheme.spacing.xs};
     }
 
     .empty-state {
       text-align: center;
-      padding: ${roninTheme.spacing.xl};
-      color: ${roninTheme.colors.textTertiary};
+      padding: ${hankoTheme.spacing.xl};
+      color: ${hankoTheme.colors.textTertiary};
       font-size: 0.8125rem;
     }
 
     .error-text {
-      color: ${roninTheme.colors.error};
-      font-family: ${roninTheme.fonts.mono};
+      color: ${hankoTheme.colors.error};
+      font-family: ${hankoTheme.fonts.mono};
       font-size: 0.75rem;
       word-break: break-all;
     }

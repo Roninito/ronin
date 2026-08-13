@@ -8,7 +8,7 @@ import { join } from "path";
 import { networkInterfaces } from "os";
 import { existsSync, rmSync } from "fs";
 import { spawn, spawnSync } from "child_process";
-import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG } from "../utils/theme.js";
+import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG, hankoTheme } from "../utils/theme.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
 import { Executor } from "../executor/Executor.js";
@@ -1163,20 +1163,20 @@ export class DutyRegistry {
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
     ${getHeaderBarCSS()}
-    body { margin:0; background:#0a0a0a; color:#fff; font-family:'AudioLink Console Demi','Adobe Clean UI','Adobe Clean',sans-serif; }
+    body { margin:0; background:${hankoTheme.colors.background}; color:${hankoTheme.colors.textPrimary}; font-family:${hankoTheme.fonts.primary}; }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-    .card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.12); border-radius: 6px; padding: .85rem; margin-bottom: .75rem; }
+    .card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.lg}; padding: .85rem; margin-bottom: .75rem; }
     .toolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
-    .toolbar input { background:#111; color:#fff; border:1px solid rgba(255,255,255,.2); padding:.45rem .55rem; border-radius:4px; min-width:280px; }
-    .btn { background:#2c2c2c; color:#fff; border:1px solid rgba(255,255,255,.2); padding:.45rem .65rem; border-radius:4px; cursor:pointer; }
-    .btn:hover { background:#393939; }
-    .btn-secondary { background:#1e1e1e; }
-    .btn-danger { background:#4a1f1f; border-color:#703030; }
+    .toolbar input { background:${hankoTheme.colors.background}; color:${hankoTheme.colors.textPrimary}; border:1px solid ${hankoTheme.colors.border}; padding:.45rem .55rem; border-radius:4px; min-width:280px; }
+    .btn { background:${hankoTheme.colors.backgroundTertiary}; color:${hankoTheme.colors.textPrimary}; border:1px solid ${hankoTheme.colors.border}; padding:.45rem .65rem; border-radius:4px; cursor:pointer; transition: background 150ms ease, border-color 150ms ease; }
+    .btn:hover { background:${hankoTheme.colors.accent}; border-color:${hankoTheme.colors.accent}; }
+    .btn-secondary { background:${hankoTheme.colors.backgroundSecondary}; }
+    .btn-danger { background:${hankoTheme.colors.error}33; border-color:${hankoTheme.colors.error}; }
     table { width:100%; border-collapse: collapse; font-size:.86rem; }
-    th, td { text-align:left; border-bottom:1px solid rgba(255,255,255,.12); padding:.55rem .45rem; vertical-align:top; }
-    th { color: rgba(255,255,255,.68); text-transform: uppercase; letter-spacing:.06em; font-size:.72rem; }
-    .muted { color: rgba(255,255,255,.65); font-size:.78rem; }
-    .status { margin-top:.5rem; font-size:.78rem; color:#b5e48c; min-height:1.1rem; }
+    th, td { text-align:left; border-bottom:1px solid ${hankoTheme.colors.border}; padding:.55rem .45rem; vertical-align:top; }
+    th { color: ${hankoTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing:.06em; font-size:.72rem; }
+    .muted { color: ${hankoTheme.colors.textSecondary}; font-size:.78rem; }
+    .status { margin-top:.5rem; font-size:.78rem; color:${hankoTheme.colors.success}; min-height:1.1rem; }
   </style>
 </head>
 <body>
@@ -1294,33 +1294,33 @@ export class DutyRegistry {
     ${getAdobeCleanFontFaceCSS()}
     ${getThemeCSS()}
     ${getHeaderBarCSS()}
-    body { margin: 0; background: #000; color: #fff; font-family: 'AudioLink Console Demi', 'Adobe Clean UI', 'Adobe Clean', sans-serif; }
+    body { margin: 0; background: ${hankoTheme.colors.background}; color: ${hankoTheme.colors.textPrimary}; font-family: ${hankoTheme.fonts.primary}; }
     .shell { max-width: 1320px; margin: 0 auto; padding: 1rem; display: grid; grid-template-columns: 220px minmax(0,1fr); gap: .75rem; }
-    .dashboard-nav { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: .65rem; position: sticky; top: 8px; margin-top: 11px; z-index: 1100; height: fit-content; }
-    .dashboard-nav h2 { margin: 0 0 .55rem; font-size: .7rem; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .1em; }
-    .dashboard-nav a { display:block; color:#b4b4bb; text-decoration:none; font-size:.74rem; font-weight:700; padding:.42rem .5rem; border-radius:4px; border:1px solid transparent; margin-bottom:.2rem; }
-    .dashboard-nav a:hover { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.35); color:#fff; }
+    .dashboard-nav { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: 6px; padding: .65rem; position: sticky; top: 8px; margin-top: 11px; z-index: 1100; height: fit-content; }
+    .dashboard-nav h2 { margin: 0 0 .55rem; font-size: .7rem; color: ${hankoTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing: .1em; }
+    .dashboard-nav a { display:block; color:${hankoTheme.colors.textSecondary}; text-decoration:none; font-size:.74rem; font-weight:700; padding:.42rem .5rem; border-radius:4px; border:1px solid transparent; margin-bottom:.2rem; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
+    .dashboard-nav a:hover { background: ${hankoTheme.colors.accent}1a; border-color: ${hankoTheme.colors.accent}59; color:${hankoTheme.colors.textPrimary}; }
     .page { min-width: 0; }
-    .loading-screen { position: fixed; inset: 0; background: radial-gradient(circle at 50% 35%, rgba(132,204,22,0.18), transparent 45%), #050506; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; transition: opacity .45s ease; }
+    .loading-screen { position: fixed; inset: 0; background: radial-gradient(circle at 50% 35%, ${hankoTheme.colors.accent}22, transparent 45%), ${hankoTheme.colors.background}; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; transition: opacity .45s ease; }
     .loading-screen.hidden { opacity: 0; pointer-events: none; }
-    .spinner { width: 72px; height: 72px; border-radius: 50%; border: 2px solid rgba(132,204,22,0.25); border-top-color: #84cc16; animation: spin 1.2s linear infinite; box-shadow: 0 0 30px rgba(132,204,22,0.25); }
-    .loading-title { font-size: 0.9rem; letter-spacing: .16em; text-transform: uppercase; color: #d9f99d; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 28px; height: 28px; background: ${hankoTheme.colors.accent}; transform: rotate(45deg); animation: diamondSpin 1.1s ease-in-out infinite; }
+    .loading-title { font-size: 0.9rem; letter-spacing: .16em; text-transform: uppercase; color: ${hankoTheme.colors.textPrimary}; }
+    @keyframes diamondSpin { 0%, 100% { transform: rotate(45deg) scale(1); opacity: 1; } 50% { transform: rotate(45deg) scale(0.82); opacity: 0.6; } }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .35rem; margin: .75rem 0; }
-    .card { background: #000; border: 0.5px solid rgba(255,255,255,0.22); border-radius: 0; padding: .8rem; }
-    .label { color: rgba(255,255,255,.6); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+    .card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; padding: .8rem; }
+    .label { color: ${hankoTheme.colors.textSecondary}; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
     .value { font-size: 1.35rem; margin-top: .3rem; }
     .content { display: grid; grid-template-columns: 2fr 1fr; gap: .35rem; }
     .home-feed { margin-top: .55rem; }
     .home-feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: .35rem; }
-    .home-feed-card { background: #000; border: 0.5px solid rgba(255,255,255,0.22); border-radius: 0; padding: .8rem; min-height: 120px; overflow: hidden; }
-    .home-feed-meta { display:flex; gap:.45rem; align-items:center; margin-bottom:.5rem; color: rgba(255,255,255,.58); font-size:.7rem; text-transform: uppercase; letter-spacing:.07em; }
+    .home-feed-card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; padding: .8rem; min-height: 120px; overflow: hidden; }
+    .home-feed-meta { display:flex; gap:.45rem; align-items:center; margin-bottom:.5rem; color: ${hankoTheme.colors.textSecondary}; font-size:.7rem; text-transform: uppercase; letter-spacing:.07em; }
     .panel-title { margin: 0 0 .45rem; font-size: .9rem; }
-    .panel-actions a { color: #84cc16; text-decoration: none; font-size: .8rem; margin-right: .8rem; }
-    .loading-subtitle { color: rgba(255,255,255,.7); font-size: .78rem; max-width: 460px; text-align: center; line-height: 1.35; min-height: 2rem; }
-    .onboarding-banner { border: 1px solid rgba(255,215,0,0.45); background: rgba(255,215,0,0.09); color: #ffe082; padding: .65rem .8rem; margin-bottom: .55rem; font-size: .84rem; }
-    .onboarding-banner a { color: #fff176; text-decoration: underline; font-weight: 700; }
-    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: 'Agave', monospace; font-size: .74rem; color: #d4d4d8; }
+    .panel-actions a { color: ${hankoTheme.colors.link}; text-decoration: none; font-size: .8rem; margin-right: .8rem; }
+    .loading-subtitle { color: ${hankoTheme.colors.textSecondary}; font-size: .78rem; max-width: 460px; text-align: center; line-height: 1.35; min-height: 2rem; }
+    .onboarding-banner { border: 1px solid ${hankoTheme.colors.warning}73; background: ${hankoTheme.colors.warning}17; color: ${hankoTheme.colors.warning}; padding: .65rem .8rem; margin-bottom: .55rem; font-size: .84rem; }
+    .onboarding-banner a { color: ${hankoTheme.colors.warning}; text-decoration: underline; font-weight: 700; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ${hankoTheme.fonts.mono}; font-size: .74rem; color: ${hankoTheme.colors.textSecondary}; }
     @media (max-width: 980px){ .shell{grid-template-columns:1fr;} .dashboard-nav{position:static;} .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .content{grid-template-columns:1fr;} }
   </style>
 </head>

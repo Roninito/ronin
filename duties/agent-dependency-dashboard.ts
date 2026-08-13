@@ -11,7 +11,7 @@
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { dramTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
+import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
 
 export default class AgentDependencyDashboard extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -207,20 +207,20 @@ export default class AgentDependencyDashboard extends BaseDuty {
   <title>Agent & Plugin Dependencies</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    ${getThemeCSS(dramTheme)}
-    ${getSharedUIPrimitivesCSS(dramTheme, { variant: "dram" })}
+    ${getThemeCSS(hankoTheme)}
+    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
     ${getAdobeCleanFontFaceCSS()}
-    ${getHeaderBarCSS(dramTheme)}
+    ${getHeaderBarCSS(hankoTheme)}
 
     body {
-      background: ${dramTheme.colors.background};
-      color: ${dramTheme.colors.textSecondary};
+      background: ${hankoTheme.colors.background};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .header {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${dramTheme.colors.border};
-      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.xl};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.xl};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -233,27 +233,27 @@ export default class AgentDependencyDashboard extends BaseDuty {
       font-size: 1.5rem;
       font-weight: 600;
       margin: 0;
-      color: ${dramTheme.colors.link};
+      color: ${hankoTheme.colors.link};
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${dramTheme.spacing.xl};
+      padding: ${hankoTheme.spacing.xl};
     }
 
     .tabs {
       display: flex;
-      gap: ${dramTheme.spacing.sm};
-      margin-bottom: ${dramTheme.spacing.lg};
-      border-bottom: 1px solid ${dramTheme.colors.border};
+      gap: ${hankoTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.lg};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
     }
 
     .tab {
-      padding: ${dramTheme.spacing.md} ${dramTheme.spacing.lg};
+      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
       background: transparent;
       border: none;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
       cursor: pointer;
       border-bottom: 2px solid transparent;
       font-size: 0.95rem;
@@ -261,12 +261,12 @@ export default class AgentDependencyDashboard extends BaseDuty {
     }
 
     .tab.active {
-      color: ${dramTheme.colors.link};
-      border-bottom-color: ${dramTheme.colors.link};
+      color: ${hankoTheme.colors.link};
+      border-bottom-color: ${hankoTheme.colors.link};
     }
 
     .tab:hover {
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     .section {
@@ -280,171 +280,171 @@ export default class AgentDependencyDashboard extends BaseDuty {
     table {
       width: 100%;
       border-collapse: collapse;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
       overflow: hidden;
     }
 
     th {
-      background: ${dramTheme.colors.backgroundTertiary};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundTertiary};
+      padding: ${hankoTheme.spacing.md};
       text-align: left;
       font-weight: 600;
-      border-bottom: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textSecondary};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
       font-size: 0.9rem;
     }
 
     td {
-      padding: ${dramTheme.spacing.md};
-      border-bottom: 1px solid ${dramTheme.colors.border};
-      color: ${dramTheme.colors.textPrimary};
+      padding: ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textPrimary};
     }
 
     tr:hover {
-      background: ${dramTheme.colors.backgroundTertiary};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${dramTheme.spacing.lg};
-      margin-bottom: ${dramTheme.spacing.xl};
+      gap: ${hankoTheme.spacing.lg};
+      margin-bottom: ${hankoTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.lg};
-      padding: ${dramTheme.spacing.lg};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.lg};
       text-align: center;
       transition: all 0.2s;
     }
 
     .stat-card:hover {
-      border-color: ${dramTheme.colors.borderHover};
-      background: ${dramTheme.colors.backgroundTertiary};
+      border-color: ${hankoTheme.colors.borderHover};
+      background: ${hankoTheme.colors.backgroundTertiary};
     }
 
     .stat-value {
       font-size: 2rem;
       font-weight: 700;
-      color: ${dramTheme.colors.link};
-      margin: ${dramTheme.spacing.sm} 0;
+      color: ${hankoTheme.colors.link};
+      margin: ${hankoTheme.spacing.sm} 0;
     }
 
     .stat-label {
       font-size: 0.9rem;
-      color: ${dramTheme.colors.textSecondary};
+      color: ${hankoTheme.colors.textSecondary};
     }
 
     .status-enabled {
-      color: ${dramTheme.colors.success};
+      color: ${hankoTheme.colors.success};
     }
 
     .status-disabled {
-      color: ${dramTheme.colors.error};
+      color: ${hankoTheme.colors.error};
     }
 
     .refresh-btn {
-      background: ${dramTheme.colors.link};
-      color: ${dramTheme.colors.background};
+      background: ${hankoTheme.colors.link};
+      color: ${hankoTheme.colors.background};
       border: none;
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.9rem;
-      margin-bottom: ${dramTheme.spacing.md};
+      margin-bottom: ${hankoTheme.spacing.md};
       font-weight: 500;
       transition: all 0.2s;
     }
 
     .refresh-btn:hover {
-      background: ${dramTheme.colors.linkHover};
+      background: ${hankoTheme.colors.linkHover};
       transform: translateY(-1px);
     }
 
     #graph-container {
       width: 100%;
       height: 600px;
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.lg};
-      background: ${dramTheme.colors.background};
-      margin: ${dramTheme.spacing.lg} 0;
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      background: ${hankoTheme.colors.background};
+      margin: ${hankoTheme.spacing.lg} 0;
     }
 
     .graph-node {
-      stroke: ${dramTheme.colors.accent};
+      stroke: ${hankoTheme.colors.accent};
       stroke-width: 2px;
       cursor: move;
     }
 
     .graph-node:hover {
-      stroke: ${dramTheme.colors.link};
+      stroke: ${hankoTheme.colors.link};
       stroke-width: 3px;
     }
 
     .graph-link {
-      stroke: ${dramTheme.colors.accent};
+      stroke: ${hankoTheme.colors.accent};
       stroke-width: 2px;
       stroke-opacity: 0.6;
     }
 
     .graph-label {
       font-size: 11px;
-      fill: ${dramTheme.colors.textSecondary};
+      fill: ${hankoTheme.colors.textSecondary};
       pointer-events: none;
       text-anchor: start;
     }
 
     .graph-tooltip {
       position: absolute;
-      padding: ${dramTheme.spacing.sm};
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.link};
-      border-radius: ${dramTheme.borderRadius.md};
+      padding: ${hankoTheme.spacing.sm};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.link};
+      border-radius: ${hankoTheme.borderRadius.md};
       font-size: 0.85rem;
-      color: ${dramTheme.colors.textPrimary};
+      color: ${hankoTheme.colors.textPrimary};
       pointer-events: none;
       z-index: 1000;
       max-width: 250px;
     }
 
     .debug-section {
-      margin-top: ${dramTheme.spacing.xl};
-      padding-top: ${dramTheme.spacing.md};
-      border-top: 1px solid ${dramTheme.colors.border};
+      margin-top: ${hankoTheme.spacing.xl};
+      padding-top: ${hankoTheme.spacing.md};
+      border-top: 1px solid ${hankoTheme.colors.border};
     }
 
     .debug-toggle {
-      background: ${dramTheme.colors.accent};
-      color: ${dramTheme.colors.textPrimary};
-      border: 1px solid ${dramTheme.colors.border};
-      padding: ${dramTheme.spacing.sm} ${dramTheme.spacing.md};
-      border-radius: ${dramTheme.borderRadius.md};
+      background: ${hankoTheme.colors.accent};
+      color: ${hankoTheme.colors.textPrimary};
+      border: 1px solid ${hankoTheme.colors.border};
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-radius: ${hankoTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.85rem;
-      margin-bottom: ${dramTheme.spacing.sm};
+      margin-bottom: ${hankoTheme.spacing.sm};
       transition: all 0.2s;
     }
 
     .debug-toggle:hover {
-      background: ${dramTheme.colors.accentHover};
-      border-color: ${dramTheme.colors.borderHover};
+      background: ${hankoTheme.colors.accentHover};
+      border-color: ${hankoTheme.colors.borderHover};
     }
 
     .debug-content {
       display: none;
-      background: ${dramTheme.colors.backgroundSecondary};
-      border: 1px solid ${dramTheme.colors.border};
-      border-radius: ${dramTheme.borderRadius.lg};
-      padding: ${dramTheme.spacing.md};
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.lg};
+      padding: ${hankoTheme.spacing.md};
       overflow: auto;
       max-height: 400px;
       font-size: 0.85rem;
-      color: ${dramTheme.colors.link};
-      font-family: ${dramTheme.fonts.mono};
+      color: ${hankoTheme.colors.link};
+      font-family: ${hankoTheme.fonts.mono};
     }
 
     .debug-content.show {

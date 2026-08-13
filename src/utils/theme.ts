@@ -25,6 +25,8 @@ export interface RoninTheme {
   fonts: {
     primary: string;
     mono: string;
+    /** Prose/body serif — only set on themes that distinguish reading text from UI chrome. */
+    serif?: string;
   };
   spacing: {
     xs: string;
@@ -45,7 +47,7 @@ export interface RoninTheme {
   };
 }
 
-export type ThemeVariant = "ronin" | "dram";
+export type ThemeVariant = "ronin" | "dram" | "hanko";
 
 /**
  * Default Ronin theme matching the dark aesthetic used across agents
@@ -174,8 +176,60 @@ export const dramTheme: RoninTheme = {
   },
 };
 
-export function getThemeVariant(variant: ThemeVariant = "ronin"): RoninTheme {
-  return variant === "dram" ? dramTheme : roninTheme;
+/**
+ * Hanko theme — ink/paper/seal system ported from the ronin-theme.html design spec.
+ * Warm near-black ground, washi-paper text, a single red "hanko" seal accent.
+ * The new default theme across the app; roninTheme/dramTheme remain selectable.
+ */
+export const hankoTheme: RoninTheme = {
+  colors: {
+    background: "#16130f",
+    backgroundSecondary: "#1e1a14",
+    backgroundTertiary: "#241f18",
+    textPrimary: "#ECE6D6",
+    textSecondary: "#9C9384",
+    textTertiary: "#6b6355",
+    border: "#332C22",
+    borderHover: "#B7381F",
+    accent: "#B7381F",
+    accentHover: "#D14A2E",
+    link: "#D14A2E",
+    linkHover: "#D14A2E",
+    // Status semantics kept distinct from seal (per product decision — the spec's literal
+    // "one hue, ever" rule is not applied to success/warning/error), muted to fit the warm
+    // ink/paper palette rather than reusing saturated neon tones.
+    success: "#6E8F5C",
+    error: "#C0392B",
+    warning: "#C99A3B",
+  },
+  fonts: {
+    primary: `Futura, "Avenir Next Condensed", "Century Gothic", "Trebuchet MS", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
+    mono: `ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace`,
+    serif: `"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`,
+  },
+  spacing: {
+    xs: "0.25rem",
+    sm: "0.5rem",
+    md: "1rem",
+    lg: "1.5rem",
+    xl: "2rem",
+  },
+  borderRadius: {
+    sm: "1px",
+    md: "1px",
+    lg: "2px",
+  },
+  shadows: {
+    sm: "none",
+    md: "none",
+    lg: "none",
+  },
+};
+
+export function getThemeVariant(variant: ThemeVariant = "hanko"): RoninTheme {
+  if (variant === "dram") return dramTheme;
+  if (variant === "ronin") return roninTheme;
+  return hankoTheme;
 }
 
 /**
@@ -276,7 +330,9 @@ export function getAdobeCleanFontFaceCSS(): string {
 /**
  * Generate base CSS styles using the theme
  */
-export function getThemeCSS(theme: RoninTheme = roninTheme): string {
+export function getThemeCSS(theme: RoninTheme = hankoTheme): string {
+  const isHanko = theme === hankoTheme;
+  const legacyHeadingFont = `'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif`;
   return `
 * {
   margin: 0;
@@ -290,12 +346,16 @@ body {
   color: ${theme.colors.textPrimary};
   line-height: 1.6;
   font-size: 0.875rem; /* 14px base - smaller than default */
+  ${isHanko ? "animation: hankoEnter 320ms ease-out;" : ""}
 }
 
+${isHanko ? `@keyframes hankoEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }` : ""}
+
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
-  font-weight: 300;
-  letter-spacing: -0.02em;
+  font-family: ${isHanko ? theme.fonts.primary : legacyHeadingFont};
+  font-weight: ${isHanko ? 700 : 300};
+  letter-spacing: ${isHanko ? "0.04em" : "-0.02em"};
+  text-transform: ${isHanko ? "uppercase" : "none"};
   color: ${theme.colors.textPrimary};
 }
 
@@ -304,8 +364,10 @@ h1, h2, h3, h4, h5, h6 {
 .panel-title,
 .route-title,
 .category-title {
-  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
+  font-family: ${isHanko ? theme.fonts.primary : legacyHeadingFont};
 }
+
+${isHanko ? `.prose, .measure { font-family: ${theme.fonts.serif}; line-height: 1.65; max-width: 62ch; }` : ""}
 
 b, strong {
   font-family: ${theme.fonts.mono};
@@ -324,12 +386,17 @@ code, pre {
 a {
   color: ${theme.colors.link};
   text-decoration: none;
-  transition: color 0.2s;
+  ${isHanko ? `border-bottom: 1px solid ${theme.colors.accent}88;` : ""}
+  transition: ${isHanko ? "border-color 150ms ease" : "color 0.2s"};
 }
 
 a:hover {
-  color: ${theme.colors.linkHover};
+  ${isHanko ? `border-bottom-color: ${theme.colors.link};` : `color: ${theme.colors.linkHover};`}
 }
+
+${isHanko ? `::selection { background: #7A2A1A; color: ${theme.colors.textPrimary}; }` : ""}
+
+${isHanko ? `:focus-visible { outline: 1.5px solid ${theme.colors.accentHover}; outline-offset: 2px; }` : ""}
 
 button {
   font-family: ${theme.fonts.primary};
@@ -340,13 +407,13 @@ button {
   color: ${theme.colors.textSecondary};
   border-radius: ${theme.borderRadius.md};
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: ${isHanko ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
 }
 
 button:hover:not(:disabled) {
-  background: ${theme.colors.backgroundTertiary};
+  background: ${isHanko ? theme.colors.accent : theme.colors.backgroundTertiary};
   border-color: ${theme.colors.borderHover};
-  color: ${theme.colors.textPrimary};
+  color: ${isHanko ? theme.colors.background : theme.colors.textPrimary};
 }
 
 .ronin-btn {
@@ -441,32 +508,36 @@ input::placeholder, textarea::placeholder {
   border: 1px solid ${theme.colors.border};
   border-radius: ${theme.borderRadius.md};
   padding: ${theme.spacing.lg};
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: ${isHanko ? "border-color 150ms ease, background 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
+  ${isHanko ? "animation: hankoEnter 260ms ease-out backwards;" : ""}
 }
 
 .card:hover {
   border-color: ${theme.colors.borderHover};
   background: ${theme.colors.backgroundTertiary};
-  transform: translateY(-2px);
+  ${isHanko ? "" : "transform: translateY(-2px);"}
 }
 `;
 }
 
-/** Lime green used for the header routes icon */
-export const HEADER_HOME_ICON_COLOR = "#84cc16";
+/** Seal-bright red used for the header home icon (hanko theme). */
+export const HEADER_HOME_ICON_COLOR = "#D14A2E";
 
 /**
- * SVG markup for the routes icon (lime green). Use inside .header-home anchor.
+ * SVG markup for the header home icon — a rotated square ("diamond"), matching the
+ * hanko theme's .glyph/.stamp motif next to the Ronin wordmark. Use inside .header-home anchor.
  */
 export function getHeaderHomeIconSVG(): string {
-  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 6h10" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M4 12h8" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M4 18h6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/><path d="M14 6h6v6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m20 6-6 6" stroke="${HEADER_HOME_ICON_COLOR}" stroke-width="2" stroke-linecap="round"/></svg>`;
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1" fill="${HEADER_HOME_ICON_COLOR}" transform="rotate(45 12 12)"/></svg>`;
 }
 
 /**
- * Full routes link HTML for the standard header. Place as first child of .header.
+ * Full home-link HTML for the standard header. Place as first child of .header.
+ * Also strips the word "Ronin" from .header h1 text on non-root pages (the icon
+ * already establishes brand/home, so the title doesn't need to repeat it).
  */
 export function getHeaderHomeIconHTML(): string {
-  return `<script>(function(){if(location.pathname==='/'||window.__roninHeaderTitlePatched)return;window.__roninHeaderTitlePatched=true;var clean=function(){document.querySelectorAll('.header h1').forEach(function(el){var t=(el.textContent||'').replace(/\\bRonin\\b/gi,'').replace(/\\s{2,}/g,' ').trim();if(t)el.textContent=t;});};if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',clean,{once:true});}else{clean();}})();</script>`;
+  return `<a href="/" class="header-home" aria-label="Home">${getHeaderHomeIconSVG()}</a><script>(function(){if(location.pathname==='/'||window.__roninHeaderTitlePatched)return;window.__roninHeaderTitlePatched=true;var clean=function(){document.querySelectorAll('.header h1').forEach(function(el){var t=(el.textContent||'').replace(/\\bRonin\\b/gi,'').replace(/\\s{2,}/g,' ').trim();if(t)el.textContent=t;});};if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',clean,{once:true});}else{clean();}})();(function(){if(window.__roninHeaderScrollPatched)return;window.__roninHeaderScrollPatched=true;var onScroll=function(){document.querySelectorAll('.header').forEach(function(el){el.classList.toggle('is-scrolled',window.scrollY>4);});};window.addEventListener('scroll',onScroll,{passive:true});onScroll();})();</script>`;
 }
 
 /**
@@ -474,7 +545,8 @@ export function getHeaderHomeIconHTML(): string {
  * Use with: <div class="header">${getHeaderHomeIconHTML()}<h1>Title</h1><div class="header-meta">...</div></div>
  * or <div class="header">${getHeaderHomeIconHTML()}<h1>Title</h1><div class="header-actions">...</div></div>
  */
-export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
+export function getHeaderBarCSS(theme: RoninTheme = hankoTheme): string {
+  const isHanko = theme === hankoTheme;
   return `
 .header {
   background: ${theme.colors.backgroundSecondary};
@@ -493,8 +565,12 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   user-select: none;
   -webkit-user-select: none;
   -webkit-app-region: drag;
+  ${isHanko ? "transition: box-shadow 200ms ease, border-bottom-color 200ms ease;" : ""}
 }
 
+${isHanko ? `.header.is-scrolled { box-shadow: 0 1px 0 ${theme.colors.border}; border-bottom-color: ${theme.colors.accent}; }` : ""}
+
+${isHanko ? "" : `
 .header::before {
   content: '';
   position: absolute;
@@ -564,6 +640,7 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   0% { background-position: 0 0; }
   100% { background-position: 100px 0; }
 }
+`}
 
 .header-home {
   display: inline-flex;
@@ -576,13 +653,15 @@ export function getHeaderBarCSS(theme: RoninTheme = roninTheme): string {
   line-height: 0;
   position: relative;
   z-index: 1;
+  transition: opacity 150ms ease, transform 150ms ease;
 }
 .header-home:hover {
   opacity: 0.85;
+  ${isHanko ? "transform: scale(1.08);" : ""}
 }
 
 .header h1 {
-  font-family: 'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif;
+  font-family: ${theme.fonts.primary};
   font-size: 1rem;
   font-weight: 300;
   margin: 0;
@@ -635,11 +714,12 @@ export interface SharedUIPrimitivesOptions {
  * Reusable DRAM-style primitives for route UIs and Electron shell pages.
  */
 export function getSharedUIPrimitivesCSS(
-  theme: RoninTheme = roninTheme,
+  theme: RoninTheme = hankoTheme,
   options: SharedUIPrimitivesOptions = {},
 ): string {
-  const variant = options.variant ?? (theme === dramTheme ? "dram" : "ronin");
+  const variant = options.variant ?? (theme === dramTheme ? "dram" : theme === roninTheme ? "ronin" : "hanko");
   const dram = variant === "dram";
+  const hanko = variant === "hanko";
   const accent = dram ? dramVisualTokens.colors.accent : theme.colors.link;
   const accentGlow = dram ? dramVisualTokens.colors.accentGlow : theme.colors.accentHover;
   const panelBg = dram ? dramVisualTokens.colors.bgSurface : theme.colors.backgroundSecondary;
@@ -665,12 +745,12 @@ export function getSharedUIPrimitivesCSS(
   font-size: 0.8125rem;
   line-height: 1.2;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: ${hanko ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.2s ease"};
 }
 .ui-btn:hover:not(:disabled) {
-  background: ${panelHoverBg};
+  background: ${hanko ? theme.colors.accent : panelHoverBg};
   border-color: ${panelBorderHover};
-  color: ${theme.colors.textPrimary};
+  color: ${hanko ? theme.colors.background : theme.colors.textPrimary};
 }
 .ui-btn:disabled {
   opacity: 0.5;
@@ -694,11 +774,45 @@ export function getSharedUIPrimitivesCSS(
   border: 1px solid ${panelBorder};
   border-radius: ${theme.borderRadius.md};
   padding: ${theme.spacing.md};
+  ${hanko ? "animation: hankoEnter 260ms ease-out backwards;" : ""}
 }
 .ui-panel--interactive:hover, .ui-card--interactive:hover {
   background: ${panelHoverBg};
   border-color: ${panelBorderHover};
 }
+
+${hanko ? `
+/* Rotated-square "stamp" mark — the hanko motif reused as a status/loading glyph. */
+.hanko-stamp {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid ${theme.colors.accentHover};
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.hanko-stamp--pop {
+  animation: hankoStampImpact 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes hankoStampImpact {
+  0% { transform: rotate(45deg) scale(1.4); opacity: 0; }
+  60% { transform: rotate(45deg) scale(0.9); opacity: 1; }
+  100% { transform: rotate(45deg) scale(1); opacity: 1; }
+}
+
+.hanko-spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  background: ${theme.colors.accent};
+  transform: rotate(45deg);
+  animation: hankoSpin 1.1s ease-in-out infinite;
+}
+@keyframes hankoSpin {
+  0%, 100% { transform: rotate(45deg) scale(1); opacity: 1; }
+  50% { transform: rotate(45deg) scale(0.82); opacity: 0.6; }
+}
+` : ""}
 
 .ui-nav-row {
   display: flex;

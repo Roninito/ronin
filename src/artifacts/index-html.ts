@@ -4,7 +4,7 @@
  * same theme-helper pattern).
  */
 
-import { getAdobeCleanFontFaceCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getThemeCSS } from "../utils/theme.js";
+import { getAdobeCleanFontFaceCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getThemeCSS, hankoTheme } from "../utils/theme.js";
 import { calculateCompletion } from "./types.js";
 import type { ArtifactFile } from "./types.js";
 import { isImageAsset } from "./storage.js";
@@ -27,8 +27,8 @@ function renderProgressBars(assets: ArtifactFile["metadata"]["assets"]): string 
       return `<div class="stat">
         <strong>${escapeHtml(a.category)}</strong>
         <div>${a.collected} / ${a.target} (${a.pending} pending)</div>
-        <div style="background:#151515;border-radius:4px;overflow:hidden;height:8px;margin-top:.4rem;">
-          <div style="background:#4caf7d;width:${pct}%;height:100%;"></div>
+        <div style="background:${hankoTheme.colors.backgroundTertiary};border-radius:4px;overflow:hidden;height:8px;margin-top:.4rem;">
+          <div style="background:${hankoTheme.colors.success};width:${pct}%;height:100%;"></div>
         </div>
       </div>`;
     })
@@ -96,13 +96,13 @@ export function generateIndexHTML(artifact: ArtifactFile): string {
     ${getHeaderBarCSS()}
     body { margin: 0; }
     .page { max-width: 900px; margin: 0 auto; padding: 1rem; }
-    .card { border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #1f1f1f; }
+    .card { border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.lg}; padding: 1rem; margin-bottom: 1rem; background: ${hankoTheme.colors.backgroundSecondary}; }
     .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: .75rem; }
-    .stat { padding: .75rem; border: 1px solid #333; border-radius: 6px; background: #151515; }
+    .stat { padding: .75rem; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundTertiary}; }
     .badge { display:inline-block; padding:.2rem .6rem; border-radius:999px; font-size:.85rem; margin-left:.5rem; }
-    .badge.complete { background:#1f6b3f; color:#d8ffe6; }
-    .badge.in-progress { background:#6b5a1f; color:#fff3d6; }
-    .badge.early { background:#3a3a3a; color:#ddd; }
+    .badge.complete { background:${hankoTheme.colors.success}; color:${hankoTheme.colors.background}; }
+    .badge.in-progress { background:${hankoTheme.colors.warning}; color:${hankoTheme.colors.background}; }
+    .badge.early { background:${hankoTheme.colors.backgroundTertiary}; color:${hankoTheme.colors.textSecondary}; }
     ul { padding-left: 1.2rem; }
     li { margin-bottom: .3rem; }
   </style>

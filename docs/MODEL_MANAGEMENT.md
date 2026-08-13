@@ -14,10 +14,8 @@ Ronin provides a unified interface for managing AI models across multiple provid
 
 The model management system consists of:
 
-1. **BaseProvider** — Abstract class providing common HTTP patterns and error handling
-2. **Provider Implementations** — Specific adapters for each AI service
-3. **ModelRegistry** — Central registry for model definitions and provider routing
-4. **MetricsCollector** — Usage tracking and performance monitoring
+1. **`createProvider()`** (`src/api/providers.ts`) — Instantiates the configured provider (Ollama, OpenAI-compatible, Anthropic, Gemini, Grok) for a given `AIProviderType`
+2. **`modelSelector`** (`plugins/model-selector.ts`) — Registry of model definitions, tag-based selection, and usage/cost tracking
 
 ## Configuration
 
@@ -121,35 +119,28 @@ ronin model remove --model my-model
 
 ## API Reference
 
-### ModelRegistry
+### modelSelector
 
 ```typescript
-import { ModelRegistry } from "@ronin/api/ModelRegistry.js";
-
-// Initialize registry
-const registry = new ModelRegistry({
-  models: { /* model definitions */ },
-  providers: { /* provider configs */ },
-});
-
-// Get a provider
-const provider = registry.getProvider("anthropic");
-
-// Get provider for a model
-const provider = registry.getProviderForModel("default");
+import { modelSelector } from "@ronin/plugins/model-selector.js";
 
 // List models
-const models = registry.listModels("anthropic");
+const models = await modelSelector.listModels();
 
-// Check model availability
-const available = await registry.checkModel("default");
+// Get a model / the default model
+const model = await modelSelector.getModel("default");
+const defaultModel = await modelSelector.getDefaultModel();
 
-// Register/unregister models
-registry.registerModel(modelDef);
-registry.unregisterModel("model-id");
+// Add/update/remove models
+await modelSelector.addModel("my-model", modelConfig);
+await modelSelector.updateModel("my-model", partialConfig);
+await modelSelector.removeModel("my-model");
 
-// Get statistics
-const stats = registry.getProviderStats("ollama");
+// Pick the best model for a request
+const best = await modelSelector.selectBestModel({ estimatedTokens: 4000 });
+
+// Usage stats
+const stats = await modelSelector.getUsageStats("my-model");
 ```
 
 ### AIProvider Interface

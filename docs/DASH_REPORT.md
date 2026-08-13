@@ -104,7 +104,7 @@ Grid of cards from `home-feed` events (like Ronin). Payload: `{ agent, html, tit
 | Runtime | Bun.js | `bun run ronin start` |
 | Desktop Front End | ElectroBun (primary, not optional) | `desktop/electrobun/`, `ronin client` |
 | UI Framework | ElectroBun + DRAM theme (lighter Ronin-style) | Vanilla HTML/CSS in iframe |
-| AI | LMStudio, Ollama, remote | `src/api/ModelRegistry.ts`, `LMStudioProvider`, `OllamaProvider` |
+| AI | LMStudio, Ollama, remote | `src/api/providers.ts` (`createProvider`), `plugins/model-selector.ts` |
 | Mobile | React Native | N/A |
 
 ---

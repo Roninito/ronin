@@ -615,6 +615,18 @@ export function filterToolSchemas(
     "local.events.emit",
     "skills.run",
   ]);
+  // contracts.proposeReflex/duties.proposeDuty are dot-named (no "_"), so the
+  // registration-order truncation below never gave them the "plugin literally
+  // mentioned in message" priority boost that plugin_method-style tools get —
+  // on a message with lots of other tool matches (e.g. mentioning both
+  // "discord" and "telegram"), they could be silently truncated out of the
+  // model's options on exactly the "create/propose a contract" requests they
+  // exist for. Guarantee them a slot whenever the message looks like a
+  // creation/reflex request, same as the other always-included core tools.
+  if (isCreationRequest || isReflexRequest) {
+    coreNames.add("contracts.proposeReflex");
+    coreNames.add("duties.proposeDuty");
+  }
 
   const ontologyNames = new Set([
     "ontology_search",
@@ -697,13 +709,24 @@ export function filterToolSchemas(
     // literally mentioned in the message to the front before truncating, so an explicit
     // mention always survives the cap.
     result.sort((a, b) => {
-      const mentioned = (s: OpenAIFunctionSchema): number => {
+      // coreNames (including contracts.proposeReflex/duties.proposeDuty when
+      // conditionally added above) must survive truncation unconditionally —
+      // being in the pre-truncation candidate list isn't enough on its own,
+      // since a message mentioning several plugins by name (e.g. both
+      // "discord" and "telegram") can fill all maxSchemas slots with
+      // "mentioned" catch-all tools before a core tool that scored 0 (e.g.
+      // "contract" singular in the message vs "contracts" plural in the tool
+      // name) ever gets considered.
+      const priority = (s: OpenAIFunctionSchema): number => {
         const n = s.function?.name ?? "";
-        const underscore = n.indexOf("_");
-        const pluginPrefix = underscore > 0 ? n.slice(0, underscore) : "";
-        return pluginPrefix.length > 2 && msg.includes(pluginPrefix) ? 1 : 0;
+        if (coreNames.has(n)) return 2;
+        // Check every "_"/"."-separated segment, not just the first (plugin-prefix)
+        // one — a dot-named tool like "local.discord.getBotInfo" is just as relevant
+        // to a message mentioning "discord" as an underscore-named "discord_getBotInfo"
+        // is, even though "discord" is its second segment, not its first.
+        return n.split(/[_.]/).some((seg) => seg.length > 2 && msg.includes(seg)) ? 1 : 0;
       };
-      return mentioned(b) - mentioned(a);
+      return priority(b) - priority(a);
     });
     return result.slice(0, maxSchemas);
   }

@@ -84,7 +84,12 @@ export default class ContractExecutorAgent extends BaseDuty {
     this.api.tools.register({
       name: "contracts.proposeReflex",
       description:
-        "Draft an event- or schedule-triggered automation from a plain-English request (e.g. \"when X happens, do Y, then notify me\", \"every day at 9am, do Z\"). " +
+        "Draft an event- or schedule-triggered automation from a plain-English request. " +
+        "Call this IMMEDIATELY, with no other tool calls first, whenever the user says anything like " +
+        "\"I want a new contract\", \"create/propose/set up a contract\", \"when X happens, do Y, then notify me\", or \"every day at 9am, do Z\" — " +
+        "pass their whole request as intent, verbatim. " +
+        "Do NOT try to fulfill the described task live yourself first (e.g. do not call discord/telegram/other tools to actually read messages or send anything) — " +
+        "drafting the contract is the entire job; the described task only ever runs later, on its own schedule/trigger, after the user approves the proposal. " +
         "Never registers anything directly — it drafts a proposal and returns its id plus a plain-language preview for the user to approve or refuse via a card in the chat UI. " +
         "If the user asks to revise a proposal they were just shown (visible earlier in this conversation as a contract-proposal block with an \"id\" field), pass that id as reviseProposalId so the new draft supersedes it.",
       parameters: {

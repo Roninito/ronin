@@ -39,8 +39,39 @@ export class ConfigService {
     // So the STT plugin (which reads process.env) sees config: set env from config only when env is not already set
     this.applySpeechConfigToEnv();
 
+    // So skill scripts (spawned subprocesses that read process.env, e.g.
+    // skills/discord and skills/telegram) can see the bot tokens without
+    // each skill needing its own config-reading logic.
+    this.applyMessagingConfigToEnv();
+
     if (!process.env.RONIN_QUIET) {
       logger.info("Configuration loaded");
+    }
+  }
+
+  /**
+   * Push config.discord/config.telegram/config.ai (ollama) into process.env so
+   * skill scripts (spawned subprocesses, not in-process code — they can't call
+   * ConfigService) can use them. Only sets vars that are not already in process.env.
+   */
+  private applyMessagingConfigToEnv(): void {
+    const discord = this.config.discord;
+    if (discord?.botToken && process.env.DISCORD_BOT_TOKEN === undefined) {
+      process.env.DISCORD_BOT_TOKEN = discord.botToken;
+    }
+    const telegram = this.config.telegram;
+    if (telegram?.botToken && process.env.TELEGRAM_BOT_TOKEN === undefined) {
+      process.env.TELEGRAM_BOT_TOKEN = telegram.botToken;
+    }
+    if (telegram?.chatId && process.env.TELEGRAM_CHAT_ID === undefined) {
+      process.env.TELEGRAM_CHAT_ID = telegram.chatId;
+    }
+    const ai = this.config.ai;
+    if (ai?.ollamaUrl && process.env.OLLAMA_URL === undefined) {
+      process.env.OLLAMA_URL = ai.ollamaUrl;
+    }
+    if (ai?.ollamaModel && process.env.OLLAMA_MODEL === undefined) {
+      process.env.OLLAMA_MODEL = ai.ollamaModel;
     }
   }
 

@@ -675,7 +675,14 @@ export function filterToolSchemas(
     if (
       !name.startsWith("ontology_") &&
       !name.startsWith("local.discord.") &&
-      !name.startsWith("local.telegram.")
+      !name.startsWith("local.telegram.") &&
+      // Raw discord_*/telegram_* plugin tools require a manually-managed
+      // clientId/botId (from a discord_initBot/telegram_initBot call that's
+      // never actually offered — see isPluginMethodSkipped) and are a dead
+      // end for the model. local.discord.*/local.telegram.* cover the same
+      // ground with auto-init from config, so never surface the raw ones here.
+      !name.startsWith("discord_") &&
+      !name.startsWith("telegram_")
     ) {
       result.push(schema);
     }

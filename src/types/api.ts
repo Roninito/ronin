@@ -489,6 +489,7 @@ export interface DutyAPI {
       skill_name: string,
       options?: { ability?: string; params?: Record<string, unknown>; pipeline?: string[] }
     ): Promise<import("./skills.js").UseSkillResult>;
+    list_skills_with_abilities(options?: { limit?: number }): Promise<import("./skills.js").SkillWithAbilities[]>;
   };
 
   /**

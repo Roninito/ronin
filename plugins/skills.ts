@@ -256,7 +256,13 @@ function buildScriptArgs(
     for (const ph of placeholders) {
       const key = ph.slice(1, -1);
       const v = params[key];
-      if (v !== undefined && v !== null) args.push(`--${key}=${String(v)}`);
+      if (v === undefined || v === null) continue;
+      // A prior phase's skill result (e.g. a "run skill discord" phase's output
+      // stored under task.variables.discord) is an object/array, not a scalar —
+      // String(v) on those produces the useless literal "[object Object]". Pass
+      // structured values through as JSON so the receiving script can parse them.
+      const serialized = typeof v === "object" ? JSON.stringify(v) : String(v);
+      args.push(`--${key}=${serialized}`);
     }
   }
   return args;

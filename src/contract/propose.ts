@@ -53,10 +53,23 @@ interface RawProposalJSON {
   newKataDsl?: string | null;
 }
 
-function buildSystemPrompt(intent: string, existingKatas: { name: string; version: string; requiredSkills: string[] }[]): string {
+function buildSystemPrompt(
+  intent: string,
+  existingKatas: { name: string; version: string; requiredSkills: string[] }[],
+  availableSkills: { name: string; description: string; abilities: { name: string; description?: string; input: string[] }[] }[],
+): string {
   const kataList = existingKatas.length > 0
     ? existingKatas.map((k) => `  - ${k.name} v${k.version}${k.requiredSkills.length ? ` (skills: ${k.requiredSkills.join(", ")})` : ""}`).join("\n")
     : "  (none registered)";
+
+  const skillsList = availableSkills.length > 0
+    ? availableSkills.map((s) => {
+        const abilities = s.abilities.length > 0
+          ? s.abilities.map((a) => `${a.name}${a.input.length ? `(${a.input.join(", ")})` : "()"}`).join(", ")
+          : "(no abilities listed)";
+        return `  - ${s.name}: ${s.description} — abilities: ${abilities}`;
+      }).join("\n")
+    : "  (none discovered)";
 
   return `You are a contract-authoring expert for the Ronin agent system. A "contract" binds a trigger (cron schedule or event) to a kata (a phase-graph of work) — when the trigger fires (and an optional condition holds), the kata runs.
 
@@ -78,6 +91,34 @@ Given a plain-English intent, respond with ONLY a single JSON object (no markdow
 
 Exactly one of existingKataName or newKataDsl must be non-null, never both.
 
+IMPORTANT — choosing triggerType:
+- Use "cron" whenever the intent is periodic/recurring on its own (words like "daily",
+  "every morning", "each day", "the previous day's X", "weekly", "every N minutes") — do
+  NOT invent a triggerType "event" eventType to represent a schedule; there is no such
+  thing as an event that fires "once a day" or "for the previous day" in this system.
+  A daily digest of yesterday's messages is ALWAYS a cron trigger (e.g. "0 9 * * *" for
+  9am daily), never an event trigger.
+- Use "event" only when the intent explicitly reacts to something happening in THIS app
+  right now (e.g. "when a duty fails", "when trust drops below 40") — never invent an
+  eventType name just to represent "new data is available" or "a day has passed";
+  fetching/checking for new data belongs in the kata's phases (via "run skill"), not in
+  the trigger.
+- CRITICAL: the trigger only decides WHEN the kata runs — it never supplies data. If the
+  intent needs data from somewhere (e.g. "discord messages"), the kata MUST have an
+  explicit phase that fetches it (e.g. "run skill discord ability read_messages") before
+  any phase that processes or forwards that data. Never skip the fetch phase and assume
+  the trigger already provided the data.
+
+IMPORTANT — katas and skills are different things, do not confuse them:
+- A "kata" is a complete named automation (format "domain.action", e.g. "discord-daily-digest")
+  that may already be registered and ready to reuse as-is. existingKataName may ONLY be a name
+  copied verbatim from the "Existing katas" list below — never a skill name.
+- A "skill" (e.g. "discord", "telegram", "summarize") is a single building block a kata's phases
+  call via "run skill <skill-name>" inside newKataDsl. Skills are never valid values for
+  existingKataName, even if a skill and a kata happen to share a similar name.
+- If the "Existing katas" list says "(none registered)", existingKataName MUST be null and you
+  MUST draft newKataDsl instead.
+
 Condition shape (optional, only for event triggers, use when the intent has a qualifier like "when X and Y", "only if Z"):
   A single condition: { "variable": "path.to.value", "operator": "==|!=|>|>=|<|<=|in|not_in|contains|starts_with|ends_with", "value": <any> }
   A group: { "type": "AND"|"OR", "conditions": [ <condition or group>, ... ] }
@@ -86,7 +127,10 @@ Condition shape (optional, only for event triggers, use when the intent has a qu
 Existing katas you may target instead of drafting a new one:
 ${kataList}
 
-If none of the existing katas fit the intent, draft a new one-phase (or few-phase) kata instead, using this grammar for newKataDsl:
+If none of the existing katas fit the intent, draft a new one-phase (or few-phase) kata instead, using this grammar for newKataDsl. Each "run skill" phase action can only call a skill+ability listed below — never invent a skill or ability name that isn't in this list. If the intent needs a capability no listed skill provides, say so in the description rather than inventing one:
+
+Available skills (name: description — abilities: ability(input params), ...):
+${skillsList}
 
 ${KATA_DSL_GRAMMAR}
 
@@ -128,17 +172,64 @@ function buildTriggerPreview(triggerConfig: TriggerConfig): string {
  * Draft a contract (and, if needed, a new one-phase kata) from a plain-English
  * intent. Pure drafting — writes nothing to any table.
  */
-export async function proposeContract(intent: string, api: DutyAPI): Promise<ContractProposal> {
-  if (!intent.trim()) {
-    throw new ContractProposeError("Intent required");
+/** Real skill/ability existence check the DSL compiler doesn't do itself (it only
+ *  checks "used implies declared in requires", not "does this skill/ability exist"). */
+/** The model reliably gets the skill/ability names and phase logic right but
+ *  intermittently forgets a "requires skill X" line for every skill it uses
+ *  in a "run skill X" phase — a purely mechanical bookkeeping slip the DSL
+ *  compiler treats as fatal. Deterministically patch it rather than burning a
+ *  retry (an LLM call) on something regex can fix for free. */
+function fixMissingRequiresLines(dsl: string): string {
+  const usedSkills = new Set<string>();
+  for (const m of dsl.matchAll(/\brun\s+skill\s+(\S+)/g)) if (m[1]) usedSkills.add(m[1]);
+  const declaredSkills = new Set<string>();
+  for (const m of dsl.matchAll(/\brequires\s+skill\s+(\S+)/g)) if (m[1]) declaredSkills.add(m[1]);
+  const missing = [...usedSkills].filter((s) => !declaredSkills.has(s));
+  if (missing.length === 0) return dsl;
+
+  const lines = dsl.split("\n");
+  const newRequiresLines = missing.map((s) => `  requires skill ${s}`);
+  const lastRequiresIdx = lines.reduce((acc, line, i) => (/^\s*requires\s+skill\b/.test(line) ? i : acc), -1);
+  if (lastRequiresIdx >= 0) {
+    lines.splice(lastRequiresIdx + 1, 0, ...newRequiresLines);
+  } else {
+    const kataLineIdx = lines.findIndex((line) => /^\s*kata\s+\S+\s+v\d+/.test(line));
+    lines.splice(kataLineIdx + 1, 0, ...newRequiresLines);
   }
+  return lines.join("\n");
+}
 
-  const kataStorage = new KataStorage(api);
-  await kataStorage.init();
-  const existingKatas = await kataStorage.list();
+function validateSkillReferences(
+  compiled: CompiledKata,
+  availableSkills: { name: string; abilities: { name: string }[] }[],
+): string[] {
+  const errors: string[] = [];
+  for (const phase of Object.values(compiled.phases)) {
+    const action = phase.action;
+    if (action.type !== "run") continue;
+    const skill = availableSkills.find((s) => s.name.toLowerCase() === action.skill.toLowerCase());
+    if (!skill) {
+      const closest = availableSkills.find((s) => s.name.toLowerCase().includes(action.skill.toLowerCase()) || action.skill.toLowerCase().includes(s.name.toLowerCase()));
+      const suggestion = closest ? ` Did you mean '${closest.name}' (use that exact spelling)?` : "";
+      errors.push(`Skill '${action.skill}' (phase '${phase.name}') does not exist — it is not in the Available skills list.${suggestion}`);
+      continue;
+    }
+    if (action.ability && !skill.abilities.some((a) => a.name.toLowerCase() === action.ability!.toLowerCase())) {
+      const closestAbility = skill.abilities.find((a) => a.name.toLowerCase().includes(action.ability!.toLowerCase()) || action.ability!.toLowerCase().includes(a.name.toLowerCase()));
+      const suggestion = closestAbility ? ` Did you mean '${closestAbility.name}' (use that exact spelling)?` : ` Valid abilities on '${action.skill}': ${skill.abilities.map((a) => a.name).join(", ")}.`;
+      errors.push(`Ability '${action.ability}' (phase '${phase.name}') does not exist on skill '${action.skill}'.${suggestion}`);
+    }
+  }
+  return errors;
+}
 
-  const systemPrompt = buildSystemPrompt(intent, existingKatas);
-  const raw = await api.ai.complete(systemPrompt);
+async function attemptProposal(
+  promptText: string,
+  api: DutyAPI,
+  existingKatas: { name: string; version: string; requiredSkills: string[] }[],
+  availableSkills: { name: string; description: string; abilities: { name: string; description?: string; input: string[] }[] }[],
+): Promise<ContractProposal> {
+  const raw = await api.ai.complete(promptText);
 
   let parsed: RawProposalJSON;
   try {
@@ -160,6 +251,7 @@ export async function proposeContract(intent: string, api: DutyAPI): Promise<Con
   let kataPreview: string;
 
   if (parsed.newKataDsl) {
+    parsed.newKataDsl = fixMissingRequiresLines(parsed.newKataDsl);
     const parser = new KataParser();
     const compiler = new KataCompiler();
     try {
@@ -169,6 +261,12 @@ export async function proposeContract(intent: string, api: DutyAPI): Promise<Con
       const proposeError = new ContractProposeError(
         `Drafted kata failed validation: ${error instanceof Error ? error.message : String(error)}`
       );
+      proposeError.rawDsl = parsed.newKataDsl;
+      throw proposeError;
+    }
+    const referenceErrors = validateSkillReferences(kataCompiled, availableSkills);
+    if (referenceErrors.length > 0) {
+      const proposeError = new ContractProposeError(`Drafted kata references skills/abilities that don't exist:\n  - ${referenceErrors.join("\n  - ")}`);
       proposeError.rawDsl = parsed.newKataDsl;
       throw proposeError;
     }
@@ -207,4 +305,35 @@ export async function proposeContract(intent: string, api: DutyAPI): Promise<Con
   const preview = `Fires ${buildTriggerPreview(triggerConfig)} → ${kataPreview}${parsed.description ? ` — ${parsed.description}` : ""}`;
 
   return { contract, kataDsl, kataCompiled, preview };
+}
+
+const MAX_ATTEMPTS = 4;
+
+export async function proposeContract(intent: string, api: DutyAPI): Promise<ContractProposal> {
+  if (!intent.trim()) {
+    throw new ContractProposeError("Intent required");
+  }
+
+  const kataStorage = new KataStorage(api);
+  await kataStorage.init();
+  const existingKatas = await kataStorage.list();
+  const availableSkills = api.skills ? await api.skills.list_skills_with_abilities().catch(() => []) : [];
+
+  const systemPrompt = buildSystemPrompt(intent, existingKatas, availableSkills);
+  let promptText = systemPrompt;
+  let lastError: ContractProposeError | undefined;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await attemptProposal(promptText, api, existingKatas, availableSkills);
+    } catch (error) {
+      lastError = error instanceof ContractProposeError ? error : new ContractProposeError(String(error));
+      if (attempt === MAX_ATTEMPTS) break;
+      // Feed the specific failure back and ask for a corrected JSON object only —
+      // cheaper and more reliable than hoping a longer one-shot prompt gets it right.
+      promptText = `${systemPrompt}\n\nYour previous attempt failed with this error:\n${lastError.message}\n\nFix ONLY that issue and return the corrected JSON object (same rules as before — ONLY a single JSON object, no markdown fences, no explanation).`;
+    }
+  }
+
+  throw lastError ?? new ContractProposeError("Proposal failed for an unknown reason");
 }

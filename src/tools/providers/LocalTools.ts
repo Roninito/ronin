@@ -1547,6 +1547,121 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
       cacheable: false,
       riskLevel: "low",
     });
+
+    register({
+      name: "local.discord.getBotInfo",
+      description: "Get the connected Discord bot's own identity (id, username). Useful to confirm the bot is live.",
+      parameters: { type: "object", properties: {}, required: [] },
+      provider: "local",
+      handler: async (): Promise<ToolResult> => {
+        const start = Date.now();
+        try {
+          const clientId = await getDiscordClientId();
+          const bot = await api.discord!.getBotInfo(clientId);
+          return {
+            success: true,
+            data: { bot },
+            metadata: { ...discordMeta(true, "local.discord.getBotInfo"), duration: Date.now() - start },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            data: null,
+            error: err instanceof Error ? err.message : "getBotInfo failed",
+            metadata: { ...discordMeta(false, "local.discord.getBotInfo"), duration: Date.now() - start },
+          };
+        }
+      },
+      cacheable: false,
+      riskLevel: "low",
+    });
+  }
+
+  // 8d. Telegram tools (send, read updates, bot identity) – when Telegram plugin and config enabled.
+  // Mirrors the Discord block above: auto-initializes from config so the model never needs
+  // to see or manage a botId/token itself.
+  if (api.telegram) {
+    const getTelegramBotId = async (): Promise<string> => {
+      const tc = api.config.getTelegram();
+      if (!tc.botToken) {
+        throw new Error("Telegram is not configured. Set telegram.botToken (or TELEGRAM_BOT_TOKEN).");
+      }
+      return api.telegram!.initBot(tc.botToken);
+    };
+
+    const telegramMeta = (toolName: string) => ({
+      toolName,
+      provider: "local",
+      duration: 0,
+      cached: false,
+      timestamp: Date.now(),
+      callId: `local-${Date.now()}`,
+    });
+
+    register({
+      name: "local.telegram.sendMessage",
+      description: "Send a message to a Telegram chat. Omit chatId to use the configured default chat.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Message text" },
+          chatId: { type: "string", description: "Chat ID (defaults to the configured telegram.chatId)" },
+        },
+        required: ["content"],
+      },
+      provider: "local",
+      handler: async (args: { content: string; chatId?: string }): Promise<ToolResult> => {
+        const start = Date.now();
+        try {
+          const botId = await getTelegramBotId();
+          const chatId = args.chatId ?? api.config.getTelegram().chatId;
+          if (!chatId) throw new Error("Missing chatId and no default telegram.chatId configured.");
+          await api.telegram!.sendMessage(botId, chatId, args.content);
+          return {
+            success: true,
+            data: { ok: true },
+            metadata: { ...telegramMeta("local.telegram.sendMessage"), duration: Date.now() - start },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            data: null,
+            error: err instanceof Error ? err.message : "sendMessage failed",
+            metadata: { ...telegramMeta("local.telegram.sendMessage"), duration: Date.now() - start },
+          };
+        }
+      },
+      cacheable: false,
+      riskLevel: "low",
+    });
+
+    register({
+      name: "local.telegram.getBotInfo",
+      description: "Get the connected Telegram bot's own identity. Useful to confirm the bot is live.",
+      parameters: { type: "object", properties: {}, required: [] },
+      provider: "local",
+      handler: async (): Promise<ToolResult> => {
+        const start = Date.now();
+        try {
+          const botId = await getTelegramBotId();
+          const bot = await api.telegram!.getBotInfo(botId);
+          return {
+            success: true,
+            data: { bot },
+            metadata: { ...telegramMeta("local.telegram.getBotInfo"), duration: Date.now() - start },
+          };
+        } catch (err) {
+          return {
+            success: false,
+            data: null,
+            error: err instanceof Error ? err.message : "getBotInfo failed",
+            metadata: { ...telegramMeta("local.telegram.getBotInfo"), duration: Date.now() - start },
+          };
+        }
+      },
+      cacheable: false,
+      riskLevel: "low",
+    });
   }
 
   // 9. Speech Listen Tool (uses STT plugin)

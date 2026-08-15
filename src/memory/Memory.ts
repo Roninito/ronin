@@ -1,12 +1,15 @@
 import { Database } from "bun:sqlite";
 import type { Memory, MemoryRow } from "./types.js";
+import { applyPerformancePragmas } from "../database/pragmas.js";
 
 export class MemoryStore {
   private db: Database;
+  /** False if FTS5 setup failed (older SQLite build) — search() falls back to LIKE. */
+  private ftsAvailable = true;
 
   constructor(dbPath: string = "ronin.db") {
     this.db = new Database(dbPath);
-    this.db.exec("PRAGMA busy_timeout = 3000;");
+    applyPerformancePragmas(this.db, dbPath);
     this.initializeSchema();
   }
 
@@ -70,6 +73,67 @@ export class MemoryStore {
 
     // Migration: Rename agent_name → duty_name (if old columns exist)
     this.migrateAgentToDuty();
+
+    this.initializeFts();
+  }
+
+  /**
+   * search() used to be `WHERE text LIKE '%query%' OR value LIKE '%query%'`
+   * — a leading-wildcard LIKE can't use an index, so it full-table-scanned
+   * both columns (the unclamped `value`, which can hold large JSON blobs)
+   * on every call, including from the always-available local.memory.search
+   * chat tool. FTS5 replaces that with a real inverted index, kept in sync
+   * via triggers rather than rebuilt per query.
+   */
+  private initializeFts(): void {
+    try {
+      const alreadyExists = (this.db.query(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='memories_fts'"
+      ).all() as Array<{ name: string }>).length > 0;
+
+      this.db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+          text, value,
+          content='memories',
+          content_rowid='rowid',
+          tokenize='porter unicode61'
+        );
+      `);
+
+      if (!alreadyExists) {
+        // Backfill rows that existed before the FTS index did — only needed once,
+        // guarded by alreadyExists so re-inserting on every startup never happens
+        // (which would violate FTS5's rowid uniqueness).
+        this.db.exec(`INSERT INTO memories_fts(rowid, text, value) SELECT rowid, text, value FROM memories;`);
+      }
+
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS memories_fts_ai AFTER INSERT ON memories BEGIN
+          INSERT INTO memories_fts(rowid, text, value) VALUES (new.rowid, new.text, new.value);
+        END;
+        CREATE TRIGGER IF NOT EXISTS memories_fts_ad AFTER DELETE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, text, value) VALUES('delete', old.rowid, old.text, old.value);
+        END;
+        CREATE TRIGGER IF NOT EXISTS memories_fts_au AFTER UPDATE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, text, value) VALUES('delete', old.rowid, old.text, old.value);
+          INSERT INTO memories_fts(rowid, text, value) VALUES (new.rowid, new.text, new.value);
+        END;
+      `);
+    } catch (error) {
+      // FTS5 unavailable in this SQLite build — fall back to the old LIKE scan
+      // rather than fail the whole memory system over a search optimization.
+      this.ftsAvailable = false;
+      console.warn(`[MemoryStore] FTS5 unavailable, falling back to LIKE search: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /** Turn free text into a safe FTS5 MATCH query: each token individually
+   *  phrase-quoted (implicit AND between them), so user input can never
+   *  inject FTS5 query syntax (unbalanced quotes, NEAR/AND/OR, column
+   *  filters, etc.) — matches the old search's "all these words" intent. */
+  private toFtsQuery(query: string): string {
+    const tokens = query.trim().split(/\s+/).filter(Boolean);
+    return tokens.map((t) => `"${t.replace(/"/g, '""')}"`).join(" ");
   }
 
   /**
@@ -173,19 +237,37 @@ export class MemoryStore {
   }
 
   /**
-   * Search memories by text content (SQL LIKE query)
+   * Search memories by text content. Uses the FTS5 index (relevance-ranked,
+   * real tokenized matching) when available, falling back to the original
+   * LIKE scan only if FTS5 setup failed at startup.
    */
   async search(query: string, limit: number = 10): Promise<Memory[]> {
-    const stmt = this.db.prepare(`
-      SELECT id, key, substr(value, 1, 4000) AS value, text, metadata, created_at, updated_at
-      FROM memories
-      WHERE text LIKE ? OR value LIKE ?
-      ORDER BY created_at DESC
-      LIMIT ?
-    `);
+    if (!query.trim()) return [];
 
-    const searchPattern = `%${query}%`;
-    const rows = stmt.all(searchPattern, searchPattern, limit) as MemoryRow[];
+    let rows: MemoryRow[];
+    if (this.ftsAvailable) {
+      const ftsQuery = this.toFtsQuery(query);
+      if (!ftsQuery) return [];
+      const stmt = this.db.prepare(`
+        SELECT m.id, m.key, substr(m.value, 1, 4000) AS value, m.text, m.metadata, m.created_at, m.updated_at
+        FROM memories_fts f
+        JOIN memories m ON m.rowid = f.rowid
+        WHERE memories_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+      `);
+      try {
+        rows = stmt.all(ftsQuery, limit) as MemoryRow[];
+      } catch {
+        // Malformed-enough query to still trip FTS5 despite quoting (e.g. a
+        // lone `"`), or the index is out of sync — fail open to LIKE rather
+        // than surface a search error to the caller.
+        rows = this.searchByLike(query, limit);
+      }
+    } else {
+      rows = this.searchByLike(query, limit);
+    }
+
     return rows.map((row) => ({
       id: row.id,
       key: row.key || undefined,
@@ -196,6 +278,18 @@ export class MemoryStore {
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     }));
+  }
+
+  private searchByLike(query: string, limit: number): MemoryRow[] {
+    const stmt = this.db.prepare(`
+      SELECT id, key, substr(value, 1, 4000) AS value, text, metadata, created_at, updated_at
+      FROM memories
+      WHERE text LIKE ? OR value LIKE ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+    const searchPattern = `%${query}%`;
+    return stmt.all(searchPattern, searchPattern, limit) as MemoryRow[];
   }
 
   /**

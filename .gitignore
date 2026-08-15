@@ -9,6 +9,8 @@ build/
 
 # Database files
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 ronin.db

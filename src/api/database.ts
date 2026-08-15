@@ -1,11 +1,13 @@
 import { Database } from "bun:sqlite";
 import type { Transaction } from "../types/api.js";
+import { applyPerformancePragmas } from "../database/pragmas.js";
 
 export class DatabaseAPI {
   private db: Database;
 
   constructor(dbPath: string = "ronin.db") {
     this.db = new Database(dbPath);
+    applyPerformancePragmas(this.db, dbPath);
   }
 
   /**

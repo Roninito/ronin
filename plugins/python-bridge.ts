@@ -394,14 +394,25 @@ const pythonBridgePlugin = {
       options?: { timeout?: number; pythonPath?: string }
     ): Promise<unknown> => {
       const timeout = options?.timeout || 30000;
-      
-      // Create temporary script
+
+      // `code` is documented (and used, in the examples above) as containing a
+      // `return <value>` statement — but `return` is only valid syntax inside a
+      // function body. The previous version spliced `code` directly into
+      // `result = ${code}`, which is a SyntaxError for anything using `return`
+      // (Python parses "result = return x" as invalid before any try/except ever
+      // runs) — meaning `execute()` broke on its own documented usage pattern,
+      // every time. Defining a real function and calling it makes `return` (and
+      // multi-statement code ending in one) actually valid.
+      const indentedCode = code.split("\n").map((line) => "    " + line).join("\n");
       const wrappedCode = `
 import sys
 import json
 
+def __ronin_exec():
+${indentedCode}
+
 try:
-    result = ${code}
+    result = __ronin_exec()
     response = {
         "id": 0,
         "status": "success",

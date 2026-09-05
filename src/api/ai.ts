@@ -21,7 +21,10 @@ import { createProvider, OllamaProvider } from "./providers.js";
 import { withRetry } from "../utils/retry.js";
 
 const DEFAULT_OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL; // No hardcoded fallback - must be configured
+// No hardcoded model name fallback - must be configured. "" (not a real model name)
+// keeps the type honest and still fails loudly against Ollama's API if ever reached
+// unconfigured, rather than silently succeeding with a made-up default model.
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL ?? "";
 const DEFAULT_OLLAMA_TIMEOUT_MS = (() => {
   const raw =
     process.env.OLLAMA_TIMEOUT_MS ||

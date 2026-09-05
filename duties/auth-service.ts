@@ -36,7 +36,7 @@ export default class AuthService extends BaseDuty {
    */
   private async loadConfigPassword(): Promise<void> {
     try {
-      const config = this.api.config.get();
+      const config = this.api.config.getConfigEditor();
       if (config.password) {
         this.configPassword = config.password;
       }

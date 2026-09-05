@@ -34,7 +34,8 @@ async function discoverRecursive(dir: string, files: string[]): Promise<void> {
 function parseWatchArray(content: string): string[] | undefined {
   const watchMatch = content.match(/static\s+watch\s*=\s*\[([\s\S]*?)\]\s*;?/);
   if (!watchMatch || !watchMatch[1]) return undefined;
-  const quoted = Array.from(watchMatch[1].matchAll(/["'`]([^"'`]+)["'`]/g)).map((m) => m[1]);
+  // Group is `+` (one-or-more), so a successful match always captures a non-empty string.
+  const quoted = Array.from(watchMatch[1].matchAll(/["'`]([^"'`]+)["'`]/g)).map((m) => m[1]!);
   return quoted.length > 0 ? quoted : undefined;
 }
 

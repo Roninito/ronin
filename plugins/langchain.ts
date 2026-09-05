@@ -1,5 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
-import type { AgentAPI } from "../src/types/api.js";
+import type { DutyAPI } from "../src/types/api.js";
 import { Ollama } from "@langchain/community/llms/ollama";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
@@ -37,7 +37,7 @@ const langchainPlugin: Plugin = {
     /**
      * Execute a simple LangChain chain
      */
-    runChain: async (promptTemplate: string, input: Record<string, any>, api?: AgentAPI) => {
+    runChain: async (promptTemplate: string, input: Record<string, any>, api?: DutyAPI) => {
       const defaults = getDefaults();
       const model = new Ollama({
         model: defaults.model,
@@ -51,13 +51,15 @@ const langchainPlugin: Plugin = {
 
       const chain = prompt.pipe(model);
       const result = await chain.invoke(input);
-      return typeof result === "string" ? result : result.content;
+      // chain.invoke() on this Ollama completion model always resolves to a plain string
+      // (verified by its own return type) — the object-with-.content branch was dead.
+      return result;
     },
 
     /**
      * Execute a LangChain agent with tools
      */
-    runAgent: async (query: string, tools: any[] = [], api?: AgentAPI) => {
+    runAgent: async (query: string, tools: any[] = [], api?: DutyAPI) => {
       const defaults = getDefaults();
       const model = new Ollama({
         model: defaults.model,
@@ -87,7 +89,7 @@ const langchainPlugin: Plugin = {
      */
     buildAgentCreationGraph: async (
       cancellationToken?: { isCancelled: boolean },
-      api?: AgentAPI
+      api?: DutyAPI
     ) => {
       const defaults = getDefaults();
       const model = new Ollama({
@@ -114,7 +116,8 @@ const langchainPlugin: Plugin = {
 
         const chain = prompt.pipe(model);
         const planText = await chain.invoke({ task: state.task });
-        const planContent = typeof planText === "string" ? planText : planText.content;
+        // chain.invoke() on this Ollama completion model always resolves to a plain string.
+        const planContent = planText;
 
         // Try to parse JSON from response
         let plan;
@@ -175,7 +178,7 @@ const langchainPlugin: Plugin = {
             "system",
             `You are a TypeScript code generator for Ronin agents. Generate complete, working code that:
 - Extends BaseAgent from "@ronin/agent/index.js"
-- Imports AgentAPI type from "@ronin/types/index.js"
+- Imports DutyAPI type from "@ronin/types/index.js"
 - Has a constructor that calls super(api)
 - Implements execute() method
 - Optionally includes static schedule, watch, or webhook properties
@@ -195,11 +198,12 @@ Generate ONLY the TypeScript code, no explanations.`,
           research: state.research || "",
         });
 
-        const codeContent = typeof codeResult === "string" ? codeResult : codeResult.content;
+        // chain.invoke() on this Ollama completion model always resolves to a plain string.
+        const codeContent = codeResult;
         
         // Extract code from markdown code blocks if present
         const codeBlockMatch = codeContent.match(/```(?:typescript|ts|javascript|js)?\n([\s\S]*?)```/);
-        const code = codeBlockMatch ? codeBlockMatch[1] : codeContent;
+        const code = codeBlockMatch ? codeBlockMatch[1]! : codeContent;
 
         return { code: code.trim() };
       }
@@ -244,6 +248,12 @@ Generate ONLY the TypeScript code, no explanations.`,
       }
 
       // Build graph
+      // The legacy `{ channels: {...} }` constructor form (pre-Annotation.Root() API) hits
+      // a known generic-inference limitation in @langchain/langgraph 0.2.x: it infers the
+      // wrapper object itself as the Channels type param instead of its `channels` property,
+      // so every overload rejects the literal. Runtime behavior of this form is unaffected —
+      // only inference of *this* call fails — so cast past it rather than rewrite the graph's
+      // state definition onto the newer Annotation API.
       const graph = new StateGraph({
         channels: {
           task: { reducer: (x: any, y: any) => y ?? x, default: () => "" },
@@ -254,7 +264,7 @@ Generate ONLY the TypeScript code, no explanations.`,
           passed: { reducer: (x: any, y: any) => y ?? x, default: () => false },
           errors: { reducer: (x: any, y: any) => y ?? x, default: () => null },
         },
-      })
+      } as any)
         .addNode("planner", plannerNode)
         .addNode("researcher", researcherNode)
         .addNode("coder", coderNode)
@@ -276,7 +286,7 @@ Generate ONLY the TypeScript code, no explanations.`,
     /**
      * Run analysis chain for chat queries
      */
-    runAnalysisChain: async (input: string, dataSource?: string, api?: AgentAPI) => {
+    runAnalysisChain: async (input: string, dataSource?: string, api?: DutyAPI) => {
       const defaults = getDefaults();
       const model = new Ollama({
         model: defaults.model,
@@ -305,7 +315,7 @@ Generate ONLY the TypeScript code, no explanations.`,
     /**
      * Build research graph for multi-step research workflows
      */
-    buildResearchGraph: async (api?: AgentAPI) => {
+    buildResearchGraph: async (api?: DutyAPI) => {
       const defaults = getDefaults();
       const model = new Ollama({
         model: defaults.model,
@@ -344,7 +354,8 @@ Generate ONLY the TypeScript code, no explanations.`,
 
         const chain = prompt.pipe(model);
         const result = await chain.invoke({ data: state.data || "" });
-        const analysis = typeof result === "string" ? result : result.content;
+        // chain.invoke() on this Ollama completion model always resolves to a plain string.
+        const analysis = result;
         return { analysis };
       }
 
@@ -357,10 +368,13 @@ Generate ONLY the TypeScript code, no explanations.`,
 
         const chain = prompt.pipe(model);
         const result = await chain.invoke({ analysis: state.analysis || "" });
-        const synthesis = typeof result === "string" ? result : result.content;
+        // chain.invoke() on this Ollama completion model always resolves to a plain string.
+        const synthesis = result;
         return { synthesis };
       }
 
+      // See the `as any` note on the agent-creation graph's StateGraph call above — same
+      // legacy-constructor inference limitation in @langchain/langgraph 0.2.x.
       const graph = new StateGraph({
         channels: {
           query: { reducer: (x: any, y: any) => y ?? x, default: () => "" },
@@ -368,7 +382,7 @@ Generate ONLY the TypeScript code, no explanations.`,
           analysis: { reducer: (x: any, y: any) => y ?? x, default: () => "" },
           synthesis: { reducer: (x: any, y: any) => y ?? x, default: () => "" },
         },
-      })
+      } as any)
         .addNode("fetch", fetchNode)
         .addNode("analyze", analyzeNode)
         .addNode("synthesize", synthesizeNode)
@@ -385,7 +399,7 @@ Generate ONLY the TypeScript code, no explanations.`,
 /**
  * Wrap Ronin plugins as LangChain tools
  */
-async function wrapRoninPluginsAsTools(api: AgentAPI): Promise<any[]> {
+async function wrapRoninPluginsAsTools(api: DutyAPI): Promise<any[]> {
   const tools: any[] = [];
 
   // Shell tool

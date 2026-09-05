@@ -236,7 +236,7 @@ const piperPlugin: Plugin = {
       
       // Try to detect language from model name
       const langMatch = modelName.match(/^([a-z]{2})_/);
-      const language = langMatch ? langMatch[1] : "unknown";
+      const language = langMatch ? langMatch[1]! : "unknown";
 
       return {
         modelPath,

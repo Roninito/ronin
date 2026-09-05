@@ -97,7 +97,7 @@ async function installMacOS(options: OSCommandOptions): Promise<void> {
   
   // Parse folders option
   const folders = options.folders && options.folders.length > 0
-    ? options.folders[0].split(",").map(f => f.trim())
+    ? options.folders[0]!.split(",").map(f => f.trim())
     : undefined;
   
   const installOptions = {
@@ -350,12 +350,12 @@ export function parseOSArgs(args: string[]): {
   let subAction: string | undefined;
   
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
+    const arg = args[i]!; // i < args.length guaranteed by the loop bound
+
     if (arg === "--bridge-port" || arg === "-p") {
-      options.bridgePort = parseInt(args[++i], 10);
+      options.bridgePort = parseInt(args[++i] ?? "", 10);
     } else if (arg === "--folders" || arg === "-f") {
-      options.folders = [args[++i]];
+      options.folders = [args[++i] ?? ""];
     } else if (!action) {
       action = arg;
     } else if (!subAction) {

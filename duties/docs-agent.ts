@@ -425,15 +425,12 @@ export default class DocsAgent extends BaseDuty {
   }
 
   /**
-   * Ingest docs into ontology as ReferenceDoc nodes
+   * Ingest docs into memory/notes/ as refdoc notes
    * POST /api/docs/ingest
    */
   private async handleDocsIngestAPI(req: Request): Promise<Response> {
     if (req.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
-    }
-    if (!this.api.ontology) {
-      return Response.json({ error: "Ontology plugin not available" }, { status: 503 });
     }
 
     try {
@@ -454,13 +451,10 @@ export default class DocsAgent extends BaseDuty {
           continue;
         }
         const normalized = this.normalizeText(content, doc.path);
-        const slug = doc.path.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-        await this.api.ontology.setNode({
-          id: `ReferenceDoc-${slug}`,
-          type: "ReferenceDoc",
+        await this.api.memory.store(`refdoc-${doc.path}`, {
           name: doc.displayName,
           summary: normalized.slice(0, 500),
-          domain: "reference",
+          sourcePath: doc.path,
         });
         ingested++;
       }

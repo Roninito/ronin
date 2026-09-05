@@ -206,7 +206,7 @@ export class GeminiAdapter extends CloudAdapter {
       "gemini-pro-vision": { prompt: 0.0005, completion: 0.0015 },
     };
     
-    const modelPricing = pricing[model] || pricing["gemini-pro"];
+    const modelPricing = pricing[model] || pricing["gemini-pro"]!;
     
     const promptCost = (promptTokenCount / 1000) * modelPricing.prompt;
     const completionCost = (candidatesTokenCount / 1000) * modelPricing.completion;
@@ -214,7 +214,7 @@ export class GeminiAdapter extends CloudAdapter {
     return promptCost + completionCost;
   }
 
-  estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
+  override estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
     const modelName = model || this.config.defaultModel;
     
     const pricing: Record<string, { prompt: number; completion: number }> = {
@@ -223,7 +223,7 @@ export class GeminiAdapter extends CloudAdapter {
       "gemini-pro": { prompt: 0.0005, completion: 0.0015 },
     };
     
-    const modelPricing = pricing[modelName] || pricing["gemini-pro"];
+    const modelPricing = pricing[modelName] || pricing["gemini-pro"]!;
     
     const promptCost = (inputTokens / 1000) * modelPricing.prompt;
     const completionCost = (outputTokens / 1000) * modelPricing.completion;

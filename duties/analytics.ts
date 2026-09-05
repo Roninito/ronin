@@ -212,7 +212,7 @@ export default class AnalyticsAgent extends BaseDuty {
       const raw = await this.api.memory.retrieve(AnalyticsAgent.STATE_KEY);
       if (!raw) return;
 
-      const data = JSON.parse(raw) as {
+      const data = raw as {
         version?: number;
         savedAt: number;
         agentStatuses?: DutyStatus[];
@@ -263,7 +263,7 @@ export default class AnalyticsAgent extends BaseDuty {
         currentHourBucket: { ...this.currentHourBucket },
         timeseries: this.timeseriesBuffer.getAll(),
       };
-      await this.api.memory.store(AnalyticsAgent.STATE_KEY, JSON.stringify(payload));
+      await this.api.memory.store(AnalyticsAgent.STATE_KEY, payload);
     } catch (e) {
       console.warn("[analytics] Failed to persist state:", e);
     }
@@ -684,7 +684,7 @@ export default class AnalyticsAgent extends BaseDuty {
       if (!byTool[t.toolName]) {
         byTool[t.toolName] = { calls: 0, successes: 0, totalCost: 0, totalDuration: 0, cached: 0 };
       }
-      const s = byTool[t.toolName];
+      const s = byTool[t.toolName]!;
       s.calls++;
       if (t.success) s.successes++;
       s.totalCost += t.cost || 0;
@@ -715,10 +715,10 @@ export default class AnalyticsAgent extends BaseDuty {
 
     for (const r of all) {
       totalCalls++;
-      byKind[r.kind]++;
+      byKind[r.kind]!++;
       if (!byModel[r.model]) byModel[r.model] = { count: 0, totalDuration: 0 };
-      byModel[r.model].count++;
-      byModel[r.model].totalDuration += r.duration;
+      byModel[r.model]!.count++;
+      byModel[r.model]!.totalDuration += r.duration;
       if (!r.success) errorCount++;
       totalDuration += r.duration;
     }

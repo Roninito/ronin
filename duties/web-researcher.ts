@@ -223,9 +223,9 @@ export default class WebResearcherAgent extends BaseDuty {
       return {
         success: true,
         data: {
-          summary: response.content,
+          summary: response,
           originalLength: args.content.length,
-          summaryLength: response.content.length,
+          summaryLength: response.length,
           style: args.style || "concise",
         },
         metadata: {

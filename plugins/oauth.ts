@@ -1,5 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
-import type { AgentAPI } from "../src/types/api.js";
+import type { DutyAPI } from "../src/types/api.js";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -37,7 +37,7 @@ const SESSION_FILE = join(homedir(), ".ronin", "oauth-sessions.json");
 const DEFAULT_BASE_PATH = "/auth/oauth";
 const STATE_TTL_MS = 10 * 60 * 1000;
 const pendingStates = new Map<string, PendingState>();
-let apiRef: AgentAPI | null = null;
+let apiRef: DutyAPI | null = null;
 let routesRegistered = false;
 let sessions = new Map<string, OAuthSession>();
 
@@ -113,7 +113,7 @@ function ensureProviderConfigured(provider: OAuthProvider): OAuthConfig {
 function decodeJwtPayload(jwt: string): Record<string, unknown> {
   const parts = jwt.split(".");
   if (parts.length < 2) return {};
-  const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const payload = parts[1]!.replace(/-/g, "+").replace(/_/g, "/");
   const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
   try {
     const raw = Buffer.from(padded, "base64").toString("utf-8");
@@ -331,12 +331,12 @@ async function register_routes(basePath = DEFAULT_BASE_PATH): Promise<{ success:
       return redirect(url);
     }, { title: `OAuth ${provider} start`, description: `Start OAuth flow for ${provider}` });
 
-    apiRef.http.registerRoute(`${basePath}/${provider}/callback`, async (req) => {
+    apiRef.http.registerRoute(`${basePath}/${provider}/callback`, async (req: Request) => {
       return await callbackFromRequest(provider, req);
     }, { title: `OAuth ${provider} callback`, description: `OAuth callback endpoint for ${provider}` });
   }
 
-  apiRef.http.registerRoute(`${basePath}/sessions`, async (req) => {
+  apiRef.http.registerRoute(`${basePath}/sessions`, async (req: Request) => {
     const url = new URL(req.url);
     const provider = url.searchParams.get("provider");
     if (provider && !["google", "github", "apple"].includes(provider)) {
@@ -353,7 +353,7 @@ async function register_routes(basePath = DEFAULT_BASE_PATH): Promise<{ success:
   return { success: true, basePath };
 }
 
-function setAPI(api: AgentAPI): void {
+function setAPI(api: DutyAPI): void {
   apiRef = api;
   loadSessions().catch((e) => console.error("[oauth] Failed to load sessions:", e));
   register_routes().catch((e) => console.error("[oauth] Failed to register routes:", e));

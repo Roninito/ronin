@@ -97,7 +97,7 @@ class RoninREPL {
     console.log("\n🕐 Ronin Interactive Mode");
     console.log("   Server: http://localhost:3000");
     const status = this.state.registry.getStatus();
-    console.log(`   Agents: ${status.totalAgents} running`);
+    console.log(`   Agents: ${status.totalDuties} running`);
     console.log(`   Debug: ${logger.isDebugMode() ? "on" : "off"}`);
     console.log('   Type "help" for commands, "exit" to quit.\n');
 
@@ -147,14 +147,14 @@ class RoninREPL {
 
   private async executeCommand(line: string): Promise<void> {
     const parts = line.split(/\s+/);
-    const cmd = parts[0].toLowerCase();
+    const cmd = parts[0]!.toLowerCase(); // handleLine only calls this with a pre-trimmed, non-empty line
     const args = parts.slice(1);
 
     switch (cmd) {
       case "list": {
-        const status = this.state.registry.getStatus();
+        const duties = this.state.registry.getDuties();
         console.log("\n📋 Agent Status:");
-        for (const a of status.agents) {
+        for (const a of duties) {
           console.log(`   ${a.name}`);
           if (a.schedule) console.log(`      Schedule: ${a.schedule}`);
           if (a.watch?.length) console.log(`      Watch: ${a.watch.join(", ")}`);
@@ -198,7 +198,7 @@ class RoninREPL {
           return;
         }
         try {
-          await this.state.registry.executeAgent(name);
+          await this.state.registry.executeDuty(name);
           console.log(`✅ ${name} completed`);
         } catch (err) {
           console.error(`❌ ${name}:`, err instanceof Error ? err.message : String(err));

@@ -515,8 +515,8 @@ run kata analytics.pipeline v3
 
 ### 2. Zero Vendor Lock-In
 
-**No embeddings**: Removed RAG system, switched to ontology + markdown
-**No proprietary formats**: Everything in SQLite or plain text
+**No embeddings**: Removed RAG system; no knowledge graph either — agent memory is plain markdown under `memory/`
+**No proprietary formats**: Plain markdown/text for memory, SQLite for everything else (contracts, tasks, katas, usage)
 **No external APIs required**: Local execution only (optional remote realms)
 **Open protocols**: Event bus, standard contracts, SAR Chain
 **Reversible**: Could migrate katas/contracts/tasks to any system

@@ -27,7 +27,9 @@ function parsePlaybooksMcpLinks(markdown: string): Array<{ owner: string; repo: 
   const re = /\]\(\/mcp\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(markdown)) !== null) {
-    out.push({ owner: m[1], repo: m[2] });
+    // Both groups are `+` (one-or-more) character classes, so a successful match always
+    // captures a non-empty string for each — safe to assert past noUncheckedIndexedAccess.
+    out.push({ owner: m[1]!, repo: m[2]! });
   }
   return out;
 }

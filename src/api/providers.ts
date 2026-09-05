@@ -296,7 +296,10 @@ export class OllamaProvider implements AIProvider {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    const readWithTimeout = (): Promise<ReadableStreamReadResult<Uint8Array>> =>
+    // No explicit return type: reader.read()'s exact generic (Uint8Array<ArrayBuffer> vs
+    // plain Uint8Array) shifted when "DOM" was added to tsconfig's lib, so let TS infer
+    // the real type here rather than re-declaring a now-stale one.
+    const readWithTimeout = () =>
       Promise.race([
         reader.read(),
         new Promise<never>((_, reject) =>

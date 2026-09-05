@@ -265,9 +265,12 @@ export class RouteGuard {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes();
     
-    const [startHour, startMin] = availableBetween.start.split(':').map(Number);
-    const [endHour, endMin] = availableBetween.end.split(':').map(Number);
-    
+    // availableBetween.start/end are always "HH:MM" (config-validated) — split always
+    // yields both parts. A malformed value falls through to NaN arithmetic below, same
+    // as before this annotation.
+    const [startHour, startMin] = availableBetween.start.split(':').map(Number) as [number, number];
+    const [endHour, endMin] = availableBetween.end.split(':').map(Number) as [number, number];
+
     const startTime = startHour * 60 + startMin;
     const endTime = endHour * 60 + endMin;
 

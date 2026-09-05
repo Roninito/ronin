@@ -55,7 +55,7 @@ const hyprlandPlugin: Plugin = {
             const parts = trimmed.split(/\s+/);
             if (parts.length >= 3) {
               keybindings.push({
-                key: parts[1],
+                key: parts[1]!,
                 action: parts.slice(2).join(" "),
               });
             }

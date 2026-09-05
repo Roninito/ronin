@@ -129,9 +129,9 @@ export function startMenubar(port: number = 17341, routes: MenubarRoute[] = []):
     const script = generateMenubarScript(port, routes);
     writeFileSync(MENUBAR_SCRIPT_PATH, script);
 
-    // Launch in background
+    // Launch in background. The trailing `&` backgrounds it within the shell — execSync
+    // itself has no `detached` option (that's a spawn()-only concept), so it isn't needed.
     execSync(`osascript "${MENUBAR_SCRIPT_PATH}" &`, {
-      detached: true,
       stdio: "ignore",
     });
 
@@ -167,7 +167,7 @@ export function showMenu(state: MenubarState): void {
   const menuItems = [
     `🥷 Ronin Desktop: ${state.enabled ? "✅" : "❌"}`,
     `📡 OS Bridge: ${state.osBridgeActive ? "✅ Active" : "❌ Inactive"}`,
-    `🤖 AI: ${state.aiProvider === "local" ? "🖥️ Local" : state.aiProvider === "offline" ? "📴 Offline" : "☁️ " + state.aiProvider}`,
+    `🤖 AI: ${state.aiProvider === "local" ? "🖥️ Local" : "☁️ " + state.aiProvider}`,
     `📋 Clipboard: ${state.clipboardEnabled ? "✅" : "❌"}`,
     "---",
     `📁 Recent Files (${state.recentFiles})`,
@@ -501,6 +501,3 @@ export function discoverRoutes(
 
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
-
-// Export types
-export type { MenubarState, MenubarCallbacks, MenubarEventEmitter };

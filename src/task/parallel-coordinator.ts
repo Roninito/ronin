@@ -103,7 +103,9 @@ export class ParallelCoordinator {
     if (!parentTask.variables.parallel_results) {
       parentTask.variables.parallel_results = {};
     }
-    parentTask.variables.parallel_results[childName] = result;
+    // Cast: `variables` is Record<string, unknown>, so this property's static type
+    // is `unknown` even right after the object-literal assignment above.
+    (parentTask.variables.parallel_results as Record<string, unknown>)[childName] = result;
 
     // Check if ready to join based on strategy
     const readyToJoin = this.checkJoinCondition(state, state.joinStrategy);
@@ -145,7 +147,9 @@ export class ParallelCoordinator {
     if (!parentTask.variables.parallel_errors) {
       parentTask.variables.parallel_errors = {};
     }
-    parentTask.variables.parallel_errors[childName] = error;
+    // Cast: `variables` is Record<string, unknown>, so this property's static type
+    // is `unknown` even right after the object-literal assignment above.
+    (parentTask.variables.parallel_errors as Record<string, unknown>)[childName] = error;
 
     // Decide parent behavior based on failure mode
     let shouldFailParent = false;

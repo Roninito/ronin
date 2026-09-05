@@ -215,8 +215,12 @@ export class TaskEngine {
    * Set task state directly (used for waiting_for_event)
    */
   async setTaskState(taskId: string, state: TaskState): Promise<void> {
-    await this.taskStorage.updateById(taskId, { state });
-    
+    // TaskStorage has no "update state only" method — updateState() also requires
+    // the current phase, so fetch it first to leave it untouched.
+    const task = await this.taskStorage.getById(taskId);
+    await this.taskStorage.updateState(taskId, state, task?.currentPhase ?? "");
+
+
     this.emit({
       type: `task.state_changed`,
       taskId,

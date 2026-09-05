@@ -11,6 +11,7 @@ import type { ArtifactStore } from "./store.js";
 import { generateIndexHTML } from "./index-html.js";
 import type { ArtifactState, ArtifactType, AssetRecordType, LogAction } from "./types.js";
 import { assetFileExists, getArtifactAssetsDir, guessMimeType, resolveStoredAssetPath } from "./storage.js";
+import { writeArtifactNote } from "./memoryNote.js";
 
 const ARTIFACT_TYPES: ArtifactType[] = ["game_assets", "research", "prototype", "pipeline", "library", "documentation"];
 const ARTIFACT_STATES: ArtifactState[] = ["INITIALIZED", "ACTIVE", "PROCESSING", "REVIEW", "COMPLETE", "ARCHIVED"];
@@ -102,15 +103,7 @@ export function registerArtifactTools(api: DutyAPI, store: ArtifactStore): void 
           const meta = await store.create(args);
           registerArtifactRoutes(api, store, meta.id);
           api.events.emit("artifact:created", { artifactId: meta.id, name: meta.name, type: meta.type }, "artifact-manager");
-          if (api.ontology) {
-            await api.ontology.setNode({
-              id: `artifact:${meta.id}`,
-              type: "artifact",
-              name: meta.name,
-              summary: meta.description,
-              metadata: JSON.stringify({ artifactId: meta.id, state: meta.state, artifactType: meta.type }),
-            });
-          }
+          await writeArtifactNote(api, meta);
           return ok(
             "artifact_create",
             { artifactId: meta.id, dashboardUrl: `/artifact/${meta.id}`, assetsDir: getArtifactAssetsDir(api, meta.id) },
@@ -315,14 +308,7 @@ export function registerArtifactTools(api: DutyAPI, store: ArtifactStore): void 
         try {
           const meta = await store.transitionState(args.artifactId, args.newState);
           api.events.emit("artifact:state-transition", { artifactId: args.artifactId, to: args.newState }, "artifact-manager");
-          if (api.ontology) {
-            await api.ontology.setNode({
-              id: `artifact:${meta.id}`,
-              type: "artifact",
-              name: meta.name,
-              metadata: JSON.stringify({ artifactId: meta.id, state: meta.state, artifactType: meta.type }),
-            });
-          }
+          await writeArtifactNote(api, meta);
           return ok("artifact_transitionState", { success: true, state: meta.state }, start);
         } catch (e: any) {
           return fail("artifact_transitionState", e?.message ?? String(e), start);

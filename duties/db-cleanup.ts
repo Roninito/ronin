@@ -8,8 +8,8 @@ import {
 } from "../src/utils/theme.js";
 
 /**
- * DB Cleanup Agent
- * Prunes high-churn memory/ontology support data on a schedule.
+ * Memory Cleanup Agent
+ * Prunes high-churn memory/notes/ entries (tool cache, tool results, analytics) on a schedule.
  */
 export default class DbCleanupAgent extends BaseDuty {
   static schedule = "15 3 * * *"; // Daily at 03:15
@@ -27,82 +27,26 @@ export default class DbCleanupAgent extends BaseDuty {
   }
 
   private async getStats(): Promise<{
-    memories: number;
-    ontology_nodes: number;
-    ontology_edges: number;
     tool_cache: number;
     tool_results: number;
     analytics: number;
   }> {
-    const rows = await this.api.db.query<{ k: string; c: number }>(
-      `SELECT 'memories' k, COUNT(*) c FROM memories
-       UNION ALL SELECT 'ontology_nodes', COUNT(*) FROM ontology_nodes
-       UNION ALL SELECT 'ontology_edges', COUNT(*) FROM ontology_edges
-       UNION ALL SELECT 'tool_cache', COUNT(*) FROM memories WHERE key LIKE 'tool.cache.%'
-       UNION ALL SELECT 'tool_results', COUNT(*) FROM memories WHERE key LIKE 'tool.result.%'
-       UNION ALL SELECT 'analytics', COUNT(*) FROM memories WHERE key LIKE 'analytics.%'`
-    );
-    const out = {
-      memories: 0,
-      ontology_nodes: 0,
-      ontology_edges: 0,
-      tool_cache: 0,
-      tool_results: 0,
-      analytics: 0,
+    return {
+      tool_cache: await this.api.memory.countByKeyPrefix("tool.cache."),
+      tool_results: await this.api.memory.countByKeyPrefix("tool.result."),
+      analytics: await this.api.memory.countByKeyPrefix("analytics."),
     };
-    for (const r of rows) {
-      (out as Record<string, number>)[r.k] = Number(r.c || 0);
-    }
-    return out;
   }
 
-  private async runCleanup(retention = { toolResultsDays: 3, analyticsDays: 14, contextDays: 30 }): Promise<Record<string, number>> {
+  private async runCleanup(retention = { toolResultsDays: 3, analyticsDays: 14 }): Promise<Record<string, number>> {
     const now = Date.now();
-    const days = (n: number): number => now - n * 24 * 60 * 60 * 1000;
+    const days = (n: number): Date => new Date(now - n * 24 * 60 * 60 * 1000);
 
-    await this.api.db.execute(`DELETE FROM memories WHERE key LIKE 'tool.cache.%'`);
-    const deletedToolCache = await this.api.db.query<{ c: number }>("SELECT changes() as c");
+    const toolCache = await this.api.memory.forgetByKeyPrefix("tool.cache.");
+    const toolResults = await this.api.memory.forgetByKeyPrefix("tool.result.", days(retention.toolResultsDays));
+    const analytics = await this.api.memory.forgetByKeyPrefix("analytics.", days(retention.analyticsDays));
 
-    await this.api.db.execute(
-      `DELETE FROM memories WHERE key LIKE 'tool.result.%' AND updated_at < ?`,
-      [days(retention.toolResultsDays)]
-    );
-    const deletedToolResults = await this.api.db.query<{ c: number }>("SELECT changes() as c");
-
-    await this.api.db.execute(
-      `DELETE FROM memories WHERE key LIKE 'analytics.%' AND updated_at < ?`,
-      [days(retention.analyticsDays)]
-    );
-    const deletedAnalytics = await this.api.db.query<{ c: number }>("SELECT changes() as c");
-
-    await this.api.db.execute(
-      `DELETE FROM ontology_edges
-       WHERE from_id IN (
-         SELECT id FROM ontology_nodes
-         WHERE type IN ('Conversation','Failure') AND updated_at < ?
-       )
-       OR to_id IN (
-         SELECT id FROM ontology_nodes
-         WHERE type IN ('Conversation','Failure') AND updated_at < ?
-       )`,
-      [days(retention.contextDays), days(retention.contextDays)]
-    );
-    const deletedEdges = await this.api.db.query<{ c: number }>("SELECT changes() as c");
-
-    await this.api.db.execute(
-      `DELETE FROM ontology_nodes
-       WHERE type IN ('Conversation','Failure') AND updated_at < ?`,
-      [days(retention.contextDays)]
-    );
-    const deletedNodes = await this.api.db.query<{ c: number }>("SELECT changes() as c");
-
-    return {
-      toolCache: Number(deletedToolCache[0]?.c || 0),
-      toolResults: Number(deletedToolResults[0]?.c || 0),
-      analytics: Number(deletedAnalytics[0]?.c || 0),
-      edges: Number(deletedEdges[0]?.c || 0),
-      nodes: Number(deletedNodes[0]?.c || 0),
-    };
+    return { toolCache, toolResults, analytics };
   }
 
   private async handleStats(req: Request): Promise<Response> {
@@ -147,7 +91,7 @@ export default class DbCleanupAgent extends BaseDuty {
     </div>
     <div class="card">
       <h3>Run Cleanup Now</h3>
-      <p>Prunes tool cache/results, analytics memory, and stale Conversation/Failure ontology context.</p>
+      <p>Prunes tool cache/results and analytics notes from memory/notes/.</p>
       <button onclick="runCleanup()">Run Cleanup</button>
       <pre id="result">No cleanup run yet.</pre>
     </div>
@@ -155,7 +99,6 @@ export default class DbCleanupAgent extends BaseDuty {
   <script>
     function renderStats(s){
       const entries = [
-        ['memories', s.memories], ['ontology_nodes', s.ontology_nodes], ['ontology_edges', s.ontology_edges],
         ['tool_cache', s.tool_cache], ['tool_results', s.tool_results], ['analytics', s.analytics]
       ];
       document.getElementById('stats').innerHTML = entries.map(([k,v]) => '<div class="stat"><strong>'+k+'</strong><div>'+v+'</div></div>').join('');

@@ -19,6 +19,7 @@ interface TelegramUpdate {
       title?: string;
       username?: string;
     };
+    from?: { id: number; is_bot?: boolean; username?: string; first_name?: string };
     text?: string;
     caption?: string;
     photo?: Array<{ file_id: string }>;
@@ -256,8 +257,11 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
 
     // Register real-time message handler once (after bot is initialized)
     if (!this.realTimeHandlerRegistered) {
-      this.api.telegram.onMessage(botId, (update: any) => {
-        this.processMessage(update).catch((err) => {
+      // Captured as a local const: `botId` (a `let`) is narrowed to `string` here, but
+      // that narrowing doesn't carry into the closure body below across a `let` capture.
+      const activeBotId = botId;
+      this.api.telegram.onMessage(activeBotId, (update: any) => {
+        this.processMessage(update, activeBotId).catch((err) => {
           console.error("[telegram-subscription] Error in real-time message handler:", err);
         });
       });
@@ -317,7 +321,7 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
         try {
           // Process message if present
           if (update.message) {
-            await this.processMessage(update);
+            await this.processMessage(update, botId);
             processedCount++;
           }
 
@@ -425,7 +429,7 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
   /**
    * Process a Telegram message
    */
-  private async processMessage(update: TelegramUpdate): Promise<void> {
+  private async processMessage(update: TelegramUpdate, botId: string): Promise<void> {
     if (!update.message) {
       return;
     }
@@ -483,7 +487,7 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
     this.api.events.emit(
       "telegram.message",
       {
-        botId: this.botId,
+        botId,
         message: {
           message_id: message.message_id,
           chat: { id: chatId, type: chatType, title: chatName },

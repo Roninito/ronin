@@ -1,5 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
-import { Bot, Context } from "grammy";
+import { Bot, Context, GrammyError, InputFile } from "grammy";
 
 interface TelegramUpdate {
   update_id: number;
@@ -119,7 +119,10 @@ const telegramPlugin: Plugin = {
 
       // Add error handler for 409 conflicts - silently ignore expected conflicts
       bot.catch((err) => {
-        if (err.error_code === 409) {
+        // BotError wraps the real error in `.error` (typed `unknown`) — err.error_code
+        // was always undefined here, so this 409-suppression never actually fired and
+        // every conflict was falling through to the noisy console.error below instead.
+        if (err.error instanceof GrammyError && err.error.error_code === 409) {
           // Silently ignore 409 conflicts - expected when multiple agents share the same bot
           // This is normal behavior in Ronin when multiple agents use the same bot token
           return;
@@ -297,7 +300,9 @@ const telegramPlugin: Plugin = {
       }
 
       try {
-        await instance.bot.api.sendPhoto(chatId, photo, {
+        // grammy's api takes a URL/file_id string or an InputFile wrapper — never a raw
+        // Buffer — so a Buffer caller has to be wrapped before it can be uploaded.
+        await instance.bot.api.sendPhoto(chatId, Buffer.isBuffer(photo) ? new InputFile(photo) : photo, {
           caption,
         });
       } catch (error) {
@@ -347,24 +352,19 @@ const telegramPlugin: Plugin = {
     },
 
     /**
-     * Join a channel or group (bot must be invited or be admin)
-     * @param botId ID from initBot
-     * @param channelId Channel ID (e.g., '@channelusername')
+     * There is no Telegram Bot API method for a bot to join a channel/group on its own —
+     * a human admin must add it. `joinChat` never existed on grammy's Api (or Telegram's
+     * Bot API); this always threw "instance.bot.api.joinChat is not a function" if called.
+     * Kept as a named, explicit failure instead of silently removing the export in case
+     * something still calls it — surface the real constraint instead of a cryptic crash.
+     * @deprecated Not implementable — see above. Add the bot as an admin manually instead.
      */
-    joinChannel: async (botId: string, channelId: string): Promise<void> => {
-      const instance = bots.get(botId);
-      if (!instance) {
-        throw new Error(`Bot not initialized: ${botId}`);
-      }
-
-      try {
-        await instance.bot.api.joinChat(channelId);
-        console.log(`[telegram] Joined channel: ${channelId}`);
-      } catch (error) {
-        throw new Error(
-          `Failed to join channel: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
+    joinChannel: async (_botId: string, _channelId: string): Promise<void> => {
+      throw new Error(
+        "telegram.joinChannel is not supported: Telegram's Bot API has no method for a " +
+        "bot to join a channel/group itself. Add the bot as a member/admin manually from " +
+        "the channel's settings instead."
+      );
     },
 
     /**
@@ -536,7 +536,7 @@ const telegramPlugin: Plugin = {
         const chat = await instance.bot.api.getChat(channelId);
         return {
           id: chat.id,
-          title: "title" in chat ? chat.title : "Unknown",
+          title: ("title" in chat ? chat.title : undefined) ?? "Unknown",
           username: "username" in chat ? chat.username : undefined,
           type: chat.type,
           description: "description" in chat ? chat.description : undefined,

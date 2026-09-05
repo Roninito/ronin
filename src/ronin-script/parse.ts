@@ -21,7 +21,8 @@ export function parse(script: string): ParsedRoninScript {
   const lines = script.split(/\n/);
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+    // Non-null: i < lines.length is checked by the loop condition above.
+    const raw = lines[i]!;
     const trimmed = raw.trimEnd();
     if (trimmed === "") continue;
 
@@ -66,11 +67,13 @@ export function parse(script: string): ParsedRoninScript {
       if (tokens.length >= 3) {
         let relationIdx = tokens.length === 3 ? 1 : 2;
         // If third token looks like a proper noun (e.g. "Chase"), relation is likely second token (e.g. "paid_by")
-        if (tokens.length >= 4 && tokens[2].length > 0 && tokens[2][0] === tokens[2][0].toUpperCase()) {
+        // Non-null: tokens.length >= 4 guarantees index 2.
+        if (tokens.length >= 4 && tokens[2]!.length > 0 && tokens[2]![0] === tokens[2]![0]!.toUpperCase()) {
           relationIdx = 1;
         }
         const subject = tokens.slice(0, relationIdx).join(" ");
-        const relation = tokens[relationIdx];
+        // Non-null: relationIdx is 1 or 2, and tokens.length >= 3 was checked above.
+        const relation = tokens[relationIdx]!;
         const objectPart = tokens.slice(relationIdx + 1).join(" ");
         const objects = objectPart.includes(",")
           ? objectPart.split(",").map((o) => o.trim()).filter(Boolean)
@@ -110,7 +113,8 @@ export function parse(script: string): ParsedRoninScript {
 function parseEntityLine(line: string): ParsedEntity | null {
   const tokens = line.split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return null;
-  const type = tokens[0];
+  // Non-null: the length check above guarantees a first element.
+  const type = tokens[0]!;
   const values = tokens.slice(1);
   return { type, values };
 }

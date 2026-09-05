@@ -72,7 +72,7 @@ export default class CoderBotAgent extends BaseDuty {
     for (const [cli, pluginName] of Object.entries(this.cliPlugins)) {
       if (this.api.plugins.has(pluginName)) {
         try {
-          const installed = await this.api.plugins.call(pluginName, "checkInstallation");
+          const installed = Boolean(await this.api.plugins.call(pluginName, "checkInstallation"));
           this.cliStatus[cli] = installed;
           
           if (installed) {
@@ -243,8 +243,10 @@ Status: 🔄 Executing
 
       // Determine CLI from tags or config
       const cliTag = payload.tags?.find((tag) => this.cliPlugins[tag]);
+      // cliTag (if set) came from .find()'s own predicate already confirming
+      // this.cliPlugins[cliTag] is truthy, so the lookup can't be undefined here.
       const pluginName = cliTag
-        ? this.cliPlugins[cliTag]
+        ? this.cliPlugins[cliTag]!
         : `${config.defaultCLI || "qwen"}-cli`;
 
       // Check CLI is available
@@ -475,7 +477,7 @@ Use sensible defaults for any unspecified parameters:
       const possibleNames = [
         title.toLowerCase().replace(/\s+/g, '-'),
         title.toLowerCase().replace(/\s+/g, '_'),
-        title.split(/\s+/)[0].toLowerCase(),
+        title.split(/\s+/)[0]!.toLowerCase(), // .split() always returns >= 1 element
       ];
 
       for (const name of possibleNames) {
@@ -612,7 +614,10 @@ Use sensible defaults for any unspecified parameters:
       defaultCLI: config.defaultCLI,
       defaultAppsDirectory: config.defaultAppsDirectory,
       apps: config.apps,
-      cliOptions: config.cliOptions,
+      // Real CLIOptions is a fixed {qwen,cursor,opencode,gemini} shape with no index
+      // signature; this duty looks options up by a dynamically-resolved CLI name
+      // (`config.cliOptions?.[cli]`), so it's treated as an open map here instead.
+      cliOptions: config.cliOptions as unknown as Record<string, { timeout?: number; model?: string }>,
     };
   }
 

@@ -118,7 +118,7 @@ export class OpenAIAdapter extends CloudAdapter {
     };
   }
 
-  async generateImage(
+  override async generateImage(
     prompt: string,
     options?: { size?: string; quality?: string; style?: string }
   ): Promise<{ url: string; cost: number }> {
@@ -152,7 +152,7 @@ export class OpenAIAdapter extends CloudAdapter {
     return { url, cost };
   }
 
-  async transcribeAudio(
+  override async transcribeAudio(
     audioUrl: string,
     options?: { language?: string }
   ): Promise<{ text: string; cost: number }> {
@@ -189,7 +189,7 @@ export class OpenAIAdapter extends CloudAdapter {
     return { text: data.text, cost };
   }
 
-  async synthesizeSpeech(
+  override async synthesizeSpeech(
     text: string,
     options?: { voice?: string; speed?: number }
   ): Promise<{ audioUrl: string; cost: number }> {
@@ -285,7 +285,7 @@ export class OpenAIAdapter extends CloudAdapter {
       "gpt-3.5-turbo": { prompt: 0.0005, completion: 0.0015 },
     };
     
-    const modelPricing = pricing[model] || pricing["gpt-3.5-turbo"];
+    const modelPricing = pricing[model] || pricing["gpt-3.5-turbo"]!;
     
     const promptCost = (prompt_tokens / 1000) * modelPricing.prompt;
     const completionCost = (completion_tokens / 1000) * modelPricing.completion;
@@ -293,7 +293,7 @@ export class OpenAIAdapter extends CloudAdapter {
     return promptCost + completionCost;
   }
 
-  estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
+  override estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
     const modelName = model || this.config.defaultModel;
     
     const pricing: Record<string, { prompt: number; completion: number }> = {
@@ -302,7 +302,7 @@ export class OpenAIAdapter extends CloudAdapter {
       "gpt-3.5-turbo": { prompt: 0.0005, completion: 0.0015 },
     };
     
-    const modelPricing = pricing[modelName] || pricing["gpt-3.5-turbo"];
+    const modelPricing = pricing[modelName] || pricing["gpt-3.5-turbo"]!;
     
     const promptCost = (inputTokens / 1000) * modelPricing.prompt;
     const completionCost = (outputTokens / 1000) * modelPricing.completion;

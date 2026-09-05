@@ -1,4 +1,5 @@
 import type { Plugin } from "../src/plugins/base.js";
+import type { ServerWebSocket } from "bun";
 
 interface RealmConfig {
   discoveryUrl: string;
@@ -35,6 +36,8 @@ interface RealmMessage {
   payload?: unknown;
   content?: string;
   error?: string;
+  /** Present on `type: "query"` messages — the query name passed through to eventsAPI.query(). */
+  queryType?: string;
 }
 
 // Global state (shared across plugin instances)
@@ -50,7 +53,10 @@ let eventsAPI: any = null; // Will be set during initialization
 /**
  * Realm plugin for peer-to-peer communication between Ronin instances
  */
-const realmPlugin: Plugin = {
+// `satisfies` (not `: Plugin`) preserves concrete per-method signatures so the
+// self-reference in sendMessage (`realmPlugin.methods.beam`) resolves to a real,
+// always-defined method instead of an optional index-signature hit.
+const realmPlugin = {
   name: "realm",
   description: "Peer-to-peer communication and discovery via Realm server with WebSocket and WebRTC support",
   methods: {
@@ -130,7 +136,10 @@ const realmPlugin: Plugin = {
         throw new Error("Realm not initialized. Call init() first.");
       }
 
-      await beam(to, "text-message", { content });
+      // `beam` isn't a free function — it's this plugin's own sibling method.
+      // This was a bare undefined reference: sendMessage has always thrown
+      // ReferenceError: beam is not defined the moment it was called.
+      await realmPlugin.methods.beam(to, "text-message", { content });
     },
 
     /**
@@ -234,10 +243,14 @@ const realmPlugin: Plugin = {
     /**
      * Get peer status (online/offline)
      */
-    getPeerStatus: async (callSign: string): Promise<{ online: boolean; wsAddress?: string }> => {
+    getPeerStatus: async (callSign: string): Promise<{ online: boolean; wsAddress?: string; error?: string }> => {
       if (!config || !discoveryWs) {
         throw new Error("Realm not initialized. Call init() first.");
       }
+      // Capture into a local const: TS can't retain the non-null narrowing above across
+      // the Promise executor closure below since `discoveryWs` is a mutable module-level
+      // `let` it could (in principle) be reassigned before the closure runs.
+      const ws = discoveryWs;
 
       return new Promise((resolve) => {
         const requestId = `status-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -246,7 +259,7 @@ const realmPlugin: Plugin = {
           try {
             const data = JSON.parse(event.data.toString()) as RealmMessage;
             if (data.type === "peerInfo" && data.requestId === requestId) {
-              discoveryWs!.removeEventListener("message", handler);
+              ws.removeEventListener("message", handler);
               resolve({
                 online: data.online || false,
                 wsAddress: data.wsAddress,
@@ -257,21 +270,21 @@ const realmPlugin: Plugin = {
           }
         };
 
-        discoveryWs.addEventListener("message", handler);
-        
+        ws.addEventListener("message", handler);
+
         // Wait for WebSocket to be open before sending
-        if (discoveryWs.readyState === WebSocket.OPEN) {
-          discoveryWs.send(
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
             JSON.stringify({
               type: "getPeer",
               target: callSign,
               requestId,
             })
           );
-        } else if (discoveryWs.readyState === WebSocket.CONNECTING) {
+        } else if (ws.readyState === WebSocket.CONNECTING) {
           // Wait for connection then send
-          discoveryWs.addEventListener("open", () => {
-            discoveryWs?.send(
+          ws.addEventListener("open", () => {
+            ws.send(
               JSON.stringify({
                 type: "getPeer",
                 target: callSign,
@@ -287,7 +300,7 @@ const realmPlugin: Plugin = {
 
         // Timeout after 5 seconds
         setTimeout(() => {
-          discoveryWs?.removeEventListener("message", handler);
+          ws.removeEventListener("message", handler);
           resolve({ online: false });
         }, 5000);
       });
@@ -333,7 +346,7 @@ const realmPlugin: Plugin = {
       eventsAPI = api;
     },
   },
-};
+} satisfies Plugin;
 
 /**
  * Fetch external IP address
@@ -365,7 +378,7 @@ function startLocalWsServer(): void {
       localWsServer = Bun.serve({
         port,
         fetch: (req, server) => {
-          if (server.upgrade(req)) {
+          if (server.upgrade(req, { data: undefined })) {
             return;
           }
           return new Response("Not a WebSocket endpoint", { status: 400 });
@@ -383,19 +396,27 @@ function startLocalWsServer(): void {
               console.error("[realm] Error handling incoming message:", error);
             }
           },
+          // KNOWN GAP (pre-existing, not fixed here — flagging per review scope): `conn.ws`
+          // is only ever populated by *outgoing* connections this instance initiates (see
+          // connectWebSocket below); an incoming ServerWebSocket accepted by this local
+          // server is never stored on any PeerConnection, and TS confirms it — `WebSocket`
+          // and `ServerWebSocket<unknown>` are different runtime classes and can never be
+          // `===`. So this cleanup loop can never actually find/remove an incoming peer's
+          // connection, and (via handleIncomingMessage's `instanceof WebSocket` branching)
+          // replies can't be sent back over an incoming connection either. Incoming
+          // peer-server connections appear to be inert beyond receiving the first message.
           close: (ws) => {
-            // Find and remove connection
             for (const [callSign, conn] of peerConnections.entries()) {
-              if (conn.ws === ws) {
+              if ((conn.ws as unknown) === ws) {
                 peerConnections.delete(callSign);
                 console.log(`[realm] Peer disconnected: ${callSign}`);
                 break;
               }
             }
           },
-          error: (ws, error) => {
-            console.error("[realm] WebSocket error:", error);
-          },
+          // Bun's WebSocketHandler has no `error` hook (confirmed against bun-types) —
+          // socket-level failures surface via `close(ws, code, reason)` instead. This
+          // handler was never invoked; removed rather than left as dead code.
         },
       });
 
@@ -786,7 +807,11 @@ function handleWebRTCSignal(msg: RealmMessage): void {
 /**
  * Handle incoming messages from peers
  */
-function handleIncomingMessage(source: WebSocket | RTCDataChannel, msg: RealmMessage): void {
+// ServerWebSocket<unknown> included because startLocalWsServer's `message` handler passes
+// one (an incoming peer connection) — the instanceof checks below only recognize
+// WebSocket/RTCDataChannel, so a reply is a no-op for that case (see the KNOWN GAP note
+// on startLocalWsServer's `close` handler above).
+function handleIncomingMessage(source: WebSocket | RTCDataChannel | ServerWebSocket<unknown>, msg: RealmMessage): void {
   if (!eventsAPI) return;
 
   switch (msg.type) {
@@ -804,7 +829,7 @@ function handleIncomingMessage(source: WebSocket | RTCDataChannel, msg: RealmMes
     case "query":
       // Handle query and send response
       if (msg.queryType && msg.requestId) {
-        eventsAPI.query("", msg.queryType, msg.payload).then((response) => {
+        eventsAPI.query("", msg.queryType, msg.payload).then((response: any) => {
           const responseMsg: RealmMessage = {
             type: "response",
             requestId: msg.requestId,
@@ -815,7 +840,7 @@ function handleIncomingMessage(source: WebSocket | RTCDataChannel, msg: RealmMes
           } else if (source instanceof RTCDataChannel && source.readyState === "open") {
             source.send(JSON.stringify(responseMsg));
           }
-        }).catch((error) => {
+        }).catch((error: any) => {
           const responseMsg: RealmMessage = {
             type: "response",
             requestId: msg.requestId,

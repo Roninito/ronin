@@ -39,7 +39,7 @@ import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
 import { fileURLToPath } from "url";
-import { getArg, getCommandHelp, parseGlobalOptions } from "./shared.js";
+import { getArg, getCommandHelp, parseGlobalOptions, stripFlags } from "./shared.js";
 
 // Commands that require being in the ronin directory
 const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "restart", "run", "interactive", "i", "create", "client"]);
@@ -57,9 +57,9 @@ function isInRoninDir(): boolean {
   }
 }
 
-function checkRoninDir(command: string, args: string[]): void {
+function checkRoninDir(command: string | undefined, args: string[]): void {
   const daemonStartsServer = command === "daemon" && (args[0] === "start" || args[0] === "restart");
-  if ((COMMANDS_REQUIRING_RONIN_DIR.has(command) || daemonStartsServer) && !isInRoninDir()) {
+  if ((COMMANDS_REQUIRING_RONIN_DIR.has(command ?? "") || daemonStartsServer) && !isInRoninDir()) {
     console.error("❌ This command must be run from the Ronin installation directory");
     console.error(`   cd ${roninProjectRoot}`);
     console.error(`   ronin ${command} ${process.argv.slice(3).join(" ")}`);
@@ -235,7 +235,6 @@ async function main() {
       break;
 
     case "routes":
-    case "listRoutes":
       await listRoutesCommand({
         port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
       });
@@ -430,7 +429,7 @@ async function main() {
       const flagsNoValues = new Set(["--sources"]);
       const questionTokens: string[] = [];
       for (let i = 0; i < args.length; i++) {
-        const token = args[i];
+        const token = args[i]!; // i < args.length guaranteed by the loop bound
         if (flagsWithValues.has(token)) {
           i++; // skip value token too
           continue;
@@ -637,12 +636,7 @@ async function main() {
       break;
 
     case "kdb": {
-      const kdbFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir"]);
-      const kdbArgs = args.filter((a, i) => {
-        if (kdbFlags.has(a)) return false;
-        if (i > 0 && kdbFlags.has(args[i - 1])) return false;
-        return true;
-      });
+      const kdbArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir"]);
       await kdbCommand(kdbArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
@@ -652,12 +646,7 @@ async function main() {
     }
 
     case "kata": {
-      const kataFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--port"]);
-      const kataArgs = args.filter((a, i) => {
-        if (kataFlags.has(a)) return false;
-        if (i > 0 && kataFlags.has(args[i - 1])) return false;
-        return true;
-      });
+      const kataArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--port"]);
       await kataCommand(kataArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
@@ -672,12 +661,7 @@ async function main() {
     }
 
     case "contract": {
-      const contractArgs = args.filter((a, i) => {
-        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--kata", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
-        if (flags.has(a)) return false;
-        if (i > 0 && flags.has(args[i - 1])) return false;
-        return true;
-      });
+      const contractArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--kata", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
       await contractCommand(contractArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
@@ -713,18 +697,14 @@ async function main() {
         force: args.includes("--force"),
         history: getArg("--history", args) ? parseInt(getArg("--history", args)!) : undefined,
         nextRuns: getArg("--next-runs", args) ? parseInt(getArg("--next-runs", args)!) : undefined,
+        name: getArg("--name", args),
         yes: args.includes("--yes") || args.includes("-y"),
       });
       break;
     }
 
     case "workflow": {
-      const workflowFlags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model"]);
-      const workflowArgs = args.filter((a, i) => {
-        if (workflowFlags.has(a)) return false;
-        if (i > 0 && workflowFlags.has(args[i - 1])) return false;
-        return true;
-      });
+      const workflowArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model"]);
       await workflowCommand(workflowArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
@@ -737,12 +717,7 @@ async function main() {
     }
 
     case "task": {
-      const taskArgs = args.filter((a, i) => {
-        const flags = new Set(["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--kata", "--contract", "--limit"]);
-        if (flags.has(a)) return false;
-        if (i > 0 && flags.has(args[i - 1])) return false;
-        return true;
-      });
+      const taskArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--kata", "--contract", "--limit"]);
       await taskCommand(taskArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
@@ -800,22 +775,26 @@ Core:
   stop                  Stop the running instance
   restart               Stop and restart Ronin
   kill                  Force-kill all Ronin instances
+  daemon <subcommand>   Manage the background daemon (start|stop|status|restart|logs)
   run <duty>            Run a specific duty manually
   list                  List all available duties
   status                Show runtime status and active schedules
   emit <event> [data]   Send event to running Ronin (Shortcuts, scripts)
   doctor                Run health checks on the installation
+  version                Show installed version and check for updates
 
 Creation:
-  create duty [desc]    AI-powered duty creation (interactive)
-  create skill "desc"   AI-powered skill creation
-  create plugin <name>  Create a new plugin template
-  cancel                Cancel pending duty creation
+  create duty [desc]      AI-powered duty creation (interactive)
+  create skill "desc"     AI-powered skill creation
+  create plugin <name>    Create a new plugin template
+  create kata "intent"     AI-generates a kata from plain language
+  create workflow "desc"   AI-drafts a workflow markdown SOP
+  cancel                  Cancel pending duty creation
 
 AI & Knowledge:
   ask [model] [question]  Ask running Ronin instance (start first)
   ai <subcommand>         Manage AI model definitions (alias: models)
-  kdb                     Ontology/memory stats and queries (knowledge DB)
+  kdb                     Memory stats and queries
   docs [doc]              View documentation
 
 Configuration:
@@ -824,14 +803,12 @@ Configuration:
   init                    Interactive setup wizard (--quick for defaults)
 
 Scheduling:
-  schedule list           List all scheduled duties
-  schedule show <name>    Show duty schedule details
-  schedule edit <name>    Edit duty schedule interactively
+  schedule <subcommand>   Manage cron schedules (list|build|explain|validate|templates|apply)
 
 Plugins & Routes:
   plugins list            List loaded plugins
   plugins info <name>     Show plugin details
-  routes                  List registered HTTP routes (alias: listRoutes)
+  routes                  List registered HTTP routes
 
 Integrations:
   realm connect           Connect to Realm discovery server
@@ -843,24 +820,10 @@ Integrations:
   os <subcommand>         Desktop Mode commands (macOS)
 
 Advanced (Execution Engine):
-  kata list               List all katas
-  kata show <name>        Show kata details
-  kata create             Create a new kata
-  kata test <name>        Run kata tests
-  kata validate <file>    Validate a kata file
-  kata build <file>       Build a kata from source
-  
-  contract list           List all contracts
-  contract show <id>      Show contract details
-  contract create         Create a new contract
-  contract execute <id>   Execute a contract
-  contract status <id>    Check contract status
-  contract cancel <id>    Cancel a contract
-  
-  task list               List all tasks
-  task show <id>          Show task details
-  task cancel <id>        Cancel a task
-  task retry <id>         Retry a failed task
+  kata <subcommand>       Manage katas — deterministic workflow definitions (ronin kata help)
+  contract <subcommand>   Manage contracts — schedules/triggers that run a kata (ronin contract help)
+  task <subcommand>       View and manage task executions (ronin task help)
+  workflow <subcommand>   Manage workflow markdown SOPs (ronin workflow help)
 
 Global Options:
   --debug                 Enable debug logging

@@ -1,5 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import type { Tool } from "../src/types/api.js";
 import { DutyLoader } from "../src/duty/index.js";
 import type { DutyMetadata } from "../src/types/duty.js";
 import {
@@ -21,7 +22,7 @@ import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThem
 const SSE_CLIENTS_KEY = "_scheduleSSEClients" as const;
 
 function getScheduleSSEClients(api: DutyAPI): Set<(data: string) => void> {
-  const a = api as Record<string, unknown>;
+  const a = api as unknown as Record<string, unknown>;
   if (!a[SSE_CLIENTS_KEY]) a[SSE_CLIENTS_KEY] = new Set<(data: string) => void>();
   return a[SSE_CLIENTS_KEY] as Set<(data: string) => void>;
 }
@@ -42,6 +43,10 @@ export default class ScheduleManagerDuty extends BaseDuty {
     console.log("✅ Schedule Manager duty ready. UI available at /schedule");
     this.emitHomeFeed("Ready", "Schedule UI and tooling online");
     setTimeout(() => this.emitHomeFeed("Ready", "Schedule UI and tooling online"), 3000);
+  }
+
+  async execute(): Promise<void> {
+    // Event-driven - routes/tool/event listeners registered in constructor
   }
 
   private emitHomeFeed(status: string, detail: string, priority = 85): void {
@@ -155,6 +160,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
           await new Promise((resolve) => setTimeout(resolve, 200));
 
           const human = cronToHumanReadable(args.schedule);
+          const cronParts = parseCron(args.schedule);
 
           return {
             success: true,
@@ -210,7 +216,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
     // API: Get all agents with schedules
     this.api.http.registerRoute("/api/schedule/agents", async (req: Request) => {
       if (req.method === "GET") {
-        return this.handleGetAgents();
+        return this.handleGetDuties();
       }
       return new Response("Method not allowed", { status: 405 });
     });
@@ -294,8 +300,8 @@ export default class ScheduleManagerDuty extends BaseDuty {
   private async handleGetDuties(): Promise<Response> {
     try {
       const duties =
-        typeof this.api.getDuties === "function"
-          ? this.api.getDuties()
+        typeof this.api.getAgents === "function"
+          ? this.api.getAgents()
           : await this.loader.loadAllDuties(this.api);
       const dutiesWithSchedules = duties
         .filter((duty) => duty.schedule)
@@ -451,16 +457,16 @@ export default class ScheduleManagerDuty extends BaseDuty {
    * Matches exact name first, then by file basename so e.g. "gvec" finds an agent from gvec.ts even if registry name is the class name.
    */
   private async resolveDutyMetadata(dutyName: string): Promise<DutyMetadata | null> {
-    const byName = (a: { name: string; filePath?: string }) => a.name === dutyName;
-    const dutyFiles = await this.loader.discoverDuties();
-    const found = dutyFiles.find(byName);
+    const byName = (a: DutyMetadata) => a.name === dutyName;
+    const duties = await this.loader.loadAllDuties(this.api);
+    const found = duties.find(byName);
     if (found) return found;
-    const byBase = (a: { name: string; filePath?: string }) => {
+    const byBase = (a: DutyMetadata) => {
       if (!a.filePath) return false;
       const base = basename(a.filePath, ".ts");
       return base.toLowerCase() === dutyName.toLowerCase();
     };
-    return dutyFiles.find(byBase) || null;
+    return duties.find(byBase) || null;
   }
 
   /**
@@ -599,33 +605,27 @@ Respond with a JSON object containing:
         );
       }
 
-      const response = await this.api.ai.chat(
-        [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Change the schedule for ${dutyName} to: ${prompt}`,
-          },
-        ],
+      const response = await this.api.ai.callTools(
+        `${systemPrompt}\n\nChange the schedule for ${dutyName} to: ${prompt}`,
+        [scheduleTool] as unknown as Tool[],
         {
           model: "smart",
-          tools: [scheduleTool],
           temperature: 0.3,
         }
       );
 
       // Extract tool calls from response
-      const toolCalls = (response as any).tool_calls || [];
+      const toolCalls = response.toolCalls || [];
       let result: any = {
         success: false,
-        message: response.content || "No response from AI",
+        message: response.message.content || "No response from AI",
         toolCalls: [],
       };
 
       if (toolCalls.length > 0) {
         for (const toolCall of toolCalls) {
-          if (toolCall.function.name === "schedule.writeSchedule") {
-            const args = JSON.parse(toolCall.function.arguments || "{}");
+          if (toolCall.name === "schedule.writeSchedule") {
+            const args = toolCall.arguments;
             const toolResult = await this.api.tools.execute(
               "schedule.writeSchedule",
               args,
@@ -636,16 +636,17 @@ Respond with a JSON object containing:
             );
 
             result.toolCalls.push({
-              name: toolCall.function.name,
+              name: toolCall.name,
               arguments: args,
               result: toolResult,
             });
 
             if (toolResult.success) {
+              const scheduleDesc = cronToHumanReadable(toolResult.data.schedule);
               result.success = true;
-              result.message = `✅ Schedule updated: ${toolResult.data.description}`;
+              result.message = `✅ Schedule updated: ${scheduleDesc.summary}`;
               result.schedule = toolResult.data.schedule;
-              result.nextRuns = toolResult.data.nextRuns;
+              result.nextRuns = scheduleDesc.nextRuns?.slice(0, 5);
             } else {
               result.success = false;
               result.message = `❌ Failed: ${toolResult.error}`;
@@ -656,9 +657,10 @@ Respond with a JSON object containing:
         // AI didn't call tool — try to extract a schedule from the response.
         // 1) Try parsing the response as JSON (the prompt asks for a JSON object with a "schedule" key)
         let extractedSchedule: string | null = null;
+        const responseText = response.message.content || "";
 
         try {
-          const parsed = JSON.parse(response.content);
+          const parsed = JSON.parse(responseText);
           if (parsed && typeof parsed.schedule === "string") {
             extractedSchedule = parsed.schedule.trim();
           }
@@ -669,11 +671,11 @@ Respond with a JSON object containing:
         // 2) Regex fallback: match exactly 5 space-separated cron fields
         //    Each field is one or more of: digits, *, /, commas, hyphens
         if (!extractedSchedule) {
-          const cronMatch = response.content.match(
+          const cronMatch = responseText.match(
             /([\d\*\/,\-]+\s+[\d\*\/,\-]+\s+[\d\*\/,\-]+\s+[\d\*\/,\-]+\s+[\d\*\/,\-]+)/
           );
           if (cronMatch) {
-            extractedSchedule = cronMatch[1].trim();
+            extractedSchedule = cronMatch[1]!.trim();
           }
         }
 
@@ -926,8 +928,8 @@ Respond with a JSON object containing:
    */
   private async renderScheduleUI(): Promise<Response> {
     const duties =
-      typeof this.api.getDuties === "function"
-        ? this.api.getDuties()
+      typeof this.api.getAgents === "function"
+        ? this.api.getAgents()
         : await this.loader.loadAllDuties(this.api);
     const dutiesWithSchedules = duties.filter((a) => a.schedule).map((a) => a.name);
     const allDuties = duties.map((a) => ({ name: a.name, hasSchedule: !!a.schedule }));

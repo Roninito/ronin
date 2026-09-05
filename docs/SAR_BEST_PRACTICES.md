@@ -191,8 +191,8 @@ const myTool: UnifiedTool = {
 };
 ```
 
-### 4. Register Tools with Ontology
-The SAR middleware automatically resolves and injects tools from your ontology. Define them in your ontology entry.
+### 4. Filter Tools with `relevantSkills`
+Register tools with the tool registry as usual; `ctx.ontology.relevantSkills` then narrows which of those registered tools are shown to the model for a given chain run — a filter, not a separate registration mechanism.
 
 ---
 
@@ -358,7 +358,7 @@ A: Either (1) request it be added to templates, or (2) use smartSAR with custom 
 A: Run with logging enabled, check `ctx.budget.current` after execution.
 
 **Q: Can I use SAR for non-tool agents (pure conversation)?**  
-A: Yes, SAR works for any LLM task. Just don't define tools in ontology.
+A: Yes, SAR works for any LLM task. Just leave `relevantSkills` empty.
 
 **Q: Is there performance overhead vs manual middleware?**  
 A: No, templates use identical middleware. Just cleaner syntax.

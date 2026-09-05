@@ -24,6 +24,7 @@ import { ContractStorageV2 } from "./storage-v2.js";
 import type { EventTriggerConfig, ContractV2Row } from "../types/shared.js";
 import { evaluateCondition, evaluateConditionGroup } from "../kata/conditions.js";
 import type { Condition, ConditionGroup } from "../kata/conditions.js";
+import { logger } from "../utils/logger.js";
 
 interface Subscription {
   eventType: string;
@@ -49,11 +50,11 @@ export class EventTriggerEngine {
    */
   start(): void {
     if (this.intervalId) {
-      this.api.logger?.warn("EventTriggerEngine already running");
+      logger.warn("EventTriggerEngine already running");
       return;
     }
 
-    this.api.logger?.info("EventTriggerEngine starting (refreshing subscriptions every 60 seconds)");
+    logger.info("EventTriggerEngine starting (refreshing subscriptions every 60 seconds)");
 
     this.intervalId = setInterval(() => {
       this.refresh();
@@ -75,7 +76,7 @@ export class EventTriggerEngine {
       this.api.events?.off(sub.eventType, sub.handler);
     }
     this.subscriptions.clear();
-    this.api.logger?.info("EventTriggerEngine stopped");
+    logger.info("EventTriggerEngine stopped");
   }
 
   /**
@@ -92,7 +93,7 @@ export class EventTriggerEngine {
         try {
           triggerConfig = JSON.parse(row.trigger_config) as EventTriggerConfig;
         } catch (error) {
-          this.api.logger?.error(`Invalid trigger_config JSON for contract '${row.name}': ${error}`);
+          logger.error(`Invalid trigger_config JSON for contract '${row.name}': ${error}`);
           continue;
         }
         if (triggerConfig.type !== "event") continue;
@@ -121,7 +122,7 @@ export class EventTriggerEngine {
         }
       }
     } catch (error) {
-      this.api.logger?.error(`EventTriggerEngine refresh error: ${error}`);
+      logger.error(`EventTriggerEngine refresh error: ${error}`);
     }
   }
 
@@ -158,11 +159,11 @@ export class EventTriggerEngine {
         "event-trigger-engine"
       );
 
-      this.api.logger?.info(
+      logger.info(
         `Event triggered: ${row.name} (${triggerConfig.eventType})`
       );
     } catch (error) {
-      this.api.logger?.error(`Error handling event fire for '${contractName}': ${error}`);
+      logger.error(`Error handling event fire for '${contractName}': ${error}`);
     }
   }
 

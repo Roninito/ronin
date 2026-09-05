@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     // Environment setup & latest features
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun", "node"],
     "target": "ESNext",
     "module": "Preserve",
@@ -35,6 +35,6 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src/**/*", "duties/**/*"],
+  "include": ["src/**/*", "duties/**/*", "plugins/**/*"],
   "exclude": ["node_modules", "dist"]
 }

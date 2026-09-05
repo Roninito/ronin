@@ -210,7 +210,7 @@ export class AnthropicAdapter extends CloudAdapter {
       "claude-2.1": { prompt: 0.008, completion: 0.024 },
     };
     
-    const modelPricing = pricing[model] || pricing["claude-3-sonnet-20240229"];
+    const modelPricing = pricing[model] || pricing["claude-3-sonnet-20240229"]!;
     
     const promptCost = (input_tokens / 1000) * modelPricing.prompt;
     const completionCost = (output_tokens / 1000) * modelPricing.completion;
@@ -218,7 +218,7 @@ export class AnthropicAdapter extends CloudAdapter {
     return promptCost + completionCost;
   }
 
-  estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
+  override estimateCost(inputTokens: number, outputTokens: number, model?: string): number {
     const modelName = model || this.config.defaultModel;
     
     const pricing: Record<string, { prompt: number; completion: number }> = {
@@ -227,7 +227,7 @@ export class AnthropicAdapter extends CloudAdapter {
       "claude-3-haiku-20240307": { prompt: 0.00025, completion: 0.00125 },
     };
     
-    const modelPricing = pricing[modelName] || pricing["claude-3-sonnet-20240229"];
+    const modelPricing = pricing[modelName] || pricing["claude-3-sonnet-20240229"]!;
     
     const promptCost = (inputTokens / 1000) * modelPricing.prompt;
     const completionCost = (outputTokens / 1000) * modelPricing.completion;

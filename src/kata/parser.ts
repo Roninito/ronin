@@ -232,7 +232,7 @@ export class KataParser {
         this.consumeKeyword("ai-tags");
         const tags: string[] = [];
         // Parse comma-separated or space-separated tags
-        while (!this.isAtPhaseStart() && !this.peekKeyword("ai-model") && !this.peekKeyword("ai-fallback") && !this.peekKeyword("run") && !this.peekKeyword("spawn")) {
+        while (!this.peekKeyword("phase") && !this.peekKeyword("ai-model") && !this.peekKeyword("ai-fallback") && !this.peekKeyword("run") && !this.peekKeyword("spawn")) {
           tags.push(this.expectIdentifier());
           if (this.peekType("identifier")) {
             continue;
@@ -346,7 +346,9 @@ export class KataParser {
   }
 
   private consume(): Token {
-    return this.tokens[this.pos++];
+    // Same EOF-sentinel fallback as current() — a caller consuming past the end
+    // of the (already EOF-terminated) token stream gets EOF, not a crash.
+    return this.tokens[this.pos++] || { type: "eof", value: "", line: 0, column: 0 };
   }
 
   private expectKeyword(kw: string): void {

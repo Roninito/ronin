@@ -42,7 +42,7 @@ export function buildToolPrompt(params: BuildToolPromptParams): string {
 Conversation transcript:
 ${transcript}${toolSection}${failureInstruction}
 
-TOOL CALLING: Respond with tool calls (each with a tool name and arguments) when you need live data, file contents, or to execute actions. If you can answer from your knowledge, just respond with text — do NOT call tools unnecessarily. Use exact registered tool names (including dots), e.g. local.memory.search, ontology_search, skills.run.
+TOOL CALLING: Respond with tool calls (each with a tool name and arguments) when you need live data, file contents, or to execute actions. If you can answer from your knowledge, just respond with text — do NOT call tools unnecessarily. Use exact registered tool names (including dots), e.g. local.memory.search, local.db.query, skills.run.
 
 TOOL CALL SHAPE:
 - Native tool-calling models: emit function/tool calls with { name, arguments } only.

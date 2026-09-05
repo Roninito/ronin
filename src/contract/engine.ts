@@ -20,6 +20,7 @@ import type { DutyAPI } from "../types/index.js";
 import { CronEvaluator } from "./cron.js";
 import { ContractStorageV2 } from "./storage-v2.js";
 import type { CronTriggerConfig } from "../types/shared.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Cron Engine - evaluates cron contracts and emits events
@@ -38,11 +39,11 @@ export class CronEngine {
    */
   start(): void {
     if (this.intervalId) {
-      this.api.logger?.warn("CronEngine already running");
+      logger.warn("CronEngine already running");
       return;
     }
 
-    this.api.logger?.info("CronEngine starting (every 60 seconds)");
+    logger.info("CronEngine starting (every 60 seconds)");
 
     // Run every 60 seconds
     this.intervalId = setInterval(() => {
@@ -58,13 +59,13 @@ export class CronEngine {
    */
   stop(): void {
     if (!this.intervalId) {
-      this.api.logger?.warn("CronEngine not running");
+      logger.warn("CronEngine not running");
       return;
     }
 
     clearInterval(this.intervalId);
     this.intervalId = null;
-    this.api.logger?.info("CronEngine stopped");
+    logger.info("CronEngine stopped");
   }
 
   /**
@@ -90,7 +91,7 @@ export class CronEngine {
         try {
           triggerConfig = JSON.parse(row.trigger_config) as CronTriggerConfig;
         } catch (error) {
-          this.api.logger?.error(`Invalid trigger_config JSON for contract '${row.name}': ${error}`);
+          logger.error(`Invalid trigger_config JSON for contract '${row.name}': ${error}`);
           continue;
         }
         if (triggerConfig.type !== "cron") continue;
@@ -114,18 +115,18 @@ export class CronEngine {
               "cron-engine"
             );
 
-            this.api.logger?.info(
+            logger.info(
               `Cron triggered: ${row.name} (${triggerConfig.expression})`
             );
           }
         } catch (error) {
-          this.api.logger?.error(
+          logger.error(
             `Error evaluating cron '${triggerConfig.expression}': ${error}`
           );
         }
       }
     } catch (error) {
-      this.api.logger?.error(`CronEngine tick error: ${error}`);
+      logger.error(`CronEngine tick error: ${error}`);
     }
   }
 }
@@ -154,7 +155,7 @@ export class ContractEngine {
       this.handleEventTrigger(payload);
     });
 
-    this.api.logger?.info("ContractEngine started");
+    logger.info("ContractEngine started");
   }
 
   /**
@@ -185,14 +186,14 @@ export class ContractEngine {
       // Best-effort: populate the execution_count/last_executed_at tracking
       // columns the V2 schema already has but nothing previously updated.
       this.storage.recordExecution(payload.contractName, "").catch((error) => {
-        this.api.logger?.error(`Failed to record execution for '${payload.contractName}': ${error}`);
+        logger.error(`Failed to record execution for '${payload.contractName}': ${error}`);
       });
 
-      this.api.logger?.info(
+      logger.info(
         `Contract triggered task: ${payload.kataName} v${payload.kataVersion} (contract: ${payload.contractId})`
       );
     } catch (error) {
-      this.api.logger?.error(`Error handling cron trigger: ${error}`);
+      logger.error(`Error handling cron trigger: ${error}`);
     }
   }
 
@@ -222,14 +223,14 @@ export class ContractEngine {
       );
 
       this.storage.recordExecution(payload.contractName, "").catch((error) => {
-        this.api.logger?.error(`Failed to record execution for '${payload.contractName}': ${error}`);
+        logger.error(`Failed to record execution for '${payload.contractName}': ${error}`);
       });
 
-      this.api.logger?.info(
+      logger.info(
         `Contract triggered task via event: ${payload.kataName} v${payload.kataVersion}`
       );
     } catch (error) {
-      this.api.logger?.error(`Error handling event trigger: ${error}`);
+      logger.error(`Error handling event trigger: ${error}`);
     }
   }
 }

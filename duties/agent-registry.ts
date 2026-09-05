@@ -97,7 +97,9 @@ export default class DutyRegistry extends BaseDuty {
     const watchMatches = [...content.matchAll(/static\s+watch\s*=\s*\[([\s\S]*?)\]/g)];
     const watch: string[] = [];
     for (const match of watchMatches) {
-      const items = match[1].match(/["']([^"']+)["']/g);
+      // match[1] is the regex's one non-optional capturing group — always present
+      // (possibly empty) whenever the outer regex matches at all.
+      const items = match[1]!.match(/["']([^"']+)["']/g);
       if (items) {
         watch.push(...items.map((s) => s.replace(/["']/g, "")));
       }
@@ -112,16 +114,18 @@ export default class DutyRegistry extends BaseDuty {
     const description = descMatch?.[1];
 
     // Extract API plugin usage (this.api.PLUGIN)
+    // m[1] is each regex's one non-optional capturing group — always present whenever
+    // matchAll finds a match at all.
     const pluginUsageMatches = [...content.matchAll(/this\.api\.(\w+)\./g)];
-    const requiredPlugins = [...new Set(pluginUsageMatches.map((m) => m[1]))];
+    const requiredPlugins = [...new Set(pluginUsageMatches.map((m) => m[1]!))];
 
     // Extract event emissions
     const emitMatches = [...content.matchAll(/this\.api\.events\.emit\(["']([^"']+)["']/g)];
-    const emitsEvents = [...new Set(emitMatches.map((m) => m[1]))];
+    const emitsEvents = [...new Set(emitMatches.map((m) => m[1]!))];
 
     // Extract event listeners
     const onMatches = [...content.matchAll(/this\.api\.events\.on\(["']([^"']+)["']/g)];
-    const consumesEvents = [...new Set(onMatches.map((m) => m[1]))];
+    const consumesEvents = [...new Set(onMatches.map((m) => m[1]!))];
 
     return {
       name,

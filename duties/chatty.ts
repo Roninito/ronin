@@ -1,5 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import type { Tool } from "../src/types/api.js";
 import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
 import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
@@ -1553,7 +1554,6 @@ self.addEventListener("fetch", (event) => {
       const systemPrompt = buildSystemPrompt(context, {
         includeArchitecture: isFirstMessage,
         includeRouteList: true,
-        ontologyHint: context.hasOntology,
         artifactsHint: context.hasArtifacts,
         sections: workflowSections,
       });
@@ -1565,7 +1565,7 @@ self.addEventListener("fetch", (event) => {
         ? `${systemPrompt}\n\nUser question: ${message}`
         : message;
 
-      const recentWithUser = [
+      const recentWithUser: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         ...windowed.recentMessages.map((h) => ({
           role: h.role as "user" | "assistant",
           content: h.content,
@@ -1718,7 +1718,6 @@ self.addEventListener("fetch", (event) => {
     const allSchemas = this.api.tools.getSchemas();
     const toolSchemas = filterToolSchemas(allSchemas, {
       message: params.userMessage,
-      hasOntology: this.api.plugins.has("ontology"),
       hasSkills: !!this.api.skills,
       maxSchemas: 12,
     });
@@ -1744,7 +1743,12 @@ self.addEventListener("fetch", (event) => {
       });
 
       // Tool-calling round: use smart model for reliable function calling
-      const result = await this.api.ai.callTools(prompt, toolSchemas, {
+      // OpenAIFunctionSchema (from filterToolSchemas) and DutyAPI's Tool are the same
+      // {type:"function", function:{name,description,parameters}} wire shape — Tool's
+      // `parameters` is just declared narrower (no nested items/enum) than the real
+      // JSONSchema type these schemas actually carry. callTools forwards the array
+      // straight through to the provider as JSON, so this is a type-only mismatch.
+      const result = await this.api.ai.callTools(prompt, toolSchemas as unknown as Tool[], {
         model: toolCallingModel,
         maxTokens: 2000,
         temperature: 0.7,

@@ -152,7 +152,10 @@ async function getBackend(): Promise<PythonBackendHandle> {
 /**
  * Reticulum Plugin
  */
-const reticulumPlugin: Plugin = {
+// `satisfies` (not `: Plugin`) preserves concrete per-method signatures so the
+// self-reference in getIdentityHash below (`reticulumPlugin.methods.getIdentity`)
+// resolves to a real, always-defined method instead of an optional index-signature hit.
+const reticulumPlugin = {
   name: "reticulum",
   description: "Decentralized mesh network communication via Reticulum. Enables Ronin-to-Ronin communication over local mesh (LAN), wide-area mesh, and private networks with shared key authentication.",
   methods: {
@@ -461,8 +464,36 @@ const reticulumPlugin: Plugin = {
     },
 
     /**
+     * Send a request to a peer and wait for a correlated reply — a request/response
+     * layer on top of sendMessage/receiveMessage.
+     *
+     * NOT YET IMPLEMENTED: this requires a responder on the receiving instance that
+     * listens for incoming LXMF messages and replies with the same correlation ID,
+     * and no such responder exists anywhere in the codebase yet (mesh RPC today is
+     * send-only — see MeshDiscoveryService.advertise/executeRemoteService). Building
+     * just the caller side here would silently hang or drop replies rather than fail
+     * clearly, so this throws instead until the responder half is built.
+     *
+     * @param destinationHash - Destination hash (hex string)
+     * @param queryType - Application-defined query/message type
+     * @param payload - Query payload
+     * @param timeout - Timeout in milliseconds
+     */
+    query: async (
+      _destinationHash: string,
+      _queryType: string,
+      _payload: Record<string, any>,
+      _timeout?: number
+    ): Promise<any> => {
+      throw new Error(
+        "reticulum.query() is not implemented: no mesh responder exists yet to answer correlated requests. " +
+        "See plugins/reticulum.ts's query() docstring."
+      );
+    },
+
+    /**
      * Get network status
-     * 
+     *
      * @returns Network status information
      */
     getStatus: async (): Promise<NetworkStatus> => {
@@ -505,6 +536,6 @@ const reticulumPlugin: Plugin = {
       return Buffer.from(bytes).toString("base64");
     },
   },
-};
+} satisfies Plugin;
 
 export default reticulumPlugin;

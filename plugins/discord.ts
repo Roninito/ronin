@@ -216,7 +216,9 @@ const discordPlugin: Plugin = {
 
       try {
         const channel = await instance.client.channels.fetch(channelId);
-        if (!channel || !channel.isTextBased()) {
+        // isTextBased() still leaves PartialDMChannel/PartialGroupDMChannel in the type
+        // (they lack .send() until fully fetched) — narrow past them explicitly.
+        if (!channel || !channel.isTextBased() || !("send" in channel)) {
           throw new Error(`Invalid channel: ${channelId}`);
         }
 
@@ -359,7 +361,7 @@ const discordPlugin: Plugin = {
         return {
           code: invite.code,
           guild: invite.guild ? { id: invite.guild.id, name: invite.guild.name } : undefined,
-          channel: invite.channel ? { id: invite.channel.id, name: invite.channel.name } : undefined,
+          channel: invite.channel ? { id: invite.channel.id, name: invite.channel.name ?? "Unknown" } : undefined,
         };
       } catch (error) {
         throw new Error(
@@ -398,7 +400,7 @@ const discordPlugin: Plugin = {
           id: channel.id,
           name: channel.isTextBased() ? (channel as TextChannel).name : "Unknown",
           type: ChannelType[channel.type] || "Unknown",
-          guildId: channel.guildId,
+          guildId: "guildId" in channel ? channel.guildId : null,
         };
       } catch (error) {
         throw new Error(

@@ -17,7 +17,6 @@ const SKILL_MAKER_ONTOLOGY_SKILLS = [
   "skill_maker.write_file",
   "skill_maker.list_dir",
   "skill_maker.finish",
-  "ontology_search",
   "local.memory.search",
   "mcp_brave-search_brave_web_search",
   "scrape_scrape_to_markdown",
@@ -371,13 +370,13 @@ export default class SkillMaker extends BaseDuty {
 
     const systemContent = `You are creating a Ronin AgentSkill. You MUST use the tools to write real files. Do not output only text.
 
-Research phase (when unsure): If you are not sure how the service, API, or technology works, research first. (1) Use Brave search: call mcp_brave-search_brave_web_search with a query (e.g. "X API documentation", "how does X work") to find official docs or tutorials. (2) Use our scraping tools: call scrape_scrape_to_markdown with a url (e.g. a doc URL from the search results) to fetch the page and get clean markdown — use this to read how the service actually works. (3) You can also call ontology_search (type "ReferenceDoc" or "Tool", nameLike matching the topic) or local.memory.search for internal docs. Use the combined results to implement the skill correctly, then proceed with set_slug, write_file, finish.
+Research phase (when unsure): If you are not sure how the service, API, or technology works, research first. (1) Use Brave search: call mcp_brave-search_brave_web_search with a query (e.g. "X API documentation", "how does X work") to find official docs or tutorials. (2) Use our scraping tools: call scrape_scrape_to_markdown with a url (e.g. a doc URL from the search results) to fetch the page and get clean markdown — use this to read how the service actually works. (3) You can also call local.memory.search for internal docs (refdoc-*, tool-* notes). Use the combined results to implement the skill correctly, then proceed with set_slug, write_file, finish.
 
 How tool calling works: You must respond with tool calls (each tool has a name and arguments). If you reply with only prose, no tool runs. The system executes your tool calls, appends the results, and gives you another turn. Use that next turn to call more tools (e.g. write_file again) or call skill_maker.finish. If you cannot complete the skill, call skill_maker.finish with status "abort" so we know you are intentionally giving up — do not leave the run without calling finish. When you have written skill.md and scripts/run.ts, call skill_maker.finish with status "success".
 
 Scripts must accept input via argv: All generated scripts MUST take input from command-line arguments (e.g. --input=, --path=, --query=). The Run: line in skill.md must use placeholders, e.g. Run: bun run scripts/run.ts --input={input}. The script must parse process.argv for these flags. Do not assume input files (e.g. input.txt) exist — the caller (skills.run) passes params as argv. If the user explicitly wants file-based input, the skill can optionally read a file path from argv (e.g. --file=path) but must not require a hardcoded filename.
 
-Required tool sequence: (1) If unsure, research (Brave search mcp_brave-search_brave_web_search, then scrape_scrape_to_markdown to read doc URLs; or ontology_search / local.memory.search). (2) skill_maker.set_slug with a lowercase hyphenated slug. (3) skill_maker.ensure_dir for "." and "scripts". (4) skill_maker.write_file for skill.md (full content: YAML frontmatter name + description, then ## Abilities, ### run with Input:, Output:, Run: bun run scripts/run.ts --input={input} or similar placeholders). (5) skill_maker.write_file for scripts/run.ts with actual TypeScript that parses argv (e.g. --input=) and implements the behavior — not a stub. (6) skill_maker.finish with status "success". If you cannot implement, call skill_maker.finish with status "abort".
+Required tool sequence: (1) If unsure, research (Brave search mcp_brave-search_brave_web_search, then scrape_scrape_to_markdown to read doc URLs; or local.memory.search). (2) skill_maker.set_slug with a lowercase hyphenated slug. (3) skill_maker.ensure_dir for "." and "scripts". (4) skill_maker.write_file for skill.md (full content: YAML frontmatter name + description, then ## Abilities, ### run with Input:, Output:, Run: bun run scripts/run.ts --input={input} or similar placeholders). (5) skill_maker.write_file for scripts/run.ts with actual TypeScript that parses argv (e.g. --input=) and implements the behavior — not a stub. (6) skill_maker.finish with status "success". If you cannot implement, call skill_maker.finish with status "abort".
 
 You MUST call skill_maker.finish before ending: "success" after writing all files, or "abort" if you cannot complete. Do not leave the run without calling finish. Do not reply with only prose — respond with tool calls so that write_file and finish actually run.
 
@@ -631,30 +630,22 @@ Either call the tools (and finish with success or abort) OR output the block abo
     );
     console.log(`[skill-maker] Created skill: ${slug} at ${skillDir}`);
 
-    if (this.api.ontology) {
+    try {
+      let summary = reason?.slice(0, 500);
       try {
-        let summary = reason?.slice(0, 500);
-        try {
-          const skillMdPath = join(skillDir, "skill.md");
-          const content = await this.api.files.read(skillMdPath);
-          const descMatch = content.match(/(?:^---\s*\n[\s\S]*?\ndescription:\s*["']?([^"'\n]+)["']?|^#\s+.+\n\n([^\n]+))/m);
-          if (descMatch?.[1] || descMatch?.[2]) {
-            summary = (descMatch[1] ?? descMatch[2]).trim().slice(0, 500);
-          }
-        } catch {
-          // use reason as summary
+        const skillMdPath = join(skillDir, "skill.md");
+        const content = await this.api.files.read(skillMdPath);
+        const descMatch = content.match(/(?:^---\s*\n[\s\S]*?\ndescription:\s*["']?([^"'\n]+)["']?|^#\s+.+\n\n([^\n]+))/m);
+        if (descMatch?.[1] || descMatch?.[2]) {
+          summary = (descMatch[1] ?? descMatch[2])!.trim().slice(0, 500);
         }
-        await this.api.ontology.setNode({
-          id: `Skill-${slug}`,
-          type: "Skill",
-          name: slug,
-          summary: summary ?? undefined,
-          domain: "skills",
-        });
-        console.log(`[skill-maker] Ontology updated with Skill-${slug}`);
-      } catch (err) {
-        console.warn("[skill-maker] Failed to update ontology with new skill:", (err as Error).message);
+      } catch {
+        // use reason as summary
       }
+      await this.api.memory.store(`skill-${slug}`, { name: slug, summary: summary ?? undefined });
+      console.log(`[skill-maker] Memory updated with skill-${slug}`);
+    } catch (err) {
+      console.warn("[skill-maker] Failed to update memory with new skill:", (err as Error).message);
     }
 
     emitCompletionMessage(
@@ -689,7 +680,7 @@ function getReferencedScriptPaths(skillMdContent: string): string[] {
   const scriptPathRegex = /scripts\/[^\s'"\n)]+\.(ts|js|mjs|cjs)/gi;
   let runMatch: RegExpExecArray | null;
   while ((runMatch = runRegex.exec(skillMdContent)) !== null) {
-    const line = runMatch[1];
+    const line = runMatch[1]!; // (.+?) requires >=1 char, so group 1 is always captured
     let pathMatch: RegExpExecArray | null;
     const pathRegex = /scripts\/[^\s'"\n)]+\.(ts|js|mjs|cjs)/gi;
     while ((pathMatch = pathRegex.exec(line)) !== null) {
@@ -718,13 +709,13 @@ function parseSkillFromText(
   let slug: string | null = null;
   const nameMatch = text.match(/\bNAME:\s*(\S+)/i) ?? text.match(/\bname:\s*(\S+)/);
   if (nameMatch) {
-    slug = nameMatch[1].trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    slug = nameMatch[1]!.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   }
   if (!slug) {
     const frontmatterMatch = text.match(/^---\s*\n([\s\S]*?)\n---/);
     if (frontmatterMatch) {
-      const nameInYaml = frontmatterMatch[1].match(/\bname:\s*["']?([a-z0-9-]+)["']?/i);
-      if (nameInYaml) slug = nameInYaml[1].trim().toLowerCase();
+      const nameInYaml = frontmatterMatch[1]!.match(/\bname:\s*["']?([a-z0-9-]+)["']?/i);
+      if (nameInYaml) slug = nameInYaml[1]!.trim().toLowerCase();
     }
   }
   if (!slug && requestHint) {

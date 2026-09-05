@@ -176,11 +176,13 @@ export class ConfigService {
     let current = obj;
     
     for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
+      // Non-null: i < keys.length is checked by the loop condition above.
+      if (!current[keys[i]!]) current[keys[i]!] = {};
+      current = current[keys[i]!];
     }
-    
-    current[keys[keys.length - 1]] = value;
+
+    // Non-null: path.split(".") always returns at least one element.
+    current[keys[keys.length - 1]!] = value;
   }
 
   /**

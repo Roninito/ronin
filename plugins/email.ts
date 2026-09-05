@@ -258,11 +258,13 @@ const getDomainFromEmail = (email: string): string => {
 
 const findPresetByDomain = (domain: string): ServerPreset | null => {
   if (!domain) return null;
-  if (EMAIL_PROVIDER_PRESETS[domain]) return EMAIL_PROVIDER_PRESETS[domain];
-  if (domain.endsWith(".googlemail.com") || domain.endsWith(".gmail.com")) return EMAIL_PROVIDER_PRESETS["gmail.com"];
-  if (domain.includes("outlook") || domain.includes("office365")) return EMAIL_PROVIDER_PRESETS["outlook.com"];
-  if (domain.includes("yahoo")) return EMAIL_PROVIDER_PRESETS["yahoo.com"];
-  if (domain.endsWith(".icloud.com") || domain.endsWith(".me.com") || domain.endsWith(".mac.com")) return EMAIL_PROVIDER_PRESETS["icloud.com"];
+  // Every EMAIL_PROVIDER_PRESETS[...] access below is either just-checked truthy or a
+  // hardcoded key defined in the object literal above — the `!` reflects that, not a guess.
+  if (EMAIL_PROVIDER_PRESETS[domain]) return EMAIL_PROVIDER_PRESETS[domain]!;
+  if (domain.endsWith(".googlemail.com") || domain.endsWith(".gmail.com")) return EMAIL_PROVIDER_PRESETS["gmail.com"]!;
+  if (domain.includes("outlook") || domain.includes("office365")) return EMAIL_PROVIDER_PRESETS["outlook.com"]!;
+  if (domain.includes("yahoo")) return EMAIL_PROVIDER_PRESETS["yahoo.com"]!;
+  if (domain.endsWith(".icloud.com") || domain.endsWith(".me.com") || domain.endsWith(".mac.com")) return EMAIL_PROVIDER_PRESETS["icloud.com"]!;
   return null;
 };
 
@@ -273,10 +275,10 @@ const detectPresetFromMx = async (domain: string): Promise<ServerPreset | null> 
       .sort((a, b) => a.priority - b.priority)
       .map((r) => r.exchange.toLowerCase())
       .join(" ");
-    if (/google|googlemail|aspmx/.test(mx)) return EMAIL_PROVIDER_PRESETS["gmail.com"];
-    if (/outlook|office365|protection\.outlook/.test(mx)) return EMAIL_PROVIDER_PRESETS["outlook.com"];
-    if (/yahoodns|yahoodns\.net|yahoo/.test(mx)) return EMAIL_PROVIDER_PRESETS["yahoo.com"];
-    if (/icloud|me\.com|mail\.me\.com/.test(mx)) return EMAIL_PROVIDER_PRESETS["icloud.com"];
+    if (/google|googlemail|aspmx/.test(mx)) return EMAIL_PROVIDER_PRESETS["gmail.com"]!;
+    if (/outlook|office365|protection\.outlook/.test(mx)) return EMAIL_PROVIDER_PRESETS["outlook.com"]!;
+    if (/yahoodns|yahoodns\.net|yahoo/.test(mx)) return EMAIL_PROVIDER_PRESETS["yahoo.com"]!;
+    if (/icloud|me\.com|mail\.me\.com/.test(mx)) return EMAIL_PROVIDER_PRESETS["icloud.com"]!;
   } catch {
     // ignore DNS resolution issues
   }
@@ -535,7 +537,9 @@ const emailPlugin: Plugin = {
         try {
           const messages: EmailMessage[] = [];
           const mailbox = client.mailbox;
-          const total = mailbox?.exists || 0;
+          // client.mailbox is `false` (not null/undefined) when no mailbox is selected,
+          // so optional chaining alone doesn't narrow it away — use && instead.
+          const total = (mailbox && mailbox.exists) || 0;
 
           if (total === 0) {
             return [];
@@ -684,8 +688,10 @@ const emailPlugin: Plugin = {
         throw new Error(`Account not found: ${accountId}`);
       }
 
-      // Get original email
-      const original = await emailPlugin.methods.getEmail(accountId, messageId);
+      // Get original email. `!`: getEmail/sendEmail are methods of this same plugin
+      // object, always present — the `| undefined` here is just Plugin.methods'
+      // generic Record signature, not a real runtime possibility.
+      const original: EmailMessage = await emailPlugin.methods.getEmail!(accountId, messageId);
 
       // Determine recipients
       let to = original.from.map((a) => a.address);
@@ -713,7 +719,7 @@ const emailPlugin: Plugin = {
         ? original.subject
         : `Re: ${original.subject}`;
 
-      return emailPlugin.methods.sendEmail(accountId, to, replySubject, replyBody, {
+      return emailPlugin.methods.sendEmail!(accountId, to, replySubject, replyBody, {
         cc,
         html: options?.html,
         replyTo: original.from[0]?.address,
@@ -735,7 +741,7 @@ const emailPlugin: Plugin = {
       }
 
       // Get original email
-      const original = await emailPlugin.methods.getEmail(accountId, messageId);
+      const original: EmailMessage = await emailPlugin.methods.getEmail!(accountId, messageId);
 
       // Build forward body
       const forwardHeader = `
@@ -755,7 +761,7 @@ To: ${original.to.map((a) => `${a.name || ""} <${a.address}>`).join(", ")}
         ? original.subject
         : `Fwd: ${original.subject}`;
 
-      return emailPlugin.methods.sendEmail(accountId, to, forwardSubject, forwardBody) as Promise<{
+      return emailPlugin.methods.sendEmail!(accountId, to, forwardSubject, forwardBody) as Promise<{
         messageId: string;
         success: boolean;
       }>;
@@ -1060,7 +1066,10 @@ To: ${original.to.map((a) => `${a.name || ""} <${a.address}>`).join(", ")}
 
         const folders: Array<{ name: string; path: string; specialUse?: string }> = [];
 
-        for await (const folder of client.list()) {
+        // client.list() resolves to an array (unlike client.fetch()'s async generator
+        // elsewhere in this file) — `for await` on it would throw "not async iterable"
+        // at runtime.
+        for (const folder of await client.list()) {
           folders.push({
             name: folder.name,
             path: folder.path,

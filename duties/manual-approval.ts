@@ -106,7 +106,7 @@ export default class ManualApprovalAgent extends BaseDuty {
           [cardId]
         );
         if (cards.length > 0) {
-          targetPlanId = this.extractPlanId(cards[0].description);
+          targetPlanId = this.extractPlanId(cards[0]!.description); // cards.length > 0 was checked above
         }
       }
 
@@ -153,7 +153,7 @@ export default class ManualApprovalAgent extends BaseDuty {
           [cardId]
         );
         if (cards.length > 0) {
-          targetPlanId = this.extractPlanId(cards[0].description);
+          targetPlanId = this.extractPlanId(cards[0]!.description); // cards.length > 0 was checked above
         }
       }
 
@@ -199,7 +199,7 @@ export default class ManualApprovalAgent extends BaseDuty {
           [cardId]
         );
         if (cards.length > 0) {
-          targetPlanId = this.extractPlanId(cards[0].description);
+          targetPlanId = this.extractPlanId(cards[0]!.description); // cards.length > 0 was checked above
         }
       }
 
@@ -232,7 +232,7 @@ export default class ManualApprovalAgent extends BaseDuty {
   private extractPlanId(description: string | null): string | null {
     if (!description) return null;
     const match = description.match(/\[plan:([^\]]+)\]/);
-    return match ? match[1] : null;
+    return match?.[1] ?? null; // capture group is mandatory in the regex
   }
 
   async execute(): Promise<void> {

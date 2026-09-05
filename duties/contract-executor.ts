@@ -70,10 +70,10 @@ export default class ContractExecutorAgent extends BaseDuty {
       this.contractEngine.start();
       this.eventEngine.start();
 
-      this.logger.info("Contract, Cron, and Event-trigger engines started");
+      console.log("[contract-executor] Contract, Cron, and Event-trigger engines started");
     } catch (error) {
-      this.logger.error(
-        `Failed to start contract engines: ${error instanceof Error ? error.message : String(error)}`
+      console.error(
+        `[contract-executor] Failed to start contract engines: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

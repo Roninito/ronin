@@ -5,7 +5,7 @@
  * Requires NOTION_API_KEY environment variable or config.
  */
 
-import type { Plugin } from "./base.js";
+import type { Plugin } from "../src/plugins/base.js";
 
 interface NotionPage {
   id: string;
@@ -20,7 +20,10 @@ interface NotionBlock {
   [key: string]: any;
 }
 
-const notionPlugin: Plugin = {
+// `satisfies` (not `: Plugin`) preserves concrete per-method signatures so the many
+// self-references below (e.g. `notionPlugin.methods.getApiKey()`) resolve to real,
+// always-defined methods instead of an optional index-signature hit.
+const notionPlugin = {
   name: "notion",
   description: "Notion API integration for reading/writing pages",
   methods: {
@@ -266,7 +269,7 @@ const notionPlugin: Plugin = {
       return data.results[0].id;
     },
   },
-};
+} satisfies Plugin;
 
 // Helper functions
 function getPageTitle(page: any): string {

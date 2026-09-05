@@ -1,3 +1,4 @@
+import * as path from "path";
 import { logger } from "../utils/logger.js";
 import { AIAPI } from "./ai.js";
 import { FilesAPI } from "./files.js";
@@ -41,8 +42,12 @@ function isPluginMethodSkipped(methodName: string): boolean {
 function registerPluginToolsWithRouter(
   api: DutyAPI,
   pluginTools: Tool[],
-  toolsAPI: { register(tool: ToolDefinition): void },
+  toolsAPI: { register(tool: ToolDefinition): void } | null,
 ): void {
+  // toolsAPI is null when tools were skipped (e.g. read-only CLI commands) — in that
+  // case pluginTools is always empty too (see `skipPlugins` above), but guard
+  // explicitly so this stays safe if that assumption ever changes.
+  if (!toolsAPI) return;
   for (const t of pluginTools) {
     const name = t.function?.name;
     if (!name || !t.function) continue;
@@ -73,16 +78,8 @@ function registerPluginToolsWithRouter(
       handler: async (args: Record<string, unknown>, _context): Promise<import("../tools/types.js").ToolResult> => {
         const start = Date.now();
         try {
-          // Ontology plugin methods expect a single params object; pass it as-is (or unwrap args[0] if model sent { args: [params] }).
-          const isSingleObjectMethod = name.startsWith("ontology_");
           let result: unknown;
-          if (isSingleObjectMethod) {
-            const params =
-              Array.isArray(args?.args) && args.args.length === 1 && typeof args.args[0] === "object" && args.args[0] !== null
-                ? args.args[0]
-                : args;
-            result = await api.plugins.call(pluginName, methodName, params);
-          } else if (namedParamOrder) {
+          if (namedParamOrder) {
             const argsArr = namedParamOrder.map((key) => args?.[key]);
             while (argsArr.length > 0 && argsArr[argsArr.length - 1] === undefined) argsArr.pop();
             result = await api.plugins.call(pluginName, methodName, ...argsArr);
@@ -132,7 +129,11 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
   const configService = getConfigService();
   await configService.load();
   
-  const memoryStore = new MemoryStore(options.dbPath);
+  // Memory lives in a sibling `memory/` directory of plain markdown files,
+  // not the SQLite db — kept next to a custom --db-path so tests/CLI runs
+  // that isolate their db also isolate their memory.
+  const memoryDir = options.dbPath ? path.join(path.dirname(options.dbPath), "memory") : "memory";
+  const memoryStore = new MemoryStore(memoryDir);
   const db = new DatabaseAPI(options.dbPath);
   const pluginsAPI = new PluginsAPI();
 
@@ -168,8 +169,6 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
   const telegramAPI = bindPluginAPI<"telegram">("telegram");
   const discordAPI = bindPluginAPI<"discord">("discord");
   const langchainAPI = bindPluginAPI<"langchain">("langchain");
-  const ragAPI = bindPluginAPI<"rag">("rag");
-  const ontologyAPI = bindPluginAPI<"ontology">("ontology");
   const skillsAPI = bindPluginAPI<"skills">("skills");
   const emailAPI = bindPluginAPI<"email">("email");
   const oauthAPI = bindPluginAPI<"oauth">("oauth");
@@ -211,52 +210,10 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
     (sttPlugin.plugin.methods.setEventsAPI as any)(eventsAPI);
   }
 
-  // Initialize mesh discovery if Reticulum is available
-  let meshAPI: any = null;
-  const meshConfig = configService.getMesh();
-  if (reticulumAPI && meshConfig.enabled) {
-    try {
-      const { createMeshDiscovery } = await import("../mesh/index.js");
-      const meshDiscovery = createMeshDiscovery({
-        ai: wrappedAi as any,
-        memory: {} as any,
-        files: {} as any,
-        db: {} as any,
-        http: {} as any,
-        events: eventsAPI,
-        plugins: pluginsAPI,
-        config: configService as any,
-        tools: {} as any,
-        git: gitAPI,
-        shell: shellAPI,
-        scrape: scrapeAPI,
-        torrent: torrentAPI,
-        telegram: telegramAPI,
-        discord: discordAPI,
-        realm: realmAPI,
-        reticulum: reticulumAPI,
-        langchain: langchainAPI,
-        rag: ragAPI,
-        ontology: ontologyAPI,
-        skills: skillsAPI,
-      } as any);
-      
-      meshAPI = {
-        discoverServices: (query?: any, options?: any) => meshDiscovery.discoverServices(query, options),
-        executeRemoteService: (instanceId: string, serviceName: string, params: any) =>
-          meshDiscovery.executeRemoteService(instanceId, serviceName, params),
-        advertise: (services: any[]) => meshDiscovery.advertise(services),
-        getStats: () => meshDiscovery.getStats(),
-        getCache: () => meshDiscovery.getCache(),
-      };
-      
-      console.log("[mesh] Mesh discovery initialized");
-    } catch (error) {
-      console.warn("[mesh] Failed to initialize mesh discovery:", error);
-    }
-  }
-
-  // Wrap api.ai to emit analytics events for every completion, stream, and callTools
+  // Wrap api.ai to emit analytics events for every completion, stream, and callTools.
+  // Declared before the mesh-discovery block below, which passes it in — a plain
+  // `const` further down would be in the temporal dead zone at that point and throw
+  // "Cannot access 'wrappedAi' before initialization" the first time mesh is enabled.
   const AI_SOURCE = "api.ai";
   const defaultModel = resolvedOllamaModel;
 
@@ -426,6 +383,49 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
     },
   };
 
+  // Initialize mesh discovery if Reticulum is available
+  let meshAPI: any = null;
+  const meshConfig = configService.getMesh();
+  if (reticulumAPI && meshConfig.enabled) {
+    try {
+      const { createMeshDiscovery } = await import("../mesh/index.js");
+      const meshDiscovery = createMeshDiscovery({
+        ai: wrappedAi as any,
+        memory: {} as any,
+        files: {} as any,
+        db: {} as any,
+        http: {} as any,
+        events: eventsAPI,
+        plugins: pluginsAPI,
+        config: configService as any,
+        tools: {} as any,
+        git: gitAPI,
+        shell: shellAPI,
+        scrape: scrapeAPI,
+        torrent: torrentAPI,
+        telegram: telegramAPI,
+        discord: discordAPI,
+        realm: realmAPI,
+        reticulum: reticulumAPI,
+        langchain: langchainAPI,
+        skills: skillsAPI,
+      } as any);
+      
+      meshAPI = {
+        discoverServices: (query?: any, options?: any) => meshDiscovery.discoverServices(query, options),
+        executeRemoteService: (instanceId: string, serviceName: string, params: any) =>
+          meshDiscovery.executeRemoteService(instanceId, serviceName, params),
+        advertise: (services: any[]) => meshDiscovery.advertise(services),
+        getStats: () => meshDiscovery.getStats(),
+        getCache: () => meshDiscovery.getCache(),
+      };
+      
+      console.log("[mesh] Mesh discovery initialized");
+    } catch (error) {
+      console.warn("[mesh] Failed to initialize mesh discovery:", error);
+    }
+  }
+
   const api: DutyAPI = {
     ai: wrappedAi,
     memory: {
@@ -435,8 +435,15 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
       addContext: (text: string, metadata?: Record<string, unknown>) =>
         memoryStore.addContext(text, metadata),
       getRecent: (limit?: number) => memoryStore.getRecent(limit),
-      getByMetadata: (metadata: Record<string, unknown>) =>
-        memoryStore.getByMetadata(metadata),
+      forget: (key: string) => memoryStore.forget(key),
+      forgetByKeyPrefix: (prefix: string, updatedBefore?: Date) => memoryStore.forgetByKeyPrefix(prefix, updatedBefore),
+      countByKeyPrefix: (prefix: string) => memoryStore.countByKeyPrefix(prefix),
+      addConversation: (dutyName: string, role: "system" | "user" | "assistant", content: string) =>
+        memoryStore.addConversation(dutyName, role, content),
+      getConversations: (dutyName: string, limit?: number) => memoryStore.getConversations(dutyName, limit),
+      getBlackboard: (dutyName: string) => memoryStore.getBlackboard(dutyName),
+      setBlackboard: (dutyName: string, content: string) => memoryStore.setBlackboard(dutyName, content),
+      appendBlackboard: (dutyName: string, content: string) => memoryStore.appendBlackboard(dutyName, content),
     },
     files: new FilesAPI(),
     db: {
@@ -464,6 +471,7 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
       getConfigEditor: () => configService.getConfigEditor(),
       getRssToTelegram: () => configService.getRssToTelegram(),
       getRealm: () => configService.getRealm(),
+      getMesh: () => configService.getMesh(),
       getMCP: () => configService.getMCP(),
       getNotifications: () => configService.getNotifications(),
       isFromEnv: (path: string) => configService.isFromEnv(path as any),
@@ -481,8 +489,6 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
     ...(reticulumAPI && { reticulum: reticulumAPI }),
     ...(meshAPI && { mesh: meshAPI }),
     ...(langchainAPI && { langchain: langchainAPI }),
-    ...(ragAPI && { rag: ragAPI }),
-    ...(ontologyAPI && { ontology: ontologyAPI }),
     ...(skillsAPI && { skills: skillsAPI }),
     ...(emailAPI && { email: emailAPI }),
     ...(oauthAPI && { oauth: oauthAPI }),

@@ -16,6 +16,12 @@ interface AiRegistry {
   default?: string;
 }
 
+/** What `loadRegistry` actually always returns: `definitions` normalized to a real array
+ *  regardless of which on-disk format was loaded, so every caller below can use it directly. */
+interface NormalizedAiRegistry extends AiRegistry {
+  definitions: AiDefinition[];
+}
+
 interface AiDefinition {
   name: string;
   provider: "ollama";
@@ -245,38 +251,41 @@ async function runDefinition(args: string[]): Promise<void> {
   }
 }
 
-async function loadRegistry(path: string): Promise<AiRegistry> {
+async function loadRegistry(path: string): Promise<NormalizedAiRegistry> {
   if (!existsSync(path)) {
     // Initialize with new format
-    const registry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
+    const registry: NormalizedAiRegistry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
     await saveRegistry(path, registry);
     return registry;
   }
 
   const raw = await readFile(path, "utf-8");
   if (!raw.trim()) {
-    const registry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
+    const registry: NormalizedAiRegistry = { version: 1, definitions: [], providers: {}, models: {}, default: "" };
     await saveRegistry(path, registry);
     return registry;
   }
 
   const data = JSON.parse(raw) as AiRegistry;
-  
+
   // Support both old format (version 1 with definitions) and new format (with providers/models)
   if (!data) {
     throw new Error("Invalid AI registry file");
   }
-  
-  // If it's the new format with providers/models, return as-is
+
+  // If it's the new format with providers/models, return as-is. The new (model-selector)
+  // format has no `definitions` array at all — every list/add/remove/show/run command
+  // below indexes into `.definitions` unconditionally, so without this it throws on a
+  // real ~/.ronin/ai-models.json written by the current model-selector.
   if (data.providers && data.models) {
-    return data;
+    return { ...data, definitions: data.definitions ?? [] };
   }
-  
+
   // If it's the old format with version and definitions, return as-is
   if (data.version === 1 && Array.isArray(data.definitions)) {
-    return data;
+    return { ...data, definitions: data.definitions };
   }
-  
+
   // If it's neither, it's invalid
   throw new Error("Invalid AI registry file format");
 }

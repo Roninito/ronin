@@ -1,455 +1,322 @@
-import { Database } from "bun:sqlite";
-import type { Memory, MemoryRow } from "./types.js";
-import { applyPerformancePragmas } from "../database/pragmas.js";
+import * as fs from "fs";
+import * as path from "path";
+import * as crypto from "crypto";
+import type { Memory, ConversationEntry } from "./types.js";
 
+/**
+ * File-backed memory: every entry is a plain markdown file under
+ * <dataDir>/{notes,conversations,blackboards}/ — readable, greppable, and
+ * diffable without a database. Replaces the old SQLite `memories` /
+ * `conversations` / `duty_state` tables and the ontology knowledge graph:
+ * opaque SQLite blobs made it hard to see what was actually stored,
+ * including accidentally-stored secrets. See docs/KNOWLEDGE_RETRIEVAL_GUIDE.md.
+ */
 export class MemoryStore {
-  private db: Database;
-  /** False if FTS5 setup failed (older SQLite build) — search() falls back to LIKE. */
-  private ftsAvailable = true;
+  private notesDir: string;
+  private conversationsDir: string;
+  private blackboardsDir: string;
 
-  constructor(dbPath: string = "ronin.db") {
-    this.db = new Database(dbPath);
-    applyPerformancePragmas(this.db, dbPath);
-    this.initializeSchema();
-  }
-
-  private async runWithBusyRetry(run: () => void, maxAttempts = 4): Promise<void> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        run();
-        return;
-      } catch (error) {
-        const err = error as { code?: string; errno?: number; message?: string };
-        const busy = err.code === "SQLITE_BUSY" || err.errno === 5 || String(err.message || "").includes("database is locked");
-        if (!busy || attempt === maxAttempts) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
-      }
+  constructor(dataDir: string = "memory") {
+    this.notesDir = path.join(dataDir, "notes");
+    this.conversationsDir = path.join(dataDir, "conversations");
+    this.blackboardsDir = path.join(dataDir, "blackboards");
+    for (const dir of [this.notesDir, this.conversationsDir, this.blackboardsDir]) {
+      fs.mkdirSync(dir, { recursive: true });
     }
   }
 
-  private initializeSchema(): void {
-    // Memories table - stores key-value pairs with optional text and metadata
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS memories (
-        id TEXT PRIMARY KEY,
-        key TEXT UNIQUE,
-        value TEXT NOT NULL,
-        text TEXT,
-        metadata TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `);
+  // ── Notes (store/retrieve/search/addContext/getRecent) ──────────────────
 
-    // Conversations table - stores conversation history
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        duty_name TEXT,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        metadata TEXT,
-        created_at INTEGER NOT NULL
-      )
-    `);
-
-    // Duty state table - stores duty execution state
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS duty_state (
-        duty_name TEXT PRIMARY KEY,
-        state TEXT NOT NULL,
-        metadata TEXT,
-        updated_at INTEGER NOT NULL
-      )
-    `);
-
-    // Create indexes
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_memories_key ON memories(key);
-      CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
-      CREATE INDEX IF NOT EXISTS idx_conversations_duty ON conversations(duty_name);
-      CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
-    `);
-
-    // Migration: Rename agent_name → duty_name (if old columns exist)
-    this.migrateAgentToDuty();
-
-    this.initializeFts();
+  private slugFor(key: string): string {
+    const hash = crypto.createHash("sha1").update(key).digest("hex").slice(0, 8);
+    return `${slugify(key)}-${hash}`;
   }
 
-  /**
-   * search() used to be `WHERE text LIKE '%query%' OR value LIKE '%query%'`
-   * — a leading-wildcard LIKE can't use an index, so it full-table-scanned
-   * both columns (the unclamped `value`, which can hold large JSON blobs)
-   * on every call, including from the always-available local.memory.search
-   * chat tool. FTS5 replaces that with a real inverted index, kept in sync
-   * via triggers rather than rebuilt per query.
-   */
-  private initializeFts(): void {
-    try {
-      const alreadyExists = (this.db.query(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='memories_fts'"
-      ).all() as Array<{ name: string }>).length > 0;
-
-      this.db.exec(`
-        CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-          text, value,
-          content='memories',
-          content_rowid='rowid',
-          tokenize='porter unicode61'
-        );
-      `);
-
-      if (!alreadyExists) {
-        // Backfill rows that existed before the FTS index did — only needed once,
-        // guarded by alreadyExists so re-inserting on every startup never happens
-        // (which would violate FTS5's rowid uniqueness).
-        this.db.exec(`INSERT INTO memories_fts(rowid, text, value) SELECT rowid, text, value FROM memories;`);
-      }
-
-      this.db.exec(`
-        CREATE TRIGGER IF NOT EXISTS memories_fts_ai AFTER INSERT ON memories BEGIN
-          INSERT INTO memories_fts(rowid, text, value) VALUES (new.rowid, new.text, new.value);
-        END;
-        CREATE TRIGGER IF NOT EXISTS memories_fts_ad AFTER DELETE ON memories BEGIN
-          INSERT INTO memories_fts(memories_fts, rowid, text, value) VALUES('delete', old.rowid, old.text, old.value);
-        END;
-        CREATE TRIGGER IF NOT EXISTS memories_fts_au AFTER UPDATE ON memories BEGIN
-          INSERT INTO memories_fts(memories_fts, rowid, text, value) VALUES('delete', old.rowid, old.text, old.value);
-          INSERT INTO memories_fts(rowid, text, value) VALUES (new.rowid, new.text, new.value);
-        END;
-      `);
-    } catch (error) {
-      // FTS5 unavailable in this SQLite build — fall back to the old LIKE scan
-      // rather than fail the whole memory system over a search optimization.
-      this.ftsAvailable = false;
-      console.warn(`[MemoryStore] FTS5 unavailable, falling back to LIKE search: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  private notePath(slug: string): string {
+    return path.join(this.notesDir, `${slug}.md`);
   }
 
-  /** Turn free text into a safe FTS5 MATCH query: each token individually
-   *  phrase-quoted (implicit AND between them), so user input can never
-   *  inject FTS5 query syntax (unbalanced quotes, NEAR/AND/OR, column
-   *  filters, etc.) — matches the old search's "all these words" intent. */
-  private toFtsQuery(query: string): string {
-    const tokens = query.trim().split(/\s+/).filter(Boolean);
-    return tokens.map((t) => `"${t.replace(/"/g, '""')}"`).join(" ");
-  }
-
-  /**
-   * Migrate old agent_name columns to duty_name
-   */
-  private migrateAgentToDuty(): void {
-    try {
-      // Check if conversations table has agent_name column
-      const tableInfo = this.db.query("PRAGMA table_info(conversations)").all() as Array<{ name: string }>;
-      const hasAgentName = tableInfo.some((col) => col.name === "agent_name");
-      
-      if (hasAgentName) {
-        // SQLite doesn't support DROP COLUMN, so we recreate the table
-        this.db.exec(`
-          CREATE TABLE IF NOT EXISTS conversations_new (
-            id TEXT PRIMARY KEY,
-            duty_name TEXT,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            metadata TEXT,
-            created_at INTEGER NOT NULL
-          )
-        `);
-        
-        this.db.exec(`
-          INSERT INTO conversations_new (id, duty_name, role, content, metadata, created_at)
-          SELECT id, agent_name, role, content, metadata, created_at FROM conversations
-        `);
-        
-        this.db.exec(`DROP TABLE conversations`);
-        this.db.exec(`ALTER TABLE conversations_new RENAME TO conversations`);
-        
-        // Recreate index
-        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_duty ON conversations(duty_name)`);
-      }
-    } catch {
-      // Migration failed - table might not have data yet, that's OK
-    }
-
-    try {
-      // Check if agent_state table exists (old name for duty_state)
-      const tables = this.db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_state'").all() as Array<{ name: string }>;
-      
-      if (tables.length > 0) {
-        // Migrate agent_state → duty_state
-        this.db.exec(`
-          CREATE TABLE IF NOT EXISTS duty_state_new (
-            duty_name TEXT PRIMARY KEY,
-            state TEXT NOT NULL,
-            metadata TEXT,
-            updated_at INTEGER NOT NULL
-          )
-        `);
-        
-        this.db.exec(`
-          INSERT INTO duty_state_new (duty_name, state, metadata, updated_at)
-          SELECT agent_name, state, metadata, updated_at FROM agent_state
-        `);
-        
-        this.db.exec(`DROP TABLE agent_state`);
-        this.db.exec(`DROP TABLE IF EXISTS duty_state`);
-        this.db.exec(`ALTER TABLE duty_state_new RENAME TO duty_state`);
-      }
-    } catch {
-      // Migration failed - that's OK
-    }
-  }
-
-  /**
-   * Store a key-value pair in memory
-   */
+  /** Store a key-value pair. Value round-trips exactly via a fenced JSON block. */
   async store(key: string, value: unknown): Promise<void> {
-    const id = crypto.randomUUID();
-    const now = Date.now();
-    const valueJson = JSON.stringify(value);
+    const slug = this.slugFor(key);
+    const file = this.notePath(slug);
+    const now = new Date().toISOString();
+    const createdAt = fs.existsSync(file) ? readFrontmatter(fs.readFileSync(file, "utf-8")).createdAt ?? now : now;
 
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO memories (id, key, value, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    await this.runWithBusyRetry(() => {
-      stmt.run(id, key, valueJson, now, now);
+    const frontmatter = serializeFrontmatter({
+      key,
+      kind: "kv",
+      createdAt,
+      updatedAt: now,
     });
+    const body = "```json\n" + JSON.stringify(value, null, 2) + "\n```\n";
+    fs.writeFileSync(file, `${frontmatter}\n\n${body}`, "utf-8");
   }
 
-  /**
-   * Retrieve a value by key
-   */
+  /** Retrieve a value by key, or null if it was never stored. */
   async retrieve(key: string): Promise<unknown> {
-    const stmt = this.db.prepare(`
-      SELECT value FROM memories WHERE key = ?
-    `);
-
-    const row = stmt.get(key) as { value: string } | undefined;
-    if (!row) {
-      return null;
-    }
-
-    return JSON.parse(row.value);
+    const file = this.notePath(this.slugFor(key));
+    if (!fs.existsSync(file)) return null;
+    const content = fs.readFileSync(file, "utf-8");
+    return extractJsonBlock(content);
   }
 
   /**
-   * Search memories by text content. Uses the FTS5 index (relevance-ranked,
-   * real tokenized matching) when available, falling back to the original
-   * LIKE scan only if FTS5 setup failed at startup.
+   * Search notes by substring match over the full file (frontmatter + body),
+   * matching the old behaviour of scanning both the free text and the raw
+   * value for a hit. No index — a directory walk over `memory/notes/`.
    */
   async search(query: string, limit: number = 10): Promise<Memory[]> {
-    if (!query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
 
-    let rows: MemoryRow[];
-    if (this.ftsAvailable) {
-      const ftsQuery = this.toFtsQuery(query);
-      if (!ftsQuery) return [];
-      const stmt = this.db.prepare(`
-        SELECT m.id, m.key, substr(m.value, 1, 4000) AS value, m.text, m.metadata, m.created_at, m.updated_at
-        FROM memories_fts f
-        JOIN memories m ON m.rowid = f.rowid
-        WHERE memories_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-      try {
-        rows = stmt.all(ftsQuery, limit) as MemoryRow[];
-      } catch {
-        // Malformed-enough query to still trip FTS5 despite quoting (e.g. a
-        // lone `"`), or the index is out of sync — fail open to LIKE rather
-        // than surface a search error to the caller.
-        rows = this.searchByLike(query, limit);
+    const files = listMarkdownFiles(this.notesDir);
+    const matches: Array<{ file: string; mtime: number; content: string }> = [];
+    for (const file of files) {
+      const content = fs.readFileSync(file, "utf-8");
+      if (content.toLowerCase().includes(q)) {
+        matches.push({ file, mtime: fs.statSync(file).mtimeMs, content });
       }
-    } else {
-      rows = this.searchByLike(query, limit);
     }
+    matches.sort((a, b) => b.mtime - a.mtime);
 
-    return rows.map((row) => ({
-      id: row.id,
-      key: row.key || undefined,
-      // Keep search lightweight: return preview string instead of parsing full JSON payloads
-      value: row.value,
-      text: row.text || undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-    }));
+    return matches.slice(0, limit).map(({ file, content }) => this.toMemory(file, content, { preview: true }));
   }
 
-  private searchByLike(query: string, limit: number): MemoryRow[] {
-    const stmt = this.db.prepare(`
-      SELECT id, key, substr(value, 1, 4000) AS value, text, metadata, created_at, updated_at
-      FROM memories
-      WHERE text LIKE ? OR value LIKE ?
-      ORDER BY created_at DESC
-      LIMIT ?
-    `);
-    const searchPattern = `%${query}%`;
-    return stmt.all(searchPattern, searchPattern, limit) as MemoryRow[];
-  }
-
-  /**
-   * Add context text to memory
-   */
+  /** Add a freeform note. Returns its slug (used as the memory id). */
   async addContext(text: string, metadata?: Record<string, unknown>): Promise<string> {
-    const id = crypto.randomUUID();
-    const now = Date.now();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+    const slug = this.slugFor(`${text.slice(0, 40)}-${crypto.randomUUID()}`);
+    const file = this.notePath(slug);
+    const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
-      INSERT INTO memories (id, value, text, metadata, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    await this.runWithBusyRetry(() => {
-      stmt.run(id, JSON.stringify({ text }), text, metadataJson, now, now);
+    const frontmatter = serializeFrontmatter({
+      kind: "note",
+      createdAt: now,
+      ...(metadata ?? {}),
     });
-    return id;
+    fs.writeFileSync(file, `${frontmatter}\n\n${text}\n`, "utf-8");
+    return slug;
+  }
+
+  /** Delete a stored key's note, if it exists. Returns whether anything was removed. */
+  async forget(key: string): Promise<boolean> {
+    const file = this.notePath(this.slugFor(key));
+    if (!fs.existsSync(file)) return false;
+    fs.unlinkSync(file);
+    return true;
   }
 
   /**
-   * Get recent memories
+   * Delete every note whose key starts with the given prefix (e.g. clearing
+   * stale `refdoc-*` entries before a re-ingest, or pruning high-churn
+   * `tool.cache.*`/`tool.result.*`/`analytics.*` keys on a schedule).
+   * With `updatedBefore`, only notes last written before that time are removed.
+   * Returns how many were removed.
    */
+  async forgetByKeyPrefix(prefix: string, updatedBefore?: Date): Promise<number> {
+    let removed = 0;
+    for (const file of listMarkdownFiles(this.notesDir)) {
+      const frontmatter = readFrontmatter(fs.readFileSync(file, "utf-8"));
+      const key = frontmatter.key;
+      if (typeof key !== "string" || !key.startsWith(prefix)) continue;
+      if (updatedBefore) {
+        const updatedAt = frontmatter.updatedAt ? new Date(String(frontmatter.updatedAt)) : new Date(fs.statSync(file).mtimeMs);
+        if (updatedAt >= updatedBefore) continue;
+      }
+      fs.unlinkSync(file);
+      removed++;
+    }
+    return removed;
+  }
+
+  /** Count notes whose key starts with the given prefix. */
+  async countByKeyPrefix(prefix: string): Promise<number> {
+    let count = 0;
+    for (const file of listMarkdownFiles(this.notesDir)) {
+      const key = readFrontmatter(fs.readFileSync(file, "utf-8")).key;
+      if (typeof key === "string" && key.startsWith(prefix)) count++;
+    }
+    return count;
+  }
+
+  /** Most recently modified notes. */
   async getRecent(limit: number = 10): Promise<Memory[]> {
-    const stmt = this.db.prepare(`
-      SELECT * FROM memories
-      ORDER BY created_at DESC
-      LIMIT ?
-    `);
+    const files = listMarkdownFiles(this.notesDir)
+      .map((file) => ({ file, mtime: fs.statSync(file).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime)
+      .slice(0, limit);
 
-    const rows = stmt.all(limit) as MemoryRow[];
-    return rows.map(this.rowToMemory);
+    return files.map(({ file }) => this.toMemory(file, fs.readFileSync(file, "utf-8")));
   }
 
-  /**
-   * Get memories by metadata
-   */
-  async getByMetadata(metadata: Record<string, unknown>): Promise<Memory[]> {
-    // For simplicity, we'll search for metadata as JSON string
-    // This could be optimized with a JSON column type if needed
-    const metadataJson = JSON.stringify(metadata);
-    const searchPattern = `%${metadataJson}%`;
+  private toMemory(file: string, content: string, opts: { preview?: boolean } = {}): Memory {
+    const { frontmatter, body } = splitFrontmatter(content);
+    const slug = path.basename(file, ".md");
+    const stat = fs.statSync(file);
+    const isKv = frontmatter.kind === "kv";
 
-    const stmt = this.db.prepare(`
-      SELECT * FROM memories
-      WHERE metadata LIKE ?
-      ORDER BY created_at DESC
-    `);
-
-    const rows = stmt.all(searchPattern) as MemoryRow[];
-    return rows.map(this.rowToMemory);
+    return {
+      id: slug,
+      key: typeof frontmatter.key === "string" ? frontmatter.key : undefined,
+      value: opts.preview ? content.slice(0, 4000) : isKv ? extractJsonBlock(content) : { text: body.trim() },
+      text: isKv ? undefined : body.trim(),
+      metadata: frontmatter,
+      createdAt: frontmatter.createdAt ? new Date(String(frontmatter.createdAt)) : new Date(stat.birthtimeMs),
+      updatedAt: frontmatter.updatedAt ? new Date(String(frontmatter.updatedAt)) : new Date(stat.mtimeMs),
+    };
   }
 
-  /**
-   * Add conversation entry
-   */
+  // ── Conversations (per-duty append-only transcript) ─────────────────────
+
+  private conversationPath(dutyName: string): string {
+    return path.join(this.conversationsDir, `${slugify(dutyName)}.md`);
+  }
+
+  /** Append one turn to a duty's conversation transcript. Returns the entry's timestamp as an id. */
   async addConversation(
     dutyName: string,
     role: "system" | "user" | "assistant",
     content: string,
-    metadata?: Record<string, unknown>
   ): Promise<string> {
-    const id = crypto.randomUUID();
-    const now = Date.now();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-
-    const stmt = this.db.prepare(`
-      INSERT INTO conversations (id, duty_name, role, content, metadata, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    await this.runWithBusyRetry(() => {
-      stmt.run(id, dutyName, role, content, metadataJson, now);
-    });
-    return id;
+    const now = new Date().toISOString();
+    const file = this.conversationPath(dutyName);
+    const prefix = fs.existsSync(file) ? "\n" : "";
+    fs.appendFileSync(file, `${prefix}### ${role} — ${now}\n${content}\n`, "utf-8");
+    return now;
   }
 
-  /**
-   * Get conversation history for a duty
-   */
-  async getConversations(dutyName: string, limit: number = 50): Promise<Array<{
-    role: string;
-    content: string;
-    createdAt: Date;
-  }>> {
-    const stmt = this.db.prepare(`
-      SELECT role, content, created_at
-      FROM conversations
-      WHERE duty_name = ?
-      ORDER BY created_at DESC
-      LIMIT ?
-    `);
+  /** Read back a duty's conversation transcript, oldest-to-newest, tail-limited. */
+  async getConversations(dutyName: string, limit: number = 50): Promise<ConversationEntry[]> {
+    const file = this.conversationPath(dutyName);
+    if (!fs.existsSync(file)) return [];
 
-    const rows = stmt.all(dutyName, limit) as Array<{
-      role: string;
-      content: string;
-      created_at: number;
-    }>;
+    const content = fs.readFileSync(file, "utf-8");
+    const entries: ConversationEntry[] = [];
+    const blockRe = /^### (\S+) — (.+)$/gm;
+    const matches = [...content.matchAll(blockRe)];
 
-    return rows.map(row => ({
-      role: row.role,
-      content: row.content,
-      createdAt: new Date(row.created_at),
-    })).reverse(); // Reverse to get chronological order
-  }
-
-  /**
-   * Store duty state
-   */
-  async setDutyState(dutyName: string, state: unknown, metadata?: Record<string, unknown>): Promise<void> {
-    const now = Date.now();
-    const stateJson = JSON.stringify(state);
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO duty_state (duty_name, state, metadata, updated_at)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    await this.runWithBusyRetry(() => {
-      stmt.run(dutyName, stateJson, metadataJson, now);
-    });
-  }
-
-  /**
-   * Get duty state
-   */
-  async getDutyState(dutyName: string): Promise<unknown> {
-    const stmt = this.db.prepare(`
-      SELECT state FROM duty_state WHERE duty_name = ?
-    `);
-
-    const row = stmt.get(dutyName) as { state: string } | undefined;
-    if (!row) {
-      return null;
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      if (!match) continue;
+      const role = match[1] ?? "";
+      const timestamp = match[2] ?? "";
+      const header = match[0] ?? "";
+      const start = (match.index ?? 0) + header.length + 1;
+      const next = matches[i + 1];
+      const end = next ? (next.index ?? content.length) : content.length;
+      entries.push({
+        role,
+        content: content.slice(start, end).trim(),
+        createdAt: new Date(timestamp),
+      });
     }
 
-    return JSON.parse(row.state);
+    return entries.slice(-limit);
   }
 
-  /**
-   * Close the database connection
-   */
+  // ── Blackboards (per-duty scratch state) ─────────────────────────────────
+
+  private blackboardPath(dutyName: string): string {
+    return path.join(this.blackboardsDir, `${slugify(dutyName)}.md`);
+  }
+
+  /** Read a duty's blackboard. Empty string if it has never written one. */
+  async getBlackboard(dutyName: string): Promise<string> {
+    const file = this.blackboardPath(dutyName);
+    return fs.existsSync(file) ? fs.readFileSync(file, "utf-8") : "";
+  }
+
+  /** Overwrite a duty's blackboard entirely. */
+  async setBlackboard(dutyName: string, content: string): Promise<void> {
+    fs.writeFileSync(this.blackboardPath(dutyName), content, "utf-8");
+  }
+
+  /** Append to a duty's blackboard without disturbing what's already there. */
+  async appendBlackboard(dutyName: string, content: string): Promise<void> {
+    const file = this.blackboardPath(dutyName);
+    const prefix = fs.existsSync(file) && fs.statSync(file).size > 0 ? "\n" : "";
+    fs.appendFileSync(file, `${prefix}${content}`, "utf-8");
+  }
+
   close(): void {
-    this.db.close();
+    // No connection to close — kept as a no-op for API parity with callers
+    // that shut down the old SQLite-backed store.
   }
+}
 
-  /**
-   * Convert database row to Memory object
-   */
-  private rowToMemory(row: MemoryRow): Memory {
-    return {
-      id: row.id,
-      key: row.key || undefined,
-      value: JSON.parse(row.value),
-      text: row.text || undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
-    };
+function slugify(input: string): string {
+  return (
+    input
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "note"
+  );
+}
+
+// ── Frontmatter helpers ─────────────────────────────────────────────────
+
+function serializeFrontmatter(fields: Record<string, unknown>): string {
+  const lines = ["---"];
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    lines.push(`${key}: ${JSON.stringify(value)}`);
   }
+  lines.push("---");
+  return lines.join("\n");
+}
+
+function splitFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
+  const match = content.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) return { frontmatter: {}, body: content };
+
+  const frontmatter: Record<string, unknown> = {};
+  for (const line of (match[1] ?? "").split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const rawValue = line.slice(idx + 1).trim();
+    try {
+      frontmatter[key] = JSON.parse(rawValue);
+    } catch {
+      frontmatter[key] = rawValue;
+    }
+  }
+  return { frontmatter, body: content.slice(match[0].length) };
+}
+
+function readFrontmatter(content: string): Record<string, unknown> {
+  return splitFrontmatter(content).frontmatter;
+}
+
+function extractJsonBlock(content: string): unknown {
+  const match = content.match(/```json\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1] ?? "");
+  } catch {
+    return null;
+  }
+}
+
+function listMarkdownFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => path.join(dir, f));
+}
+
+/** Parse `[[wikilink]]` references out of a note body — the sole mechanism
+ *  for representing relationships between notes (no edge table, no graph
+ *  traversal API). Same pattern as plugins/obsidian.ts's extractWikilinks. */
+export function extractRelated(content: string): string[] {
+  const re = /\[\[([^\[\]]+)\]\]/g;
+  const links: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content)) !== null) {
+    const link = (match[1] ?? "").split("|")[0]?.trim() ?? "";
+    if (link && !links.includes(link)) links.push(link);
+  }
+  return links;
 }

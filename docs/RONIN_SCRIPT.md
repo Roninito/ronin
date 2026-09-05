@@ -5,7 +5,6 @@ A Token-Efficient, AI-Native Context Language
 Ronin Script is a lightweight, human-readable, AI-native domain language designed for:
 
 - Agent memory snapshots
-- Ontology graphs
 - Tool orchestration
 - Context dumps
 - Structured reasoning
@@ -382,17 +381,14 @@ Netflix paid_by Chase Checking
 
 ---
 
-## 14. Reference to Ontology
+## 14. Reference to Memory
 
-Ronin Script integrates with Ronin's ontology (knowledge graph):
+Ronin has no knowledge graph — Ronin Script is used purely as a token-efficient snapshot format over Ronin's file-backed memory:
 
-- **Entities** map to ontology **nodes**: the entity type becomes the node `type`, the first value(s) become `name`/`summary`, and optional metadata can be stored. Use `ingestRoninScriptToOntology` to sync a Ronin Script document into the graph.
+- `local.ronin_script.aggregate` runs an `api.memory.search()` query and formats the hits as a compact Ronin Script "# Entities" block, so an agent can pull several memory notes into a prompt without spending tokens on JSON punctuation.
+- Reference docs, tools, and skills synced by `ronin doctor ingest-docs` land as plain markdown notes under `memory/notes/` (`refdoc-*`, `tool-*`, `skill-*`) — discoverable via `local.memory.search`, not a graph query.
 
-- **Relationships** (subject relation object) map to ontology **edges**: `from_id` = subject, `to_id` = object, `relation` = relation. The same ingest function creates these edges.
-
-- **When to use which**: Use Ronin Script for agent memory snapshots, context dumps, and aggregated views (e.g. `local.ronin_script.aggregate`). Use the ontology for graph queries (`ontology_search`, `ontology_related`, `ontology_context`) and skill/task context. Reference docs, tools, and skills synced by `ronin doctor ingest-docs` are discoverable via ontology with types `ReferenceDoc` and `Tool`.
-
-See [PLUGINS.md](PLUGINS.md) for the ontology plugin and [AGENTS.md](../AGENTS.md) for the agent API including memory and data formats.
+See [KNOWLEDGE_RETRIEVAL_GUIDE.md](KNOWLEDGE_RETRIEVAL_GUIDE.md) for how memory is stored and searched, and [AGENTS.md](../AGENTS.md) for the agent API including memory and data formats.
 
 ---
 
@@ -405,7 +401,6 @@ Possible evolutions:
 - Namespaces
 - Lightweight validation engine
 - Deterministic compiler to JSON
-- Graph database export
 
 ---
 
@@ -415,9 +410,8 @@ Ronin Script is:
 
 - A structured, AI-native DSL
 - Optimized for token efficiency
-- Designed for agent memory + ontology
+- Designed for agent memory snapshots
 - Human readable
-- Graph-friendly
 - Tool-friendly
 - Round-trip compatible
 

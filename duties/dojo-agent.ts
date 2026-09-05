@@ -56,12 +56,12 @@ export default class DojoAgent extends BaseDuty {
       const parsed = JSON.parse(results);
 
       // Query realms via api.realms
-      if (!this.api.realms) {
+      if (!(this.api as any).realms) {
         console.warn("Realms plugin not available");
         return;
       }
 
-      const discovered = this.api.realms.discover(parsed.search_query);
+      const discovered = (this.api as any).realms.discover(parsed.search_query);
 
       if (discovered.length === 0) {
         // No kata found - propose creation
@@ -154,7 +154,7 @@ export default class DojoAgent extends BaseDuty {
   }): Promise<void> {
     const proposal = await this.api.memory.retrieve(
       `kata_proposal_${payload.proposalId}`
-    );
+    ) as { type: "install" | "create"; proposal: any } | undefined;
 
     if (!proposal) {
       console.warn("Proposal not found:", payload.proposalId);
@@ -171,15 +171,15 @@ export default class DojoAgent extends BaseDuty {
   }
 
   private async installFromRealm(proposal: any, approvedBy: string) {
-    if (!this.api.realms) return;
+    if (!(this.api as any).realms) return;
 
-    const requestId = this.api.realms.requestInstall(
+    const requestId = (this.api as any).realms.requestInstall(
       proposal.name,
       proposal.versions[0].version, // Install latest
       proposal.fromRealm
     );
 
-    this.api.realms.approveInstall(requestId.id, approvedBy);
+    (this.api as any).realms.approveInstall(requestId.id, approvedBy);
 
     // Get DSL source from realm discovery result and register locally
     const source = proposal.versions[0].source;
@@ -220,18 +220,18 @@ export default class DojoAgent extends BaseDuty {
     // Initial phase
     const phases: Array<{ name: string; description?: string }> = proposal.phases ?? [];
     if (phases.length > 0) {
-      lines.push(`  initial ${phases[0].name}`);
+      lines.push(`  initial ${phases[0]!.name}`);
     }
     lines.push("");
 
     // Phase blocks — each phase runs its corresponding skill (or first skill as fallback)
     for (let i = 0; i < phases.length; i++) {
-      const phase = phases[i];
+      const phase = phases[i]!;
       const skill = skills[i] ?? skills[0] ?? "noop";
       lines.push(`  phase ${phase.name}`);
       lines.push(`    run skill ${skill}`);
       if (i < phases.length - 1) {
-        lines.push(`    next ${phases[i + 1].name}`);
+        lines.push(`    next ${phases[i + 1]!.name}`);
       } else {
         lines.push(`    complete`);
       }

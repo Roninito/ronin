@@ -32,8 +32,9 @@ import { Executor } from "../executor/Executor.js";
 import type { DutyAPI } from "../types/index.js";
 import type { ChainContext } from "../chain/types.js";
 
-// Re-export package types + utilities
-export type { TemplateOptions } from "@ronin/sar";
+// Re-export package utilities. Not TemplateOptions — this file declares its own,
+// richer, Ronin-specific TemplateOptions below (ontologyMaxNodes, enablePersistence,
+// etc.), which is what every template function here actually uses.
 export { CustomSARBuilder, createSARChain } from "@ronin/sar";
 
 export interface TemplateOptions {

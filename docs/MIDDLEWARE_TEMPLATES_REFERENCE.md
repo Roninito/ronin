@@ -142,7 +142,7 @@ export default class QuestionAgent extends BaseAgent {
       ],
       ontology: {
         domain: "qa",
-        relevantSkills: ["ontology.search", "memory.retrieve"],
+        relevantSkills: ["local.memory.search", "memory.retrieve"],
       },
       budget: {
         max: 8192,

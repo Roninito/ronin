@@ -17,7 +17,7 @@
  */
 
 import type { Plugin } from "../src/plugins/base.js";
-import { spawn, type ChildProcess } from "bun";
+import { spawn, type Subprocess } from "bun";
 import { join } from "path";
 import { existsSync } from "fs";
 
@@ -39,13 +39,15 @@ interface PythonResponse {
   result?: unknown;
   error?: string;
   traceback?: string;
+  /** Present on unsolicited event notifications (no matching pending request). */
+  cmd?: string;
 }
 
 /**
  * Handle to a running Python backend process
  */
 export class PythonBackendHandle {
-  private process: ChildProcess | null = null;
+  private process: Subprocess<"pipe", "pipe", "pipe"> | null = null;
   private messageId = 0;
   private pendingRequests: Map<number, {
     resolve: (result: unknown) => void;
@@ -365,7 +367,10 @@ const state: PythonBridgeState = {
 /**
  * Python Bridge Plugin
  */
-const pythonBridgePlugin: Plugin = {
+// `satisfies` (not `: Plugin`) preserves the concrete per-method signatures for anyone
+// importing this module directly (e.g. plugins/reticulum.ts's dynamic import of its
+// `.methods.spawn`) while still checking it conforms to the generic Plugin shape.
+const pythonBridgePlugin = {
   name: "python",
   description: "Execute Python code and manage Python subprocesses via IPC. Enables integration with Reticulum, ML libraries, and other Python ecosystems.",
   methods: {
@@ -433,7 +438,7 @@ sys.stdout.buffer.flush()
 
         const readOutput = async () => {
           try {
-            const text = await proc.stdout.text();
+            const text = await new Response(proc.stdout).text();
             output = text;
           } catch {
             // Ignore
@@ -454,7 +459,7 @@ sys.stdout.buffer.flush()
             // Parse response (may have multiple messages, take last complete one)
             const messages = output.split("\0").filter(m => m.trim());
             const lastMessage = messages[messages.length - 1];
-            const response: PythonResponse = JSON.parse(lastMessage);
+            const response: PythonResponse = JSON.parse(lastMessage ?? "");
 
             if (response.status === "error") {
               const error = new Error(response.error || "Python execution failed");
@@ -589,13 +594,13 @@ sys.stdout.buffer.flush()
           stdout: "pipe",
           stderr: "pipe",
         });
-        const output = await proc.stdout.text();
+        const output = await new Response(proc.stdout).text();
         return output.trim();
       } catch {
         return "unknown";
       }
     },
   },
-};
+} satisfies Plugin;
 
 export default pythonBridgePlugin;

@@ -27,8 +27,8 @@ alert Chase Checking low_balance -100.00 2026-02-19`;
       labels: undefined,
       nested: undefined,
     });
-    expect(ast.entities[1].type).toBe("alert");
-    expect(ast.entities[1].values).toContain("low_balance");
+    expect(ast.entities[1]!.type).toBe("alert");
+    expect(ast.entities[1]!.values).toContain("low_balance");
   });
 
   test("parses labeled properties", () => {
@@ -38,7 +38,7 @@ tags: bank, active
 tool_input: monitor_balance`;
     const ast = parse(script);
     expect(ast.entities).toHaveLength(1);
-    expect(ast.entities[0].labels).toEqual({
+    expect(ast.entities[0]!.labels).toEqual({
       tags: ["bank", "active"],
       tool_input: ["monitor_balance"],
     });
@@ -84,7 +84,7 @@ Netflix paid_by Chase Checking`;
     const ast = parse(script);
     expect(ast.typeDefs).toHaveLength(3);
     expect(ast.entities).toHaveLength(2);
-    expect(ast.entities[0].labels?.tags).toEqual(["bank", "active"]);
+    expect(ast.entities[0]!.labels?.tags).toEqual(["bank", "active"]);
     expect(ast.relationships).toHaveLength(2);
   });
 

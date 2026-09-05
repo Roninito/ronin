@@ -1,17 +1,17 @@
 /**
- * ronin kdb — ontology and memory stats and queries
+ * ronin kdb — inspect Ronin's file-backed memory (memory/notes, memory/conversations, memory/blackboards)
  *
  * Subcommands:
- *   stats                    Show ontology + memory table stats
- *   memory search <query>     Search memories by text (--limit N)
- *   memory recent            Recent memories (--limit N)
- *   memory get <key>         Retrieve value by key
- *   ontology search           Search nodes (--type, --name, --domain, --limit)
- *   ontology lookup <id>      Get node by id
- *   ontology related <id>     Related nodes (--relation, --depth, --limit)
+ *   stats                     Show file counts per memory area
+ *   memory search <query>     Search notes by text (--limit N)
+ *   memory recent             Recently modified notes (--limit N)
+ *   memory get <key>          Retrieve a stored value by key
+ *   conversation <duty>       Show a duty's conversation transcript (--limit N)
+ *   blackboard <duty>         Show a duty's blackboard
  */
 
-import { join } from "path";
+import { join, dirname } from "path";
+import { existsSync, readdirSync } from "fs";
 import { getConfigService } from "../../config/ConfigService.js";
 import { createAPI } from "../../api/index.js";
 
@@ -33,6 +33,15 @@ async function getApi(options: KdbOptions = {}) {
     userPluginDir: options.userPluginDir ?? system?.userPluginDir,
     dbPath,
   });
+}
+
+function memoryDir(options: KdbOptions): string {
+  return options.dbPath ? join(dirname(options.dbPath), "memory") : "memory";
+}
+
+function countMarkdownFiles(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  return readdirSync(dir).filter((f) => f.endsWith(".md")).length;
 }
 
 function formatJson(value: unknown): string {
@@ -58,99 +67,53 @@ export async function kdbCommand(args: string[], options: KdbOptions = {}): Prom
     return;
   }
 
-  if (sub === "ontology") {
-    const action = rest[0];
-    if (!action || action.startsWith("--")) {
-      console.error("❌ Usage: ronin kdb ontology <search|lookup|related> [args] [options]");
+  if (sub === "conversation") {
+    const dutyName = rest[0] && !rest[0].startsWith("--") ? rest[0] : undefined;
+    if (!dutyName) {
+      console.error("❌ Usage: ronin kdb conversation <duty> [--limit N]");
       process.exit(1);
     }
-    await kdbOntology(action, rest.slice(1), options);
+    await kdbConversation(dutyName, rest.slice(1), options);
+    return;
+  }
+
+  if (sub === "blackboard") {
+    const dutyName = rest[0] && !rest[0].startsWith("--") ? rest[0] : undefined;
+    if (!dutyName) {
+      console.error("❌ Usage: ronin kdb blackboard <duty>");
+      process.exit(1);
+    }
+    await kdbBlackboard(dutyName, options);
     return;
   }
 
   console.error(`❌ Unknown subcommand: ${sub}`);
-  console.log("Usage: ronin kdb <stats|memory|ontology> ...");
+  console.log("Usage: ronin kdb <stats|memory|conversation|blackboard> ...");
   console.log("       ronin kdb stats");
   console.log("       ronin kdb memory search <query> [--limit N]");
   console.log("       ronin kdb memory recent [--limit N]");
   console.log("       ronin kdb memory get <key>");
-  console.log("       ronin kdb ontology search [--type T] [--name pattern] [--domain D] [--limit N]");
-  console.log("       ronin kdb ontology lookup <id>");
-  console.log("       ronin kdb ontology related <id> [--relation R] [--depth N] [--limit N]");
+  console.log("       ronin kdb conversation <duty> [--limit N]");
+  console.log("       ronin kdb blackboard <duty>");
   process.exit(1);
 }
 
 function getLimit(args: string[], defaultLimit: number): number {
   const i = args.indexOf("--limit");
   if (i !== -1 && i + 1 < args.length) {
-    const n = parseInt(args[i + 1], 10);
+    const n = parseInt(args[i + 1] ?? "", 10);
     if (!Number.isNaN(n) && n > 0) return Math.min(n, 100);
   }
   return defaultLimit;
 }
 
-function getArg(name: string, args: string[]): string | undefined {
-  const i = args.indexOf(name);
-  if (i !== -1 && i + 1 < args.length) return args[i + 1];
-  return undefined;
-}
-
 async function kdbStats(options: KdbOptions): Promise<void> {
-  const api = await getApi(options);
+  const dir = memoryDir(options);
 
-  console.log("\n📊 Knowledge DB stats\n");
-
-  // Memory: use db.query for counts (MemoryStore doesn't expose count)
-  try {
-    const memRows = await api.db.query<{ total: number }>(
-      "SELECT COUNT(*) as total FROM memories"
-    );
-    const convRows = await api.db.query<{ total: number }>(
-      "SELECT COUNT(*) as total FROM conversations"
-    );
-    const stateRows = await api.db.query<{ total: number }>(
-      "SELECT COUNT(*) as total FROM agent_state"
-    );
-    const memories = memRows[0]?.total ?? 0;
-    const conversations = convRows[0]?.total ?? 0;
-    const agentStates = stateRows[0]?.total ?? 0;
-
-    console.log("  Memory");
-    console.log("    memories:      " + memories);
-    console.log("    conversations: " + conversations);
-    console.log("    agent_state:   " + agentStates);
-    console.log("");
-  } catch (e) {
-    console.log("  Memory: (tables not found or error)");
-    console.log("");
-  }
-
-  if (api.ontology) {
-    try {
-      const stats = await api.ontology.stats();
-      console.log("  Ontology");
-      const nodeTypes = Object.entries(stats.nodes).sort((a, b) => b[1] - a[1]);
-      const totalNodes = nodeTypes.reduce((s, [, c]) => s + c, 0);
-      console.log("    nodes: " + totalNodes);
-      for (const [type, count] of nodeTypes) {
-        console.log("      " + type + ": " + count);
-      }
-      const edgeTypes = Object.entries(stats.edges).sort((a, b) => b[1] - a[1]);
-      const totalEdges = edgeTypes.reduce((s, [, c]) => s + c, 0);
-      console.log("    edges: " + totalEdges);
-      for (const [relation, count] of edgeTypes) {
-        console.log("      " + relation + ": " + count);
-      }
-      console.log("");
-    } catch (e) {
-      console.log("  Ontology: (error) " + (e instanceof Error ? e.message : String(e)));
-      console.log("");
-    }
-  } else {
-    console.log("  Ontology: (plugin not loaded)");
-    console.log("");
-  }
-
+  console.log("\n📊 Memory stats (" + dir + ")\n");
+  console.log("  notes:         " + countMarkdownFiles(join(dir, "notes")));
+  console.log("  conversations: " + countMarkdownFiles(join(dir, "conversations")));
+  console.log("  blackboards:   " + countMarkdownFiles(join(dir, "blackboards")));
   console.log("");
 }
 
@@ -210,67 +173,23 @@ async function kdbMemory(
   process.exit(1);
 }
 
-async function kdbOntology(
-  action: string,
-  args: string[],
-  options: KdbOptions
-): Promise<void> {
+async function kdbConversation(dutyName: string, args: string[], options: KdbOptions): Promise<void> {
   const api = await getApi(options);
-  if (!api.ontology) {
-    console.error("❌ Ontology plugin not loaded.");
-    process.exit(1);
-  }
-
-  if (action === "search") {
-    const type = getArg("--type", args);
-    const name = getArg("--name", args);
-    const domain = getArg("--domain", args);
-    const limit = getLimit(args, 20);
-    const nodes = await api.ontology.search({
-      type: type ?? undefined,
-      nameLike: name ?? undefined,
-      domain: domain ?? undefined,
-      limit,
-    });
-    console.log(formatJson(nodes));
+  const limit = getLimit(args, 50);
+  const entries = await api.memory.getConversations(dutyName, limit);
+  if (!entries.length) {
+    console.log("(no conversation history for " + dutyName + ")");
     return;
   }
-
-  if (action === "lookup") {
-    const id = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
-    if (!id) {
-      console.error("❌ ronin kdb ontology lookup <id>");
-      process.exit(1);
-    }
-    const node = await api.ontology.lookup(id);
-    if (!node) {
-      console.log("(not found)");
-      return;
-    }
-    console.log(formatJson(node));
-    return;
+  for (const entry of entries) {
+    console.log(`### ${entry.role} — ${entry.createdAt.toISOString()}`);
+    console.log(entry.content);
+    console.log("");
   }
+}
 
-  if (action === "related") {
-    const id = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
-    if (!id) {
-      console.error("❌ ronin kdb ontology related <id> [--relation R] [--depth N] [--limit N]");
-      process.exit(1);
-    }
-    const relation = getArg("--relation", args);
-    const depth = getArg("--depth", args);
-    const limit = getLimit(args, 10);
-    const results = await api.ontology.related({
-      nodeId: id,
-      relation: relation ?? undefined,
-      depth: depth ? parseInt(depth, 10) : undefined,
-      limit,
-    });
-    console.log(formatJson(results));
-    return;
-  }
-
-  console.error(`❌ Unknown ontology action: ${action}`);
-  console.log("Usage: ronin kdb ontology <search|lookup|related> ...");
-  process.exit(1);
+async function kdbBlackboard(dutyName: string, options: KdbOptions): Promise<void> {
+  const api = await getApi(options);
+  const content = await api.memory.getBlackboard(dutyName);
+  console.log(content || "(empty blackboard for " + dutyName + ")");
 }

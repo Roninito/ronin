@@ -14,7 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 import type { ObsidianVaultConfig } from "../src/config/types.js";
 
-interface ObsidianNote {
+export interface ObsidianNote {
   vault_id: string;
   file_path: string;
   relative_path: string;
@@ -47,7 +47,8 @@ function extractFrontmatter(content: string): [Record<string, any>, string] {
     return [{}, content];
   }
 
-  const frontmatterStr = match[1];
+  // Capture group is mandatory in frontmatterRegex, so a successful match always has it.
+  const frontmatterStr = match[1]!;
   const contentWithout = content.slice(match[0].length);
 
   // Simple YAML parser for common frontmatter formats
@@ -92,7 +93,8 @@ function extractWikilinks(content: string): string[] {
   let match;
 
   while ((match = wikilinksRegex.exec(content)) !== null) {
-    const link = match[1].split("|")[0].trim();
+    // Capture group is mandatory in wikilinksRegex, so a successful exec() always has it.
+    const link = match[1]!.split("|")[0]!.trim();
     if (link && !matches.includes(link)) {
       matches.push(link);
     }

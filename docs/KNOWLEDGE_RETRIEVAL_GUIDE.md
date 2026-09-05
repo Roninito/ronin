@@ -1,628 +1,105 @@
-# Knowledge Retrieval Guide: Ontology + Markdown
+# Knowledge Retrieval Guide: Plain Markdown Memory
 
 ## Overview
 
-Ronin uses a simple, powerful approach to knowledge retrieval:
-- **Ontology** (structured) — For entity/skill lookup and semantic search
-- **Markdown** (archival) — For documentation, examples, and full-text search
-- **No embeddings** — No vendor lock-in, no re-embedding costs
+Ronin stores everything an agent might need to recall — notes, conversation transcripts, per-duty scratch state, and reference material synced from docs/tools/skills — as plain markdown files under `memory/`. There is no database, no vector store, no knowledge graph. Retrieval is a text search over files, not a query language.
 
-This guide explains how to store, organize, and retrieve knowledge without RAG.
+This replaces two earlier, more complex systems that used to live here:
+- **RAG (vector embeddings)** — removed entirely; vendor lock-in on the embeddings provider and re-embedding costs on every provider switch weren't worth it for what amounted to text search.
+- **Ontology (a SQLite knowledge graph of nodes/edges)** — removed in favor of plain files. Structured relationships that used to be graph edges are now `[[wikilink]]`-style references inside note bodies: to find what's "related" to something, grep for `[[its-slug]]`.
 
----
-
-## Why No RAG (Embeddings)?
-
-### The RAG Problem
-```
-RAG (Vector Embeddings):
-├─ Vendor Lock-In: Ollama embeddings hardcoded
-│  └─ Switch providers? Re-embed 1000s of vectors
-├─ Maintenance: Custom implementation = bugs/support
-├─ Cost: Regeneration expensive (time + compute)
-└─ Isolation: Separate from ontology, parallel system
-```
-
-### The Better Approach
-```
-Ontology + Markdown:
-├─ No Embeddings: Zero vendor dependency
-├─ Simple: Just git + text
-├─ Auditable: See exactly why data exists
-└─ Fast: Ontology lookup + grep = efficient
-```
-
-**Result:** Simpler, more auditable, more future-proof.
+**Why:** a database or graph makes it hard to see, at a glance, what's actually stored — including things that shouldn't be there (a stray secret, a stale entry). A directory of markdown files is inspectable with `cat` and `grep`, diffable, and has no schema to keep in sync with the code that reads it.
 
 ---
 
-## Knowledge Storage: Three Layers
+## Storage layout
 
-### Layer 1: Ontology (Structured Knowledge)
-
-**What it stores:**
-- Entities (agents, skills, people, projects)
-- Relationships (dependencies, ownership, tags)
-- Metadata (descriptions, types, permissions)
-- System information (hardware, runtime)
-- Codebase structure (files, exports, imports)
-- Obsidian vault notes (metadata, frontmatter, links)
-
-**Structure:**
-```typescript
-const mySkillOntology = {
-  id: "skill.refactor",
-  name: "Refactor Code",
-  description: "Automatically refactor code for readability",
-  domain: "code",
-  tags: ["refactoring", "code-quality", "automated"],
-  inputs: [
-    { name: "code", type: "string", description: "Code to refactor" },
-  ],
-  outputs: [
-    { name: "refactored_code", type: "string", description: "Refactored code" },
-  ],
-  owner: "user123",
-  created: "2024-01-15",
-};
+```
+memory/
+  notes/<slug>-<hash8>.md      # store()/retrieve() key-value entries + addContext() freeform notes
+  conversations/<duty>.md      # append-only per-duty conversation transcript
+  blackboards/<duty>.md        # per-duty scratch/working state
 ```
 
-**Query methods:**
-- Direct lookup: `ontology.getEntity("skill.refactor")`
-- Search: `ontology.search("refactor", { domain: "code" })`
-- Filter: `ontology.filterByTag("code-quality")`
+`memory/` lives next to `ronin.db` (project root by default) and is gitignored — it's local state, not something to commit.
 
----
+A note file looks like this:
 
-### Layer 2: Markdown (Archival Knowledge)
-
-**What it stores:**
-- Documentation
-- Examples
-- Guides and tutorials
-- Decision records
-- Meeting notes
-
-**Structure:**
-```markdown
-# Refactoring Skills
-
-## Overview
-Automated code refactoring using SAR chains.
-
-## Examples
-
-### Example 1: Extract Method
-Input:
-\`\`\`python
-def process_data(items):
-    total = 0
-    for item in items:
-        total += item['value']
-    print(total)
-\`\`\`
-
-Output:
-\`\`\`python
-def sum_values(items):
-    return sum(item['value'] for item in items)
-
-def process_data(items):
-    total = sum_values(items)
-    print(total)
-\`\`\`
-
-## Guidelines
-- Keep functions under 20 lines
-- Use descriptive names
-- Extract complex logic into helpers
-```
-
-**Query methods:**
-- Full-text grep: `grep -r "refactor" docs/`
-- Markdown parsing: Parse headers, code blocks
-- File-based: Group by folder (e.g., `docs/skills/refactor.md`)
-
----
-
-### Layer 3: Obsidian Vaults (User Knowledge Base) — *Phase 6*
-
-**What it stores:**
-- Personal notes and research
-- Project documentation
-- Reference materials
-- Tagged knowledge
-- Linked notes and relationships
-
-**Structure:**
 ```markdown
 ---
-title: Understanding Transformers
-tags:
-  - ai-research
-  - deep-learning
-  - nlp
+key: "tool-local.memory.search"
+kind: "kv"
+createdAt: "2026-09-04T12:00:00.000Z"
+updatedAt: "2026-09-04T12:00:00.000Z"
 ---
 
-# Understanding Transformers
-
-Content about transformers. Links to [[LLM-Papers]] and [[Prompt-Engineering]].
+​```json
+{ "name": "local.memory.search", "summary": "Search Ronin's memory notes." }
+​```
 ```
 
-**Query methods:**
-- By title: `searchObsidianNotes(api, "Transformers")`
-- By tag: `getObsidianNotesByTag(api, "ai-research")`
-- By vault: `getObsidianVaultNotes(api, "main-vault")`
-- Backlinks: `getObsidianBacklinks(api, "AI")`
-
-**See:** [Obsidian Integration Guide](OBSIDIAN_INTEGRATION.md) for setup and examples.
-
----
-
-### Layer 4: Agent Memory (Learned Knowledge)
-
-**What it stores:**
-- Conversation history
-- User preferences
-- Learned patterns
-- Execution results
-
-**Structure:**
-```typescript
-// In-memory or persistent store
-const memories = await api.memory.search("refactor", { limit: 10 });
-// Returns: [
-//   { key: "refactor_success_2024-01-15", value: {...} },
-//   { key: "refactor_error_2024-01-14", value: {...} },
-// ]
-```
-
-**Query methods:**
-- Search by key: `memory.retrieve("refactor_success_2024-01-15")`
-- Search by query: `memory.search("python refactor", { limit: 10 })`
-- Metadata filter: `memory.getByMetadata({ domain: "code" })`
-
----
-
-## Retrieving Knowledge: Three Patterns
-
-### Pattern 1: Ontology Lookup (Fast, Structured)
-
-Use when: Finding specific entities or skills
-
-```typescript
-const ctx: ChainContext = {
-  messages: [
-    {
-      role: "system",
-      content: "You are a code refactoring assistant.",
-    },
-    {
-      role: "user",
-      content: "What refactoring skills are available?",
-    },
-  ],
-  ontology: {
-    domain: "code",
-    relevantSkills: ["ontology.search"],  // Enable skill lookup
-  },
-  budget: { max: 8192, current: 0, reservedForResponse: 512 },
-};
-
-// During chain execution, LLM can call ontology.search
-// which returns structured skill definitions
-```
-
-### Pattern 2: Full-Text Grep (Simple, Powerful)
-
-Use when: Finding documentation or examples
-
-```typescript
-// Grep for refactoring examples in markdown
-const examples = await api.shell?.exec(
-  "grep -r 'refactor' docs/ | grep -i 'example'"
-);
-
-// Result: All markdown lines mentioning "refactor" and "example"
-// Then parse/display for LLM context
-```
-
-### Pattern 3: Agent Memory (Contextual, Learned)
-
-Use when: Remembering previous results or user preferences
-
-```typescript
-// Store refactoring result
-await api.memory?.store(
-  `refactor_${timestamp}`,
-  {
-    input: originalCode,
-    output: refactoredCode,
-    changes: ["extract_method", "rename_variable"],
-  },
-  { domain: "code", type: "refactor", success: true }
-);
-
-// Later: Retrieve similar refactors
-const previous = await api.memory?.search("refactor python", {
-  limit: 5,
-  metadata: { domain: "code", success: true },
-});
-```
-
----
-
-## Organizing Knowledge in Markdown
-
-### Folder Structure
-```
-docs/
-├── skills/
-│   ├── refactor.md
-│   ├── code-review.md
-│   └── test-generation.md
-├── agents/
-│   ├── tool-calling-agent.md
-│   └── messenger.md
-├── guides/
-│   ├── SAR_BEST_PRACTICES.md
-│   ├── TOOL_INTEGRATION_GUIDE.md
-│   └── ARCHITECTURE.md
-└── decisions/
-    ├── why-sar-over-langchain.md
-    └── removing-rag.md
-```
-
-### Naming Conventions
-- Skill docs: `docs/skills/{skill_name}.md`
-- Agent docs: `docs/agents/{agent_name}.md`
-- Guides: `docs/guides/{TITLE}.md`
-- Decision records: `docs/decisions/{DECISION}.md`
-
-### Markdown Format
+or, for a freeform note:
 
 ```markdown
-# {Skill/Agent/Topic} Name
-
-## Overview
-1-2 sentence description.
-
-## Purpose
-Why this exists.
-
-## How It Works
-High-level algorithm or approach.
-
-## Examples
-
-### Example 1: {Scenario}
-**Input:**
-\`\`\`code
-...
-\`\`\`
-
-**Output:**
-\`\`\`code
-...
-\`\`\`
-
-**Explanation:** What changed and why.
-
-## API / Usage
-Code examples showing how to use.
-
-## Limitations
-What it doesn't do well.
-
-## Related
-Links to related skills/docs.
-```
-
+---
+kind: "note"
+createdAt: "2026-09-04T12:00:00.000Z"
+tags: ["skills"]
+related: ["[[skill-refactor]]"]
 ---
 
-## Knowledge Retrieval in Agents
-
-### Pattern: Ontology + Markdown Hybrid
-
-Most agents use both layers:
-
-```typescript
-export default class CodeReviewAgent extends BaseAgent {
-  async execute(): Promise<void> {
-    // 1. Retrieve ontology skills
-    const reviewSkills = await this.api.ontology?.search(
-      "code-review",
-      { domain: "code" }
-    );
-
-    // 2. Retrieve markdown examples
-    const examples = await this.api.shell?.exec(
-      `grep -A 5 "# Example" docs/guides/code-review.md`
-    );
-
-    // 3. Retrieve agent memory (previous reviews)
-    const pastReviews = await this.api.memory?.search("code-review", {
-      limit: 5,
-      metadata: { success: true },
-    });
-
-    // 4. Build prompt combining all layers
-    const systemPrompt = `
-You are a code review expert.
-
-Available skills:
-${JSON.stringify(reviewSkills, null, 2)}
-
-Examples:
-${examples}
-
-Your previous successful reviews (for reference):
-${JSON.stringify(pastReviews, null, 2)}
-    `;
-
-    const ctx: ChainContext = {
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userRequest },
-      ],
-      ontology: {
-        domain: "code",
-        relevantSkills: ["ontology.search", "code.review"],
-      },
-      budget: { max: 8192, current: 0, reservedForResponse: 512 },
-    };
-
-    const stack = standardSAR();
-    const chain = this.createChain();
-    chain.useMiddlewareStack(stack);
-    chain.withContext(ctx);
-    await chain.run();
-  }
-}
+Skill-maker created a new skill "refactor" after three failed attempts at parsing bash args — see [[skill-refactor]] for the working version.
 ```
 
----
+There's no enforced schema beyond `key`/`kind`/timestamps — add whatever frontmatter fields are useful, and read them back as plain text.
 
-## Ontology Schema
+## What gets stored where
 
-### Entity Definition
-```typescript
-interface OntologyEntity {
-  id: string;                    // Unique identifier (e.g., "skill.refactor")
-  name: string;                  // Display name
-  description: string;           // 1-2 sentences
-  domain: string;               // Category (e.g., "code", "documentation")
-  type: "skill" | "agent" | "entity" | "relationship";
-  
-  // Metadata
-  tags?: string[];              // For searching/filtering
-  owner?: string;               // Owner/maintainer
-  created?: string;             // ISO date
-  updated?: string;             // ISO date
-  status?: "active" | "deprecated" | "experimental";
-  
-  // Skill-specific
-  inputs?: ToolParameter[];
-  outputs?: ToolParameter[];
-  
-  // Relations
-  relatedEntities?: string[];   // Other entity IDs
-  examples?: string[];           // Markdown file paths
-}
-```
+- **`refdoc-*`** — reference docs (from `docs/`, `AGENTS.md`, etc.), synced by `ronin doctor ingest-docs`
+- **`tool-*`** — every registered tool, synced by `duties/tools-indexer.ts` and `ronin doctor ingest-docs`
+- **`skill-*`** — installed AgentSkills, synced by `duties/skill-maker.ts` (on creation) and `ronin doctor ingest-docs`
+- **`codebase-file-*`** — TypeScript file summaries (exports, imports, complexity), by `duties/codebase-analyzer.ts`, overwritten daily
+- **`system-current`** — current OS/CPU/memory snapshot, by `duties/system-info-collector.ts`, overwritten every 6h
+- **`obsidian-<vault>-*`** — Obsidian vault note metadata (title, tags, wikilinks), by `duties/obsidian-vault-indexer.ts`
+- **`artifact-*`** — artifact state mirrors, by `duties/artifact-manager.ts` and the `artifact_*` tools
+- **freeform / ad hoc** — anything a duty writes via `api.memory.addContext()` or `api.memory.store()` with its own key convention (e.g. `messenger.ts`'s `conversation:<channel>:<user>`)
 
-### Example Ontology Entry
-```typescript
-{
-  id: "skill.refactor",
-  name: "Refactor Code",
-  description: "Automatically refactor code for readability, maintainability, and best practices",
-  domain: "code",
-  type: "skill",
-  tags: ["refactoring", "code-quality", "automated", "python", "typescript"],
-  owner: "dev-team",
-  created: "2024-01-15",
-  status: "active",
-  inputs: [
-    { name: "code", type: "string", description: "Source code to refactor" },
-    { name: "language", type: "string", description: "Programming language (python, typescript, etc.)" },
-  ],
-  outputs: [
-    { name: "refactored_code", type: "string", description: "Refactored code" },
-    { name: "changes", type: "array", description: "List of changes made" },
-  ],
-  examples: ["docs/skills/refactor.md"],
-  relatedEntities: ["skill.code-review", "agent.refactory"],
-}
-```
+## Retrieving knowledge
 
----
-
-## Searching Knowledge
-
-### Ontology Search
-```typescript
-// By domain
-const codeSkills = await api.ontology?.search(
-  "refactor",
-  { domain: "code" }
-);
-
-// By tag
-const qualitySkills = await api.ontology?.search("*", {
-  tags: ["code-quality"],
-});
-
-// All skills
-const allSkills = await api.ontology?.search("*");
-```
-
-### Markdown Search (Grep)
-```typescript
-// Find skill documentation
-const skillDocs = await api.shell?.exec(
-  `grep -l "refactor" docs/skills/*.md`
-);
-
-// Find all examples
-const examples = await api.shell?.exec(
-  `find docs/ -name "*.md" -exec grep -l "Example" {} \\;`
-);
-
-// Find decision records
-const decisions = await api.shell?.exec(
-  `grep -r "Decision:" docs/decisions/`
-);
-```
-
-### Memory Search
-```typescript
-// Recent refactoring results
-const recentRefactors = await api.memory?.search("refactor", {
-  limit: 10,
-  metadata: { domain: "code", success: true },
-});
-
-// Find by exact key
-const specific = await api.memory?.retrieve(
-  `refactor_2024-01-15_12:34:56`
-);
-
-// Find all in domain
-const allCodeMemories = await api.memory?.getByMetadata({
-  domain: "code",
-});
-```
-
----
-
-## Best Practices
-
-### 1. Keep Ontology Lean
-- Store structure and relationships
-- Don't duplicate markdown content
-- Use references to docs instead
-
-❌ Bad:
-```typescript
-{
-  id: "skill.refactor",
-  description: `Automatically refactor code...very long description...
-    many details...examples...best practices...`,
-}
-```
-
-✅ Good:
-```typescript
-{
-  id: "skill.refactor",
-  description: "Automatically refactor code for readability and best practices",
-  examples: ["docs/skills/refactor.md"],  // Details in markdown
-}
-```
-
-### 2. Use Consistent Naming
-- IDs: `namespace.entity.name` (lowercase, dots)
-- Tags: `kebab-case`
-- Files: `UPPERCASE_TITLES.md`, `lowercase-skills.md`
-
-### 3. Link Everything
-- Markdown → Related entities via ontology IDs
-- Ontology → Markdown docs via file paths
-- Memory → Metadata for filtering
+There's one real pattern: **`local.memory.search(query, limit?)`** — a case-insensitive text search over `memory/notes/`, exposed to agents as a chat tool and to code as `api.memory.search()`. That's it. No separate "structured lookup" path — a `tool-local.memory.search.md` note and a freeform note about a past conversation are searched the same way.
 
 ```typescript
-// In markdown:
-Related: See `skill.code-review` in ontology
+// From duty code:
+const hits = await api.memory.search("refactor", 10);
 
-// In ontology:
-relatedEntities: ["skill.code-review"],
-examples: ["docs/skills/refactor.md"],
+// From an agent's chat tool call:
+local.memory.search({ query: "refactor", limit: 10 })
 ```
 
-### 4. Version Knowledge
-- Keep decision records (why/how changed)
-- Date new knowledge
-- Mark deprecated entries
+Conversation transcripts and blackboards are duty-scoped and read directly, not searched:
 
 ```typescript
-{
-  id: "skill.old-refactor",
-  status: "deprecated",
-  description: "Old refactoring approach (use skill.refactor instead)",
-  updated: "2024-01-15",  // When deprecated
-}
+const history = await api.memory.getConversations("messenger", 50);
+const scratch = await api.memory.getBlackboard("skill-maker");
 ```
 
-### 5. Memory Retention
-- Don't store everything (costs memory)
-- Use metadata for filtering
-- Archive old memories periodically
+## Relationships (instead of a graph)
 
-```typescript
-// Store with metadata for later filtering
-await api.memory?.store(
-  `refactor_${timestamp}`,
-  { /* result */ },
-  {
-    domain: "code",
-    language: "typescript",
-    complexity: "high",
-    success: true,
-    timestamp,  // For archival queries
-  }
-);
-```
+A note can reference another by slug with `[[wikilink]]` syntax, in its `related` frontmatter or its body. There is no traversal API — "what's related to X" means searching for `[[x-slug]]` across `memory/notes/`. This is a deliberate simplification: most of what the old ontology graph's edges were used for (grouping a tool with its domain, linking a doc to the tool it describes) reads just as well as a sentence in the note body.
 
----
+## Keeping it from growing unbounded
 
-## Comparison: Ontology vs Markdown vs Memory
+High-churn keys (tool call caches, per-call results, analytics counters) are the one place file-per-entry storage can bloat over time. `duties/db-cleanup.ts` runs nightly and prunes `tool.cache.*` (every run), `tool.result.*` (older than 3 days), and `analytics.*` (older than 14 days) via `api.memory.forgetByKeyPrefix()`. Duties that index the same thing repeatedly (codebase files, system info, tools, skills) use a **stable, deterministic key** so re-indexing overwrites the existing note instead of creating a new one — that's the file-system-native equivalent of a TTL, and it's why most of `memory/notes/` never grows past "one file per real thing," even without expiry logic.
 
-| Use Case | Best Layer | Reason |
-|----------|-----------|--------|
-| List available skills | Ontology | Structured, fast lookup |
-| Find examples | Markdown | Human-readable, comprehensive |
-| Look up agent definition | Ontology | Quick reference |
-| Understand design decision | Markdown | Narrative explanation |
-| Find similar past results | Memory | Contextual, learned |
-| Search documentation | Markdown | Full-text, grep-able |
-| Understand relationships | Ontology | Graph/semantic |
+## Best practices
 
----
+1. **Use a stable key for anything re-indexed on a schedule.** `store("tool-local.memory.search", ...)` overwrites; `addContext("indexed a tool", ...)` accumulates a new file every run.
+2. **Put the searchable text in the body, not just frontmatter.** `local.memory.search` matches the whole file, but a human skimming `memory/notes/` benefits from readable prose.
+3. **Reference, don't duplicate.** Link to a doc's `sourcePath` instead of copying its full content into every note that mentions it (except `refdoc-*` notes, which intentionally embed the full doc for fast recall).
+4. **Never write secrets into a note.** The whole point of moving off a database was making stored content visible — that only helps if nothing sensitive ends up there in the first place.
 
-## FAQ
+## See also
 
-**Q: Do I need to store everything in ontology?**  
-A: No, only structural data. Use markdown for details/docs, memory for learned data.
-
-**Q: How do I ensure ontology stays up-to-date?**  
-A: Version in git, review with code. Treat like documentation.
-
-**Q: Can I query across layers (ontology + markdown)?**  
-A: Not automatically, but agents can. Query each layer separately, combine results.
-
-**Q: What if markdown becomes too large?**  
-A: Split into multiple files, organize by domain/skill.
-
-**Q: Should I version markdown like code?**  
-A: Yes, keep in git with commit history. Use git blame for audit trail.
-
-**Q: How do I handle deprecated knowledge?**  
-A: Mark in ontology with `status: "deprecated"` and link to replacement.
-
-**Q: What about knowledge privacy/permissions?**  
-A: Store in ontology metadata, check during agent execution.
-
----
-
-## Summary
-
-| Layer | Purpose | Query | Format |
-|-------|---------|-------|--------|
-| **Ontology** | Structure, entities, relationships | Fast lookup, search by domain/tag | JSON/TypeScript |
-| **Markdown** | Documentation, examples, guides | Grep, file-based, full-text | Markdown |
-| **Memory** | Learned patterns, results, preferences | Search API, metadata filtering | JSON |
-
-**Principle:** Simple, auditable, no vendor lock-in.
-
-**Next:** Read [LANGCHAIN_WHEN_TO_USE.md](LANGCHAIN_WHEN_TO_USE.md) for justified LangChain use cases.
+- [MEMORY_DB.md](MEMORY_DB.md) — the `api.memory` method reference and directory layout in more detail
+- [Obsidian Integration Guide](OBSIDIAN_INTEGRATION.md) — vault configuration
+- [LANGCHAIN_WHEN_TO_USE.md](LANGCHAIN_WHEN_TO_USE.md) — for when structured chains, not memory, are the right tool

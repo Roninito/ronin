@@ -101,7 +101,8 @@ export class TaskStorage {
 
     if (!rows || rows.length === 0) return null;
 
-    return this.rowToTask(rows[0]);
+    // Non-null: the length check above guarantees a first element.
+    return this.rowToTask(rows[0]!);
   }
 
   /**
@@ -342,7 +343,8 @@ export class KataStorage {
     );
 
     if (!rows || rows.length === 0) return false;
-    return rows[0].count > 0;
+    // Non-null: the length check above guarantees a first element.
+    return rows[0]!.count > 0;
   }
 
   /**

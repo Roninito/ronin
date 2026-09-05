@@ -1,15 +1,26 @@
 /**
  * System Info Collector Agent
- * 
- * Runs every 6 hours to gather and update system information in the ontology.
+ *
+ * Runs every 6 hours to gather and update system information.
  * Collects: OS, CPU, memory, GPU, runtime info
- * Stores: In ontology as 'system.current' node
+ * Stores: memory/notes/system-current.md (overwritten each run)
  */
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { createSystemInfoNode, type SystemInfoMetadata } from "../src/ontology/schemas.js";
 import { cpus, freemem, totalmem, platform, arch, release, hostname } from "os";
+
+interface SystemInfoMetadata {
+  collected_at: string;
+  expires_at: string;
+  source_agent: string;
+  os: { platform: "darwin" | "linux" | "win32"; arch: string; version: string; hostname: string };
+  memory: { total_bytes: number; free_bytes: number; used_bytes: number; percent_used: number };
+  cpu: { cores: number; model: string };
+  gpu: { available: boolean };
+  runtime: { node_version: string; bun_version: string };
+  environment: Record<string, string>;
+}
 
 export default class SystemInfoCollectorAgent extends BaseDuty {
   // Run every 6 hours
@@ -26,13 +37,8 @@ export default class SystemInfoCollectorAgent extends BaseDuty {
       // Gather system info
       const systemInfo = await this.gatherSystemInfo();
 
-      // Store in ontology
-      if (this.api.ontology) {
-        await createSystemInfoNode(this.api, systemInfo);
-        console.log("[system-info-collector] ✅ System information stored in ontology");
-      } else {
-        console.warn("[system-info-collector] ⚠️ Ontology not available");
-      }
+      await this.api.memory.store("system-current", systemInfo);
+      console.log("[system-info-collector] ✅ System information stored in memory/notes/system-current.md");
 
       // Log summary
       this.logSystemSummary(systemInfo);

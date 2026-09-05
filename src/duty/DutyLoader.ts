@@ -167,5 +167,5 @@ export class DutyLoader {
 
 // Backward compatibility aliases
 export { DutyLoader as AgentLoader };
-export { LoadDutyOptions as LoadAgentOptions };
+export type { LoadDutyOptions as LoadAgentOptions };
 

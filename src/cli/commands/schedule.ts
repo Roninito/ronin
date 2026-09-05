@@ -124,7 +124,7 @@ async function buildScheduleCommand(options: ScheduleOptions): Promise<void> {
   const externalDutyDir =
     process.env.RONIN_EXTERNAL_DUTY_DIR || config.externalDutyDir || ensureDefaultExternalDutyDir();
 
-  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
+  const duties = await loadDutyFileMetadata(dutyDir, externalDutyDir);
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -231,15 +231,15 @@ async function buildScheduleCommand(options: ScheduleOptions): Promise<void> {
     const apply = await question("\nApply to an agent? (y/n): ");
     if (apply.trim().toLowerCase() === "y") {
       console.log("\nAvailable agents:");
-      agents.forEach((agent, i) => {
+      duties.forEach((agent, i) => {
         console.log(`  ${i + 1}. ${agent.name}${agent.schedule ? ` (current: ${agent.schedule})` : ""}`);
       });
 
       const agentChoice = await question("\nSelect agent number: ");
       const agentIndex = parseInt(agentChoice.trim()) - 1;
 
-      if (agentIndex >= 0 && agentIndex < agents.length) {
-        const selectedAgent = agents[agentIndex];
+      if (agentIndex >= 0 && agentIndex < duties.length) {
+        const selectedAgent = duties[agentIndex]!; // bounds-checked above
         await applyScheduleToFile(selectedAgent, expression);
         console.log(`\n✅ Schedule applied to ${selectedAgent.name}`);
       } else {
@@ -326,9 +326,9 @@ async function applyScheduleCommand(
     process.exit(1);
   }
 
-  const duties = await loadAgentFileMetadata(dutyDir, externalDutyDir);
+  const duties = await loadDutyFileMetadata(dutyDir, externalDutyDir);
 
-  const agent = agents.find((a) => a.name === dutyName);
+  const agent = duties.find((a) => a.name === dutyName);
   if (!agent) {
     console.error(`❌ Agent ${dutyName} not found`);
     process.exit(1);

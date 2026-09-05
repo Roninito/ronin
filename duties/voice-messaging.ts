@@ -24,14 +24,19 @@ export default class VoiceMessagingAgent extends BaseDuty {
   private isUserAvailable: boolean = false;
   private lastActivityTime: number = Date.now();
   private availabilityCheckInterval: NodeJS.Timeout | null = null;
+  // Stored so cleanup() can pass the exact same reference to events.off() — an
+  // inline closure passed straight to events.on() can never be unsubscribed later,
+  // since off() matches by function identity.
+  private readonly onRealmMessage = (raw: unknown): void => {
+    const data = raw as { from: string; content: string };
+    this.handleIncomingMessage(data.from, data.content);
+  };
 
   constructor(api: DutyAPI) {
     super(api);
 
     // Listen for incoming Realm messages
-    this.api.events.on("realm:message", (data: { from: string; content: string }) => {
-      this.handleIncomingMessage(data.from, data.content);
-    });
+    this.api.events.on("realm:message", this.onRealmMessage);
 
     // Start availability monitoring
     this.startAvailabilityMonitoring();
@@ -174,7 +179,10 @@ export default class VoiceMessagingAgent extends BaseDuty {
       return;
     }
 
-    const [, targetCallSign, messageContent] = match;
+    // Both capturing groups are mandatory ((\w+) and (.+)), so a successful match
+    // always has both.
+    const targetCallSign = match[1]!;
+    const messageContent = match[2]!;
 
     if (!this.api.realm) {
       console.error("[voice-messaging] Realm not initialized");
@@ -240,6 +248,6 @@ export default class VoiceMessagingAgent extends BaseDuty {
     if (this.availabilityCheckInterval) {
       clearInterval(this.availabilityCheckInterval);
     }
-    this.api.events.off("realm:message", this.handleIncomingMessage);
+    this.api.events.off("realm:message", this.onRealmMessage);
   }
 }

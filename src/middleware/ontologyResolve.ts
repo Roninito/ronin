@@ -7,7 +7,6 @@ import type { ChainContext } from "../chain/types.js";
 import { resolveOntology } from "../ontology/resolveOntology.js";
 
 export interface OntologyResolveOptions {
-  api?: import("../types/index.js").DutyAPI;
   /** If set, ctx.metadata?.taskId is used when resolving. */
   useTaskIdFromMetadata?: boolean;
 }
@@ -15,7 +14,7 @@ export interface OntologyResolveOptions {
 export function createOntologyResolveMiddleware(
   options: OntologyResolveOptions = {}
 ): Middleware<ChainContext> {
-  const { api, useTaskIdFromMetadata = true } = options;
+  const { useTaskIdFromMetadata = true } = options;
 
   return async (ctx, next) => {
     if (ctx.ontology?.relevantSkills?.length) {
@@ -28,7 +27,7 @@ export function createOntologyResolveMiddleware(
       useTaskIdFromMetadata && ctx.metadata?.taskId != null
         ? String(ctx.metadata.taskId)
         : undefined;
-    ctx.ontology = await resolveOntology({ message, taskId, api });
+    ctx.ontology = await resolveOntology({ message, taskId });
     await next();
   };
 }

@@ -25,6 +25,7 @@
 import type { DutyAPI } from "../types/index.js";
 import { TaskEngine } from "./engine.js";
 import type { Task } from "./types.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Child Task Coordinator - handles parent/child relationships
@@ -95,7 +96,7 @@ export class ChildTaskCoordinator {
       "child-task-coordinator"
     );
 
-    this.api.logger?.info(
+    logger.info(
       `Spawned child task '${child.id}' for parent '${parentTaskId}'`
     );
 
@@ -119,7 +120,7 @@ export class ChildTaskCoordinator {
       // Get parent task
       const parent = await this.engine.getTask(child.parentTaskId);
       if (!parent) {
-        this.api.logger?.error(
+        logger.error(
           `Parent task '${child.parentTaskId}' not found for child '${payload.taskId}'`
         );
         return;
@@ -127,7 +128,7 @@ export class ChildTaskCoordinator {
 
       // Parent should be in waiting state
       if (parent.state !== "waiting") {
-        this.api.logger?.warn(
+        logger.warn(
           `Parent task '${parent.id}' in state '${parent.state}' (expected 'waiting')`
         );
         return;
@@ -147,11 +148,11 @@ export class ChildTaskCoordinator {
         "child-task-coordinator"
       );
 
-      this.api.logger?.info(
+      logger.info(
         `Child task '${child.id}' completed, resuming parent '${parent.id}'`
       );
     } catch (error) {
-      this.api.logger?.error(
+      logger.error(
         `Error handling child completion: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -199,12 +200,12 @@ export class ChildTaskCoordinator {
           "child-task-coordinator"
         );
 
-        this.api.logger?.info(
+        logger.info(
           `Child task '${child.id}' failed, parent '${parent.id}' marked failed`
         );
       }
     } catch (error) {
-      this.api.logger?.error(
+      logger.error(
         `Error handling child failure: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -250,7 +251,7 @@ export class ChildTaskCoordinator {
       [parentId, newChild.id]
     );
 
-    this.api.logger?.info(
+    logger.info(
       `Retrying child task for parent '${parentId}': ${newChild.id}`
     );
   }

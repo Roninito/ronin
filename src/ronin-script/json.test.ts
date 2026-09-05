@@ -20,7 +20,7 @@ Chase owns Visa`;
     expect(json.relationships).toHaveLength(1);
     const ast = fromJson(json);
     expect(ast.typeDefs).toEqual(json.typeDefs);
-    expect(ast.entities[0].type).toBe("account");
+    expect(ast.entities[0]!.type).toBe("account");
     expect(ast.relationships).toEqual(json.relationships);
   });
 

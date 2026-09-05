@@ -14,7 +14,7 @@ import type {
   ConstraintCheckResult,
   ModelSelectionOptions,
   DailyUsageStats,
-} from "../types/model.js";
+} from "../src/types/model.js";
 
 /**
  * Load registry from file, with fallback to defaults
@@ -122,10 +122,8 @@ class ModelSelectorPlugin {
    */
   async getDefaultModel(): Promise<ModelConfig | null> {
     const registry = await this.loadRegistry();
-    if (!registry.default || !registry.models[registry.default]) {
-      return null;
-    }
-    return registry.models[registry.default];
+    const model = registry.default ? registry.models[registry.default] : undefined;
+    return model ?? null;
   }
 
   /**

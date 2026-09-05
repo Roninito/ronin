@@ -178,7 +178,7 @@ export class OllamaCloudAdapter extends CloudAdapter {
     return 0;
   }
 
-  estimateCost(): number {
+  override estimateCost(): number {
     // Ollama is free (local/self-hosted)
     return 0;
   }

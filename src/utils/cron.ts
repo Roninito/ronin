@@ -26,12 +26,13 @@ export function parseCron(cronExpr: string): CronParts | null {
   if (parts.length !== 5) {
     return null;
   }
+  // Non-null: the length check above guarantees indices 0-4 exist.
   return {
-    minute: parts[0],
-    hour: parts[1],
-    day: parts[2],
-    month: parts[3],
-    weekday: parts[4],
+    minute: parts[0]!,
+    hour: parts[1]!,
+    day: parts[2]!,
+    month: parts[3]!,
+    weekday: parts[4]!,
   };
 }
 

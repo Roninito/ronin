@@ -228,10 +228,11 @@ export class WranglerWrapper {
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 3) {
+          // Length check above guarantees indices 0-2 exist.
           tunnels.push({
-            id: parts[0],
-            name: parts[1],
-            created: parts[2]
+            id: parts[0]!,
+            name: parts[1]!,
+            created: parts[2]!
           });
         }
       }

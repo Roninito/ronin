@@ -7,6 +7,7 @@
 
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
+import type { ModelRegistry, ModelConfig } from "@ronin/types/model.js";
 import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 export default class ModelManagerUIAgent extends BaseDuty {
@@ -1345,7 +1346,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
   private async handleProviders(): Promise<Response> {
     try {
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry") as ModelRegistry;
       return new Response(JSON.stringify(registry.providers || {}), {
         headers: { "Content-Type": "application/json" },
       });
@@ -1489,7 +1490,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         throw new Error("nametag required");
       }
 
-      const model = await this.api.plugins.call("model-selector", "getModel", nametag);
+      const model = await this.api.plugins.call("model-selector", "getModel", nametag) as ModelConfig | null;
       if (!model) {
         throw new Error(`Model ${nametag} not found`);
       }
@@ -1497,7 +1498,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
       const testPrompt = "Say 'Hello, Ronin!' and nothing else.";
       
       try {
-        const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+        const registry = await this.api.plugins.call("model-selector", "loadRegistry") as ModelRegistry;
         const provider = registry.providers[model.provider];
 
         if (!provider) {
@@ -1604,7 +1605,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         throw new Error("name and type required");
       }
 
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry") as ModelRegistry;
       registry.providers[name] = {
         type,
         baseUrl: baseUrl || "",
@@ -1637,7 +1638,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         throw new Error("name and updates required");
       }
 
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry") as ModelRegistry;
       if (!registry.providers[name]) {
         throw new Error(`Provider ${name} not found`);
       }
@@ -1675,7 +1676,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         throw new Error("name required");
       }
 
-      const registry = await this.api.plugins.call("model-selector", "loadRegistry");
+      const registry = await this.api.plugins.call("model-selector", "loadRegistry") as ModelRegistry;
       
       // Check if any models use this provider
       const modelsUsingProvider = Object.values(registry.models).filter(

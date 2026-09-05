@@ -1,17 +1,28 @@
 /**
  * Codebase Analyzer Agent
- * 
- * Runs daily to analyze and index codebase files in the ontology.
+ *
+ * Runs daily to analyze and index codebase files.
  * Scans: TypeScript files in src/ and agents/
- * Extracts: File metadata, exports, imports, dependencies
- * Stores: File nodes and relationships in ontology
+ * Extracts: File metadata, exports, imports, complexity
+ * Stores: memory/notes/codebase-file-<path>.md, overwritten each run
  */
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { createCodebaseFileNode, linkFileExport, linkFileImport, type CodebaseFileMetadata } from "../src/ontology/schemas.js";
 import { promises as fs } from "fs";
-import { join, relative, basename } from "path";
+import { join, relative } from "path";
+
+interface CodebaseFileMetadata {
+  path: string;
+  size_bytes: number;
+  language: string;
+  exports: string[];
+  imports: string[];
+  last_modified: string;
+  source_agent: string;
+  complexity: "low" | "medium" | "high";
+  has_tests: boolean;
+}
 
 export default class CodebaseAnalyzerAgent extends BaseDuty {
   // Run daily at 1 AM
@@ -121,46 +132,21 @@ export default class CodebaseAnalyzerAgent extends BaseDuty {
 
       // Get relative path
       const relativePath = relative(this.rootDir, filePath);
-      const fileName = basename(filePath);
 
       // Create metadata
-      const metadata: CodebaseFileMetadata & { name: string } = {
+      const metadata: CodebaseFileMetadata = {
         path: relativePath,
         size_bytes: stat.size,
         language: "typescript",
         exports,
         imports,
         last_modified: stat.mtime.toISOString(),
-        collected_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
         source_agent: "codebase-analyzer",
         complexity,
         has_tests: content.includes("describe(") || content.includes("it("),
-        name: fileName,
       };
 
-      // Store in ontology
-      if (this.api.ontology) {
-        await createCodebaseFileNode(this.api, metadata);
-
-        // Create export relationships
-        for (const exportName of exports) {
-          try {
-            await linkFileExport(this.api, relativePath, exportName);
-          } catch (error) {
-            // Ignore individual relationship failures
-          }
-        }
-
-        // Create import relationships
-        for (const importPath of imports) {
-          try {
-            await linkFileImport(this.api, relativePath, importPath);
-          } catch (error) {
-            // Ignore individual relationship failures
-          }
-        }
-      }
+      await this.api.memory.store(`codebase-file-${relativePath}`, metadata);
     } catch (error) {
       throw new Error(`Failed to analyze ${filePath}: ${error}`);
     }

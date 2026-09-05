@@ -10,9 +10,9 @@
  *
  * ronin doctor ingest-docs
  *
- * Syncs reference docs, tools, and skills into the ontology and memory
- * so agents can discover them via ontology_search (types ReferenceDoc, Tool, Skill).
- * Also syncs list-all capability nodes (skills, tools) with edges to the right tools.
+ * Syncs reference docs, tools, and skills into memory/notes/ (as
+ * refdoc-, tool-, and skill-prefixed entries) so agents can discover them
+ * via local.memory.search.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
@@ -172,7 +172,7 @@ export async function doctorCommand(): Promise<void> {
     if (r.status === "warn") warnCount++;
   }
 
-  // Sync list-all capability nodes (skills, tools) so the graph is discoverable
+  // Sync "how to list all skills/tools" reference notes so agents can discover them
   try {
     const system = config.system as { userPluginDir?: string; pluginDir?: string };
     const dbPath = (config as { dbPath?: string }).dbPath;
@@ -182,9 +182,9 @@ export async function doctorCommand(): Promise<void> {
       dbPath,
     });
     await syncListCapabilities(api);
-    console.log("  ✅ Ontology list-all capabilities (skills, tools) synced");
+    console.log("  ✅ List-all capability notes (skills, tools) synced");
   } catch (e) {
-    // Non-fatal: ontology may be unavailable
+    // Non-fatal
   }
 
   console.log("");
@@ -198,116 +198,50 @@ export async function doctorCommand(): Promise<void> {
   }
 }
 
-const LIST_ALL_SKILLS_NODE_ID = "ReferenceDoc-ListAllSkills";
-const LIST_ALL_TOOLS_NODE_ID = "ReferenceDoc-ListAllTools";
-const TOOL_SKILLS_RUN_ID = "Tool-skills-run";
-const TOOL_SKILLS_LIST_ID = "Tool-skills-list";
-const TOOL_ONTOLOGY_SEARCH_ID = "Tool-ontology-search";
-
 /**
- * Sync "list all skills" and "list all tools" capability nodes and edges into the ontology
- * so agents find them via ontology_search (type ReferenceDoc or nameLike "list") and
- * traverse to the right tool via ontology_related.
+ * Write "how do I list all skills/tools" reference notes into memory, so
+ * agents can find them via local.memory.search.
  */
 export async function syncListCapabilities(api: {
-  ontology?: {
-    setNode: (node: { id: string; type: string; name?: string; summary?: string; domain?: string }) => Promise<void>;
-    setEdge: (edge: { id: string; from_id: string; to_id: string; relation: string }) => Promise<void>;
-  };
+  memory: { store: (key: string, value: unknown) => Promise<void> };
 }): Promise<void> {
-  if (!api.ontology) return;
-
-  await api.ontology.setNode({
-    id: LIST_ALL_SKILLS_NODE_ID,
-    type: "ReferenceDoc",
+  await api.memory.store("refdoc-list-all-skills", {
     name: "List all skills",
     summary:
-      "To retrieve the list of installed AgentSkills, call skills.list (returns array of { name, description }) or skills.run with query \"\" and action 'list all skills'. Skills live in ~/.ronin/skills and ./skills. Use when the user asks what skills are available or when ontology_search type 'Skill' returns empty.",
-    domain: "reference",
+      "To retrieve the list of installed AgentSkills, call skills.list (returns array of { name, description }) or skills.run with query \"\" and action 'list all skills'. Skills live in ~/.ronin/skills and ./skills.",
   });
-  await api.ontology.setEdge({
-    id: `edge-${LIST_ALL_SKILLS_NODE_ID}-use-${TOOL_SKILLS_RUN_ID}`,
-    from_id: LIST_ALL_SKILLS_NODE_ID,
-    to_id: TOOL_SKILLS_RUN_ID,
-    relation: "use_tool",
-  });
-  await api.ontology.setEdge({
-    id: `edge-${LIST_ALL_SKILLS_NODE_ID}-use-${TOOL_SKILLS_LIST_ID}`,
-    from_id: LIST_ALL_SKILLS_NODE_ID,
-    to_id: TOOL_SKILLS_LIST_ID,
-    relation: "use_tool",
-  });
-
-  await api.ontology.setNode({
-    id: LIST_ALL_TOOLS_NODE_ID,
-    type: "ReferenceDoc",
+  await api.memory.store("refdoc-list-all-tools", {
     name: "List all tools",
     summary:
-      "To list all available tools, call ontology_search with params { type: 'Tool', limit: 50 }. Returns all registered tools. Use this when the user asks what tools are available or to discover tools.",
-    domain: "reference",
-  });
-  await api.ontology.setEdge({
-    id: `edge-${LIST_ALL_TOOLS_NODE_ID}-use-${TOOL_ONTOLOGY_SEARCH_ID}`,
-    from_id: LIST_ALL_TOOLS_NODE_ID,
-    to_id: TOOL_ONTOLOGY_SEARCH_ID,
-    relation: "use_tool",
+      "Every registered tool is indexed as a memory note (tool-<name>) by the tools-indexer duty. Use local.memory.search to find one, or inspect the tools available to the current agent directly.",
   });
 }
 
-/** Node types for messaging and users; linkable from logs/events (user ids, links, etc.). */
-const ONTOLOGY_SELF_REFLEXION_NODE_ID = "ReferenceDoc-OntologySelfReflection";
-
 /**
- * Sync MessagingPlatform (Telegram, Discord, etc.) and ReferenceDoc for UserID / self-reflection
- * so the ontology reflects configured apps and can be extended from logs (user ids, links).
+ * Write MessagingPlatform reference notes (Telegram, Discord, etc.) from
+ * config, and a short note on how memory is laid out.
  */
-export async function syncMessagingAndUserNodes(
-  api: {
-    ontology?: {
-      setNode: (node: { id: string; type: string; name?: string; summary?: string; domain?: string }) => Promise<void>;
-      setEdge: (edge: { id: string; from_id: string; to_id: string; relation: string }) => Promise<void>;
-    };
-  },
+export async function syncMessagingPlatforms(
+  api: { memory: { store: (key: string, value: unknown) => Promise<void> } },
   config: { telegram?: { botToken?: string }; discord?: { enabled?: boolean; botToken?: string } }
 ): Promise<void> {
-  if (!api.ontology) return;
-
-  // MessagingPlatform nodes from config (Telegram, Discord)
   if (config.telegram?.botToken) {
-    await api.ontology.setNode({
-      id: "MessagingPlatform-Telegram",
-      type: "MessagingPlatform",
+    await api.memory.store("messaging-platform-telegram", {
       name: "Telegram",
       summary: "Telegram messaging; chatId from config or from incoming event (e.g. create-skill, refactor-request). Use SendTelegramMessage event with chatId to reply.",
-      domain: "messaging",
     });
   }
   if (config.discord?.enabled && config.discord?.botToken) {
-    await api.ontology.setNode({
-      id: "MessagingPlatform-Discord",
-      type: "MessagingPlatform",
+    await api.memory.store("messaging-platform-discord", {
       name: "Discord",
       summary: "Discord messaging; channelIds from config. Use sourceChannel when emitting events so agents can reply to the right channel.",
-      domain: "messaging",
     });
   }
 
-  // ReferenceDoc: ontology self-reflection — node types and log mining
-  await api.ontology.setNode({
-    id: ONTOLOGY_SELF_REFLEXION_NODE_ID,
-    type: "ReferenceDoc",
-    name: "Ontology self-reflection and node types",
+  await api.memory.store("refdoc-memory-self-reflection", {
+    name: "Memory layout and note types",
     summary:
-      "Ontology node types include ReferenceDoc, Tool, Skill, MessagingPlatform, UserID, Link. MessagingPlatform nodes (e.g. Telegram, Discord) are synced from config by doctor ingest-docs. UserID and Link nodes can be created from logs or events (e.g. telegram chat id, discord user id, URLs). Do not store passwords in ontology; use sensitivity or external secrets. Edges link capabilities to tools and platforms (e.g. use_tool, uses_platform).",
-    domain: "reference",
-  });
-
-  // Optional: edge from self-reflection doc to ontology_search so agents discover it
-  await api.ontology.setEdge({
-    id: `edge-${ONTOLOGY_SELF_REFLEXION_NODE_ID}-use-${TOOL_ONTOLOGY_SEARCH_ID}`,
-    from_id: ONTOLOGY_SELF_REFLEXION_NODE_ID,
-    to_id: TOOL_ONTOLOGY_SEARCH_ID,
-    relation: "use_tool",
+      "Memory lives under memory/ as plain markdown: memory/notes/ (refdoc-*, tool-*, skill-*, messaging-platform-*, and freeform entries), memory/conversations/<duty>.md (per-duty transcripts), memory/blackboards/<duty>.md (per-duty scratch state). Find things with local.memory.search. Do not store passwords in memory notes; use config/secrets instead. Relationships between notes are plain [[wikilink]] references, not a graph.",
   });
 }
 
@@ -317,7 +251,6 @@ const REFERENCE_DOC_PATHS: string[] = [
   "docs/SKILLS.md",
   "AGENTS.md",
   "docs/CLI.md",
-  "docs/RAG.md",
 ];
 
 function slugFromPath(path: string): string {
@@ -325,10 +258,10 @@ function slugFromPath(path: string): string {
 }
 
 /**
- * Ingest reference docs, tools, and skills into ontology and memory.
+ * Ingest reference docs, tools, and skills into memory/notes/.
  */
 export async function doctorIngestDocsCommand(options: { clean?: boolean } = {}): Promise<void> {
-  console.log(`\nRonin Doctor: Ingest docs, tools, and skills into ontology${options.clean ? " (clean mode)" : ""}\n`);
+  console.log(`\nRonin Doctor: Ingest docs, tools, and skills into memory${options.clean ? " (clean mode)" : ""}\n`);
 
   const configService = getConfigService();
   await configService.load();
@@ -347,107 +280,77 @@ export async function doctorIngestDocsCommand(options: { clean?: boolean } = {})
   let toolCount = 0;
   let skillCount = 0;
 
-  if (api.ontology) {
-    if (options.clean) {
-      const onto = api.ontology as unknown as {
-        search?: (q: Record<string, unknown>) => Promise<any>;
-        deleteNode?: (id: string) => Promise<void>;
-      };
-      if (onto.search && onto.deleteNode) {
-        try {
-          const found = await onto.search({ type: "ReferenceDoc", limit: 5000 });
-          const nodes = Array.isArray(found) ? found : (Array.isArray(found?.nodes) ? found.nodes : []);
-          for (const n of nodes) {
-            if (n?.id && String(n.id).startsWith("ReferenceDoc-")) {
-              await onto.deleteNode(String(n.id));
-            }
-          }
-          if (!process.env.RONIN_QUIET) console.log(`  🧹 Cleaned ${nodes.length} ReferenceDoc nodes`);
-        } catch (err) {
-          console.warn(`  ⚠️ Clean mode skipped: ${(err as Error).message}`);
-        }
-      } else {
-        console.warn("  ⚠️ Clean mode requested, but ontology delete/search is unavailable");
-      }
+  if (options.clean) {
+    try {
+      const removed = await api.memory.forgetByKeyPrefix("refdoc-");
+      if (!process.env.RONIN_QUIET) console.log(`  🧹 Cleaned ${removed} refdoc notes`);
+    } catch (err) {
+      console.warn(`  ⚠️ Clean mode skipped: ${(err as Error).message}`);
     }
-
-    const docsFromDisk: string[] = [];
-    const collectDocs = (dir: string): void => {
-      if (!existsSync(dir)) return;
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          collectDocs(full);
-          continue;
-        }
-        if (!entry.isFile()) continue;
-        if (entry.name.endsWith(".md") || entry.name.endsWith(".html")) {
-          if (statSync(full).size <= 1_500_000) {
-            docsFromDisk.push(full);
-          }
-        }
-      }
-    };
-    collectDocs(join(cwd, "docs"));
-    const referenceSet = new Set(
-      REFERENCE_DOC_PATHS.map((p) => join(cwd, p))
-    );
-    for (const fullPath of docsFromDisk) referenceSet.add(fullPath);
-
-    const ingestedPaths: string[] = [];
-    for (const absolutePath of referenceSet) {
-      const relPath = absolutePath.startsWith(cwd) ? absolutePath.slice(cwd.length + 1) : absolutePath;
-      if (!existsSync(absolutePath)) continue;
-      try {
-        const content = readFileSync(absolutePath, "utf-8");
-        const slug = slugFromPath(relPath);
-        const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? relPath;
-        const summary = content.slice(0, 300).replace(/\n/g, " ").trim();
-        const nodeId = `ReferenceDoc-${slug}`;
-        await api.ontology.setNode({
-          id: nodeId,
-          type: "ReferenceDoc",
-          name: title,
-          summary,
-          domain: "reference",
-        });
-        await api.memory.store(`refdoc:${slug}`, content);
-        ingestedPaths.push(relPath);
-        docCount++;
-        if (!process.env.RONIN_QUIET) console.log(`  ✅ ${relPath} → ${nodeId}`);
-      } catch (err) {
-        console.warn(`  ⚠️ ${relPath}: ${(err as Error).message}`);
-      }
-    }
-    await api.memory.store("refdoc:index", { updatedAt: Date.now(), paths: ingestedPaths });
-  } else {
-    console.log("  (Ontology plugin not loaded; skipping reference docs)");
   }
 
-  if (api.ontology && api.tools) {
+  const docsFromDisk: string[] = [];
+  const collectDocs = (dir: string): void => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        collectDocs(full);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      if (entry.name.endsWith(".md") || entry.name.endsWith(".html")) {
+        if (statSync(full).size <= 1_500_000) {
+          docsFromDisk.push(full);
+        }
+      }
+    }
+  };
+  collectDocs(join(cwd, "docs"));
+  const referenceSet = new Set(
+    REFERENCE_DOC_PATHS.map((p) => join(cwd, p))
+  );
+  for (const fullPath of docsFromDisk) referenceSet.add(fullPath);
+
+  const ingestedPaths: string[] = [];
+  for (const absolutePath of referenceSet) {
+    const relPath = absolutePath.startsWith(cwd) ? absolutePath.slice(cwd.length + 1) : absolutePath;
+    if (!existsSync(absolutePath)) continue;
+    try {
+      const content = readFileSync(absolutePath, "utf-8");
+      const slug = slugFromPath(relPath);
+      const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? relPath;
+      const summary = content.slice(0, 300).replace(/\n/g, " ").trim();
+      await api.memory.store(`refdoc-${slug}`, { name: title, summary, sourcePath: relPath, content });
+      ingestedPaths.push(relPath);
+      docCount++;
+      if (!process.env.RONIN_QUIET) console.log(`  ✅ ${relPath} → refdoc-${slug}`);
+    } catch (err) {
+      console.warn(`  ⚠️ ${relPath}: ${(err as Error).message}`);
+    }
+  }
+  await api.memory.store("refdoc-index", { updatedAt: Date.now(), paths: ingestedPaths });
+
+  if (api.tools) {
     const tools = api.tools.list();
     for (const tool of tools) {
-      const nodeId = `Tool-${tool.name.replace(/\./g, "-")}`;
-      await api.ontology.setNode({
-        id: nodeId,
-        type: "Tool",
+      await api.memory.store(`tool-${tool.name}`, {
         name: tool.name,
         summary: (tool.description ?? "").slice(0, 500),
-        domain: "tools",
       });
       toolCount++;
     }
-    if (!process.env.RONIN_QUIET) console.log(`  ✅ ${toolCount} tools → ontology`);
+    if (!process.env.RONIN_QUIET) console.log(`  ✅ ${toolCount} tools → memory`);
   }
 
-  if (api.ontology && api.plugins?.has("skills")) {
+  if (api.plugins?.has("skills")) {
     let skills: Array<{ name: string; description?: string }> = [];
     try {
       skills = (await api.plugins.call("skills", "discover_skills", "")) as Array<{ name: string; description?: string }>;
     } catch (err) {
       console.warn("  ⚠️ Skills plugin discover_skills failed:", (err as Error).message);
     }
-    // Fallback: scan skills dirs so ontology gets Skill nodes even when plugin returns empty
+    // Fallback: scan skills dirs directly when the plugin returns empty
     if (!Array.isArray(skills) || skills.length === 0) {
       const skillsDirs: string[] = [];
       const sys = config.system as { skillsDir?: string };
@@ -479,26 +382,20 @@ export async function doctorIngestDocsCommand(options: { clean?: boolean } = {})
       for (const s of skills) {
         const name = typeof s === "object" && s?.name ? s.name : String(s);
         const desc = typeof s === "object" && s?.description ? s.description : "";
-        await api.ontology.setNode({
-          id: `Skill-${name}`,
-          type: "Skill",
-          name,
-          summary: desc.slice(0, 500),
-          domain: "skills",
-        });
+        await api.memory.store(`skill-${name}`, { name, summary: desc.slice(0, 500) });
         skillCount++;
       }
-      if (!process.env.RONIN_QUIET) console.log(`  ✅ ${skillCount} skills → ontology`);
+      if (!process.env.RONIN_QUIET) console.log(`  ✅ ${skillCount} skills → memory`);
     }
   }
 
   await syncListCapabilities(api);
-  if (!process.env.RONIN_QUIET) console.log("  ✅ List-all capabilities (skills, tools) → ontology");
+  if (!process.env.RONIN_QUIET) console.log("  ✅ List-all capability notes (skills, tools) → memory");
 
-  await syncMessagingAndUserNodes(api, config);
-  if (!process.env.RONIN_QUIET) console.log("  ✅ MessagingPlatform / UserID (ontology) → ontology");
+  await syncMessagingPlatforms(api, config);
+  if (!process.env.RONIN_QUIET) console.log("  ✅ MessagingPlatform notes → memory");
 
   console.log("");
   console.log(`Ingested: ${docCount} reference docs, ${toolCount} tools, ${skillCount} skills.`);
-  console.log("Use ontology_search with type 'ReferenceDoc', 'Tool', 'Skill', 'MessagingPlatform', or 'UserID' to discover them.");
+  console.log("Use local.memory.search to discover them (refdoc-*, tool-*, skill-* keys).");
 }

@@ -23,7 +23,10 @@ let eventsAPI: EventsAPI | null = null;
  * - WHISPER_BINARY: Path to whisper.cpp binary
  * - DEEPGRAM_API_KEY: API key for Deepgram
  */
-const sttPlugin: Plugin = {
+// `satisfies` (not `: Plugin`) preserves concrete per-method signatures so the
+// self-reference below (`sttPlugin.methods.transcribe`) resolves to a real,
+// always-defined method instead of an optional index-signature hit.
+const sttPlugin = {
   name: "stt",
   description: "Speech-to-text with cross-platform support",
 
@@ -162,7 +165,7 @@ const sttPlugin: Plugin = {
       return backends;
     }
   }
-};
+} satisfies Plugin;
 
 /**
  * Detect default backend based on platform and available tools

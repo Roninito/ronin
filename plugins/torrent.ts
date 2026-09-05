@@ -75,8 +75,8 @@ function parseSize(sizeStr: string): number {
   const match = sizeStr.match(/^([\d.]+)\s*([KMGT]?B)$/i);
   if (!match) return 0;
 
-  const value = parseFloat(match[1]);
-  const unit = match[2].toUpperCase() || "B";
+  const value = parseFloat(match[1]!);
+  const unit = match[2]!.toUpperCase() || "B";
   return value * (units[unit] || 1);
 }
 
@@ -159,8 +159,9 @@ async function search1337x(
     // Fetch magnet links from detail pages (limit to first 5 to avoid rate limiting)
     const detailLimit = Math.min(results.length, 5);
     for (let i = 0; i < detailLimit; i++) {
+      const result = results[i]!;
       try {
-        const detailResponse = await fetchWithTimeout(results[i].url);
+        const detailResponse = await fetchWithTimeout(result.url);
         if (detailResponse.ok) {
           const detailHtml = await detailResponse.text();
           const $detail = cheerio.load(detailHtml);
@@ -168,14 +169,14 @@ async function search1337x(
           // Find magnet link
           const magnetLink = $detail('a[href^="magnet:"]').attr("href");
           if (magnetLink) {
-            results[i].magnet = magnetLink;
+            result.magnet = magnetLink;
           }
 
           // Small delay to avoid rate limiting
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
       } catch (error) {
-        console.warn(`Failed to fetch magnet for ${results[i].title}:`, error);
+        console.warn(`Failed to fetch magnet for ${result.title}:`, error);
       }
     }
 
@@ -265,7 +266,7 @@ const torrentPlugin: Plugin = {
           torrentClient.add(
             magnetOrPath,
             { path: downloadPath },
-            (torrent) => {
+            (torrent: WebTorrent.Torrent) => {
               // Wait for metadata to be ready
               torrent.on("ready", () => {
                 const status = getTorrentStatus(torrent);
@@ -276,7 +277,7 @@ const torrentPlugin: Plugin = {
                 });
               });
 
-              torrent.on("error", (error) => {
+              torrent.on("error", (error: unknown) => {
                 reject(
                   new Error(
                     `Torrent error: ${error instanceof Error ? error.message : String(error)}`
@@ -287,7 +288,7 @@ const torrentPlugin: Plugin = {
           );
 
           // Handle client-level errors
-          torrentClient.on("error", (error) => {
+          torrentClient.on("error", (error: unknown) => {
             reject(
               new Error(
                 `WebTorrent client error: ${error instanceof Error ? error.message : String(error)}`
@@ -308,7 +309,7 @@ const torrentPlugin: Plugin = {
     list: async (): Promise<TorrentStatus[]> => {
       try {
         const torrentClient = getClient();
-        return torrentClient.torrents.map((torrent) =>
+        return torrentClient.torrents.map((torrent: WebTorrent.Torrent) =>
           getTorrentStatus(torrent)
         );
       } catch (error) {

@@ -15,7 +15,7 @@ export class DatabaseAPI {
    */
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     const stmt = this.db.prepare(sql);
-    return stmt.all(...params) as T[];
+    return stmt.all(...(params as any[])) as T[];
   }
 
   /**
@@ -23,7 +23,7 @@ export class DatabaseAPI {
    */
   async execute(sql: string, params: unknown[] = []): Promise<void> {
     const stmt = this.db.prepare(sql);
-    stmt.run(...params);
+    stmt.run(...(params as any[]));
   }
 
   /**
@@ -35,11 +35,11 @@ export class DatabaseAPI {
       const tx: Transaction = {
         query: async <T>(sql: string, params: unknown[] = []): Promise<T[]> => {
           const stmt = this.db.prepare(sql);
-          return stmt.all(...params) as T[];
+          return stmt.all(...(params as any[])) as T[];
         },
         execute: async (sql: string, params: unknown[] = []): Promise<void> => {
           const stmt = this.db.prepare(sql);
-          stmt.run(...params);
+          stmt.run(...(params as any[]));
         },
       };
 

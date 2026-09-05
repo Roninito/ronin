@@ -130,7 +130,10 @@ async function askRunningInstance(
   let lastChunkTime = Date.now();
   const startedAt = Date.now();
 
-  const readChunkWithTimeout = async (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+  // No explicit return-type annotation: let it infer from reader.read() directly, since
+  // Uint8Array's buffer-type generic param (added in a recent TS lib update) makes a
+  // hand-written ReadableStreamReadResult<Uint8Array> annotation a mismatch here.
+  const readChunkWithTimeout = async () => {
     const now = Date.now();
     const remainingTotal = ASK_TOTAL_TIMEOUT_MS - (now - startedAt);
     const remainingIdle = ASK_IDLE_TIMEOUT_MS - (now - lastChunkTime);
@@ -150,7 +153,7 @@ async function askRunningInstance(
   };
 
   while (true) {
-    const { done, value } = (await readChunkWithTimeout()) as ReadableStreamReadResult<Uint8Array>;
+    const { done, value } = await readChunkWithTimeout();
 
     if (done) break;
     const chunk = decoder.decode(value, { stream: true });

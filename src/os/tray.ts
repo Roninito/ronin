@@ -12,6 +12,7 @@
  */
 
 import SysTray from "systray2";
+import type { MenuItem as SysTrayMenuItem, Menu as SysTrayMenu } from "systray2";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { platform, homedir } from "os";
@@ -371,9 +372,12 @@ export function updateMenuItem(
 ): void {
   if (!trayInstance) return;
 
+  // Cast: systray2's MenuItem requires title/tooltip, but every real caller here only
+  // ever patches `checked` (see the three onClick handlers below) — the native systray
+  // process applies this as a partial patch by seq_id, not a full-item replacement.
   trayInstance.sendAction({
     type: "update-item",
-    item: updates,
+    item: updates as SysTrayMenuItem,
     seq_id: seqId,
   });
 }
@@ -478,9 +482,11 @@ export function updateTrayIcon(iconPath: string): void {
 
   try {
     const icon = readFileSync(iconPath).toString("base64");
+    // Cast: same partial-patch situation as updateMenuItem() above — systray2's Menu
+    // type requires icon/title/tooltip/items, but this only ever patches one field.
     trayInstance.sendAction({
       type: "update-menu",
-      menu: { icon },
+      menu: { icon } as SysTrayMenu,
     });
   } catch (error) {
     console.error("[tray] Failed to update icon:", error);
@@ -495,7 +501,7 @@ export function updateTrayTitle(title: string): void {
 
   trayInstance.sendAction({
     type: "update-menu",
-    menu: { title },
+    menu: { title } as SysTrayMenu,
   });
 }
 

@@ -30,7 +30,7 @@ export async function pluginInfoCommand(
   console.log(`\nMethods (${plugin.methods.length}):\n`);
 
   for (const methodName of plugin.methods) {
-    const method = plugin.plugin.methods[methodName];
+    const method = plugin.plugin.methods[methodName]!; // methodName comes from plugin.methods, this object's own key list
     console.log(`  • ${methodName}`);
     console.log(`    Type: ${typeof method === "function" ? "function" : "unknown"}`);
     console.log(`    Async: ${method.constructor.name === "AsyncFunction" ? "yes" : "no"}`);

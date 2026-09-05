@@ -128,7 +128,7 @@ function rollbackUpdate(): void {
     return;
   }
 
-  const latestBackup = backups[0];
+  const latestBackup = backups[0]!; // length checked above
   const backupPath = join(backupRoot, latestBackup);
   const roninDir = resolve(import.meta.dir, "../../..");
 

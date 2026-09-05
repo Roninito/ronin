@@ -259,31 +259,31 @@ export default class OSBridgeAgent extends BaseDuty {
     this.api.events.on("os.file.selected", async (data: unknown) => {
       const event = data as FileSelectedEvent;
       await this.handleFileSelected(event);
-    }, "os-bridge");
+    });
 
     // Text selected from OS
     this.api.events.on("os.text.selected", async (data: unknown) => {
       const event = data as TextSelectedEvent;
       await this.handleTextSelected(event);
-    }, "os-bridge");
+    });
 
     // Clipboard changed
     this.api.events.on("os.clipboard.changed", async (data: unknown) => {
       const event = data as ClipboardChangedEvent;
       await this.handleClipboardChanged(event);
-    }, "os-bridge");
+    });
 
     // Shortcut triggered
     this.api.events.on("os.shortcut.triggered", async (data: unknown) => {
       const event = data as ShortcutTriggeredEvent;
       await this.handleShortcutTriggered(event);
-    }, "os-bridge");
+    });
 
     // Notification clicked
     this.api.events.on("os.notification.clicked", async (data: unknown) => {
       const event = data as NotificationClickedEvent;
       await this.handleNotificationClicked(event);
-    }, "os-bridge");
+    });
 
     console.log("[os-bridge] OS event listeners registered");
   }

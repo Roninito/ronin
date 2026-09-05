@@ -4,7 +4,7 @@
  * Pre-built workflows demonstrating the composed tools system
  */
 
-import type { WorkflowDefinition } from "../tools/types.js";
+import type { WorkflowDefinition } from "../types.js";
 
 /**
  * Research and visualize workflow

@@ -298,11 +298,11 @@ export default class OnboardingWizardAgent extends BaseDuty {
    */
   private getAuthService(): any {
     // Use getAll() to get the full config object
-    const config = this.api.config.getAll ? this.api.config.getAll() : this.api.config;
+    const config = this.api.config.getAll();
     const authFile = join(homedir(), ".ronin", "auth.json");
     
     return {
-      verifyPassword: (pwd: string) => pwd === (config.password || "roninpass"),
+      verifyPassword: (pwd: string) => pwd === (config.configEditor?.password || "roninpass"),
       addUser: async (platform: string, userId: string) => {
         try {
           // Load existing auth data
@@ -379,7 +379,7 @@ export default class OnboardingWizardAgent extends BaseDuty {
   private async loadConfigValues(): Promise<any> {
     try {
       // Use getAll() to get the full config object
-      const config = this.api.config.getAll ? this.api.config.getAll() : this.api.config;
+      const config = this.api.config.getAll();
       
       // Check CLI tools
       const cliTools = await this.checkCliToolsInstalled();
@@ -387,7 +387,7 @@ export default class OnboardingWizardAgent extends BaseDuty {
       return {
         telegram: {
           botToken: config.telegram?.botToken || '',
-          enabled: config.telegram?.enabled || false
+          enabled: !!config.telegram?.botToken
         },
         discord: {
           botToken: config.discord?.botToken || '',
@@ -395,7 +395,7 @@ export default class OnboardingWizardAgent extends BaseDuty {
         },
         ai: {
           ollamaModel: config.ai?.ollamaModel || 'ministral-3:3b',
-          openaiKey: config.ai?.openaiApiKey || '',
+          openaiKey: config.ai?.openai?.apiKey || '',
           provider: config.ai?.provider || 'ollama'
         },
         braveSearch: {

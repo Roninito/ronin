@@ -4,12 +4,12 @@
  * Abstract base for cloud model providers (OpenAI, Anthropic, etc.)
  */
 
-import type { 
-  CloudFeature, 
-  CloudResult, 
+import type {
+  CloudFeature,
+  CloudResult,
   ExecutionOptions,
-  OpenAIFunctionSchema 
-} from "./types.js";
+  OpenAIFunctionSchema
+} from "../types.js";
 
 export interface CloudAdapterConfig {
   apiKey: string;
@@ -83,28 +83,37 @@ export abstract class CloudAdapter {
   abstract getUsageCost(response: any): number | undefined;
 
   /**
-   * Generate image
+   * Generate image. Optional capability — base implementation rejects; override in
+   * adapters that support it (see OpenAIAdapter). `abstract foo?()` doesn't actually
+   * exempt concrete subclasses from implementing it in TypeScript, so this needs a
+   * real (if trivial) base implementation rather than staying abstract.
    */
-  abstract generateImage?(
+  generateImage(
     prompt: string,
     options?: { size?: string; quality?: string; style?: string }
-  ): Promise<{ url: string; cost: number }>;
+  ): Promise<{ url: string; cost: number }> {
+    return Promise.reject(new Error(`${this.name} adapter does not support image generation`));
+  }
 
   /**
-   * Transcribe audio
+   * Transcribe audio. Optional capability — see generateImage above.
    */
-  abstract transcribeAudio?(
+  transcribeAudio(
     audioUrl: string,
     options?: { language?: string }
-  ): Promise<{ text: string; cost: number }>;
+  ): Promise<{ text: string; cost: number }> {
+    return Promise.reject(new Error(`${this.name} adapter does not support audio transcription`));
+  }
 
   /**
-   * Synthesize speech
+   * Synthesize speech. Optional capability — see generateImage above.
    */
-  abstract synthesizeSpeech?(
+  synthesizeSpeech(
     text: string,
     options?: { voice?: string; speed?: number }
-  ): Promise<{ audioUrl: string; cost: number }>;
+  ): Promise<{ audioUrl: string; cost: number }> {
+    return Promise.reject(new Error(`${this.name} adapter does not support speech synthesis`));
+  }
 
   /**
    * Analyze image with vision

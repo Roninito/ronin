@@ -30,8 +30,19 @@ export interface Plugin {
 
   /**
    * Plugin methods - functions that can be called via api.plugins.call()
+   *
+   * `any` here (not `unknown`) is deliberate: every plugin assigns this as an object
+   * literal of arrow functions with concrete parameter/return types, and TypeScript
+   * checks arrow-function object-literal properties contravariantly under
+   * `strictFunctionTypes`. A `(...args: unknown[]) => unknown` target rejects every
+   * one of those narrower signatures (`unknown` isn't assignable to e.g. `string`),
+   * which is exactly what made every real plugin method fail to type-check the moment
+   * plugins/** was added to tsconfig's `include` (2026-09-05) — `any` opts out of
+   * variance checking here, matching how this registry is actually dispatched
+   * (PluginsAPI.call invokes by name with untyped args; each plugin checks its own
+   * inputs at the top of its own methods).
    */
-  methods: Record<string, (...args: unknown[]) => unknown | Promise<unknown>>;
+  methods: Record<string, (...args: any[]) => any>;
 
   /**
    * Optional per-method tool metadata (real description + parameter schema) for methods

@@ -1,6 +1,31 @@
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import type { DesktopConfig, SystemConfig } from "../../config/types.js";
+
+/**
+ * Shape of ~/.ronin/config.json as read/written by this legacy flat-file loader (a
+ * separate, simpler read path from the structured ConfigService/FullConfig system —
+ * both read/write the same file, so `desktop`/`system` mirror ConfigService's own
+ * nested shape while the rest remain the plain string settings this file manages).
+ */
+export interface RoninConfigFile {
+  dutyDir?: string;
+  externalDutyDir?: string;
+  pluginDir?: string;
+  userPluginDir?: string;
+  grokApiKey?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
+  braveSearch?: { apiKey?: string };
+  realmUrl?: string;
+  realmCallsign?: string;
+  realmToken?: string;
+  realmLocalPort?: string;
+  mcp?: unknown;
+  desktop?: DesktopConfig;
+  system?: Partial<SystemConfig>;
+}
 
 /**
  * Configuration command: Set agent directory paths
@@ -153,7 +178,7 @@ export function ensureDefaultSkillsDir(): string {
  * Load configuration from file
  * Creates an empty config file if it doesn't exist
  */
-export async function loadConfig(): Promise<Record<string, string>> {
+export async function loadConfig(): Promise<RoninConfigFile> {
   const configPath = getConfigPath();
   if (existsSync(configPath)) {
     try {
@@ -178,7 +203,7 @@ export async function loadConfig(): Promise<Record<string, string>> {
 /**
  * Save configuration to file
  */
-async function saveConfig(config: Record<string, string>): Promise<void> {
+async function saveConfig(config: RoninConfigFile): Promise<void> {
   const configPath = getConfigPath();
   await Bun.write(configPath, JSON.stringify(config, null, 2));
 }

@@ -370,13 +370,13 @@ export default class ConfigEditorAgent extends BaseDuty {
           min: 1,
           max: 20,
           description: 'Log Retention (runs)',
-          helpText: 'Number of run log files to keep on disk and as ontology nodes'
+          helpText: 'Number of run log files to keep on disk'
         },
         logToFile: {
           type: 'boolean',
           default: true,
           description: 'Log to File',
-          helpText: 'Write per-run logs to ~/.ronin/logs/runs/ and ingest into ontology'
+          helpText: 'Write per-run logs to ~/.ronin/logs/runs/'
         }
       }
     },
@@ -693,7 +693,7 @@ export default class ConfigEditorAgent extends BaseDuty {
     if (req.method === "PUT") {
       const body = await req.json().catch(() => ({} as { routes?: unknown }));
       const routes = Array.isArray(body?.routes)
-        ? body.routes.map((r) => String(r).trim()).filter((r) => r.startsWith("/"))
+        ? body.routes.map((r: unknown) => String(r).trim()).filter((r: string) => r.startsWith("/"))
         : [];
       const deduped = Array.from(new Set(routes));
       await writeFile(this.dashboardNavPath, JSON.stringify({ routes: deduped }, null, 2), "utf-8");
@@ -890,7 +890,7 @@ export default class ConfigEditorAgent extends BaseDuty {
     const cookie = req.headers.get('cookie') || '';
     const sessionMatch = cookie.match(/config_session=([^;]+)/);
     if (!sessionMatch) return false;
-    return this.sessions.has(sessionMatch[1]);
+    return this.sessions.has(sessionMatch[1]!); // capture group is mandatory in the regex
   }
 
   /**
@@ -940,7 +940,7 @@ export default class ConfigEditorAgent extends BaseDuty {
     const cookie = req.headers.get('cookie') || '';
     const sessionMatch = cookie.match(/config_session=([^;]+)/);
     if (sessionMatch) {
-      this.sessions.delete(sessionMatch[1]);
+      this.sessions.delete(sessionMatch[1]!); // capture group is mandatory in the regex
     }
 
     return Response.json(

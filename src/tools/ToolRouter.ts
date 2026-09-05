@@ -5,6 +5,7 @@ import type {
   ToolContext,
   OpenAIFunctionSchema,
   ToolPolicy,
+  ToolPolicyRule,
   ValidationResult,
   ToolCompletedEvent,
   ToolPolicyViolationEvent,
@@ -125,8 +126,11 @@ export class ToolRouter {
       return this.createErrorResult(call, error);
     }
 
+    // resolvedName is guaranteed defined here: `tool` above came from
+    // `resolvedName ? this.tools.get(resolvedName) : undefined`, and we already
+    // returned early when `!tool` — so a truthy `tool` means resolvedName was truthy too.
     const effectiveCall: ToolCall = resolvedName !== call.name
-      ? { ...call, name: resolvedName }
+      ? { ...call, name: resolvedName! }
       : call;
 
     // Check policy
@@ -153,8 +157,12 @@ export class ToolRouter {
 
     // Execute with timing
     const startTime = Date.now();
-    let result: ToolResult;
-    let cached = false;
+    // Declared possibly-undefined (rather than definitely-assigned) because the two
+    // branches below that assign it are gated on unrelated conditions (`tool.cacheable`
+    // + a cache hit, vs. `!result`) that TS's control-flow analysis can't correlate on
+    // its own; checking `!result` directly (instead of a separate `cached` flag) lets TS
+    // narrow `result` to defined after this block.
+    let result: ToolResult | undefined;
 
     try {
       // Check cache first
@@ -163,12 +171,11 @@ export class ToolRouter {
         if (cachedResult) {
           console.log(`[ToolRouter] Cache hit for ${effectiveCall.name}`);
           result = cachedResult;
-          cached = true;
         }
       }
 
       // Execute if not cached
-      if (!cached) {
+      if (!result) {
         console.log(`[ToolRouter] Executing ${effectiveCall.name}`);
         const handlerResult = await tool.handler(effectiveCall.arguments, context);
         
@@ -395,7 +402,13 @@ export class ToolRouter {
         console.warn(`[ToolRouter] Skipping cache for ${call.name}: result too large (${resultJson.length} bytes)`);
         return;
       }
-      await this.api.memory.store(cacheKey, resultJson, { ttl });
+      // NOTE: `ttl` (tool.ttl, the per-tool cache lifetime) is accepted by this method's
+      // signature but can no longer be honored — api.memory.store() dropped its options/ttl
+      // parameter when the memory store was collapsed to plain markdown files (no expiry
+      // mechanism exists there today). Flagging rather than fixing: cached tool results
+      // now persist indefinitely instead of expiring, which is a real behavior change for
+      // any tool whose cached output can go stale (e.g. search/weather-style tools).
+      await this.api.memory.store(cacheKey, resultJson);
     } catch (error) {
       console.error('[ToolRouter] Failed to cache result:', error);
     }

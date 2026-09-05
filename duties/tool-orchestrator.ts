@@ -68,7 +68,6 @@ export default class ToolOrchestratorAgent extends BaseDuty {
     const strategySection = this.buildStrategySection(toolStrategy);
     const systemPrompt = buildSystemPrompt(context, {
       includeRouteList: false,
-      ontologyHint: context.hasOntology,
       sections: [strategySection],
     });
 
@@ -285,36 +284,59 @@ Content Creation Guidelines:
    */
   static webhook = "/api/tool-orchestrator";
 
-  async onWebhook(req: Request): Promise<Response> {
+  // BaseDuty declares onWebhook?(_payload: unknown): Promise<void>, but the only real
+  // caller (DutyRegistry's `static webhook` dispatcher) invokes it with a plain
+  // `{url, method, headers, payload}` object — never a real Request — and uses
+  // whatever this returns as the JSON response body (a `void`-typed function is
+  // allowed to actually return a value; TS ignores it, but DutyRegistry doesn't).
+  // This was previously written against a Request/Response contract that the
+  // dispatcher never provides, so every call to this webhook threw
+  // "req.json is not a function" and fell through to DutyRegistry's own 500 handler.
+  override async onWebhook(payload: unknown): Promise<void> {
+    const req = payload as {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      payload: unknown;
+    };
+
     if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+      return { contentType: "text/plain", body: "Method not allowed", status: 405 } as any;
     }
 
     try {
-      const body = await req.json();
+      const body = (req.payload ?? {}) as {
+        query?: string;
+        conversationId?: string;
+        workflow?: unknown;
+        args?: Record<string, unknown>;
+      };
       const { query, conversationId, workflow } = body;
 
       if (!query && !workflow) {
-        return Response.json({ error: "Query or workflow required" }, { status: 400 });
+        return {
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Query or workflow required" }),
+          status: 400,
+        } as any;
       }
 
       let result;
       if (workflow) {
-        result = await this.runWorkflow(workflow, body.args || {}, conversationId);
+        result = await this.runWorkflow(workflow as string, body.args || {}, conversationId);
       } else {
-        result = await this.handleQuery(query, conversationId);
+        // The guard above already ensures `query` is set whenever `workflow` isn't.
+        result = await this.handleQuery(query!, conversationId);
       }
 
-      return Response.json({
-        success: true,
-        ...result,
-      });
+      return { success: true, ...result } as any;
     } catch (error) {
       console.error("[tool-orchestrator] Webhook error:", error);
-      return Response.json(
-        { error: error instanceof Error ? error.message : "Unknown error" },
-        { status: 500 }
-      );
+      return {
+        contentType: "application/json",
+        body: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+        status: 500,
+      } as any;
     }
   }
 }

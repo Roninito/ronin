@@ -1,7 +1,6 @@
 import type { ToolDefinition, ToolContext, ToolResult } from "../types.js";
 import type { DutyAPI } from "../../types/index.js";
 import { parse, serialize, toJson, fromJson, fromJsonToScript } from "../../ronin-script/index.js";
-import { ingestRoninScriptToOntology, exportOntologyToRoninScript } from "../../ronin-script/ontology.js";
 
 // Global queue to ensure TTS playback is strictly serialized across all callers.
 let speechQueue: Promise<void> = Promise.resolve();
@@ -51,7 +50,7 @@ async function sendToChatChannel(
     if (!api.discord) return false;
     const dc = api.config.getDiscord();
     if (!dc.enabled || !dc.botToken || !dc.channelIds?.length) return false;
-    const channelId = dc.channelIds[0];
+    const channelId = dc.channelIds[0]!; // length check above guarantees index 0 exists
     try {
       const clientId = await api.discord.initBot(dc.botToken);
       await api.discord.sendMessage(clientId, channelId, body);
@@ -152,14 +151,14 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
   register({
     name: "local.db.query",
     description:
-      "Run a read-only SELECT query against Ronin's database (ronin.db). Use for: listing tables (e.g. SELECT name FROM sqlite_master WHERE type='table'), ontology/memory stats, or inspecting data. Only SELECT is allowed; other SQL is rejected. Limit results to 100 rows.",
+      "Run a read-only SELECT query against Ronin's database (ronin.db) — contracts, tasks, katas, and usage tables. Memory/conversation/blackboard content lives in plain markdown files under memory/, not this database; use local.memory.search for that instead. Only SELECT is allowed; other SQL is rejected. Limit results to 100 rows.",
     parameters: {
       type: "object",
       properties: {
         query: {
           type: "string",
           description:
-            "A single SELECT SQL statement (e.g. \"SELECT name FROM sqlite_master WHERE type='table'\", or \"SELECT type, COUNT(*) as count FROM ontology_nodes GROUP BY type\")",
+            "A single SELECT SQL statement (e.g. \"SELECT name FROM sqlite_master WHERE type='table'\", or \"SELECT status, COUNT(*) as count FROM tasks_v2 GROUP BY status\")",
         },
         params: {
           type: "array",
@@ -325,6 +324,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       }
     },
     riskLevel: "low",
+    cacheable: false,
   });
 
   register({
@@ -366,6 +366,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       }
     },
     riskLevel: "low",
+    cacheable: false,
   });
 
   register({
@@ -398,23 +399,23 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       }
     },
     riskLevel: "low",
+    cacheable: false,
   });
 
   register({
     name: "local.ronin_script.aggregate",
-    description: "Aggregate memory search and optionally ontology into a single Ronin Script snapshot for token-efficient context.",
+    description: "Aggregate a memory search into a token-efficient Ronin Script snapshot.",
     parameters: {
       type: "object",
       properties: {
         query: { type: "string", description: "Search query for memory" },
         memoryLimit: { type: "number", default: 10, description: "Max memory results" },
-        ontologyType: { type: "string", description: "Optional ontology type to include (e.g. Tool, ReferenceDoc, Skill)" },
-        ontologyLimit: { type: "number", default: 10, description: "Max ontology nodes to include" },
       },
       required: ["query"],
     },
     provider: "local",
-    handler: async (args: { query: string; memoryLimit?: number; ontologyType?: string; ontologyLimit?: number }): Promise<ToolResult> => {
+    cacheable: false,
+    handler: async (args: { query: string; memoryLimit?: number }): Promise<ToolResult> => {
       const startTime = Date.now();
       try {
         const memLimit = args.memoryLimit ?? 10;
@@ -423,22 +424,11 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
           type: "memory",
           values: [String(m.key ?? m.id), String(m.text ?? m.value ?? "").slice(0, 300), String(m.createdAt?.getTime() ?? "")],
         }));
-        let script = "";
-        if (api.ontology && args.ontologyType) {
-          const ontoLimit = args.ontologyLimit ?? 10;
-          const nodes = await api.ontology.search({ type: args.ontologyType, limit: ontoLimit });
-          for (const n of nodes) {
-            entities.push({
-              type: n.type,
-              values: [n.name ?? n.id, (n.summary ?? "").slice(0, 200)],
-            });
-          }
-        }
         const lines: string[] = ["# Entities"];
         for (const e of entities) {
           lines.push([e.type, ...e.values].join(" "));
         }
-        script = lines.join("\n");
+        const script = lines.join("\n");
         return {
           success: true,
           data: { script, entityCount: entities.length },
@@ -450,38 +440,6 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
           data: null,
           error: error instanceof Error ? error.message : "aggregate failed",
           metadata: { toolName: "local.ronin_script.aggregate", provider: "local", duration: Date.now() - startTime, cached: false, timestamp: Date.now(), callId: `local-${Date.now()}` },
-        };
-      }
-    },
-    riskLevel: "low",
-  });
-
-  register({
-    name: "local.ronin_script.ingest_ontology",
-    description: "Ingest Ronin Script into the ontology (entities → nodes, relationships → edges). Requires ontology plugin.",
-    parameters: {
-      type: "object",
-      properties: {
-        script: { type: "string", description: "Ronin Script content to ingest" },
-      },
-      required: ["script"],
-    },
-    provider: "local",
-    handler: async (args: { script: string }): Promise<ToolResult> => {
-      const startTime = Date.now();
-      try {
-        await ingestRoninScriptToOntology(api, args.script);
-        return {
-          success: true,
-          data: { ingested: true },
-          metadata: { toolName: "local.ronin_script.ingest_ontology", provider: "local", duration: Date.now() - startTime, cached: false, timestamp: Date.now(), callId: `local-${Date.now()}` },
-        };
-      } catch (error) {
-        return {
-          success: false,
-          data: null,
-          error: error instanceof Error ? error.message : "ingest failed",
-          metadata: { toolName: "local.ronin_script.ingest_ontology", provider: "local", duration: Date.now() - startTime, cached: false, timestamp: Date.now(), callId: `local-${Date.now()}` },
         };
       }
     },
@@ -609,7 +567,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       const safeCommands = Array.isArray(configuredCommands) && configuredCommands.length > 0
         ? configuredCommands
         : ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript', 'agent-browser'];
-      const baseCmd = args.command.split(' ')[0];
+      const baseCmd = args.command.split(' ')[0]!; // split() always returns >= 1 element
       
       if (!safeCommands.includes(baseCmd)) {
         return {
@@ -704,12 +662,17 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
           data = await response.text();
         }
         
+        // forEach (not .entries()/for-of) because tsconfig's `lib` has "DOM" but not
+        // "DOM.Iterable" — Headers' iterator protocol methods aren't typed without it.
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => { responseHeaders[key] = value; });
+
         return {
           success: response.ok,
           data: {
             status: response.status,
             statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
+            headers: responseHeaders,
             data,
           },
           metadata: {
@@ -769,7 +732,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
         
         return {
           success: true,
-          data: { response: response.content },
+          data: { response },
           metadata: {
             toolName: "local.reasoning",
             provider: "local",
@@ -959,12 +922,12 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
 
   // 8b. Skills tools (when skills plugin is loaded)
   if (api.skills) {
-    // List all skills — so agents can retrieve the skill list even when ontology has no Skill nodes.
+    // List all skills directly from disk.
     register({
       name: "skills.list",
       description:
         "Return the list of all installed Ronin AgentSkills (from ~/.ronin/skills and ./skills). " +
-        "Use when the user asks what skills are available, to discover skills, or when ontology_search for type 'Skill' returns empty. " +
+        "Use when the user asks what skills are available or to discover skills. " +
         "Returns array of { name, description }.",
       parameters: { type: "object", properties: {}, required: [] },
       provider: "local",
@@ -1097,7 +1060,10 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
           let skillName: string;
           let explored: { abilities: { name: string; description?: string; input: string[] }[] } | null = null;
           let abilities: { name: string; description?: string; input: string[] }[];
-          let picked: { name: string; description?: string; input: string[] };
+          // Undefined only transiently: the aiChoice branch below returns early when this
+          // stays unset; the fallback branch always assigns a defined value (see its own
+          // guard). By the time `picked` is read after the if/else, it's always defined.
+          let picked: { name: string; description?: string; input: string[] } | undefined;
           let abilityParams: Record<string, unknown>;
 
           if (aiChoice) {
@@ -1118,7 +1084,7 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
             }
             abilityParams = { ...aiChoice.params, ...(args.params ?? {}) };
           } else {
-            // Fallback: discover by query, ontology, keyword ability, regex params
+            // Fallback: discover by query, keyword ability, regex params
             let skills: { name: string; description: string }[] = [];
             try {
               skills = (await api.plugins.call("skills", "discover_skills", args.query)) as { name: string; description: string }[];
@@ -1159,43 +1125,7 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
               return { success: false, data: null, error: `No skills found for "${args.query}"`, metadata: meta(false) };
             }
 
-            if (api.ontology) {
-              try {
-                const historyNodes = await api.ontology.history({ nameLike: args.query, successfulOnly: true, limit: 3 });
-                const preferredSkillIds = new Set<string>();
-                for (const node of historyNodes) {
-                  const related = await api.ontology!.related({ nodeId: node.id, relation: "consists_of", direction: "out", limit: 10 });
-                  for (const r of related) {
-                    if (r.node?.id) preferredSkillIds.add(r.node.id);
-                  }
-                }
-                if (preferredSkillIds.size > 0) {
-                  skills.sort((a, b) => {
-                    const aPrefer = preferredSkillIds.has(`Skill-${a.name}`) ? 1 : 0;
-                    const bPrefer = preferredSkillIds.has(`Skill-${b.name}`) ? 1 : 0;
-                    return bPrefer - aPrefer;
-                  });
-                }
-              } catch {
-                // ignore
-              }
-            }
-
-            skillName = skills[0].name;
-            if (api.ontology && skills.length > 1) {
-              try {
-                const failures = await api.ontology.search({ type: "Failure", nameLike: skillName, limit: 3 });
-                if (failures.length > 0) {
-                  const next = skills.find((s, i) => i > 0 && s.name !== skillName);
-                  if (next) {
-                    const nextFailures = await api.ontology.search({ type: "Failure", nameLike: next.name, limit: 3 });
-                    if (nextFailures.length < failures.length) skillName = next.name;
-                  }
-                }
-              } catch {
-                // ignore
-              }
-            }
+            skillName = skills[0]!.name; // length check above guarantees index 0 exists
 
             try {
               explored = await (api.plugins.call("skills", "explore_skill", skillName, false) as Promise<{
@@ -1231,7 +1161,7 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
                 }
               }
             }
-            picked = fallbackPicked ?? abilities[0];
+            picked = fallbackPicked ?? abilities[0]!; // length check above guarantees index 0 exists
             abilityParams = { ...(args.params ?? {}) };
           }
 
@@ -1248,7 +1178,7 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
 
           if (picked.input?.includes("query") && abilityParams.query == null) {
             const m = actionText.match(/(?:search|find|look\s*up|query)\s+(?:for\s+)?["']?([^"']+)["']?\s*$/i);
-            if (m) abilityParams.query = m[1].trim();
+            if (m) abilityParams.query = m[1]!.trim(); // capture group is mandatory in the regex
           }
 
           // Extract location for weather-type abilities
@@ -1888,7 +1818,7 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
           }
           // Parse "button returned:Yes" format
           const match = out.match(/button returned:(.+)/);
-          const chosen = match ? match[1].trim() : buttons[0];
+          const chosen = match ? match[1]!.trim() : buttons[0]; // capture group is mandatory in the regex
           return {
             success: true,
             data: { answer: chosen, buttons, title: args.title },

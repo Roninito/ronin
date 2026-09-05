@@ -88,14 +88,11 @@ function buildCondensedToolContext(api: DutyAPI): string {
     "local.ronin_script.parse",
     "local.ronin_script.to_json",
     "local.ronin_script.from_json",
-    "ontology_search",
-    "ontology_related",
-    "ontology_stats",
   ].filter(has);
 
   const mcp = collectPrefix("mcp_", 8);
   const plugin = tools
-    .filter((t) => !t.startsWith("local.") && !t.startsWith("ontology_") && !t.startsWith("mcp_") && t.includes("_"))
+    .filter((t) => !t.startsWith("local.") && !t.startsWith("mcp_") && t.includes("_"))
     .slice(0, 8);
 
   const lines: string[] = ["AVAILABLE TOOLS (CONDENSED):"];
@@ -105,7 +102,7 @@ function buildCondensedToolContext(api: DutyAPI): string {
     lines.push(`- MCP (enabled): ${mcp.join(", ")}`);
     lines.push("- MCP naming convention: mcp_<server>_<tool>");
   }
-  lines.push("- If unsure which tool to call, do tool discovery first via ontology_search(type: \"Tool\" or \"ReferenceDoc\") and then call the discovered tool.");
+  lines.push("- If unsure which tool to call, do tool discovery first via local.memory.search (matches refdoc-*/tool-* notes) and then call the discovered tool.");
   return lines.join("\n");
 }
 
@@ -145,19 +142,17 @@ async function buildSkillContext(api: DutyAPI): Promise<string> {
  */
 async function buildMessengerSystemPrompt(
   api: DutyAPI,
-  isFirstMessage: boolean,
-  hasOntology: boolean
+  isFirstMessage: boolean
 ): Promise<string> {
   const context = await getRoninContext(api);
   const condensedToolContext = buildCondensedToolContext(api);
   const skillContext = await buildSkillContext(api);
-  
+
   const basePrompt = buildSystemPrompt(context, {
     includeArchitecture: isFirstMessage,
-    includeAgentList: isFirstMessage,
+    includeDutyList: isFirstMessage,
     includePluginList: isFirstMessage,
     includeRouteList: false,
-    ontologyHint: hasOntology,
   });
 
   const sarInstructions = `
@@ -171,7 +166,7 @@ You operate in a SAR (Sense-Act-Respond) loop with these phases:
 **MULTIPLE TOOL CALLS PER ITERATION:**
 - You can call MULTIPLE tools in a single iteration - batch them efficiently
 - List all tool calls you need at once; they will execute in parallel
-- Example: Call ontology_search AND local.memory.search together if both are relevant
+- Example: Call local.memory.search and local.db.query together if both are relevant
 - Maximum iterations: 5, so batch tool calls wisely
 
 **TOOL CALL FORMAT:**
@@ -197,7 +192,7 @@ You operate in a SAR (Sense-Act-Respond) loop with these phases:
 **EXAMPLES:**
 - "What's the weather?" → Call skills.run → Respond: "Here's the weather: [result]"
 - "Show my notes" → Call skills.run → Respond: "Found these notes: [formatted list]"
-- "How does Ronin work?" → Use ontology_search + memory.search → Synthesize answer
+- "How does Ronin work?" → Use local.memory.search → Synthesize answer
 
 Remember: Tools are means to an end. After getting results, ALWAYS respond to the user.`;
 
@@ -253,11 +248,7 @@ function buildMessengerSAR(options: {
   stack.use(modelResolution);
 
   // 3. Ontology resolution (resolve references in context)
-  stack.use(
-    createOntologyResolveMiddleware({
-      maxDepth: 2,
-    })
-  );
+  stack.use(createOntologyResolveMiddleware());
 
   // 4. Ontology injection (inject ontology context)
   stack.use(
@@ -424,6 +415,10 @@ export default class MessengerAgent extends BaseDuty {
       console.log("[intent-ingress] Telegram API not available");
       return;
     }
+    // Captured as a local const so it stays narrowed (non-optional) inside the
+    // .then()/.catch() closures below — TS can't carry the `this.api.telegram`
+    // guard above across an async closure boundary on its own.
+    const telegram = this.api.telegram;
 
     const token = this.api.config.getTelegram().botToken;
     if (!token) {
@@ -432,14 +427,14 @@ export default class MessengerAgent extends BaseDuty {
     }
 
     // Initialize bot (will reuse existing if already initialized)
-    this.api.telegram.initBot(token).then((botId) => {
+    telegram.initBot(token).then((botId) => {
       // Store botId for later use
       this.api.memory.store("telegram_bot_id", botId).catch(() => {});
 
       if (registeredTelegramHandlers.has(botId)) {
         console.log(`[messenger] Telegram handler already registered for bot ${botId}, skipping duplicate`);
       } else {
-        this.api.telegram.onMessage(botId, (msg: any) => {
+        telegram.onMessage(botId, (msg: any) => {
           this.handleTelegramMessage(msg, botId).catch((err) => {
             console.error("[messenger] Error handling Telegram message:", err);
           });
@@ -457,7 +452,7 @@ export default class MessengerAgent extends BaseDuty {
             if (registeredTelegramHandlers.has(storedBotId as string)) {
               console.log(`[messenger] Telegram handler already registered for bot ${storedBotId}, skipping duplicate`);
             } else {
-              this.api.telegram.onMessage(storedBotId as string, (msg: any) => {
+              telegram.onMessage(storedBotId as string, (msg: any) => {
                 this.handleTelegramMessage(msg, storedBotId as string).catch((err) => {
                   console.error("[messenger] Error handling Telegram message:", err);
                 });
@@ -639,10 +634,9 @@ export default class MessengerAgent extends BaseDuty {
     const conversationKey = this.getConversationKey(message.sourceChannel, message.sourceUser);
     await this.hydrateConversationIfNeeded(conversationKey);
     const isFirst = this.isFirstMessage(conversationKey);
-    const hasOntology = this.api.plugins.has("ontology");
 
     // Build dynamic system prompt with Ronin context and SAR instructions
-    const systemPrompt = await buildMessengerSystemPrompt(this.api, isFirst, hasOntology);
+    const systemPrompt = await buildMessengerSystemPrompt(this.api, isFirst);
 
     // Get conversation history (as closure for middleware)
     const getHistory = () => {

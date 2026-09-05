@@ -45,7 +45,7 @@ function getSkillRoots(): string[] {
 
 function parseFrontmatter(content: string): { name: string; description: string } {
   const parts = content.split(/\n---\s*\n/);
-  const frontmatter = parts.length > 1 ? parts[0] : "";
+  const frontmatter = parts.length > 1 ? (parts[0] ?? "") : "";
   const name = frontmatter.match(/name:\s*(.+)/)?.[1]?.trim().replace(/^["']|["']$/g, "") || "";
   const description = frontmatter.match(/description:\s*(.+)/)?.[1]?.trim().replace(/^["']|["']$/g, "") || "";
   return { name, description };
@@ -80,7 +80,9 @@ function parseSkillsShLinks(markdown: string): Array<{ owner: string; repo: stri
   const out: Array<{ owner: string; repo: string; skill: string }> = [];
   const re = /\]\(\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.:-]+)\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1], repo: m[2], skill: m[3] });
+  // All 3 groups are `+` (one-or-more) character classes, so a successful match always
+  // captures a non-empty string for each — safe to assert past noUncheckedIndexedAccess.
+  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1]!, repo: m[2]!, skill: m[3]! });
   return out;
 }
 
@@ -88,7 +90,8 @@ function parsePlaybooksSkillLinks(markdown: string): Array<{ owner: string; repo
   const out: Array<{ owner: string; repo: string; skill: string }> = [];
   const re = /\]\(\/skills\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.:-]+)\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1], repo: m[2], skill: m[3] });
+  // Same reasoning as parseSkillsShLinks above: all 3 groups are `+`, always non-empty.
+  while ((m = re.exec(markdown)) !== null) out.push({ owner: m[1]!, repo: m[2]!, skill: m[3]! });
   return out;
 }
 
@@ -220,7 +223,8 @@ async function discoverRemoteSkills(
 function resolveRemoteInstallRepo(input: string): { repoUrl: string; suggestedName?: string } | null {
   const parseOwnerRepoSkill = (parts: string[]): { owner: string; repo: string; skill?: string } | null => {
     if (parts.length < 2) return null;
-    return { owner: parts[0], repo: parts[1], skill: parts[2] };
+    // length >= 2 guaranteed above, so owner/repo are always present; skill (index 2) stays optional.
+    return { owner: parts[0]!, repo: parts[1]!, skill: parts[2] };
   };
 
   if (input.startsWith("skills.sh:") || input.startsWith("playbooks.com:")) {
@@ -310,8 +314,9 @@ async function exploreLocalSkill(
     const instructions = parts.length > 1 ? parts.slice(1).join("\n---\n").trim() : skillFile.content;
     const frontmatter = parseFrontmatter(skillFile.content);
 
+    // (.+) always captures at least one char on a match, so m[1] is never undefined here.
     const abilities = Array.from(instructions.matchAll(/\n###\s+(.+)\n/g)).map((m) => ({
-      name: m[1].trim(),
+      name: m[1]!.trim(),
     }));
 
     const scripts: Array<{ file: string; content: string }> = [];

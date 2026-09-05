@@ -229,7 +229,7 @@ export default class EventMonitorAgent extends BaseDuty {
 
     // Add to index
     if (!index[event.type]) index[event.type] = [];
-    index[event.type].push(event.id);
+    index[event.type]!.push(event.id);
 
     // Update metadata
     const meta = (await this.api.memory.retrieve("event_monitor_meta")) as {

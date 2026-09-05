@@ -83,6 +83,15 @@ export interface AIConfig {
   openai: OpenAICompatConfig;
   /** When true, always use the smart/cloud model for tool-calling operations. Useful when local models don't support function calling well. */
   useSmartForTools?: boolean;
+  /**
+   * FLAGGED, not wired up: default config ships a per-provider (ollama/anthropic/
+   * lmstudio) config block here, but nothing in the codebase reads `getAI().providers`
+   * — the fields it duplicates (ollamaUrl, ollamaModel, openai, etc.) are the ones
+   * actually used, above. Looks like unfinished "Phase 1: New unified provider
+   * configuration" scaffolding (see defaults.ts) — kept optional/untyped rather than
+   * silently deleted or fleshed out, pending a decision on whether to finish or drop it.
+   */
+  providers?: Record<string, Record<string, unknown>>;
 }
 
 export interface GeminiConfig {
@@ -114,7 +123,7 @@ export interface SystemConfig {
   skillProviders?: string[];
   /** Include configured remote providers in discover commands by default */
   includeRemoteSkillsOnDiscover?: boolean;
-  /** Number of run log files to retain on disk and as ontology nodes. Default: 2 */
+  /** Number of run log files to retain on disk. Default: 2 */
   logRetentionRuns?: number;
   /** Whether to write per-run log files to ~/.ronin/logs/runs/. Default: true */
   logToFile?: boolean;

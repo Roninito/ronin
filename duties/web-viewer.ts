@@ -134,7 +134,7 @@ export default class WebViewerAgent extends BaseDuty {
         content = await response.text();
         // Extract title
         const titleMatch = content.match(/<title[^>]*>([^<]*)<\/title>/i);
-        title = titleMatch ? titleMatch[1].trim() : undefined;
+        title = titleMatch ? titleMatch[1]!.trim() : undefined; // capture group is mandatory in the regex
       } else {
         // Text format - extract readable text
         const html = await response.text();
@@ -142,7 +142,7 @@ export default class WebViewerAgent extends BaseDuty {
         
         // Extract title
         const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-        title = titleMatch ? titleMatch[1].trim() : undefined;
+        title = titleMatch ? titleMatch[1]!.trim() : undefined; // capture group is mandatory in the regex
       }
 
       // Check content size

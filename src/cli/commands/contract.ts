@@ -88,6 +88,8 @@ export interface ContractOptions {
   outputFile?: string;
   // delete
   force?: boolean;
+  // import: override the name embedded in the imported file
+  name?: string;
   // propose
   yes?: boolean;
   // internal: skip plugin loading for read-only subcommands
@@ -890,7 +892,7 @@ export async function contractCommand(args: string[], options: ContractOptions):
   // Subcommands that don't need plugins — skip MCP/plugin loading for clean output
   const PLUGIN_FREE = new Set(["list", "show", "create", "update", "enable", "disable",
     "delete", "history", "validate", "register", "export", "import", "stats"]);
-  if (PLUGIN_FREE.has(subcommand)) options._skipPlugins = true;
+  if (PLUGIN_FREE.has(subcommand ?? "")) options._skipPlugins = true;
 
   switch (subcommand) {
     case "list":     await cmdList(subArgs, options); break;

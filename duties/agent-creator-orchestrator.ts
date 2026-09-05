@@ -27,8 +27,8 @@ export default class AgentCreatorOrchestrator extends BaseDuty {
     super(api);
 
     // Register event listeners
-    this.api.events.on("create_agent", this.handleCreate.bind(this));
-    this.api.events.on("cancel_creation", this.handleCancel.bind(this));
+    this.api.events.on("create_agent", (data) => this.handleCreate(data as { task: string }));
+    this.api.events.on("cancel_creation", (data) => this.handleCancel(data as { taskId?: string }));
 
     console.log("🎯 Agent Creator Orchestrator ready, listening for events...");
   }

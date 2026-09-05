@@ -7,6 +7,7 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolDefinition, ToolContext, ToolResult } from "../tools/types.js";
 import type { ToolRouter } from "../tools/ToolRouter.js";
 import type { DutyAPI } from "../types/index.js";
@@ -143,10 +144,12 @@ export class MCPClientManager {
       const callId = `mcp-${serverName}-${Date.now()}`;
 
       try {
-        const result = await client.callTool({
+        // Cast: the no-resultSchema overload of callTool() infers an untyped `{}`
+        // for the result; CallToolResult is the SDK's own real shape for it.
+        const result = (await client.callTool({
           name: mcpToolName,
           arguments: args ?? {},
-        });
+        })) as CallToolResult;
 
         if (result.isError) {
           return {

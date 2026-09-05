@@ -7,7 +7,6 @@ import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureD
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
 import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync, readFileSync } from "fs";
-import { readFile } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
 
@@ -23,6 +22,12 @@ export interface StartOptions {
   daemon?: boolean;
   /** Bind webhook server to 0.0.0.0 and show network URL (share on LAN). */
   host?: boolean;
+  /** CLI's `--port` flag (see src/cli/index.ts). NOTE: only affects the startup summary
+   *  display below — DutyRegistry.startWebhookServer() actually binds from the
+   *  WEBHOOK_PORT env var (default 3000), so passing --port here currently does not
+   *  change which port the server listens on. Flagged, not fixed, as out of scope for
+   *  a type-error pass. */
+  port?: number;
 }
 
 export interface RoninServerState {
@@ -95,7 +100,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
     logger.info("Desktop Mode enabled");
     const { getMacStatus } = await import("../../os/index.js");
     const osStatus = getMacStatus();
-    if (!osStatus.quickActionInstalled || !osStatus.launchDutyInstalled) {
+    if (!osStatus.quickActionInstalled || !osStatus.launchAgentInstalled) {
       logger.warn("macOS integrations not fully installed. Run: ronin os install mac");
     } else {
       logger.info("macOS integrations ready");
@@ -212,41 +217,6 @@ function setupRunLog(retentionRuns: number): string {
 }
 
 /**
- * Ingest retained run log files as SystemLog nodes in the ontology.
- */
-async function ingestRunLogsToOntology(api: DutyAPI): Promise<void> {
-  if (!api.ontology) return;
-  if (!existsSync(RUN_LOGS_DIR)) return;
-
-  const files = readdirSync(RUN_LOGS_DIR)
-    .filter((f) => f.startsWith("run-") && f.endsWith(".log"))
-    .sort();
-
-  for (const file of files) {
-    const filePath = join(RUN_LOGS_DIR, file);
-    try {
-      const content = await readFile(filePath, "utf-8");
-      const lines = content.split("\n");
-      const errors = lines.filter((l) => l.includes("[ERROR]") || l.includes("✖ ERROR")).length;
-      const warns  = lines.filter((l) => l.includes("[WARN]")  || l.includes("⚠ WARN")).length;
-      // Extract run timestamp from filename: run-2026-02-24T18-09-51.log
-      const tsRaw = file.replace("run-", "").replace(".log", "").replace(/-(\d{2})-(\d{2})-(\d{2})$/, "T$1:$2:$3");
-      const runDate = new Date(tsRaw).toISOString().slice(0, 19).replace("T", " ");
-      const summary = `Run: ${runDate} | Lines: ${lines.length} | Errors: ${errors} | Warnings: ${warns}\n\n${content.slice(0, 3000)}`;
-      await api.ontology.setNode({
-        id: `SystemLog-${file.replace(".log", "")}`,
-        type: "SystemLog",
-        name: `Run ${runDate}`,
-        summary: summary.slice(0, 8000),
-        domain: "system",
-      });
-    } catch {
-      // If one file fails, continue with others
-    }
-  }
-}
-
-/**
  * Start Ronin in ninja mode: spawn a detached background process with logs to ~/.ronin/ninja.log.
  */
 function runNinjaMode(): void {
@@ -259,7 +229,7 @@ function runNinjaMode(): void {
   const logFd = openSync(NINJA_LOG_PATH, "a");
 
   const child = Bun.spawn({
-    cmd: [process.execPath, process.argv[1], ...args],
+    cmd: [process.execPath, process.argv[1]!, ...args], // argv[1] is the running script path, always present
     cwd: process.cwd(),
     stdin: "ignore",
     stdout: logFd,
@@ -314,7 +284,7 @@ function runDaemonMode(): void {
   const logFd = openSync(DAEMON_LOG_PATH, "a");
 
   const child = Bun.spawn({
-    cmd: [process.execPath, process.argv[1], ...args],
+    cmd: [process.execPath, process.argv[1]!, ...args], // argv[1] is the running script path, always present
     cwd: process.cwd(),
     stdin: "ignore",
     stdout: logFd,
@@ -403,11 +373,6 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   console.log(`${cyan}│${reset}${pad(row2, width)}${cyan}│${reset}`);
   console.log(`${cyan}│${reset}${pad(row3, width)}${cyan}│${reset}`);
   console.log(`${cyan}└${line}┘${reset}\n`);
-
-  // Ingest retained run logs into ontology (non-blocking)
-  if (logToFile) {
-    ingestRunLogsToOntology(state.api).catch(() => { /* silently ignore */ });
-  }
 
   const shutdown = () => {
     logger.info("Shutting down...");

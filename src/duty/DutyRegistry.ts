@@ -33,7 +33,7 @@ function getLocalNetworkIP(): string | null {
     const addrs = nets[name];
     if (!addrs) continue;
     for (const a of addrs) {
-      if ((a.family === "IPv4" || (a as { family?: number }).family === 4) && !a.internal) {
+      if ((a.family === "IPv4" || (a as unknown as { family?: number }).family === 4) && !a.internal) {
         return a.address;
       }
     }
@@ -200,7 +200,7 @@ export class DutyRegistry {
         const aiConfig = config.getAI();
         
         // Create executor with duty's API
-        const executor = new Executor(dutyInstance.api as any);
+        const executor = new Executor((dutyInstance as any).api);
         
         // Build middleware stack (lightweight SAR envelope)
         const stack = new MiddlewareStack<ChainContext>();
@@ -891,9 +891,14 @@ export class DutyRegistry {
     scheduledDuties: number;
     watchedDuties: number;
     webhookDuties: number;
-  }
-
-  getStatus(): StatusInfo {
+    dutys: Array<{
+      name: string;
+      description?: string;
+      schedule?: string;
+      watch?: string[];
+      webhook?: string;
+    }>;
+  } {
     const dutys = this.getDuties();
 
     return {
@@ -1466,7 +1471,8 @@ export class DutyRegistry {
       if (path === "/skills") return "Skills Manager";
       if (path === "/status") return "Status Dashboard";
       if (path.startsWith("/api/")) {
-        const apiName = path.replace("/api/", "").split("/")[0];
+        // Non-null: String.split() always returns at least one element.
+        const apiName = path.replace("/api/", "").split("/")[0]!;
         return apiName.charAt(0).toUpperCase() + apiName.slice(1) + " API";
       }
       if (type === "webhook") {
@@ -1553,13 +1559,15 @@ export class DutyRegistry {
       if (!acc[route.category]) {
         acc[route.category] = [];
       }
-      acc[route.category].push(route);
+      // Non-null: the check above guarantees this key now has an array.
+      acc[route.category]!.push(route);
       return acc;
     }, {} as Record<string, typeof routes>);
 
     // Sort routes within each category by path
     for (const category in routesByCategory) {
-      routesByCategory[category].sort((a, b) => a.path.localeCompare(b.path));
+      // Non-null: iterating routesByCategory's own keys guarantees each maps to an array.
+      routesByCategory[category]!.sort((a, b) => a.path.localeCompare(b.path));
     }
 
     return `<!DOCTYPE html>

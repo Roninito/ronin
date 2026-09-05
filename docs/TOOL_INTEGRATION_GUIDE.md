@@ -5,7 +5,7 @@
 Tools in Ronin are defined once using `UnifiedToolInterface` and work seamlessly across:
 - **SAR** (Semantic Agent Runtime) — Primary execution engine
 - **LangChain** — For specialized multi-state workflows
-- **Ontology** — For knowledge discovery and semantic search
+- **Memory** — Tools are indexed as `memory/notes/tool-*.md`, discoverable via `local.memory.search`
 
 This guide explains how to define, register, and use tools consistently across all systems.
 
@@ -53,7 +53,7 @@ const myTool: UnifiedTool = {
 **Tool ID (required)**
 - Format: `namespace.tool.name` (lowercase, dots)
 - Example: `files.read`, `shell.exec`, `skill.list`
-- Used for: Discovery in ontology, logging, tool calling
+- Used for: Discovery via memory notes, logging, tool calling
 
 **Name (required)**
 - Human-readable display name
@@ -182,13 +182,9 @@ execute: async (params, context) => {
   // Store memory
   if (api.memory) {
     await api.memory.store(`result_${params.path}`, content);
+    const entities = await api.memory.search(params.query);
   }
-  
-  // Query ontology
-  if (api.ontology) {
-    const entities = await api.ontology.search(params.query);
-  }
-  
+
   // ... more API access ...
 }
 ```
@@ -325,41 +321,15 @@ return {
 
 ---
 
-## Registering Tools with Ontology
+## Registering Tools
 
-Tools are discovered via the ontology. Register tools in your agent's ontology entry:
-
-```typescript
-export const myAgentOntology = {
-  id: "my.agent",
-  name: "My Agent",
-  skills: [
-    {
-      id: "files.read",
-      tool: readFileTool,
-    },
-    {
-      id: "files.write",
-      tool: writeFileTool,
-    },
-    {
-      id: "shell.exec",
-      tool: shellExecTool,
-    },
-  ],
-};
-```
-
-**Discovery:** SAR middleware automatically:
-1. Finds tools via ontology
-2. Filters to `relevantSkills`
-3. Makes them available to LLM for calling
+Tools are registered with the tool registry/router (see `src/tools/ToolRouter.ts`, `src/tools/providers/LocalTools.ts`), not a knowledge graph. Once registered, a tool is callable by name from any chain.
 
 ---
 
 ## Using Tools in SAR Chains
 
-Tools are called automatically by the SAR middleware. Just include them in ontology:
+Within a single chain run, `ctx.ontology.relevantSkills` narrows which already-registered tools are shown to the model — a plain filter list, not a registration step:
 
 ```typescript
 const ctx: ChainContext = {
@@ -369,7 +339,7 @@ const ctx: ChainContext = {
   ],
   ontology: {
     domain: "code",
-    relevantSkills: ["files.read", "files.write"],  // Tools available
+    relevantSkills: ["files.read", "files.write"],  // Which registered tools to show the model
   },
   budget: { max: 8192, current: 0, reservedForResponse: 512 },
 };
@@ -531,12 +501,11 @@ const readFileTool: UnifiedTool = {
 // Registered once
 registry.register(readFileTool);
 
-// Called via ontology
-// (SAR middleware handles it automatically)
+// Called via SAR middleware automatically
 ```
 
 **Benefits:**
-- One definition, used by SAR + LangChain + ontology
+- One definition, used by SAR + LangChain
 - Clear error handling
 - Consistent interface
 - Discoverable in registry
@@ -556,7 +525,7 @@ registry.register(readFileTool);
 - `shell.background`
 
 ### Knowledge Operations
-- `ontology.search`
+- `local.memory.search`
 - `memory.store`
 - `memory.retrieve`
 
@@ -594,7 +563,7 @@ A: Return `{ success: false, error: "message" }`. SAR middleware will handle gra
 ## Summary
 
 1. **Define** tools using `UnifiedTool`
-2. **Register** with `UnifiedToolRegistry` or ontology
+2. **Register** with `UnifiedToolRegistry`
 3. **Use** in SAR chains (middleware calls automatically)
 4. **Error handling** always return `ToolResult`
 5. **Testing** write unit tests for each tool

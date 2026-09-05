@@ -295,7 +295,7 @@ async function showKata(name: string, version: string | undefined, options: Kata
     process.exit(1);
   }
 
-  const row = rows[0];
+  const row = rows[0]!; // length checked (and process.exit(1) above) guarantees at least one row
   const compiled = JSON.parse(row.compiled_graph);
   const phaseNames = Object.keys(compiled.phases ?? {});
 
@@ -502,10 +502,14 @@ function printHelp(): void {
 ${c.bold("Usage:")} ronin kata <subcommand> [options]
 
 ${c.bold("Subcommands:")}
-  ${c.cyan("propose")} <intent>     AI-generates a kata DSL from plain language
-  ${c.cyan("list")}                 List all registered katas
-  ${c.cyan("show")} <name> [ver]    Show a kata's DSL and phase graph
-  ${c.cyan("validate")} <file>      Parse + compile a .kata file without registering
+  ${c.cyan("propose")} <intent>     AI-generates a kata DSL from plain language (aliases: create, new)
+  ${c.cyan("list")}                 List all registered katas (alias: ls)
+  ${c.cyan("show")} <name> [ver]    Show a kata's DSL and phase graph (alias: get)
+  ${c.cyan("validate")} <file>      Parse + compile a .kata file without registering (alias: check)
+  ${c.cyan("register")} <file>      Register a compiled .kata file directly
+  ${c.cyan("test")} <name>          Run a kata's tests (--params <json>, --verbose)
+  ${c.cyan("deprecate")} <name>     Mark a kata deprecated (--replacement <name>)
+  ${c.cyan("delete")} <name>        Delete a kata (alias: remove; --force to skip confirmation)
 
 ${c.bold("Options:")}
   ${c.dim("--local")}              Register directly in local DB (skip dojo flow)

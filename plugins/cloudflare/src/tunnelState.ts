@@ -39,7 +39,7 @@ export function updateTunnel(name: string, updates: Partial<TunnelConfig>): void
   const tunnels = loadTunnelState();
   const idx = tunnels.findIndex((t) => t.name === name);
   if (idx === -1) return;
-  tunnels[idx] = { ...tunnels[idx], ...updates };
+  tunnels[idx] = { ...tunnels[idx]!, ...updates };
   saveTunnelState(tunnels);
 }
 

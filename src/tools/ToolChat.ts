@@ -88,15 +88,20 @@ export async function toolChat(
       }
     }
 
-    // Call Ollama with tools
+    // Call Ollama with tools. currentMessages always has >= 1 entry here: it starts
+    // from the caller's messages and, if empty, the system-message unshift above adds one.
     const response = await api.ai.callTools(
-      currentMessages[currentMessages.length - 1].content,
+      currentMessages[currentMessages.length - 1]!.content,
       tools.map(t => ({
         type: "function" as const,
         function: {
           name: t.function.name,
           description: t.function.description,
-          parameters: t.function.parameters,
+          parameters: {
+            type: "object" as const,
+            properties: t.function.parameters.properties ?? {},
+            required: t.function.parameters.required,
+          },
         },
       })),
       { model, temperature, maxTokens }
@@ -124,7 +129,7 @@ export async function toolChat(
           toolCall.arguments,
           {
             conversationId,
-            originalQuery: currentMessages[currentMessages.length - 1].content,
+            originalQuery: currentMessages[currentMessages.length - 1]!.content,
           }
         );
 

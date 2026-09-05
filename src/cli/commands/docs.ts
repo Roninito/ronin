@@ -1,6 +1,6 @@
-import { existsSync, readdir } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { marked } from "marked";
 
 /**
@@ -23,7 +23,6 @@ const DOCS_MAP: Record<string, string> = {
   "REMOTE_AI": "REMOTE_AI.md",
   "OLLAMA_GPU": "OLLAMA_GPU.md",
   "MCP": "MCP.md",
-  "RAG": "RAG.md",
   "CRON_SCHEDULING": "CRON_SCHEDULING.md",
   "CONFIG_EDITOR": "CONFIG_EDITOR.md",
   "HYBRID_INTELLIGENCE": "HYBRID_INTELLIGENCE.md",

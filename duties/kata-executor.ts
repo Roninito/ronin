@@ -12,16 +12,22 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { TaskExecutor } from "../src/task/executor.js";
+import { TaskEngine } from "../src/task/engine.js";
 import { KataRegistry } from "../src/kata/registry.js";
 import { useMiddlewareStack } from "../src/chains/templates.js";
 
 export default class KataExecutorAgent extends BaseDuty {
-  private executor: TaskExecutor;
+  // Named taskExecutor (not executor) — BaseDuty already declares a protected
+  // `executor: Executor | null` field for its own SAR chain machinery; this is an
+  // unrelated task-kata executor and must not shadow it.
+  private taskExecutor: TaskExecutor;
+  private engine: TaskEngine;
   private registry: KataRegistry;
 
   constructor(api: DutyAPI) {
     super(api);
-    this.executor = new TaskExecutor(api);
+    this.taskExecutor = new TaskExecutor(api);
+    this.engine = new TaskEngine(api);
     this.registry = new KataRegistry(api);
 
     // Register event handlers in constructor (event-driven agent — execute() is not called at startup)
@@ -56,14 +62,11 @@ export default class KataExecutorAgent extends BaseDuty {
     kataVersion: string;
     initialVariables?: Record<string, unknown>;
   }): Promise<void> {
-    const engine = this.executor.getEngine();
-
-    // Spawn task
-    const task = await engine.spawn(payload.kataName, payload.kataVersion);
+    const task = await this.engine.spawn(payload.kataName, payload.kataVersion);
 
     // Set initial variables if provided
     if (payload.initialVariables) {
-      await engine.updateVariables(task.id, payload.initialVariables);
+      await this.engine.updateVariables(task.id, payload.initialVariables);
     }
 
     console.log(`[kata-executor] Spawned task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`);
@@ -90,18 +93,15 @@ export default class KataExecutorAgent extends BaseDuty {
     kataVersion: string;
     initialVariables?: Record<string, unknown>;
   }): Promise<void> {
-    const engine = this.executor.getEngine();
-
-    // Spawn task
-    const task = await engine.spawn(payload.kataName, payload.kataVersion);
+    const task = await this.engine.spawn(payload.kataName, payload.kataVersion);
 
     // Set initial variables
     if (payload.initialVariables) {
-      await engine.updateVariables(task.id, payload.initialVariables);
+      await this.engine.updateVariables(task.id, payload.initialVariables);
     }
 
     // Start immediately
-    await this.executor.executePhase(task.id);
+    await this.taskExecutor.executePhase(task.id);
 
     console.log(`[kata-executor] Executed initial phase of task '${task.id}' for kata '${payload.kataName}' v${payload.kataVersion}`);
 

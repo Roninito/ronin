@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 6 adds Obsidian vaults as a third memory source (alongside in-memory `api.memory` and the Phase 5 ontology system). This allows Ronin agents to access your personal Obsidian knowledge base while maintaining security through folder-level access controls.
+Obsidian vault integration lets Ronin agents access your personal Obsidian knowledge base, alongside Ronin's own file-backed memory (`memory/notes/`), while maintaining security through folder-level access controls.
 
 **Key Benefits:**
 - ✅ Direct access to your personal notes
@@ -10,7 +10,7 @@ Phase 6 adds Obsidian vaults as a third memory source (alongside in-memory `api.
 - ✅ Daily automatic indexing
 - ✅ Folder-level access control
 - ✅ No vendor lock-in (pure local file system)
-- ✅ Integrates with ontology search
+- ✅ Indexed metadata is searchable via `local.memory.search`
 
 ---
 
@@ -96,7 +96,7 @@ For each enabled vault:
    - Tags (from `frontmatter.tags` and `#hashtags` in content)
    - Wikilinks (`[[like this]]` references)
    - Timestamps (created, modified)
-4. **Store** — Create ontology nodes for each note
+4. **Store** — Write a memory note per vault note, `memory/notes/obsidian-<vault_id>-<relative_path>.md`, keyed so re-indexing overwrites rather than accumulates
 5. **Report** — Log statistics (indexed count, errors)
 
 ### What Gets Indexed
@@ -110,83 +110,55 @@ For each enabled vault:
 | Wikilinks | `[[...]]` references | ✅ Yes |
 | Timestamps | File metadata | ✅ Yes |
 
-**Note:** Full content is NOT indexed. Only metadata is stored in ontology for fast querying.
+**Note:** Full note content is NOT indexed, only metadata — kept in the memory note's frontmatter/JSON body for fast text search via `local.memory.search`.
 
 ---
 
 ## Using Vault Notes in Agents
 
-### Get All Notes from a Vault
+There's no separate query API for indexed vault notes — they're memory notes like any other, found with `api.memory.search`. See `duties/obsidian-vault-indexer.ts` for the indexing logic and exactly what's stored in each note.
+
+### Find notes from a vault
 
 ```typescript
-import { getObsidianVaultNotes } from "../src/ontology/schemas.js";
-
 async execute(): Promise<void> {
-  const notes = await getObsidianVaultNotes(this.api, "main-vault");
-  
-  for (const note of notes) {
-    console.log(`${note.title} (${note.tags.join(", ")})`);
+  const hits = await this.api.memory.search("obsidian-main-vault", 20);
+  for (const hit of hits) {
+    console.log(hit.key, hit.text?.slice(0, 100));
   }
 }
 ```
 
-### Search Vault Notes by Title
+### Search vault notes by topic
 
 ```typescript
-import { searchObsidianNotes } from "../src/ontology/schemas.js";
-
 async execute(): Promise<void> {
-  const results = await searchObsidianNotes(this.api, "AI", "main-vault");
-  
-  for (const note of results) {
-    console.log(`Found: ${note.title}`);
-    console.log(`  Path: ${note.relative_path}`);
-    console.log(`  Tags: ${note.tags.join(", ")}`);
-  }
-}
-```
-
-### Get Notes by Tag
-
-```typescript
-import { getObsidianNotesByTag } from "../src/ontology/schemas.js";
-
-async execute(): Promise<void> {
-  const notes = await getObsidianNotesByTag(this.api, "ai-research", "main-vault");
-  console.log(`Found ${notes.length} notes tagged with "ai-research"`);
-}
-```
-
-### Get Backlinks (Notes Linking to a Note)
-
-```typescript
-import { getObsidianBacklinks } from "../src/ontology/schemas.js";
-
-async execute(): Promise<void> {
-  // Find all notes that link to "AI.md"
-  const backlinks = await getObsidianBacklinks(this.api, "AI", "main-vault");
-  
-  for (const note of backlinks) {
-    console.log(`${note.title} links to AI`);
-  }
+  const hits = await this.api.memory.search("AI", 10);
+  // Filter to obsidian-indexed notes if needed
+  const vaultHits = hits.filter((h) => h.key?.startsWith("obsidian-"));
 }
 ```
 
 ### Note Metadata Structure
 
+Each indexed note's value (round-tripped via `api.memory.store`/`retrieve`) looks like:
+
 ```typescript
 interface ObsidianNoteMetadata {
-  vault_id: string;      // e.g., "main-vault"
-  file_path: string;     // Absolute path
-  relative_path: string; // Path within vault
-  title: string;         // Note title
-  tags: string[];        // All tags
-  wikilinks: string[];   // [[...]] references
-  frontmatter?: {        // Parsed YAML header
+  source_agent: "obsidian-vault-indexer";
+  vault_id: string;       // e.g., "main-vault"
+  file_path: string;      // Absolute path
+  relative_path: string;  // Path within vault
+  title: string;          // Note title
+  has_frontmatter: boolean;
+  frontmatter?: {          // Parsed YAML header
     [key: string]: any;
   };
-  created_at: number;    // Timestamp in ms
-  modified_at: number;   // Timestamp in ms
+  tags: string[];          // All tags
+  wikilinks: string[];     // [[...]] references
+  backlinks: string[];
+  created_at: number;      // Timestamp in ms
+  modified_at: number;     // Timestamp in ms
   last_indexed_at: string; // ISO timestamp
 }
 ```
@@ -300,42 +272,19 @@ Backlinks will be discovered automatically:
 
 ---
 
-## Integration with Knowledge Layers
+## Integration with Other Memory Notes
 
-### Three-Layer Knowledge System
-
-Ronin now has three complementary knowledge sources:
-
-```
-Layer 1: System Info (Phase 5A)
-  └─ Hardware, OS, runtime (updated every 6 hours)
-
-Layer 2: Codebase (Phase 5C)
-  └─ Exports, imports, file structure (updated daily)
-
-Layer 3: Obsidian Vaults (Phase 6)
-  └─ User notes, research, documentation (updated daily)
-```
+Obsidian-indexed notes live in the same `memory/notes/` directory as everything else Ronin indexes — system info (`system-current`, every 6h), codebase files (`codebase-file-*`, daily), tools (`tool-*`) and skills (`skill-*`). They're all searched the same way, via `api.memory.search`.
 
 ### Example: Combined Query
 
 ```typescript
 async execute(): Promise<void> {
-  // Get system capabilities
-  const system = await getSystemCapabilities(this.api);
-  
-  // Get available tools
-  const tools = await getAvailableTools(this.api, "code");
-  
-  // Get relevant research from vaults
-  const research = await searchObsidianNotes(this.api, "code-generation");
-  
-  // Combine for context
-  const context = {
-    system,
-    tools,
-    userKnowledge: research
-  };
+  const system = await this.api.memory.retrieve("system-current");
+  const tools = await this.api.memory.search("code", 10);
+  const research = await this.api.memory.search("code-generation", 10);
+
+  const context = { system, tools, userKnowledge: research };
 }
 ```
 
@@ -353,12 +302,11 @@ If you used Notion before:
 
 ### From RAG (Removed)
 
-If you used RAG before (Phase 2-5):
-1. RAG data is gone (embeddings removed)
-2. Obsidian vaults are the recommended replacement
-3. Import any valuable content into Obsidian
-4. Configure vaults in config
-5. Ontology will index on next schedule
+RAG (vector embeddings) was removed from Ronin entirely — no re-embedding needed, there's simply nothing left to migrate. If you used it for personal knowledge:
+1. Obsidian vaults are the recommended replacement for that use case
+2. Import any valuable content into Obsidian
+3. Configure vaults in config
+4. The `obsidian-vault-indexer` duty will index it into `memory/notes/` on its next daily run
 
 ---
 
@@ -394,18 +342,14 @@ Depends on:
 
 ### Query Time
 
-Ontology queries are fast:
-- By tag: < 50ms
-- By title: < 50ms
-- By title pattern: < 100ms
-- Full vault: < 200ms
+`local.memory.search` walks `memory/notes/` and matches text — fast at the note counts this produces (hundreds to low thousands of files); see [KNOWLEDGE_RETRIEVAL_GUIDE.md](KNOWLEDGE_RETRIEVAL_GUIDE.md) for the tradeoffs of that approach at larger scale.
 
 ### Storage
 
-Metadata storage in ontology:
-- ~500 bytes per note (metadata + frontmatter)
-- 1000 notes ≈ 500 KB
-- No additional external storage
+Metadata storage as memory notes:
+- One markdown file per vault note (metadata + frontmatter, not full content)
+- ~500 bytes–1KB per note on disk
+- No additional external storage — just files under `memory/notes/`
 
 ---
 

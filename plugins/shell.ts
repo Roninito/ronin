@@ -23,7 +23,7 @@ const shellPlugin: Plugin = {
         // Check if command contains spaces (likely a full command line)
         const parts = command.trim().split(/\s+/);
         if (parts.length > 1) {
-          cmd = parts[0];
+          cmd = parts[0]!;
           cmdArgs = parts.slice(1);
         } else {
           cmd = command;
@@ -70,7 +70,7 @@ const shellPlugin: Plugin = {
         // Check if command contains spaces (likely a full command line)
         const parts = command.trim().split(/\s+/);
         if (parts.length > 1) {
-          cmd = parts[0];
+          cmd = parts[0]!;
           cmdArgs = parts.slice(1);
         } else {
           cmd = command;

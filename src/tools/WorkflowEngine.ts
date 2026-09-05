@@ -187,7 +187,7 @@ export class WorkflowEngine {
     const parts = cleanPath.split('.');
     if (parts.length >= 2) {
       const stepId = parts[0];
-      const property = parts[1];
+      const property = parts[1]!; // length check above guarantees index 1 exists
       const stepResult = variables[`${stepId}_result`];
       
       if (property === 'output') {

@@ -37,7 +37,10 @@ export default class PluginManager extends BaseDuty {
    */
   private async buildPluginRegistry(): Promise<{ plugins: PluginMetadata[] }> {
     const plugins = this.api.plugins?.list?.() || [];
-    const agentRegistry = (await this.api.memory.retrieve("agent-registry")) || [];
+    const agentRegistry = ((await this.api.memory.retrieve("agent-registry")) || []) as Array<{
+      name: string;
+      requiredPlugins?: string[];
+    }>;
 
     // Map which agents use which plugins
     const pluginUsage = new Map<string, Set<string>>();
@@ -76,7 +79,7 @@ export default class PluginManager extends BaseDuty {
   private getPluginMethods(pluginName: string): string[] {
     const knownMethods: Record<string, string[]> = {
       ai: ["complete", "chat", "stream", "streamChat", "callTools"],
-      memory: ["store", "retrieve", "search", "addContext", "getRecent", "getByMetadata"],
+      memory: ["store", "retrieve", "search", "addContext", "getRecent", "addConversation", "getConversations", "getBlackboard", "setBlackboard", "appendBlackboard"],
       files: ["read", "write", "list", "watch"],
       db: ["query", "execute", "transaction"],
       events: ["emit", "on", "off"],
@@ -89,7 +92,6 @@ export default class PluginManager extends BaseDuty {
       telegram: ["sendMessage", "sendPhoto", "editMessage", "deleteMessage"],
       discord: ["sendMessage", "createChannel", "editChannel", "deleteChannel", "setRole"],
       langchain: ["load", "chat", "embed"],
-      rag: ["init", "addDocuments", "query", "delete"],
       email: ["send", "receive", "search"],
     };
 

@@ -11,7 +11,9 @@ export interface RealmDiscoverOptions {
 
 export async function realmDiscoverCommand(options: RealmDiscoverOptions): Promise<void> {
   const api = await createAPI({
-    dutyDir: options.dutyDir,
+    // dutyDir is intentionally not forwarded: createAPI has no such option (this realm
+    // command never loads duties), even though --duty-dir is still accepted for CLI
+    // consistency with the other subcommands.
     pluginDir: options.pluginDir,
     ollamaUrl: options.ollamaUrl,
     ollamaModel: options.ollamaModel,

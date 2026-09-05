@@ -124,7 +124,7 @@ export default class BlogsAgent extends BaseDuty {
         this.adminPasswordHash = hash;
         console.log(`[Blog] Default admin password set to: ${this.DEFAULT_PASSWORD}`);
       } else {
-        this.adminPasswordHash = adminRows[0].password_hash;
+        this.adminPasswordHash = adminRows[0]!.password_hash;
       }
 
       // Clean up expired sessions
@@ -199,7 +199,8 @@ export default class BlogsAgent extends BaseDuty {
       const cookies = cookieHeader.split(";").map((c) => c.trim());
       const sessionCookie = cookies.find((c) => c.startsWith("blog_session="));
       if (sessionCookie) {
-        return sessionCookie.split("=")[1];
+        // Guaranteed a "=" is present (matched by startsWith("blog_session=") above).
+        return sessionCookie.split("=")[1]!;
       }
     }
     // Check Authorization header
@@ -408,7 +409,7 @@ export default class BlogsAgent extends BaseDuty {
         return new Response("Post not found", { status: 404 });
       }
 
-    const post = posts[0];
+    const post = posts[0]!;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1201,7 +1202,7 @@ export default class BlogsAgent extends BaseDuty {
 
       const url = new URL(req.url);
       const pathParts = url.pathname.split("/");
-      const id = decodeURIComponent(pathParts[pathParts.length - 1]);
+      const id = decodeURIComponent(pathParts[pathParts.length - 1]!);
       console.log("[Blog] Extracted ID:", id, "from path:", url.pathname);
 
       if (!id) {
@@ -1244,7 +1245,7 @@ export default class BlogsAgent extends BaseDuty {
             return Response.json({ error: "Post not found" }, { status: 404 });
           }
 
-          const existing = existingPosts[0];
+          const existing = existingPosts[0]!;
           const title = body.title || existing.title;
           const slug = body.title
             ? await this.ensureUniqueSlug(this.generateSlug(title), id)
@@ -1494,9 +1495,9 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     let content = articleContent;
 
     // Try to extract title from markdown H1
-    const h1Match = lines[0].match(/^#\s+(.+)$/);
+    const h1Match = lines[0]!.match(/^#\s+(.+)$/);
     if (h1Match) {
-      title = h1Match[1].trim();
+      title = h1Match[1]!.trim();
       content = lines.slice(1).join("\n").trim();
       console.log(`[Blog]   Extracted title: "${title}"`);
     } else {
@@ -1564,7 +1565,7 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
             [postId]
           );
           if (posts.length > 0) {
-            post = posts[0];
+            post = posts[0]!;
           }
         } catch (error) {
           console.error("[Blog] Error loading post for editor:", error);
@@ -1860,7 +1861,7 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
       '"': "&quot;",
       "'": "&#039;",
     };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
+    return text.replace(/[&<>"']/g, (m) => map[m]!);
   }
 
   /**

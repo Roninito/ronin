@@ -15,6 +15,9 @@ build/
 *.sqlite3
 ronin.db
 
+# File-backed memory (notes, conversations, blackboards) — local state, not versioned
+/memory/
+
 # Logs
 *.log
 logs/

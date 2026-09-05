@@ -65,7 +65,7 @@ export default class EmailManagerAgent extends BaseDuty {
     const password = String(body?.password || "").trim();
     if (!email.includes("@")) throw new Error("Valid email is required");
     if (!password) throw new Error("Password is required");
-    const domain = email.split("@")[1].toLowerCase();
+    const domain = email.split("@")[1]!.toLowerCase(); // includes("@") was checked above
     const presets: Record<string, any> = {
       "gmail.com": { imap: ["imap.gmail.com", 993, true], smtp: ["smtp.gmail.com", 587, false] },
       "outlook.com": { imap: ["outlook.office365.com", 993, true], smtp: ["smtp.office365.com", 587, false] },

@@ -473,7 +473,7 @@ export default class RSSToTelegramAgent extends BaseDuty {
       '"': "&quot;",
       "'": "&#039;",
     };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
+    return text.replace(/[&<>"']/g, (m) => map[m]!); // m is always one of map's keys, per the regex
   }
 
   /**

@@ -7,6 +7,8 @@
 export interface JSONSchema {
   type: string;
   properties?: Record<string, JSONSchema>;
+  /** Element schema for `type: "array"` parameters. */
+  items?: JSONSchema;
   required?: string[];
   enum?: (string | number)[];
   default?: any;
@@ -25,15 +27,28 @@ export interface ToolDefinition {
     estimate: (args: any) => number;
     actual?: (result: ToolResult) => number | undefined;
   };
-  riskLevel: 'low' | 'medium' | 'high';
-  cacheable: boolean;
+  // Optional: tools registered through the generic @ronin/sar Executor (whose
+  // SARToolDefinition doesn't carry these) come through without them. Consumers
+  // already treat both as safely absent (ToolRouter.ts's `if (tool.cacheable)`,
+  // and risk-level display falls back to "unknown").
+  riskLevel?: 'low' | 'medium' | 'high';
+  cacheable?: boolean;
   ttl?: number;
   
   // For agent-based tools
   agentId?: string;
 }
 
-export type ToolHandler = (args: any, context: ToolContext) => Promise<ToolResult>;
+// A handler only needs to return `success`/`data`/`error` plus whatever metadata it
+// actually has (often none) — ToolRouter.execute() always fills in toolName/provider/
+// duration/cached/timestamp/callId itself afterward (see ToolRouter.ts), so requiring
+// a handler to pre-populate those would be describing the router's job, not the
+// handler's. This also keeps ToolHandler structurally compatible with the generic
+// @ronin/sar Executor's SARToolResult, whose `metadata` is optional and narrower.
+export type ToolHandler = (
+  args: any,
+  context: ToolContext
+) => Promise<Omit<ToolResult, "metadata"> & { metadata?: Partial<ToolResultMetadata> }>;
 
 export interface ToolContext {
   conversationId: string;
@@ -59,6 +74,10 @@ export interface ToolResult {
 }
 
 export interface ToolResultMetadata {
+  // Index signature: keeps this structurally assignable to @ronin/sar's generic
+  // SARToolResult['metadata'] (also an index-signature bag), and lets handlers stash
+  // arbitrary extra fields alongside the guaranteed ones below.
+  [key: string]: unknown;
   toolName: string;
   provider: string;
   duration: number;
@@ -252,6 +271,8 @@ export interface CloudResult {
 }
 
 export interface ExecutionOptions {
+  /** Override the adapter's configured default model for this call. */
+  model?: string;
   temperature?: number;
   maxTokens?: number;
   topP?: number;

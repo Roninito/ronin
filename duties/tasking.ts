@@ -1,5 +1,6 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import type { Tool } from "../src/types/api.js";
 import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 import { runTaskingExecutorMigrations } from "../src/tasking/migrations.js";
 import { resolveExecutor, isCodingExecutor, runCodingExecutor, type ExecutorName } from "../src/tasking/executors.js";
@@ -679,7 +680,7 @@ export default class TodoAgent extends BaseDuty {
         return;
       }
 
-      const card = cards[0];
+      const card = cards[0]!;
       const doneColumn = await this.getColumnByName(card.board_id, "Done");
       if (!doneColumn) {
         console.error("[todo] Done column not found");
@@ -1337,40 +1338,6 @@ Be thorough but efficient. Report your result when done.`;
   }
 
   /**
-   * Update card fields
-   */
-  private async updateCard(cardId: string, updates: Partial<Card>): Promise<void> {
-    const sets: string[] = [];
-    const values: unknown[] = [];
-    
-    if (updates.title !== undefined) {
-      sets.push("title = ?");
-      values.push(updates.title);
-    }
-    if (updates.description !== undefined) {
-      sets.push("description = ?");
-      values.push(updates.description);
-    }
-    if (updates.labels !== undefined) {
-      sets.push("labels = ?");
-      values.push(updates.labels);
-    }
-    if (updates.column_id !== undefined) {
-      sets.push("column_id = ?");
-      values.push(updates.column_id);
-    }
-    
-    sets.push("updated_at = ?");
-    values.push(Date.now());
-    values.push(cardId);
-
-    await this.api.db.execute(
-      `UPDATE kanban_cards SET ${sets.join(", ")} WHERE id = ?`,
-      values
-    );
-  }
-
-  /**
    * Initialize database tables
    */
   private async initializeDatabase(): Promise<void> {
@@ -1875,13 +1842,13 @@ Respond with JSON:
 
     const otherColumn = await this.api.db.query<{ id: string }>(
       `SELECT id FROM kanban_columns WHERE board_id = ? AND id != ? ORDER BY position ASC LIMIT 1`,
-      [columns[0].board_id, id]
+      [columns[0]!.board_id, id]
     );
 
     if (otherColumn.length > 0) {
       await this.api.db.execute(
         `UPDATE kanban_cards SET column_id = ? WHERE column_id = ?`,
-        [otherColumn[0].id, id]
+        [otherColumn[0]!.id, id]
       );
     } else {
       // Delete cards if no other column exists
@@ -1974,7 +1941,7 @@ Respond with JSON:
     if (cards.length === 0) return null;
 
     const deps = await this.getCardDependencies(cardId);
-    return { ...cards[0], ...deps };
+    return { ...cards[0]!, ...deps };
   }
 
   private async updateCard(id: string, updates: Partial<Card>): Promise<void> {
@@ -2052,13 +2019,13 @@ Respond with JSON:
       [card.board_id]
     );
 
-    if (doneColumn.length > 0 && newColumnId === doneColumn[0].id) {
+    if (doneColumn.length > 0 && newColumnId === doneColumn[0]!.id) {
       // Check dependencies
       const incompleteDeps = await this.api.db.query<{ id: string }>(`
         SELECT c.id FROM kanban_cards c
         JOIN kanban_dependencies d ON c.id = d.depends_on_id
         WHERE d.card_id = ? AND c.column_id != ?
-      `, [cardId, doneColumn[0].id]);
+      `, [cardId, doneColumn[0]!.id]);
 
       if (incompleteDeps.length > 0) {
         throw new Error("Cannot complete: has incomplete dependencies");
@@ -2089,7 +2056,7 @@ Respond with JSON:
       );
 
       if (instance.length > 0) {
-        const inst = instance[0];
+        const inst = instance[0]!;
         let newStatus: 'pending' | 'active' | 'completed' | 'failed' = inst.status as any;
 
         if (newColumnName === 'Doing') {
@@ -2297,7 +2264,7 @@ Focus on which tools and events would be most useful for accomplishing this task
 
     if (templates.length === 0) return null;
 
-    const t = templates[0];
+    const t = templates[0]!;
     return {
       id: t.id,
       title: t.title,
@@ -2393,7 +2360,7 @@ Focus on which tools and events would be most useful for accomplishing this task
 
       if (instance.length === 0) throw new Error(`Instance ${instanceId} not found`);
 
-      const inst = instance[0];
+      const inst = instance[0]!;
       const template = await this.getTaskTemplate(inst.template_id);
       if (!template) throw new Error(`Template ${inst.template_id} not found`);
 
@@ -2448,7 +2415,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
           );
 
           if (relevantTools.length > 0) {
-            const result = await this.api.ai.callTools(prompt, relevantTools);
+            const result = await this.api.ai.callTools(prompt, relevantTools as unknown as Tool[]);
             executionResult = result.message.content || 'Task executed';
             toolsUsed = result.toolCalls.map(tc => tc.name);
           } else {
@@ -2498,7 +2465,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
           [instanceId]
         );
         if (instance.length > 0) {
-          const t = await this.getTaskTemplate(instance[0].template_id);
+          const t = await this.getTaskTemplate(instance[0]!.template_id);
           if (t) templateTitle = t.title;
         }
       } catch {}
@@ -4127,7 +4094,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
         const card = await this.createCard(
           columnId,
-          column[0].board_id,
+          column[0]!.board_id,
           body.title,
           body.description,
           body.priority,

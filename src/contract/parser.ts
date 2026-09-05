@@ -14,7 +14,7 @@
  *     run kata KATA_NAME KATA_VERSION
  */
 
-import type { ContractAST, Token, ContractTrigger } from "./types.js";
+import type { ContractAST, Token, ContractTrigger, CronTrigger, EventTrigger } from "./types.js";
 
 /**
  * Contract Parser - tokenize + recursive descent parse
@@ -40,7 +40,8 @@ export class ContractParser {
     const lines = source.split("\n");
 
     for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-      const line = lines[lineNum];
+      // Non-null: lineNum < lines.length is checked by the loop condition above.
+      const line = lines[lineNum]!;
       const trimmed = line.trim();
 
       // Skip empty lines and comments
@@ -48,7 +49,8 @@ export class ContractParser {
 
       // Split by whitespace, track positions
       const parts = trimmed.split(/\s+/);
-      let column = line.indexOf(trimmed[0]);
+      // Non-null: the `!trimmed` check above rules out an empty string.
+      let column = line.indexOf(trimmed[0]!);
 
       for (const part of parts) {
         if (!part) continue;
@@ -162,7 +164,7 @@ export class ContractParser {
   /**
    * Parse cron trigger
    */
-  private parseCronTrigger() {
+  private parseCronTrigger(): CronTrigger {
     this.expect("cron");
 
     // Cron expression is 5 space-separated numbers
@@ -189,7 +191,7 @@ export class ContractParser {
   /**
    * Parse event trigger
    */
-  private parseEventTrigger() {
+  private parseEventTrigger(): EventTrigger {
     this.expect("event");
     const eventType = this.parseIdentifier();
 
@@ -224,7 +226,8 @@ export class ContractParser {
         column: 0,
       };
     }
-    return this.tokens[this.current];
+    // Non-null: the length check above guarantees this.current is in range here.
+    return this.tokens[this.current]!;
   }
 
   /**

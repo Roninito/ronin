@@ -1,44 +1,34 @@
-# Ronin Memory Database (ronin.db)
+# Ronin Memory (memory/)
 
-`ronin.db` is the core memory database used by Ronin's `MemoryStore`. It lives in the project root by default and stores shared state and history for agents.
+Ronin's memory is plain markdown/text files under a `memory/` directory — no database, no query language. It lives next to `ronin.db` (project root by default) and is gitignored, same as the db. `ronin.db` itself only holds unrelated tables now (contracts, tasks, katas, usage) — memory/conversation/blackboard content is never stored there.
 
-## What It Stores
+## Layout
 
-- **memories**: key/value data with optional text and metadata
-- **conversations**: per-agent conversation history (role, content, metadata)
-- **agent_state**: per-agent persisted state blobs
-
-## Schema (created automatically)
-
-```sql
-CREATE TABLE IF NOT EXISTS memories (
-  id TEXT PRIMARY KEY,
-  key TEXT UNIQUE,
-  value TEXT NOT NULL,
-  text TEXT,
-  metadata TEXT,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS conversations (
-  id TEXT PRIMARY KEY,
-  agent_name TEXT,
-  role TEXT NOT NULL,
-  content TEXT NOT NULL,
-  metadata TEXT,
-  created_at INTEGER NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS agent_state (
-  agent_name TEXT PRIMARY KEY,
-  state TEXT NOT NULL,
-  metadata TEXT,
-  updated_at INTEGER NOT NULL
-);
 ```
+memory/
+  notes/<slug>-<hash8>.md      # store()/retrieve() key-value entries + addContext() freeform notes
+  conversations/<duty>.md      # append-only per-duty conversation transcript
+  blackboards/<duty>.md        # per-duty scratch/working state — read/write/append/overwrite
+```
+
+Every note is a markdown file with YAML frontmatter (key, kind, timestamps, tags) and a body — a `store()` entry's value round-trips through a fenced ` ```json ` block; an `addContext()` note is just prose. Relationships between notes are plain `[[wikilink]]` references, not a graph — "related" means grepping for `[[target-slug]]` across `memory/notes/`.
+
+## API (`api.memory`, see `src/memory/Memory.ts`)
+
+- `store(key, value)` / `retrieve(key)` — exact-round-trip key/value storage
+- `search(query, limit?)` — case-insensitive text search over `memory/notes/`
+- `addContext(text, metadata?)` / `getRecent(limit?)` — freeform notes, most-recent-first
+- `forget(key)` / `forgetByKeyPrefix(prefix, updatedBefore?)` / `countByKeyPrefix(prefix)` — cleanup for high-churn keys (see `duties/db-cleanup.ts`)
+- `addConversation(duty, role, content)` / `getConversations(duty, limit?)` — per-duty transcript log
+- `getBlackboard(duty)` / `setBlackboard(duty, content)` / `appendBlackboard(duty, content)` — per-duty scratch state
+
+Agents reach this from chat via the `local.memory.search` tool.
+
+## Inspecting it
+
+Since it's just files, read them directly — `cat memory/notes/*.md`, `grep -r "token" memory/` — no query language required. The `ronin kdb` CLI also wraps common lookups: `ronin kdb stats`, `ronin kdb memory search <query>`, `ronin kdb conversation <duty>`, `ronin kdb blackboard <duty>`.
 
 ## Notes
 
-- `ronin.db` is separate from Fishy data files, which live under `~/.ronin/data`.
-- You can change the database file path via `--db-path` when running the CLI.
+- `memory/` is separate from data files under `~/.ronin/data`.
+- The parent directory tracks `--db-path`: passing a custom db path puts `memory/` alongside it.

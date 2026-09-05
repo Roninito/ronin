@@ -95,7 +95,8 @@ export class ContractStorage {
     );
 
     if (!rows || rows.length === 0) return null;
-    return this.rowToContract(rows[0]);
+    // Non-null: the length check above guarantees a first element.
+    return this.rowToContract(rows[0]!);
   }
 
   /**

@@ -314,9 +314,9 @@ export class MeshDiscoveryService {
    */
   private async getHostname(): Promise<string> {
     try {
-      const { exec } = await import("./python-bridge.js");
       // Use shell to get hostname
-      return (await this.api.shell?.exec("hostname")).stdout.trim() || "ronin-instance";
+      const result = await this.api.shell?.exec("hostname");
+      return result?.stdout.trim() || "ronin-instance";
     } catch {
       return "ronin-instance";
     }

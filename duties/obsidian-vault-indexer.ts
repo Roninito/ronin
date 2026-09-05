@@ -1,18 +1,15 @@
 /**
  * Obsidian Vault Indexer Agent
  *
- * Runs daily to index Obsidian vaults and update ontology.
- * Discovers notes, extracts metadata and frontmatter, creates ontology nodes.
- * Maintains fresh index of user's Obsidian knowledge base.
+ * Runs daily to index Obsidian vaults into memory/notes/.
+ * Discovers notes, extracts metadata and frontmatter, writes one note per
+ * Obsidian note (overwritten on each run — no ontology graph, no TTL).
  */
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import {
-  createObsidianNoteNode,
-  type ObsidianNoteMetadata,
-} from "../src/ontology/schemas.js";
 import type { ObsidianVaultConfig } from "../src/config/types.js";
+import type { ObsidianNote } from "../plugins/obsidian.js";
 
 export default class ObsidianVaultIndexerAgent extends BaseDuty {
   // Run daily at 2 AM (after codebase analyzer at 1 AM)
@@ -95,7 +92,9 @@ export default class ObsidianVaultIndexerAgent extends BaseDuty {
       // Process each note
       for (const filePath of notePaths) {
         try {
-          const note = await this.api.plugins?.call?.("obsidian", "readNote", [filePath]);
+          const note = (await this.api.plugins?.call?.("obsidian", "readNote", [
+            filePath,
+          ])) as ObsidianNote | null | undefined;
 
           if (!note) {
             result.errors++;
@@ -106,10 +105,7 @@ export default class ObsidianVaultIndexerAgent extends BaseDuty {
           note.vault_id = vaultConfig.id;
           note.relative_path = filePath.substring(vaultConfig.path.length + 1);
 
-          // Create/update ontology node
-          const metadata: ObsidianNoteMetadata = {
-            collected_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 24 * 3600000).toISOString(), // 24 hours
+          const metadata = {
             source_agent: "obsidian-vault-indexer",
             vault_id: note.vault_id,
             file_path: note.file_path,
@@ -125,10 +121,9 @@ export default class ObsidianVaultIndexerAgent extends BaseDuty {
             last_indexed_at: new Date().toISOString(),
           };
 
-          if (this.api.ontology) {
-            await createObsidianNoteNode(this.api, metadata);
-            result.indexed++;
-          }
+          const key = `obsidian-${vaultConfig.id}-${note.relative_path}`;
+          await this.api.memory.store(key, metadata);
+          result.indexed++;
         } catch (error) {
           console.error(
             `[obsidian-vault-indexer] ❌ Failed to process note ${filePath}:`,

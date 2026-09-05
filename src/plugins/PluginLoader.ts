@@ -84,7 +84,8 @@ export class PluginLoader {
       const match = file.match(/plugins\/([^\/]+)/);
       if (!match) continue;
 
-      const pluginName = match[1];
+      // Non-null: the capture group is mandatory (not `?`), so a successful match always fills it.
+      const pluginName = match[1]!;
       const isDist = file.includes("/dist/");
       const isIndex = file.endsWith("/index.ts") || file.endsWith("/index.js");
       const isRootPlugin = /^[^\/]+\.ts$/.test(file.split('/').pop() || '');
@@ -112,7 +113,8 @@ export class PluginLoader {
   private getPluginName(filePath: string): string | null {
     // Extract plugin name from path like plugins/cloudflare/dist/index.js
     const match = filePath.match(/plugins\/([^\/]+)/);
-    return match ? match[1] : null;
+    // Non-null: the capture group is mandatory, so a successful match always fills it.
+    return match ? match[1]! : null;
   }
 
   /**

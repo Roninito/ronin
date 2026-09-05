@@ -18,7 +18,6 @@ export interface RoninContext {
   plugins: string[];
   routes: Array<{ path: string; type: string }>;
   architecture: string;
-  hasOntology?: boolean;
   hasArtifacts?: boolean;
 }
 
@@ -29,7 +28,7 @@ export interface PromptOptions {
   includePluginList?: boolean;
   includeRouteList?: boolean;
   sections?: string[];
-  ontologyHint?: boolean;
+  memoryHint?: boolean;
   artifactsHint?: boolean;
 }
 
@@ -80,24 +79,23 @@ const DEFAULT_ROLE = `You are Ronin AI, a helpful assistant for the Ronin AI age
 
 CRITICAL: "Ronin" refers to the Ronin AI agent framework - a Bun-based TypeScript/JavaScript framework for building AI agents. This is NOT the Ronin blockchain, Ronin DeFi platform, or any cryptocurrency. When users mention "Ronin", they mean the AI agent framework.`;
 
-const ONTOLOGY_HINT_SECTION = `
-KNOWLEDGE GRAPH (use it to find how to do things):
-You have access to Ronin's knowledge graph via ontology tools:
-- ontology_search: Find entities by type or name. Params: { type?, nameLike?, domain?, limit? }. Types: Skill, Task, Failure, Pipeline, Conversation, ReferenceDoc, Tool (do NOT use "Agent").
-- ontology_stats: Get counts by node type and edge relation (what's in the ontology). Use when the user asks for "tables in ontology", "what's in the ontology", "ontology summary", or "list ontology contents". Returns { nodes: { type: count }, edges: { relation: count } }.
-- ontology_related: From any node id, get linked nodes and edges (e.g. which tool a ReferenceDoc "uses"). Params: { nodeId, relation?, direction?, depth?, limit? }.
-- ontology_context: Structured context for a task (related skills, failures). Params: { taskId, depth?, limit? }.
-- ontology_history: Past successful pipelines. Params: { type?, nameLike?, successfulOnly?, limit? }.
+const MEMORY_HINT_SECTION = `
+MEMORY (use it to find how to do things and recall past context):
+Ronin's memory is plain markdown files under memory/ — no database, no graph:
+- memory/notes/: refdoc-* (reference docs), tool-* (registered tools), skill-* (installed AgentSkills), and freeform notes. Find one with local.memory.search(query) — it does a text search over these files and returns the matches.
+- memory/conversations/<duty>.md: append-only per-duty conversation transcripts.
+- memory/blackboards/<duty>.md: per-duty scratch/working state.
+Notes may cross-reference each other with plain [[wikilink]] references — there is no graph traversal API, just text.
 
-DATABASE (ronin.db): For questions about the database itself — list tables, schema, or run custom read-only queries — use local.db.query. It accepts a single SELECT statement (e.g. "SELECT name FROM sqlite_master WHERE type='table'" to list tables, or "SELECT type, COUNT(*) as count FROM ontology_nodes GROUP BY type"). Only SELECT is allowed; results are limited to 100 rows.
+DATABASE (ronin.db): For questions about the database itself — contracts, tasks, katas, usage — use local.db.query with a single SELECT statement. Memory/conversation/blackboard content is NOT in this database; use local.memory.search for that instead.
 
-DISCOVERY (when tools are needed): When you need live data that you cannot answer from knowledge, use the graph. (1) Call ontology_search with a relevant type. (2) From the results, read node summaries — they often state which tool to call. (3) Use ontology_related(nodeId) for linked nodes. (4) Then call the indicated tool.
+DISCOVERY (when tools are needed): When you need live data you cannot answer from built-in knowledge, call local.memory.search with a relevant query (e.g. the topic, or "tool-X" / "skill-X" / "refdoc-X"). Read the matched note's content — it often states which tool to call next.
 
-IMPORTANT: Do NOT call ontology or shell tools for questions you can answer from your built-in knowledge about the Ronin framework. Only use tools when you need current/live data (e.g., "what duties are installed right now", "search my past conversations").
+IMPORTANT: Do NOT call memory or shell tools for questions you can answer from your built-in knowledge about the Ronin framework. Only use tools when you need current/live data (e.g., "what duties are installed right now", "search my past conversations").
 
-LISTING SKILLS: To list available Ronin skills you MUST call at least one of: (1) ontology_search with { type: "Skill", limit: 50 } to get Skill nodes (name/summary per skill), or (2) skills.list to get the list from disk. If ontology_search returns empty, use skills.list. Never say "no tools are available to retrieve skills" or "skills are not registered in the ontology" without having called one of these first. ontology_stats only gives counts; use ontology_search(type: "Skill") to get the actual skill names and details.
+LISTING SKILLS: To list available Ronin skills, call skills.list (returns array of { name, description } from disk) or local.memory.search for "skill-" entries. Never say "no tools are available to retrieve skills" without having called one of these first.
 
-Use the graph both for recall (past work, failures, task context) and for discovery (what tools exist, how to list skills/tools, how to do X). ReferenceDoc and Tool nodes are synced from docs and the tool registry; Skill nodes are installed AgentSkills.`;
+Use memory both for recall (past work, task context) and for discovery (what tools exist, how to list skills/tools, how to do X).`;
 
 const ARTIFACT_HINT_SECTION = `
 ARTIFACTS (persistent, cross-chat project containers):
@@ -221,14 +219,12 @@ export async function getRoninContext(api: DutyAPI): Promise<RoninContext> {
   }
 
   const architecture = getArchitectureDescription();
-  const hasOntology = api.plugins.has("ontology");
   const hasArtifacts = api.tools.has("artifact_create");
   const context: RoninContext = {
     duties,
     plugins,
     routes,
     architecture,
-    hasOntology,
     hasArtifacts,
   };
 
@@ -286,7 +282,7 @@ export function buildSystemPrompt(
     includePluginList = true,
     includeRouteList = false,
     sections = [],
-    ontologyHint = context.hasOntology ?? false,
+    memoryHint = true,
     artifactsHint = context.hasArtifacts ?? false,
   } = options;
 
@@ -332,8 +328,8 @@ export function buildSystemPrompt(
     "Your role:\n- Answer questions about the Ronin AI agent framework from your knowledge. You already know how duties, plugins, routes, skills, and the SAR loop work — explain them directly without calling tools.\n- Use tools ONLY when you need live data: file contents, database queries, running commands, searching memory for past conversations, or listing current system state.\n- Do NOT call local.shell.safe repeatedly to explore the filesystem when you can answer from knowledge. One or two targeted reads are fine; more than that means you should just answer the question.\n- When users ask \"how do I create a duty\" or \"explain the framework\", ANSWER DIRECTLY. Do not search for documentation first.\n- Only tell the user how to do something in bash or with commands if they explicitly ask for that format.\n- Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript.\n\nIMPORTANT: If you find yourself calling the same tool or similar tools more than 2-3 times without getting useful results, STOP. Summarize what you know and answer the user's question directly. Do not loop on tool calls."
   );
 
-  if (ontologyHint) {
-    parts.push(ONTOLOGY_HINT_SECTION);
+  if (memoryHint) {
+    parts.push(MEMORY_HINT_SECTION);
   }
 
   if (artifactsHint) {
@@ -553,13 +549,12 @@ export async function windowMessages(
 
 /**
  * Filter tool schemas by message context to stay within budget and relevance.
- * Always includes core tools; conditionally includes ontology, Discord/Telegram, speech.
+ * Always includes core tools (including local.memory.search); conditionally includes Discord/Telegram, speech.
  */
 export function filterToolSchemas(
   allSchemas: OpenAIFunctionSchema[],
   context: {
     message: string;
-    hasOntology?: boolean;
     hasSkills?: boolean;
     maxSchemas?: number;
   }
@@ -571,7 +566,7 @@ export function filterToolSchemas(
   const isToolQuery = /\b(weather|email|mail|discord|telegram|search|run|execute|list files|read file|write file|delete|database|ronin\.db|diagram|mermaid|flowchart|recall|remember|memory)\b/.test(msg);
   const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
   const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
-  // Include tools when user asks about duties/architecture (so memory + ontology can be used).
+  // Include tools when user asks about duties/architecture (so memory can be used).
   // "contract"/"kata" belong in this bucket too — they're first-class engine
   // concepts exactly like "duty", not an oversight to leave out.
   const isAboutDuties = /\b(duty|duties|contract|contracts|kata|katas|intent-ingress|chatty|ronin)\b/.test(msg);
@@ -628,21 +623,6 @@ export function filterToolSchemas(
     coreNames.add("duties.proposeDuty");
   }
 
-  const ontologyNames = new Set([
-    "ontology_search",
-    "ontology_related",
-    "ontology_context",
-    "ontology_history",
-    "ontology_lookup",
-    "ontology_stats",
-  ]);
-
-  const includeOntology =
-    context.hasOntology &&
-    /past|previous|before|history|failure|failed|what happened|that task|that skill|recall|remember|ontology|tables?|schema|database/.test(
-      msg
-    );
-
   const includeDiscord = /discord|guild|channel.*discord/.test(msg);
   const includeTelegram = /telegram|telegram bot/.test(msg);
   const includeSpeech = /say|speak|listen|voice|hear|tell me out loud/.test(
@@ -665,10 +645,6 @@ export function filterToolSchemas(
       result.push(schema);
       continue;
     }
-    if (ontologyNames.has(name)) {
-      if (includeOntology) result.push(schema);
-      continue;
-    }
     if (name.startsWith("local.discord.") && includeDiscord) {
       result.push(schema);
       continue;
@@ -685,7 +661,6 @@ export function filterToolSchemas(
       continue;
     }
     if (
-      !name.startsWith("ontology_") &&
       !name.startsWith("local.discord.") &&
       !name.startsWith("local.telegram.") &&
       // Raw discord_*/telegram_* plugin tools require a manually-managed

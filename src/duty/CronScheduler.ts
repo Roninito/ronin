@@ -60,7 +60,10 @@ export class CronScheduler {
       return false;
     }
 
-    const [minute, hour, day, month, weekday] = parts;
+    // Non-null: the length check above guarantees exactly 5 elements.
+    const [minute, hour, day, month, weekday] = parts as [
+      string, string, string, string, string
+    ];
 
     const matches = (pattern: string, value: number, max: number): boolean => {
       if (pattern === "*") return true;

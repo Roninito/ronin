@@ -39,7 +39,8 @@ export class ContractParserV2 {
     // Find header
     function nextLine(): { text: string; lineNo: number } | null {
       while (idx < lines.length) {
-        const text = lines[idx].trimEnd();
+        // Non-null: idx < lines.length is checked by the loop condition above.
+        const text = lines[idx]!.trimEnd();
         const lineNo = idx + 1;
         idx++;
         if (text.trim() !== "" && !text.trim().startsWith("#")) return { text, lineNo };
@@ -54,8 +55,9 @@ export class ContractParserV2 {
     if (!headerMatch) {
       throw new ContractParseError(`Expected "contract <name> <version>"`, header.lineNo);
     }
-    const name = headerMatch[1];
-    const version = headerMatch[2];
+    // Non-null: both capture groups are mandatory in the regex above, so a match guarantees them.
+    const name = headerMatch[1]!;
+    const version = headerMatch[2]!;
 
     let description: string | undefined;
     let targetKata = "";
@@ -79,16 +81,18 @@ export class ContractParserV2 {
         author = extractQuoted(stripped.replace(/^author\s+/, ""));
       } else if (stripped.startsWith("target kata ")) {
         const m = stripped.match(/^target kata\s+(\S+)\s+(v\d+)\s*$/);
-        if (m) { targetKata = m[1]; targetKataVersion = m[2]; }
+        // Non-null: both capture groups are mandatory in the regexes above.
+        if (m) { targetKata = m[1]!; targetKataVersion = m[2]!; }
         else {
           const m2 = stripped.match(/^target kata\s+(\S+)\s*$/);
-          if (m2) targetKata = m2[1];
+          if (m2) targetKata = m2[1]!;
         }
       } else if (stripped.startsWith("trigger ")) {
         const m = stripped.match(/^trigger\s+(cron|event|webhook)\s+(.*)\s*$/);
         if (m) {
-          const tType = m[1] as "cron" | "event" | "webhook";
-          const tValue = extractQuoted(m[2].trim());
+          // Non-null: both capture groups are mandatory in the regex above.
+          const tType = m[1]! as "cron" | "event" | "webhook";
+          const tValue = extractQuoted(m[2]!.trim());
           triggerType = tType;
           if (tType === "cron") triggerConfig = { type: "cron", expression: tValue };
           else if (tType === "event") triggerConfig = { type: "event", eventType: tValue };
@@ -100,7 +104,8 @@ export class ContractParserV2 {
       } else if (stripped === "parameters {" || stripped.startsWith("parameters {")) {
         // Consume block
         while (idx < lines.length) {
-          const pl = lines[idx].trimEnd();
+          // Non-null: idx < lines.length is checked by the loop condition above.
+          const pl = lines[idx]!.trimEnd();
           idx++;
           if (pl.trim() === "}") break;
           const colonIdx = pl.indexOf(":");
@@ -111,7 +116,8 @@ export class ContractParserV2 {
         }
       } else if (stripped === "on_failure {" || stripped.startsWith("on_failure {")) {
         while (idx < lines.length) {
-          const fl = lines[idx].trimEnd();
+          // Non-null: idx < lines.length is checked by the loop condition above.
+          const fl = lines[idx]!.trimEnd();
           idx++;
           if (fl.trim() === "}") break;
           const t = fl.trim();

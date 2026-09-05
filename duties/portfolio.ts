@@ -548,12 +548,12 @@ export default class PortfolioAgent extends BaseDuty {
     try {
       const raw = await this.api.plugins.call("alpaca", "getPositions") as Array<Record<string, string>>;
       return raw.map((p) => ({
-        symbol: p.symbol,
-        qty: parseFloat(p.qty),
-        entryPrice: parseFloat(p.avg_entry_price),
-        currentPrice: parseFloat(p.current_price),
-        value: parseFloat(p.market_value),
-        unrealizedPnl: parseFloat(p.unrealized_pl),
+        symbol: p.symbol ?? "",
+        qty: parseFloat(p.qty ?? "0"),
+        entryPrice: parseFloat(p.avg_entry_price ?? "0"),
+        currentPrice: parseFloat(p.current_price ?? "0"),
+        value: parseFloat(p.market_value ?? "0"),
+        unrealizedPnl: parseFloat(p.unrealized_pl ?? "0"),
         agent: "Alpaca",
         confidence: 0,
       }));
@@ -566,11 +566,11 @@ export default class PortfolioAgent extends BaseDuty {
     try {
       const raw = await this.api.plugins.call("alpaca", "getOrderHistory", 50) as Array<Record<string, string>>;
       return raw.map((o) => ({
-        id: o.id,
-        date: o.filled_at ?? o.submitted_at,
-        symbol: o.symbol,
-        action: o.side === "buy" ? "BUY" : "SELL",
-        qty: parseFloat(o.filled_qty ?? o.qty),
+        id: o.id ?? "",
+        date: o.filled_at ?? o.submitted_at ?? "",
+        symbol: o.symbol ?? "",
+        action: (o.side === "buy" ? "BUY" : "SELL") as "BUY" | "SELL",
+        qty: parseFloat(o.filled_qty ?? o.qty ?? "0"),
         price: parseFloat(o.filled_avg_price ?? "0"),
         agent: "Alpaca",
         confidence: 0,

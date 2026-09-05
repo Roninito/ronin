@@ -243,7 +243,7 @@ export default class TermManagerAgent extends BaseDuty {
    */
   private validateCommand(command: string): { valid: boolean; error?: string } {
     // Extract the base command
-    const baseCmd = command.trim().split(/\s+/)[0].toLowerCase();
+    const baseCmd = command.trim().split(/\s+/)[0]!.toLowerCase(); // .split() always returns >= 1 element
     
     // Check whitelist
     if (!this.allowedCommands.includes(baseCmd)) {
@@ -333,7 +333,7 @@ export default class TermManagerAgent extends BaseDuty {
     this.api.events.emit("ShellCommandResult", {
       requestId: cmd.requestId,
       result,
-    });
+    }, "term-manager");
   }
 
   /**

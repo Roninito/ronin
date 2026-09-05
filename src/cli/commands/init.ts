@@ -373,10 +373,11 @@ async function saveConfig(key: string, value: any): Promise<void> {
   const keys = key.split(".");
   let current = config;
   for (let i = 0; i < keys.length - 1; i++) {
-    if (!current[keys[i]]) current[keys[i]] = {};
-    current = current[keys[i]];
+    const k = keys[i]!; // in-bounds: i < keys.length - 1
+    if (!current[k]) current[k] = {};
+    current = current[k];
   }
-  current[keys[keys.length - 1]] = value;
+  current[keys[keys.length - 1]!] = value;
 
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 }

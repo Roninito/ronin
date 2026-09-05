@@ -1,14 +1,27 @@
 /**
  * Tools/Skills Indexer Agent
- * 
- * Runs daily to index all available tools and their metadata in the ontology.
- * Discovers tools from UnifiedToolRegistry
- * Stores: Tool metadata nodes and relationships in ontology
+ *
+ * Runs daily to index all available tools and their metadata.
+ * Discovers tools from the skills plugin plus known system/common tools.
+ * Stores: memory/notes/tool-<tool_id>.md, overwritten each run
  */
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { createToolMetadataNode, linkToolToDomain, type ToolMetadataNode } from "../src/ontology/schemas.js";
+
+interface ToolParameter {
+  name: string;
+  type: string;
+  description: string;
+  required: boolean;
+}
+
+interface ToolMetadataNode {
+  tool_id: string;
+  domain?: string;
+  parameters: ToolParameter[];
+  version: string;
+}
 
 export default class ToolsIndexerAgent extends BaseDuty {
   // Run daily at midnight
@@ -30,25 +43,15 @@ export default class ToolsIndexerAgent extends BaseDuty {
         return;
       }
 
-      // Store each tool in ontology
+      // Store each tool as a memory note
       let indexed = 0;
       for (const tool of tools) {
         try {
-          if (this.api.ontology) {
-            await createToolMetadataNode(this.api, {
-              ...tool,
-              collected_at: new Date().toISOString(),
-              expires_at: new Date(Date.now() + 24 * 3600000).toISOString(),
-              source_agent: "tools-indexer",
-            });
-
-            // Create domain relationship
-            if (tool.domain) {
-              await linkToolToDomain(this.api, tool.tool_id, tool.domain);
-            }
-
-            indexed++;
-          }
+          await this.api.memory.store(`tool-${tool.tool_id}`, {
+            ...tool,
+            source_agent: "tools-indexer",
+          });
+          indexed++;
         } catch (error) {
           console.error(`[tools-indexer] Error indexing tool ${tool.tool_id}:`, error);
         }
@@ -71,22 +74,26 @@ export default class ToolsIndexerAgent extends BaseDuty {
     try {
       // Try to get tools from various sources
 
-      // 1. Check if skills plugin is available
-      if (this.api.ontology) {
-        const skillResults = await this.api.ontology.search({
-          type: "skill",
-          limit: 1000,
-        });
+      // 1. Skills discovered via the skills plugin (installed AgentSkills)
+      if (this.api.plugins.has("skills")) {
+        try {
+          const skillResults = (await this.api.plugins.call("skills", "discover_skills", "")) as Array<{
+            name: string;
+            description: string;
+          }>;
 
-        for (const skill of skillResults) {
-          tools.push({
-            tool_id: skill.id,
-            name: skill.name || skill.id,
-            description: skill.summary || "Skill tool",
-            domain: skill.domain || "skills",
-            parameters: [],
-            version: "1.0",
-          });
+          for (const skill of skillResults) {
+            tools.push({
+              tool_id: skill.name,
+              name: skill.name,
+              description: skill.description || "Skill tool",
+              domain: "skills",
+              parameters: [],
+              version: "1.0",
+            });
+          }
+        } catch (error) {
+          console.warn("[tools-indexer] discover_skills failed:", error);
         }
       }
 
@@ -113,27 +120,6 @@ export default class ToolsIndexerAgent extends BaseDuty {
 
   private getCommonSkills(): Array<ToolMetadataNode & { name: string; description: string }> {
     return [
-      {
-        tool_id: "ontology.search",
-        name: "Ontology Search",
-        description: "Search the ontology for entities by type, name, or domain",
-        domain: "ontology",
-        parameters: [
-          {
-            name: "query",
-            type: "string",
-            description: "Search query",
-            required: true,
-          },
-          {
-            name: "domain",
-            type: "string",
-            description: "Filter by domain",
-            required: false,
-          },
-        ],
-        version: "1.0",
-      },
       {
         tool_id: "memory.store",
         name: "Store Memory",

@@ -37,6 +37,11 @@ export default class AlertObserverAgent extends BaseDuty {
         return;
       }
 
+      if (!this.api.telegram) {
+        console.log("[alert-observer] Telegram plugin not loaded, alerts disabled");
+        return;
+      }
+
       this.botId = await this.api.telegram.initBot(botToken as string);
       this.chatId = chatId as string | number;
       console.log("[alert-observer] Telegram alerts enabled");
@@ -119,7 +124,7 @@ export default class AlertObserverAgent extends BaseDuty {
     console.log(`[alert-observer] ${status}: ${title} (${planId})`);
 
     // Send Telegram notification if configured
-    if (this.botId && this.chatId) {
+    if (this.botId && this.chatId && this.api.telegram) {
       try {
         await this.api.telegram.sendMessage(
           this.botId,

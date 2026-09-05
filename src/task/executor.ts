@@ -115,6 +115,19 @@ export class TaskExecutor {
   }
 
   /**
+   * Execute "spawn kata" phase action — delegates to ChildTaskCoordinator, which
+   * creates the child task and puts this task into "waiting" state until it
+   * completes or fails (see ChildTaskCoordinator.spawnChild).
+   */
+  private async spawnChildPhase(
+    taskId: string,
+    kataName: string,
+    kataVersion: string
+  ): Promise<void> {
+    await this.childCoordinator.spawnChild(taskId, kataName, kataVersion);
+  }
+
+  /**
    * Execute "run skill" phase action
    */
   private async executeSkillPhase(
@@ -138,6 +151,8 @@ export class TaskExecutor {
       task.variables,
       {
         taskId,
+        kataName: task.kataName,
+        kataVersion: task.kataVersion,
         currentPhase: task.currentPhase,
         variables: task.variables,
       },
@@ -172,15 +187,20 @@ export class TaskExecutor {
         }
 
         // Store event data in task variables
-        currentTask.variables = {
+        const updatedVariables = {
           ...currentTask.variables,
           event_received: event,
           event_timestamp: Date.now(),
           event_name: eventName,
         };
+        await this.engine.updateVariables(taskId, updatedVariables);
 
         // Move to next phase
-        const phase = currentTask.kata.phases[currentTask.currentPhase];
+        const phase = await this.engine.getCurrentPhase(taskId);
+        if (!phase) {
+          await this.engine.fail(taskId, `Phase '${currentTask.currentPhase}' not found in kata '${currentTask.kataName}'`);
+          return;
+        }
         if (phase.next) {
           await this.engine.nextPhase(taskId);
         } else {

@@ -49,6 +49,22 @@ export function parseGlobalOptions(args: string[]): GlobalOptions {
   };
 }
 
+/**
+ * Remove known flags (and the value token immediately after each one) from
+ * an args array, leaving only positional subcommand arguments. Used by
+ * commands like kdb/kata/contract/workflow/task that take a leading
+ * subcommand followed by a mix of positional args and --flag <value> pairs.
+ */
+export function stripFlags(args: string[], flagsWithValues: string[]): string[] {
+  const flags = new Set(flagsWithValues);
+  return args.filter((a, i) => {
+    if (flags.has(a)) return false;
+    const prev = args[i - 1];
+    if (i > 0 && prev !== undefined && flags.has(prev)) return false;
+    return true;
+  });
+}
+
 // ─── Per-Command Help Registry ─────────────────────────────────────────
 
 const commandHelp: Record<string, string> = {
@@ -169,8 +185,6 @@ List all registered HTTP routes on the running server.
 
 Options:
   --port <number>    Server port (default: 3000)
-
-Alias: ronin listRoutes
 `,
   interactive: `
 Usage: ronin interactive [options]
@@ -299,8 +313,8 @@ Run health checks on the Ronin installation:
   - Report config source (env vs file vs default)
 
 Use "ronin doctor ingest-docs" to sync reference docs, tools, and skills
-into the ontology so agents can find them via ontology_search (types ReferenceDoc, Tool, Skill).
-Use "ronin doctor ingest-docs --clean" to purge existing ReferenceDoc nodes first (when supported) before re-ingesting.
+into memory/notes/ so agents can find them via local.memory.search (refdoc-*, tool-*, skill-* keys).
+Use "ronin doctor ingest-docs --clean" to purge existing refdoc-* notes first before re-ingesting.
 `,
   create: `
 Usage: ronin create <type> [options]
@@ -308,14 +322,108 @@ Usage: ronin create <type> [options]
 Create new Ronin components.
 
 Types:
-  plugin <name>       Create a new plugin template
-  duty [description]   AI-powered duty creation (interactive)
-  skill "description"  Generate an AgentSkill from a description (SkillMaker)
+  plugin <name>          Create a new plugin template
+  duty [description]     AI-powered duty creation (interactive)
+  skill "description"    Generate an AgentSkill from a description (SkillMaker)
+  kata "intent"           AI-generates a kata DSL from plain language (alias for "kata propose")
+  workflow "description"  AI-drafts a workflow markdown SOP (alias for "workflow propose")
 
 Options (duty):
   --local              Create in ~/.ronin/duties instead of ./duties
   --no-preview         Skip preview before saving
   --edit               Open in editor after creation
+
+Options (kata, workflow):
+  --yes, -y            Skip confirmation prompt
+`,
+  daemon: `
+Usage: ronin daemon <subcommand>
+
+Manage Ronin running as a background daemon (PID file at ~/.ronin/ronin.pid,
+logs at ~/.ronin/daemon.log). "ronin daemon start" is equivalent to
+"ronin start --daemon".
+
+Subcommands:
+  start               Start Ronin as a daemon
+  stop                Stop the running daemon
+  status              Show whether the daemon is running
+  restart             Stop and start the daemon
+  logs                Tail the daemon log
+`,
+  cancel: `
+Usage: ronin cancel duty-creation [taskId] [options]
+
+Cancel a pending AI-powered duty creation task (started via "ronin create duty").
+
+Options:
+  --port <number>     Ronin server port (default: 3000)
+`,
+  docs: `
+Usage: ronin docs [document] [options]
+
+View Ronin's documentation, either in the browser (default) or the terminal.
+
+Options:
+  --terminal           Print to terminal instead of opening a browser
+  --list               List available documents and exit
+  --port <number>      Local docs server port
+
+Examples:
+  ronin docs                     Open documentation index in browser
+  ronin docs CLI                 Open the CLI reference
+  ronin docs PLUGINS --terminal  Print the plugins doc to terminal
+  ronin docs --list              List all available documents
+`,
+  schedule: `
+Usage: ronin schedule <subcommand> [args] [options]
+
+Manage and inspect cron schedules for duties.
+
+Subcommands:
+  list                        List all duties with their schedules
+  build                       Interactive schedule builder
+  explain <expression>        Explain a cron expression in plain language
+  validate <expression>       Validate a cron expression
+  templates                   List common schedule templates
+  apply <duty> <schedule>     Apply a schedule to a duty file
+`,
+  version: `
+Usage: ronin version
+
+Print the installed Ronin version and check for available updates.
+`,
+  kata: `
+Usage: ronin kata <subcommand> [options]
+
+Manage katas — deterministic workflow definitions run by the execution engine.
+
+Run "ronin kata" or "ronin kata help" for the full subcommand list and options
+(propose, list, show, validate, register, test, deprecate, delete).
+`,
+  contract: `
+Usage: ronin contract <subcommand> [options]
+
+Manage contracts — schedules/triggers (cron, event, or webhook) that run a kata.
+
+Run "ronin contract" or "ronin contract help" for the full subcommand list and
+options (list, show, create, update, enable, disable, test, validate, register,
+delete, history, dry-run, export, import, stats, propose).
+`,
+  task: `
+Usage: ronin task <subcommand> [options]
+
+View and manage task executions produced by contracts/katas.
+
+Run "ronin task" or "ronin task help" for the full subcommand list and options
+(list, show, cancel, retry).
+`,
+  workflow: `
+Usage: ronin workflow <subcommand> [options]
+
+Manage workflow markdown SOPs — guidance duties consult, never executed directly.
+
+Run "ronin workflow" or "ronin workflow help" for the full subcommand list and
+options (list, show, new, edit, propose).
 `,
   skills: `
 Usage: ronin skills <subcommand> [args] [options]
@@ -360,28 +468,27 @@ Examples:
   kdb: `
 Usage: ronin kdb <subcommand> [args] [options]
 
-Ontology and memory stats and queries (knowledge DB).
+Inspect Ronin's file-backed memory (memory/notes, memory/conversations, memory/blackboards).
 
 Subcommands:
-  stats                     Show ontology + memory table counts
-  memory search <query>      Search memories by text (--limit N)
-  memory recent             Recent memories (--limit N)
-  memory get <key>           Retrieve value by key
-  ontology search            Search nodes (--type T --name pattern --domain D --limit N)
-  ontology lookup <id>       Get node by id
-  ontology related <id>      Related nodes (--relation R --depth N --limit N)
+  stats                     Show file counts per memory area
+  memory search <query>      Search notes by text (--limit N)
+  memory recent             Recently modified notes (--limit N)
+  memory get <key>           Retrieve a stored value by key
+  conversation <duty>        Show a duty's conversation transcript (--limit N)
+  blackboard <duty>          Show a duty's blackboard
 
 Options:
-  --db-path <path>          Database path (default: ronin.db)
+  --db-path <path>          Database path (default: ronin.db) — memory/ lives alongside it
   --plugin-dir <dir>        Plugin directory
   --user-plugin-dir <dir>    User plugins directory
 
 Examples:
   ronin kdb stats
   ronin kdb memory search "telegram" --limit 5
-  ronin kdb memory get refdoc:PLUGINS
-  ronin kdb ontology search --type ReferenceDoc --limit 20
-  ronin kdb ontology lookup Task-abc123
+  ronin kdb memory get refdoc-PLUGINS
+  ronin kdb conversation messenger --limit 20
+  ronin kdb blackboard messenger
 `,
   update: `
 Usage: ronin update [options]

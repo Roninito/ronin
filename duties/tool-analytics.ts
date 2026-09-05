@@ -1,6 +1,6 @@
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import type { ToolCompletedEvent, ToolPolicyViolationEvent } from "../types.js";
+import type { ToolCompletedEvent, ToolPolicyViolationEvent } from "../src/tools/types.js";
 
 /**
  * Tool Analytics Agent
@@ -44,13 +44,13 @@ export default class ToolAnalyticsAgent extends BaseDuty {
     this.api.events.on("tool.completed", async (data: unknown) => {
       const event = data as ToolCompletedEvent;
       await this.recordToolUsage(event);
-    }, "tool-analytics");
+    });
 
     // Listen for policy violations
     this.api.events.on("tool.policyViolation", async (data: unknown) => {
       const event = data as ToolPolicyViolationEvent;
       await this.recordPolicyViolation(event);
-    }, "tool-analytics");
+    });
 
     console.log("[tool-analytics] Event listeners registered");
   }
@@ -62,7 +62,7 @@ export default class ToolAnalyticsAgent extends BaseDuty {
     try {
       // Store in daily bucket
       const date = new Date(event.timestamp);
-      const dayKey = date.toISOString().split('T')[0];
+      const dayKey = date.toISOString().split('T')[0]!;
       const hour = date.getHours();
       
       const record = {
@@ -79,9 +79,9 @@ export default class ToolAnalyticsAgent extends BaseDuty {
       // Append to daily log
       const dailyLogKey = `analytics.tools.daily.${dayKey}`;
       const existingLog = await this.api.memory.retrieve(dailyLogKey);
-      const log = existingLog ? JSON.parse(existingLog as string) : [];
+      const log = Array.isArray(existingLog) ? existingLog : [];
       log.push(record);
-      await this.api.memory.store(dailyLogKey, JSON.stringify(log));
+      await this.api.memory.store(dailyLogKey, log);
 
       // Update tool statistics
       await this.updateToolStats(event.toolName, event);
@@ -103,8 +103,8 @@ export default class ToolAnalyticsAgent extends BaseDuty {
     const statsKey = `analytics.tools.stats.${toolName}`;
     
     try {
-      const existing = await this.api.memory.retrieve(statsKey);
-      const stats = existing ? JSON.parse(existing as string) : {
+      const existing = await this.api.memory.retrieve(statsKey) as Record<string, any> | null;
+      const stats = existing ?? {
         totalCalls: 0,
         successfulCalls: 0,
         failedCalls: 0,
@@ -122,7 +122,7 @@ export default class ToolAnalyticsAgent extends BaseDuty {
       stats.cachedCalls += event.cached ? 1 : 0;
       stats.lastUsed = event.timestamp;
 
-      await this.api.memory.store(statsKey, JSON.stringify(stats));
+      await this.api.memory.store(statsKey, stats);
     } catch (error) {
       console.error("[tool-analytics] Error updating tool stats:", error);
     }
@@ -157,15 +157,15 @@ export default class ToolAnalyticsAgent extends BaseDuty {
 
       const violationsKey = "analytics.policy.violations";
       const existing = await this.api.memory.retrieve(violationsKey);
-      const violations = existing ? JSON.parse(existing as string) : [];
+      const violations = Array.isArray(existing) ? existing : [];
       violations.push(record);
-      
+
       // Keep only last 100 violations
       if (violations.length > 100) {
         violations.shift();
       }
-      
-      await this.api.memory.store(violationsKey, JSON.stringify(violations));
+
+      await this.api.memory.store(violationsKey, violations);
     } catch (error) {
       console.error("[tool-analytics] Error recording violation:", error);
     }
@@ -179,18 +179,19 @@ export default class ToolAnalyticsAgent extends BaseDuty {
       if (toolName) {
         const statsKey = `analytics.tools.stats.${toolName}`;
         const data = await this.api.memory.retrieve(statsKey);
-        return data ? JSON.parse(data as string) : null;
+        return data ?? null;
       }
 
       // Get all tool stats
       const allStats: Record<string, any> = {};
       const keys = await this.api.memory.search("analytics.tools.stats.", 100);
-      
-      for (const key of keys) {
-        const toolName = key.replace("analytics.tools.stats.", "");
-        const data = await this.api.memory.retrieve(key);
+
+      for (const m of keys) {
+        if (!m.key) continue;
+        const toolName = m.key.replace("analytics.tools.stats.", "");
+        const data = await this.api.memory.retrieve(m.key);
         if (data) {
-          allStats[toolName] = JSON.parse(data as string);
+          allStats[toolName] = data;
         }
       }
 
@@ -212,7 +213,7 @@ export default class ToolAnalyticsAgent extends BaseDuty {
       for (let i = 0; i < days; i++) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
-        const dayKey = date.toISOString().split('T')[0];
+        const dayKey = date.toISOString().split('T')[0]!;
         
         const costKey = `analytics.costs.daily.${dayKey}`;
         const cost = await this.api.memory.retrieve(costKey);
@@ -247,14 +248,13 @@ export default class ToolAnalyticsAgent extends BaseDuty {
       for (let i = 0; i < days; i++) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
-        const dayKey = date.toISOString().split('T')[0];
+        const dayKey = date.toISOString().split('T')[0]!;
         
         const dailyLogKey = `analytics.tools.daily.${dayKey}`;
         const log = await this.api.memory.retrieve(dailyLogKey);
-        
-        if (log) {
-          const records = JSON.parse(log as string);
-          for (const record of records) {
+
+        if (Array.isArray(log)) {
+          for (const record of log) {
             const hour = record.hour;
             hourlyStats[hour] = (hourlyStats[hour] || 0) + 1;
           }
@@ -332,7 +332,7 @@ export default class ToolAnalyticsAgent extends BaseDuty {
     console.log("[tool-analytics] Report generated and stored");
     console.log(report);
     const violationsRaw = await this.api.memory.retrieve("analytics.policy.violations");
-    const violations = violationsRaw ? JSON.parse(violationsRaw as string) as unknown[] : [];
+    const violations = Array.isArray(violationsRaw) ? violationsRaw : [];
     this.emitHomeFeed("Report ready", `Policy violations tracked: ${violations.length}`);
   }
 }

@@ -5,7 +5,7 @@
  */
 
 import type { Plugin } from "@ronin/plugins/base.js";
-import type { AgentAPI } from "@ronin/types/index.js";
+import type { DutyAPI } from "@ronin/types/index.js";
 import type { ModelConfig, ModelSelectionOptions } from "@ronin/types/model.js";
 import {
   initializeUsageTables,
@@ -25,24 +25,24 @@ const modelSelectorDbPlugin: Plugin = {
   description: "Model selection with database-backed usage tracking",
   methods: {
     // Initialize database tables for usage tracking
-    initializeDb: async (api: AgentAPI): Promise<void> => {
+    initializeDb: async (api: DutyAPI): Promise<void> => {
       await initializeUsageTables(api);
     },
 
     // Migrate existing JSON usage data to database
-    migrateUsageData: async (api: AgentAPI): Promise<number> => {
+    migrateUsageData: async (api: DutyAPI): Promise<number> => {
       const count = await migrateUsageData(api);
       return count;
     },
 
     // Check if usage data is in database
-    isUsageDataMigrated: async (api: AgentAPI): Promise<boolean> => {
+    isUsageDataMigrated: async (api: DutyAPI): Promise<boolean> => {
       return isUsageDataMigrated(api);
     },
 
     // Record usage to database
     recordUsageDb: async (
-      api: AgentAPI,
+      api: DutyAPI,
       nametag: string,
       inputTokens: number,
       outputTokens: number,
@@ -59,7 +59,7 @@ const modelSelectorDbPlugin: Plugin = {
 
     // Get daily usage for a model
     getDailyUsage: async (
-      api: AgentAPI,
+      api: DutyAPI,
       modelNametag: string,
       date?: string
     ): Promise<any> => {
@@ -68,7 +68,7 @@ const modelSelectorDbPlugin: Plugin = {
 
     // Get monthly usage for a model
     getMonthlyUsage: async (
-      api: AgentAPI,
+      api: DutyAPI,
       modelNametag: string,
       year?: number,
       month?: number
@@ -78,7 +78,7 @@ const modelSelectorDbPlugin: Plugin = {
 
     // Get usage range for a model
     getDailyUsageRange: async (
-      api: AgentAPI,
+      api: DutyAPI,
       modelNametag: string,
       startDate: string,
       endDate: string
@@ -87,18 +87,18 @@ const modelSelectorDbPlugin: Plugin = {
     },
 
     // Get all daily stats for a date
-    getDailyStats: async (api: AgentAPI, date?: string): Promise<any[]> => {
+    getDailyStats: async (api: DutyAPI, date?: string): Promise<any[]> => {
       return getDailyStats(api, date);
     },
 
     // Get all monthly stats for a period
-    getMonthlyStats: async (api: AgentAPI, year?: number, month?: number): Promise<any[]> => {
+    getMonthlyStats: async (api: DutyAPI, year?: number, month?: number): Promise<any[]> => {
       return getMonthlyStats(api, year, month);
     },
 
     // Get usage log (detailed)
     getUsageLog: async (
-      api: AgentAPI,
+      api: DutyAPI,
       modelNametag?: string,
       limit?: number
     ): Promise<any[]> => {
@@ -107,7 +107,7 @@ const modelSelectorDbPlugin: Plugin = {
 
     // Get total cost for a period
     getTotalCost: async (
-      api: AgentAPI,
+      api: DutyAPI,
       startDate: string,
       endDate: string,
       modelNametag?: string

@@ -32,7 +32,10 @@ export class CronEvaluator {
       throw new Error(`Invalid cron expression: expected 5 parts, got ${parts.length}`);
     }
 
-    const [minutePart, hourPart, dayPart, monthPart, weekdayPart] = parts;
+    // Non-null: the length check above guarantees exactly 5 elements.
+    const [minutePart, hourPart, dayPart, monthPart, weekdayPart] = parts as [
+      string, string, string, string, string
+    ];
 
     const minute = now.getMinutes();
     const hour = now.getHours();
@@ -73,7 +76,8 @@ export class CronEvaluator {
 
     // N-M range
     if (part.includes("-")) {
-      const [start, end] = part.split("-").map((s) => parseInt(s, 10));
+      // Non-null: part.includes("-") guarantees split() returns at least 2 elements.
+      const [start, end] = part.split("-").map((s) => parseInt(s, 10)) as [number, number];
       if (isNaN(start) || isNaN(end)) {
         throw new Error(`Invalid range: ${part}`);
       }
@@ -231,7 +235,10 @@ export function getNextCronRun(expression: string, after: Date = new Date()): Da
 export function cronToHuman(expression: string): string {
   const parts = expression.trim().split(/\s+/);
   if (parts.length !== 5) return expression;
-  const [min, hour, day, month, weekday] = parts;
+  // Non-null: the length check above guarantees exactly 5 elements.
+  const [min, hour, day, month, weekday] = parts as [
+    string, string, string, string, string
+  ];
 
   if (min === "*" && hour === "*") return "Every minute";
   if (min.startsWith("*/")) return `Every ${min.slice(2)} minutes`;

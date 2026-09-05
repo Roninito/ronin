@@ -137,7 +137,7 @@ export class Cache {
   }
 }
 
-/** Default shared instance for prompt and ontology use. Callers can also create their own Cache. */
+/** Default shared instance for prompt building and similar use. Callers can also create their own Cache. */
 let defaultCache: Cache | null = null;
 
 /**

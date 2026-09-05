@@ -272,7 +272,7 @@ const parseNode = async (state: AgentCreationState) => {
 
 const researchNode = async (state: AgentCreationState) => {
   // Find existing agents
-  const agents = await api.ontology?.search("agent");
+  const agents = await api.memory?.search("agent");
   
   return { ...state, existingAgents: agents };
 };
@@ -330,7 +330,7 @@ const parseNode = async (state) => {
       { role: "system", content: "Parse agent requirements..." },
       { role: "user", content: state.request },
     ],
-    ontology: { domain: "agents", relevantSkills: ["ontology.search"] },
+    ontology: { domain: "agents", relevantSkills: ["local.memory.search"] },
     budget: { max: 4096, current: 0, reservedForResponse: 256 },
   });
   await chain.run();

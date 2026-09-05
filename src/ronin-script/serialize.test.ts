@@ -25,9 +25,9 @@ Netflix paid_by Chase Checking`;
     const ast2 = parse(out);
     expect(ast2.typeDefs).toEqual(ast.typeDefs);
     expect(ast2.entities.length).toBe(ast.entities.length);
-    expect(ast2.entities[0].type).toBe(ast.entities[0].type);
-    expect(ast2.entities[0].values).toEqual(ast.entities[0].values);
-    expect(ast2.entities[0].labels).toEqual(ast.entities[0].labels);
+    expect(ast2.entities[0]!.type).toBe(ast.entities[0]!.type);
+    expect(ast2.entities[0]!.values).toEqual(ast.entities[0]!.values);
+    expect(ast2.entities[0]!.labels).toEqual(ast.entities[0]!.labels);
     expect(ast2.relationships).toEqual(ast.relationships);
   });
 

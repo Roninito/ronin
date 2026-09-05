@@ -25,6 +25,10 @@ export interface CompletionOptions {
    * Useful for synthesis rounds where the smart model may not be available on the remote endpoint.
    */
   useLocalProvider?: boolean;
+  /** System prompt for a single-turn complete() call (providers that support one, e.g. Anthropic). */
+  systemPrompt?: string;
+  /** Nucleus sampling parameter (providers that support it, e.g. Anthropic). */
+  topP?: number;
 }
 
 /**
@@ -125,6 +129,8 @@ export interface DutyAPI {
       tools: Tool[],
       options?: CompletionOptions
     ): Promise<{ message: Message; toolCalls: ToolCall[] }>;
+    /** Check whether a model is available/reachable via its provider. */
+    checkModel(model?: string): Promise<boolean>;
   };
 
   /**
@@ -136,7 +142,16 @@ export interface DutyAPI {
     search(query: string, limit?: number): Promise<Memory[]>;
     addContext(text: string, metadata?: Record<string, unknown>): Promise<string>;
     getRecent(limit?: number): Promise<Memory[]>;
-    getByMetadata(metadata: Record<string, unknown>): Promise<Memory[]>;
+    forget(key: string): Promise<boolean>;
+    forgetByKeyPrefix(prefix: string, updatedBefore?: Date): Promise<number>;
+    countByKeyPrefix(prefix: string): Promise<number>;
+    /** Append-only per-duty conversation transcript, stored as plain text. */
+    addConversation(dutyName: string, role: "system" | "user" | "assistant", content: string): Promise<string>;
+    getConversations(dutyName: string, limit?: number): Promise<Array<{ role: string; content: string; createdAt: Date }>>;
+    /** Per-duty scratch/working-state text file — read/write/append freely. */
+    getBlackboard(dutyName: string): Promise<string>;
+    setBlackboard(dutyName: string, content: string): Promise<void>;
+    appendBlackboard(dutyName: string, content: string): Promise<void>;
   };
 
   /**
@@ -447,6 +462,50 @@ export interface DutyAPI {
   };
 
   /**
+   * Python bridge operations (if the python plugin is loaded)
+   * Execute Python code inline or spawn a persistent Python backend process.
+   */
+  python?: {
+    execute(code: string, options?: { timeout?: number; pythonPath?: string }): Promise<unknown>;
+    spawn(
+      script: string,
+      options?: { env?: Record<string, string>; timeout?: number }
+    ): Promise<import("../../plugins/python-bridge.js").PythonBackendHandle>;
+    getBackend(script: string): import("../../plugins/python-bridge.js").PythonBackendHandle | undefined;
+    terminate(script: string): Promise<void>;
+    terminateAll(): Promise<void>;
+    hasPython(): Promise<boolean>;
+    getPythonVersion(): Promise<string>;
+  };
+
+  /**
+   * Reticulum mesh-network operations (if the reticulum plugin is loaded)
+   * Decentralized Ronin-to-Ronin communication over local/wide-area mesh.
+   */
+  reticulum?: {
+    init(options?: import("../../plugins/reticulum.js").ReticulumOptions): Promise<import("../../plugins/reticulum.js").NetworkStatus>;
+    disconnect(): Promise<void>;
+    createIdentity(): Promise<import("../../plugins/reticulum.js").IdentityInfo>;
+    loadIdentity(path: string): Promise<import("../../plugins/reticulum.js").IdentityInfo>;
+    getIdentity(): Promise<import("../../plugins/reticulum.js").IdentityInfo | null>;
+    createDestination(aspects: string[], appName?: string): Promise<import("../../plugins/reticulum.js").DestinationInfo>;
+    announce(appData?: Record<string, any>): Promise<void>;
+    sendPacket(destinationHash: string, data: Uint8Array | string): Promise<any>;
+    sendMessage(
+      destinationHash: string,
+      content: string,
+      options?: { title?: string; fields?: Record<string, any> }
+    ): Promise<import("../../plugins/reticulum.js").LXMFReceipt>;
+    receiveMessage(timeout?: number): Promise<import("../../plugins/reticulum.js").LXMFMessage | null>;
+    /** NOT YET IMPLEMENTED — always throws. See plugins/reticulum.ts's query() docstring. */
+    query(destinationHash: string, queryType: string, payload: Record<string, any>, timeout?: number): Promise<any>;
+    getStatus(): Promise<import("../../plugins/reticulum.js").NetworkStatus>;
+    getPeers(): Promise<import("../../plugins/reticulum.js").PeerInfo[]>;
+    getIdentityHash(): Promise<string | null>;
+    generateSharedKey(): Promise<string>;
+  };
+
+  /**
    * Mesh Network operations (if mesh networking is enabled)
    * Enables discovery and execution of services across Ronin instances
    */
@@ -501,77 +560,6 @@ export interface DutyAPI {
     buildAgentCreationGraph(cancellationToken?: { isCancelled: boolean }, api?: DutyAPI): Promise<any>;
     runAnalysisChain(input: string, dataSource?: string, api?: DutyAPI): Promise<string>;
     buildResearchGraph(api?: DutyAPI): Promise<any>;
-  };
-
-  /**
-   * Ontology / knowledge graph operations (if ontology plugin is loaded)
-   */
-  ontology?: {
-    setNode(node: {
-      id: string;
-      type: string;
-      name?: string;
-      summary?: string;
-      metadata?: string;
-      domain?: string;
-      confidence?: number;
-      sensitivity?: string;
-    }): Promise<void>;
-    setEdge(edge: {
-      id: string;
-      from_id: string;
-      to_id: string;
-      relation: string;
-      metadata?: string;
-      confidence?: number;
-    }): Promise<void>;
-    removeNode(id: string): Promise<void>;
-    removeEdge(id: string): Promise<void>;
-    lookup(id: string): Promise<{
-      id: string;
-      type: string;
-      name: string | null;
-      summary: string | null;
-      metadata: string | null;
-      domain: string;
-      confidence: number;
-      sensitivity: string;
-      created_at: number;
-      updated_at: number;
-    } | null>;
-    search(params: { type?: string; nameLike?: string; domain?: string; limit?: number }): Promise<Array<{
-      id: string;
-      type: string;
-      name: string | null;
-      summary: string | null;
-      metadata: string | null;
-      domain: string;
-      confidence: number;
-      sensitivity: string;
-      created_at: number;
-      updated_at: number;
-    }>>;
-    related(params: {
-      nodeId: string;
-      relation?: string;
-      direction?: "out" | "in" | "both";
-      depth?: number;
-      limit?: number;
-    }): Promise<Array<{ node: Record<string, unknown>; edges: Array<Record<string, unknown>> }>>;
-    context(params: { taskId: string; depth?: number; limit?: number }): Promise<{
-      task: Record<string, unknown> | null;
-      skills: Array<Record<string, unknown>>;
-      failures: Array<Record<string, unknown>>;
-      pipelines: Array<Record<string, unknown>>;
-      conversations: Array<Record<string, unknown>>;
-    }>;
-    history(params: {
-      type?: string;
-      nameLike?: string;
-      successfulOnly?: boolean;
-      limit?: number;
-    }): Promise<Array<Record<string, unknown>>>;
-    stats(): Promise<{ nodes: Record<string, number>; edges: Record<string, number> }>;
   };
 
   /**
@@ -793,6 +781,7 @@ export interface DutyAPI {
     getRssToTelegram(): import("../config/types.js").RssToTelegramConfig;
     getTasking(): import("../config/types.js").TaskingConfig;
     getRealm(): import("../config/types.js").RealmConfig;
+    getMesh(): import("../config/types.js").MeshNetworkConfig;
     getMCP(): import("../config/types.js").MCPConfig;
     getNotifications(): import("../config/types.js").NotificationsConfig;
     isFromEnv(path: string): boolean;

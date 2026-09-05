@@ -3,6 +3,7 @@ import type { DutyAPI } from "../src/types/index.js";
 import { runArtifactMigrations } from "../src/artifacts/migrations.js";
 import { ArtifactStore, calculateCompletion } from "../src/artifacts/store.js";
 import { registerArtifactAssetRoute, registerArtifactRoutes, registerArtifactTools } from "../src/artifacts/tools.js";
+import { writeArtifactNote } from "../src/artifacts/memoryNote.js";
 import { getAdobeCleanFontFaceCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getThemeCSS } from "../src/utils/theme.js";
 
 /**
@@ -63,14 +64,7 @@ export default class ArtifactManagerAgent extends BaseDuty {
         "artifact-manager"
       );
 
-      if (this.api.ontology) {
-        await this.api.ontology.setNode({
-          id: `artifact:${artifact.id}`,
-          type: "artifact",
-          name: artifact.name,
-          metadata: JSON.stringify({ artifactId: artifact.id, state: artifact.state, artifactType: artifact.type }),
-        });
-      }
+      await writeArtifactNote(this.api, artifact);
 
       await this.notifyDue(artifact.id, artifact.name, decision.pendingCategories);
     }

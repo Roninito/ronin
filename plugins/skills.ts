@@ -6,7 +6,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { existsSync } from "fs";
 import type { Plugin } from "../src/plugins/base.js";
-import type { AgentAPI } from "../src/types/api.js";
+import type { DutyAPI } from "../src/types/api.js";
 import type {
   SkillMeta,
   SkillFrontmatter,
@@ -26,7 +26,7 @@ const DEFAULT_WATCHDOG_BLOCKLIST = [
   /\|\s*tee\s+.*\/etc\//,
 ];
 
-let apiRef: AgentAPI | null = null;
+let apiRef: DutyAPI | null = null;
 
 function getSkillsDirs(): string[] {
   if (!apiRef) return [];
@@ -53,7 +53,7 @@ function parseSkillMd(content: string): { frontmatter: SkillFrontmatter; body: s
   if (parts.length < 2) {
     return { frontmatter: { name: "", description: "" }, body: content };
   }
-  const frontmatter = parseFrontmatter(parts[0]);
+  const frontmatter = parseFrontmatter(parts[0]!);
   const body = parts.slice(1).join("\n---\n").trim();
   return { frontmatter, body };
 }
@@ -62,10 +62,10 @@ function parseAbilities(body: string): AbilitySpec[] {
   const abilities: AbilitySpec[] = [];
   const abSection = body.match(/##\s+Abilities\s*\n([\s\S]*?)(?=\n##\s|$)/i);
   if (!abSection) return abilities;
-  const section = abSection[1].trim();
+  const section = abSection[1]!.trim();
   const headingBlocks = section.split(/\n?###\s+/);
   for (let i = 1; i < headingBlocks.length; i++) {
-    const block = headingBlocks[i];
+    const block = headingBlocks[i]!;
     const firstLine = block.indexOf("\n") >= 0 ? block.slice(0, block.indexOf("\n")) : block;
     const name = firstLine.trim();
     const rest = block.slice(firstLine.length).trim();
@@ -77,7 +77,7 @@ function parseAbilities(body: string): AbilitySpec[] {
       name,
       description: descriptionMatch?.[1]?.trim(),
       input: inputMatch
-        ? inputMatch[1]
+        ? inputMatch[1]!
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean)
@@ -279,7 +279,7 @@ async function runAbility(
   let scriptPath = "";
   if (runCommand) {
     const bunMatch = runCommand.match(/bun\s+run\s+(\S+)/);
-    if (bunMatch) scriptPath = join(skillDir, bunMatch[1]);
+    if (bunMatch) scriptPath = join(skillDir, bunMatch[1]!);
     else scriptPath = join(skillDir, "scripts", `${ability.name}.ts`);
   } else {
     scriptPath = join(skillDir, "scripts", `${ability.name}.ts`);
@@ -393,7 +393,7 @@ async function use_skill(
     } else if (detail.abilities.length === 1) {
       // Neither ability nor pipeline given, but the skill only has one
       // ability — no ambiguity, so just run it.
-      const ability = detail.abilities[0];
+      const ability = detail.abilities[0]!;
       const { output, log } = await runAbility(
         skillDir,
         ability,
@@ -433,7 +433,7 @@ async function use_skill(
   }
 }
 
-function setAPI(api: AgentAPI): void {
+function setAPI(api: DutyAPI): void {
   apiRef = api;
 }
 

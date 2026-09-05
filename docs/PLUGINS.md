@@ -488,88 +488,9 @@ const researchGraph = await this.api.langchain?.buildResearchGraph(this.api);
 const research = await researchGraph.invoke({ query: "Latest AI developments" });
 ```
 
-### RAG Plugin
+RAG (vector embeddings) was removed from Ronin — no `rag` plugin, no `RagAgent` base class. Knowledge retrieval is plain-text search over `memory/notes/` via `api.memory.search`; see [KNOWLEDGE_RETRIEVAL_GUIDE.md](KNOWLEDGE_RETRIEVAL_GUIDE.md).
 
-**Methods**:
-- `init(namespace, options?)` - Initialize a RAG namespace (isolated document collection)
-- `addDocuments(namespace, documents, options?)` - Add documents with automatic chunking and embedding
-- `query(namespace, query, options?, api?)` - Query with RAG - retrieve context and generate AI response
-- `search(namespace, query, limit?, options?)` - Semantic search only (returns matching chunks)
-- `removeDocuments(namespace, documentIds)` - Remove documents from the store
-- `listDocuments(namespace, limit?)` - List documents in a namespace
-- `getStats(namespace)` - Get statistics for a namespace
-- `clearNamespace(namespace)` - Clear all documents from a namespace
-
-**Example (Direct API - Recommended)**:
-```typescript
-// Initialize a namespace
-await this.api.rag?.init("my-docs", {
-  embeddingModel: "nomic-embed-text",
-  chunkSize: 500,
-  chunkOverlap: 50,
-});
-
-// Add documents
-const result = await this.api.rag?.addDocuments("my-docs", [
-  { 
-    content: "Ronin is an AI agent framework built on Bun.",
-    metadata: { source: "docs", date: "2024-01-01" }
-  },
-  { 
-    content: "Agents extend BaseAgent and implement execute().",
-    metadata: { source: "docs" }
-  },
-]);
-console.log(`Added ${result.documentIds.length} documents with ${result.chunksCreated} chunks`);
-
-// Query with RAG
-const queryResult = await this.api.rag?.query("my-docs", "What is Ronin?", {
-  limit: 3,
-  temperature: 0.3,
-  systemPrompt: "You are a helpful assistant.",
-}, this.api);
-console.log("Response:", queryResult.response);
-console.log("Sources:", queryResult.sources);
-
-// Semantic search without AI generation
-const searchResults = await this.api.rag?.search("my-docs", "agent framework", 5);
-for (const result of searchResults) {
-  console.log(`Score: ${result.score.toFixed(3)} - ${result.chunkText.substring(0, 100)}...`);
-}
-
-// Get statistics
-const stats = await this.api.rag?.getStats("my-docs");
-console.log(`Documents: ${stats.documentCount}, Chunks: ${stats.chunkCount}`);
-```
-
-**RagAgent Base Class:**
-
-For structured RAG workflows, extend the `RagAgent` base class:
-
-```typescript
-import { RagAgent } from "../agents/rag-agent.js";
-
-export default class MyRagAgent extends RagAgent {
-  protected namespace = "my-docs";
-  protected documentsPath = "./data/docs";
-  protected maxRetrievedDocs = 5;
-  static schedule = "0 0 * * *"; // Daily ingestion
-
-  async execute() {
-    await this.ingestFromDirectory(this.documentsPath);
-  }
-}
-```
-
-The `RagAgent` base class automatically registers HTTP routes at `/api/rag/{namespace}/*` for query, search, ingest, and stats endpoints.
-
-**Requirements:**
-- Ollama must be running with an embedding model pulled (e.g., `ollama pull nomic-embed-text`)
-- Set `OLLAMA_EMBEDDING_MODEL` environment variable to use a different model
-
-See [docs/RAG.md](./RAG.md) for complete RAG documentation.
-
-**See also:** [RONIN_SCRIPT.md](RONIN_SCRIPT.md) for a token-efficient context language that works with memory and the ontology plugin (agents can store/aggregate data as Ronin Script; use `ontology_search` with types `ReferenceDoc` or `Tool` for synced docs and tools).
+**See also:** [RONIN_SCRIPT.md](RONIN_SCRIPT.md) for a token-efficient context language that works with memory (agents can aggregate memory-search results as Ronin Script via `local.ronin_script.aggregate`).
 
 ### Email Plugin
 

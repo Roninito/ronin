@@ -1,27 +1,18 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { execSync } from "child_process";
+import { getRunningInstancePid, INSTANCE_PID_PATH } from "../instanceLock.js";
 
-const DAEMON_PID_PATH = join(homedir(), ".ronin", "ronin.pid");
 const DAEMON_LOG_PATH = join(homedir(), ".ronin", "daemon.log");
 
 /**
- * Get daemon PID from file
+ * Get daemon PID from the shared instance lock (getRunningInstancePid() already
+ * clears it if stale) — the same lock every launch mode (start/--ninja/--daemon/
+ * interactive) now checks, not a daemon-only PID file.
  */
 function getDaemonPID(): number | null {
-  try {
-    if (!existsSync(DAEMON_PID_PATH)) {
-      return null;
-    }
-    const pidStr = readFileSync(DAEMON_PID_PATH, "utf8").trim();
-    if (!pidStr) {
-      return null;
-    }
-    return parseInt(pidStr, 10);
-  } catch {
-    return null;
-  }
+  return getRunningInstancePid();
 }
 
 /**
@@ -41,7 +32,7 @@ function isProcessRunning(pid: number): boolean {
  */
 export async function daemonStartCommand(): Promise<void> {
   const pid = getDaemonPID();
-  if (pid !== null && isProcessRunning(pid)) {
+  if (pid !== null) {
     console.log(`Daemon already running with PID ${pid}`);
     console.log(`  Logs: ${DAEMON_LOG_PATH}`);
     return;
@@ -61,36 +52,31 @@ export async function daemonStartCommand(): Promise<void> {
  * Daemon stop command
  */
 export async function daemonStopCommand(): Promise<void> {
+  // getDaemonPID() (getRunningInstancePid()) already verifies liveness and clears
+  // a stale lock itself, so a null result here already means "not running, and
+  // any stale file has been cleaned up" — no separate staleness branch needed.
   const pid = getDaemonPID();
   if (pid === null) {
     console.log("Daemon is not running (no PID file found)");
     return;
   }
 
-  if (!isProcessRunning(pid)) {
-    console.log(`Daemon PID ${pid} is not running (stale PID file)`);
-    // Clean up stale PID file
-    try {
-      Bun.write(DAEMON_PID_PATH, "");
-    } catch {}
-    return;
-  }
-
   try {
     process.kill(pid, "SIGTERM");
     console.log(`Stopped daemon (PID ${pid})`);
-    
+
     // Wait a bit and check if it's still running
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     if (isProcessRunning(pid)) {
       console.log("Process still running, sending SIGKILL...");
       process.kill(pid, "SIGKILL");
     }
-    
-    // Clean up PID file
+
+    // Clean up the lock file — the dying process's own `exit` handler (see
+    // instanceLock.ts) should already do this, but SIGKILL gives it no chance to.
     try {
-      Bun.write(DAEMON_PID_PATH, "");
+      unlinkSync(INSTANCE_PID_PATH);
     } catch {}
   } catch (error) {
     console.error(`Failed to stop daemon:`, error);
@@ -108,15 +94,10 @@ export async function daemonStatusCommand(): Promise<void> {
     return;
   }
 
-  if (!isProcessRunning(pid)) {
-    console.log(`Daemon status: Not running (stale PID file: ${pid})`);
-    return;
-  }
-
   console.log(`Daemon status: Running`);
   console.log(`  PID: ${pid}`);
   console.log(`  Logs: ${DAEMON_LOG_PATH}`);
-  console.log(`  PID file: ${DAEMON_PID_PATH}`);
+  console.log(`  PID file: ${INSTANCE_PID_PATH}`);
 }
 
 /**

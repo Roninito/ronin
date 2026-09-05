@@ -1,5 +1,6 @@
 import { homedir } from "os";
 import { join } from "path";
+import { getRunningInstancePid } from "../instanceLock.js";
 
 /**
  * Get the default webhook port
@@ -9,14 +10,22 @@ function getWebhookPort(): number {
 }
 
 /**
- * Check if Ronin is running and get its PID
+ * Check if Ronin is running and get its PID.
+ *
+ * The instance lock (shared by every launch mode) is checked first — it's accurate
+ * the instant a process starts, before its HTTP server even binds. The HTTP probe
+ * is a fallback for the (now much narrower) case where the lock file is somehow
+ * missing but the server is actually up and answering.
  */
 async function getRunningPid(port: number = 3000): Promise<number | null> {
+  const lockPid = getRunningInstancePid();
+  if (lockPid !== null) return lockPid;
+
   try {
     const response = await fetch(`http://localhost:${port}/api/status`, {
       signal: AbortSignal.timeout(2000),
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       if (data.running && data.pid) {

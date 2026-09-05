@@ -6,9 +6,10 @@ import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
-import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, openSync, closeSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { acquireInstanceLock, getRunningInstancePid, AlreadyRunningError, INSTANCE_PID_PATH } from "../instanceLock.js";
 
 export interface StartOptions {
   dutyDir?: string;
@@ -46,6 +47,11 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   if (process.env.RONIN_READ_ONLY === "1") {
     return null;
   }
+  // Checked first, before any duty/plugin/kata loading — closes the race window
+  // where two launches (any mix of foreground/--ninja/--daemon/interactive) could
+  // both get most of the way through startup before either one reached the
+  // webhook port bind that used to be the only thing stopping duplicates.
+  acquireInstanceLock();
   await ensureAiRegistry();
   const config = await loadConfig();
   const dutyDir = options.dutyDir || config.dutyDir || ensureDefaultDutyDir();
@@ -192,7 +198,6 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
 
 const NINJA_LOG_PATH = join(homedir(), ".ronin", "ninja.log");
 const DAEMON_LOG_PATH = join(homedir(), ".ronin", "daemon.log");
-const DAEMON_PID_PATH = join(homedir(), ".ronin", "ronin.pid");
 const RUN_LOGS_DIR = join(homedir(), ".ronin", "logs", "runs");
 
 /**
@@ -219,10 +224,19 @@ function setupRunLog(retentionRuns: number): string {
 /**
  * Start Ronin in ninja mode: spawn a detached background process with logs to ~/.ronin/ninja.log.
  */
-function runNinjaMode(): void {
+async function runNinjaMode(): Promise<void> {
   const logDir = join(homedir(), ".ronin");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
+  }
+
+  // Check up front, for an immediate message instead of a silently-dead child whose
+  // only trace is a line buried in ninja.log.
+  const existing = getRunningInstancePid();
+  if (existing !== null) {
+    console.error(`❌ Ronin is already running (PID ${existing}).`);
+    console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
+    process.exit(1);
   }
 
   const args = process.argv.slice(2).filter((a) => a !== "--ninja");
@@ -240,6 +254,17 @@ function runNinjaMode(): void {
   closeSync(logFd);
   child.unref();
 
+  // The child acquires its own instance lock once it reaches startRoninServer() —
+  // wait briefly and confirm it actually got there and is still alive, rather than
+  // reporting success unconditionally (it could just as easily have lost a startup
+  // race and exited immediately).
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  if (getRunningInstancePid() !== child.pid) {
+    console.error("❌ Ronin failed to start in ninja mode (exited immediately).");
+    console.error("   Check the log: ~/.ronin/ninja.log");
+    process.exit(1);
+  }
+
   console.log("Ronin started in ninja mode.");
   console.log(`  PID:  ${child.pid}`);
   console.log(`  Logs: ~/.ronin/ninja.log`);
@@ -250,34 +275,18 @@ function runNinjaMode(): void {
 /**
  * Start Ronin in daemon mode: spawn a detached background process with PID file and logs.
  */
-function runDaemonMode(): void {
+async function runDaemonMode(): Promise<void> {
   const logDir = join(homedir(), ".ronin");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
 
-  // Check if daemon is already running
-  if (existsSync(DAEMON_PID_PATH)) {
-    try {
-      const pid = parseInt(readFileSync(DAEMON_PID_PATH, "utf8").trim(), 10);
-      if (!Number.isFinite(pid)) {
-        Bun.write(DAEMON_PID_PATH, "");
-      } else {
-      // Check if process is still running
-        try {
-          process.kill(pid, 0); // Signal 0 checks if process exists
-          console.error(`Daemon already running with PID ${pid}`);
-          console.error(`  Logs: ${DAEMON_LOG_PATH}`);
-          console.error(`  Use 'ronin daemon stop' to stop it.`);
-          process.exit(1);
-        } catch {
-          // Process doesn't exist, remove stale PID file
-          Bun.write(DAEMON_PID_PATH, "");
-        }
-      }
-    } catch {
-      // PID file exists but can't read it, continue
-    }
+  const existing = getRunningInstancePid();
+  if (existing !== null) {
+    console.error(`Daemon already running with PID ${existing}`);
+    console.error(`  Logs: ${DAEMON_LOG_PATH}`);
+    console.error(`  Use 'ronin daemon stop' to stop it.`);
+    process.exit(1);
   }
 
   const args = process.argv.slice(2).filter((a) => a !== "--daemon");
@@ -292,16 +301,24 @@ function runDaemonMode(): void {
     detached: true,
   });
 
-  // Write PID file
-  Bun.write(DAEMON_PID_PATH, String(child.pid));
-
   closeSync(logFd);
   child.unref();
+
+  // No PID file write here: the child writes its own once it acquires the instance
+  // lock inside startRoninServer(). Writing it here unconditionally was the bug —
+  // a child that lost a startup race died instantly, leaving this file pointing at
+  // a dead PID forever (exactly what 'ronin daemon status' was found reporting).
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  if (getRunningInstancePid() !== child.pid) {
+    console.error("❌ Ronin daemon failed to start (exited immediately).");
+    console.error(`   Check the log: ${DAEMON_LOG_PATH}`);
+    process.exit(1);
+  }
 
   console.log("Ronin started in daemon mode.");
   console.log(`  PID:  ${child.pid}`);
   console.log(`  Logs: ${DAEMON_LOG_PATH}`);
-  console.log(`  PID file: ${DAEMON_PID_PATH}`);
+  console.log(`  PID file: ${INSTANCE_PID_PATH}`);
   console.log("Use 'ronin daemon status' to check, 'ronin daemon stop' to stop.");
   process.exit(0);
 }
@@ -311,12 +328,12 @@ function runDaemonMode(): void {
  */
 export async function startCommand(options: StartOptions = {}): Promise<void> {
   if (options.ninja) {
-    runNinjaMode();
+    await runNinjaMode();
     return;
   }
 
   if (options.daemon) {
-    runDaemonMode();
+    await runDaemonMode();
     return;
   }
 
@@ -334,6 +351,11 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
   try {
     state = await startRoninServer(options);
   } catch (error) {
+    if (error instanceof AlreadyRunningError) {
+      console.error(`❌ Ronin is already running (PID ${error.pid}).`);
+      console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
+      process.exit(1);
+    }
     const err = error as { code?: string; message?: string };
     const message = err?.message || String(error);
     if (err?.code === "EADDRINUSE" || message.includes("EADDRINUSE")) {

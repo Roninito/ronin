@@ -98,18 +98,24 @@ function matchesQuery(meta: SkillMeta, query: string): boolean {
   );
 }
 
-function runWatchdog(scriptContent: string, blocklist: RegExp[]): boolean {
-  for (const re of blocklist) {
-    if (re.test(scriptContent)) return false;
-  }
-  return true;
+interface InstalledSkill {
+  /** Absolute path to the skill's directory. */
+  skillDir: string;
+  /** The directory's own name (e.g. "apple-mail") — NOT necessarily related to frontmatter.name. */
+  dirName: string;
+  frontmatter: SkillFrontmatter;
+  body: string;
 }
 
-async function discover_skills(query: string): Promise<SkillMeta[]> {
+/**
+ * Enumerate every installed skill by actually reading its skill.md, once, shared by
+ * discover_skills/list_skills_with_abilities/explore_skill so they can't drift out of
+ * sync with each other (they used to each re-implement this same directory walk).
+ */
+async function walkInstalledSkills(): Promise<InstalledSkill[]> {
   if (!apiRef) throw new Error("Skills plugin: API not set. setAPI(api) must be called first.");
-  const results: SkillMeta[] = [];
-  const dirs = getSkillsDirs();
-  for (const dir of dirs) {
+  const results: InstalledSkill[] = [];
+  for (const dir of getSkillsDirs()) {
     let entries: string[];
     try {
       entries = await apiRef.files.list(dir);
@@ -121,47 +127,8 @@ async function discover_skills(query: string): Promise<SkillMeta[]> {
       return existsSync(full);
     });
     for (const sub of subdirs) {
-      const skillDir = join(dir, sub.split("/").pop() ?? sub);
-      const skillMdPath = join(skillDir, "skill.md");
-      const skillMdPathAlt = join(skillDir, "SKILL.md");
-      let path = skillMdPath;
-      if (!existsSync(skillMdPath) && existsSync(skillMdPathAlt)) path = skillMdPathAlt;
-      if (!existsSync(path)) continue;
-      try {
-        const content = await apiRef.files.read(path);
-        const { frontmatter } = parseSkillMd(content);
-        if (!frontmatter.name) continue;
-        const meta: SkillMeta = {
-          name: frontmatter.name,
-          description: frontmatter.description || "",
-        };
-        if (matchesQuery(meta, query)) results.push(meta);
-      } catch {
-        // skip unreadable
-      }
-    }
-  }
-  return results.slice(0, MAX_DISCOVER);
-}
-
-async function list_skills_with_abilities(options?: { limit?: number }): Promise<SkillWithAbilities[]> {
-  if (!apiRef) throw new Error("Skills plugin: API not set. setAPI(api) must be called first.");
-  const limit = options?.limit ?? 50;
-  const results: SkillWithAbilities[] = [];
-  const dirs = getSkillsDirs();
-  for (const dir of dirs) {
-    let entries: string[];
-    try {
-      entries = await apiRef.files.list(dir);
-    } catch {
-      continue;
-    }
-    const subdirs = entries.filter((p) => {
-      const full = join(dir, p.split("/").pop() ?? p);
-      return existsSync(full);
-    });
-    for (const sub of subdirs) {
-      const skillDir = join(dir, sub.split("/").pop() ?? sub);
+      const dirName = sub.split("/").pop() ?? sub;
+      const skillDir = join(dir, dirName);
       const skillMdPath = join(skillDir, "skill.md");
       const skillMdPathAlt = join(skillDir, "SKILL.md");
       const path = existsSync(skillMdPath) ? skillMdPath : existsSync(skillMdPathAlt) ? skillMdPathAlt : null;
@@ -170,20 +137,66 @@ async function list_skills_with_abilities(options?: { limit?: number }): Promise
         const content = await apiRef.files.read(path);
         const { frontmatter, body } = parseSkillMd(content);
         if (!frontmatter.name) continue;
-        const abilities = parseAbilities(body);
-        results.push({
-          name: frontmatter.name,
-          description: frontmatter.description || "",
-          abilities: abilities.map((a) => ({
-            name: a.name,
-            description: a.description,
-            input: a.input ?? [],
-          })),
-        });
+        results.push({ skillDir, dirName, frontmatter, body });
       } catch {
         // skip unreadable
       }
     }
+  }
+  return results;
+}
+
+/**
+ * Resolve a caller-supplied skill_name to its installed directory. Callers (the AI,
+ * mainly) only ever see frontmatter.name — the human-readable title from
+ * discover_skills/list_skills_with_abilities (e.g. "Apple Mail Skill") — which is
+ * frequently NOT the same string as the actual directory name (e.g. "apple-mail").
+ * Try the fast path (skill_name IS the directory name) first, then fall back to
+ * matching by frontmatter.name so every skill discover_skills can find is also one
+ * explore_skill/use_skill can actually open.
+ */
+async function resolveSkillDir(skill_name: string): Promise<InstalledSkill | null> {
+  const normalized = skill_name.replace(/\s+/g, "-").toLowerCase();
+  const skills = await walkInstalledSkills();
+  const byDirName = skills.find((s) => s.dirName.toLowerCase() === normalized);
+  if (byDirName) return byDirName;
+  const target = skill_name.trim().toLowerCase();
+  return skills.find((s) => s.frontmatter.name.trim().toLowerCase() === target) ?? null;
+}
+
+function runWatchdog(scriptContent: string, blocklist: RegExp[]): boolean {
+  for (const re of blocklist) {
+    if (re.test(scriptContent)) return false;
+  }
+  return true;
+}
+
+async function discover_skills(query: string): Promise<SkillMeta[]> {
+  const results: SkillMeta[] = [];
+  for (const skill of await walkInstalledSkills()) {
+    const meta: SkillMeta = {
+      name: skill.frontmatter.name,
+      description: skill.frontmatter.description || "",
+    };
+    if (matchesQuery(meta, query)) results.push(meta);
+  }
+  return results.slice(0, MAX_DISCOVER);
+}
+
+async function list_skills_with_abilities(options?: { limit?: number }): Promise<SkillWithAbilities[]> {
+  const limit = options?.limit ?? 50;
+  const results: SkillWithAbilities[] = [];
+  for (const skill of await walkInstalledSkills()) {
+    const abilities = parseAbilities(skill.body);
+    results.push({
+      name: skill.frontmatter.name,
+      description: skill.frontmatter.description || "",
+      abilities: abilities.map((a) => ({
+        name: a.name,
+        description: a.description,
+        input: a.input ?? [],
+      })),
+    });
   }
   return results.slice(0, limit);
 }
@@ -193,16 +206,9 @@ async function explore_skill(
   include_scripts?: boolean
 ): Promise<SkillDetail> {
   if (!apiRef) throw new Error("Skills plugin: API not set. setAPI(api) must be called first.");
-  const dirs = getSkillsDirs();
-  const normalized = skill_name.replace(/\s+/g, "-").toLowerCase();
-  for (const dir of dirs) {
-    const skillDir = join(dir, normalized);
-    const skillMdPath = join(skillDir, "skill.md");
-    const skillMdPathAlt = join(skillDir, "SKILL.md");
-    let path = existsSync(skillMdPath) ? skillMdPath : skillMdPathAlt;
-    if (!path || !existsSync(path)) continue;
-    const content = await apiRef.files.read(path);
-    const { frontmatter, body } = parseSkillMd(content);
+  const found = await resolveSkillDir(skill_name);
+  if (found) {
+    const { skillDir, frontmatter, body } = found;
     const abilities = parseAbilities(body);
     const assets: string[] = [];
     const scripts: Array<{ file: string; content: string }> = [];

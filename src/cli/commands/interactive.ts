@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { startRoninServer, type StartOptions } from "./start.js";
+import { AlreadyRunningError } from "../instanceLock.js";
 import { statusCommand } from "./status.js";
 import { askCommand } from "./ask.js";
 import { configCommand } from "./config.js";
@@ -39,7 +40,24 @@ export async function interactiveCommand(options: InteractiveOptions = {}): Prom
     logger.setDebug(true);
   }
 
-  const state = await startRoninServer(options);
+  let state: Awaited<ReturnType<typeof startRoninServer>>;
+  try {
+    state = await startRoninServer(options);
+  } catch (error) {
+    if (error instanceof AlreadyRunningError) {
+      console.error(`❌ Ronin is already running (PID ${error.pid}).`);
+      console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
+      process.exit(1);
+    }
+    const err = error as { code?: string; message?: string };
+    const message = err?.message || String(error);
+    if (err?.code === "EADDRINUSE" || message.includes("EADDRINUSE")) {
+      console.error("❌ Port 3000 is already in use.");
+      console.error("   If Ronin is already running, use 'ronin status' or 'ronin stop' first.");
+      process.exit(1);
+    }
+    throw error;
+  }
   if (!state) {
     return;
   }

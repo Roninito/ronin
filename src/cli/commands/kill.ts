@@ -1,4 +1,6 @@
 import { execSync } from "child_process";
+import { unlinkSync } from "fs";
+import { INSTANCE_PID_PATH } from "../instanceLock.js";
 
 /**
  * Get the default webhook port
@@ -99,9 +101,17 @@ export async function killCommand(): Promise<void> {
     // Ignore
   }
   
+  // Force-clear the instance lock regardless of which PID it names — after
+  // deliberately killing everything above, a leftover lock file can only be stale.
+  try {
+    unlinkSync(INSTANCE_PID_PATH);
+  } catch {
+    // Already gone
+  }
+
   // Wait a moment
   await new Promise(resolve => setTimeout(resolve, 500));
-  
+
   // Check if anything is still listening on the port
   try {
     const response = await fetch(`http://localhost:${port}/api/status`, {

@@ -1,4 +1,5 @@
 import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir } from "./config.js";
+import { getRunningInstancePid } from "../instanceLock.js";
 
 export interface StatusOptions {
   dutyDir?: string;
@@ -66,9 +67,9 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
     console.log(`   File Watchers: ${runningStatus.watchedDuties}`);
     console.log(`   Webhooks: ${runningStatus.webhookDuties}`);
 
-    if (runningStatus.duties && runningStatus.duties.length > 0) {
+    if (runningStatus.dutys && runningStatus.dutys.length > 0) {
       console.log("\n🤖 Duties:\n");
-      for (const duty of runningStatus.duties) {
+      for (const duty of runningStatus.dutys) {
         console.log(`   ${duty.name}`);
         if (duty.schedule) {
           console.log(`      ⏰ ${duty.schedule}`);
@@ -80,6 +81,16 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
       }
     }
     console.log();
+    return;
+  }
+
+  // The instance lock is written the moment a process starts, before its HTTP
+  // server binds — a live PID here with no HTTP response means something is
+  // actually stuck/crashed mid-startup, not simply "not running".
+  const lockPid = getRunningInstancePid();
+  if (lockPid !== null) {
+    console.log(`\n🟡 Ronin process is running (PID ${lockPid}) but not responding on port ${webhookPort}\n`);
+    console.log("   It may still be starting up, or may be stuck. Check its logs, or run 'ronin stop' if it seems wedged.\n");
     return;
   }
 

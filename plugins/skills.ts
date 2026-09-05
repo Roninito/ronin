@@ -334,20 +334,16 @@ async function use_skill(
   }
 ): Promise<UseSkillResult> {
   if (!apiRef) throw new Error("Skills plugin: API not set. setAPI(api) must be called first.");
-  const detail = await explore_skill(skill_name, false);
-  const dirs = getSkillsDirs();
-  const normalized = skill_name.replace(/\s+/g, "-").toLowerCase();
-  let skillDir = "";
-  for (const dir of dirs) {
-    const d = join(dir, normalized);
-    if (existsSync(join(d, "skill.md")) || existsSync(join(d, "SKILL.md"))) {
-      skillDir = d;
-      break;
-    }
-  }
-  if (!skillDir) {
+  // Resolve once, the same way explore_skill does — a second, independent lookup
+  // here (there used to be one, re-deriving the directory via the same naive
+  // title-to-slug guess explore_skill no longer uses) could disagree with what
+  // explore_skill actually found and resolve to nothing.
+  const found = await resolveSkillDir(skill_name);
+  if (!found) {
     return { success: false, error: `Skill directory not found: ${skill_name}` };
   }
+  const skillDir = found.skillDir;
+  const detail = await explore_skill(skill_name, false);
   const blocklist = DEFAULT_WATCHDOG_BLOCKLIST;
   const logs: string[] = [];
   let lastOutput: unknown = undefined;

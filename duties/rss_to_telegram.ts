@@ -4,10 +4,12 @@ import { join } from "path";
 import { homedir } from "os";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
+import * as cheerio from "cheerio";
 import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconSVG } from "../src/utils/theme.js";
 
 interface RSSItem {
-  id: number;
+  /** Stable id for dedup: the feed's <guid>/<id>, falling back to the item's link. */
+  id: string;
   feed_url: string;
   link: string;
   title: string;
@@ -16,6 +18,11 @@ interface RSSItem {
   created_at: number;
   updated_at: number;
 }
+
+/** Max seen-item ids retained per feed (bounds memory storage growth over time). */
+const MAX_SEEN_IDS_PER_FEED = 300;
+/** Cap on items considered per feed per run, applied after sorting newest-first. */
+const MAX_ITEMS_PER_FEED_PER_RUN = 25;
 
 /**
  * RSS-to-Telegram agent that queries the rss-feed agent for new items
@@ -127,6 +134,151 @@ export default class RSSToTelegramAgent extends BaseDuty {
 
     // Check memory (fallback)
     return (await this.api.memory.retrieve("telegram_chat_id")) as string | number | undefined;
+  }
+
+  /**
+   * Get the list of configured RSS/Atom feed URLs.
+   */
+  private async getFeeds(): Promise<string[]> {
+    const feeds = await this.api.memory.retrieve("rss_feeds");
+    return Array.isArray(feeds) ? (feeds as string[]) : [];
+  }
+
+  /**
+   * Add a feed URL (no-op if already present).
+   */
+  private async addFeed(url: string): Promise<string[]> {
+    const feeds = await this.getFeeds();
+    if (!feeds.includes(url)) {
+      feeds.push(url);
+      await this.api.memory.store("rss_feeds", feeds);
+    }
+    return feeds;
+  }
+
+  /**
+   * Remove a feed URL and its seen-items history.
+   */
+  private async removeFeed(url: string): Promise<string[]> {
+    const feeds = (await this.getFeeds()).filter((f) => f !== url);
+    await this.api.memory.store("rss_feeds", feeds);
+    await this.api.memory.forget(this.seenIdsKey(url));
+    return feeds;
+  }
+
+  private seenIdsKey(feedUrl: string): string {
+    return `rss_seen:${feedUrl}`;
+  }
+
+  /**
+   * Ids of items already sent (or, for a brand-new feed, already present at the
+   * time it was added) for this feed, most-recent-first.
+   */
+  private async getSeenIds(feedUrl: string): Promise<string[] | null> {
+    const seen = await this.api.memory.retrieve(this.seenIdsKey(feedUrl));
+    return Array.isArray(seen) ? (seen as string[]) : null;
+  }
+
+  /**
+   * Record ids as seen, keeping only the most recent MAX_SEEN_IDS_PER_FEED.
+   */
+  private async markSeen(feedUrl: string, ids: string[], existing: string[]): Promise<void> {
+    const merged = [...ids, ...existing].slice(0, MAX_SEEN_IDS_PER_FEED);
+    await this.api.memory.store(this.seenIdsKey(feedUrl), merged);
+  }
+
+  /**
+   * Mark a single item as seen after it's actually been delivered. Read-modify-write
+   * per item is fine here — real-world run volume is a handful of items, not thousands.
+   */
+  private async markItemSeen(item: RSSItem): Promise<void> {
+    const existing = (await this.getSeenIds(item.feed_url)) ?? [];
+    await this.markSeen(item.feed_url, [item.id], existing);
+  }
+
+  /**
+   * Fetch and parse one feed (RSS 2.0 or Atom), newest first. Does not touch
+   * seen-item state — pure fetch+parse so it can be tested/reused independently.
+   */
+  private async fetchFeedItems(feedUrl: string): Promise<RSSItem[]> {
+    const res = await fetch(feedUrl, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      throw new Error(`Feed returned HTTP ${res.status}`);
+    }
+    const xml = await res.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const now = Date.now();
+    const isAtom = $("feed").length > 0;
+    const entrySelector = isAtom ? "entry" : "item";
+
+    const items: RSSItem[] = [];
+    $(entrySelector).each((_, el) => {
+      const $el = $(el);
+      const title = $el.find("title").first().text().trim() || "(untitled)";
+      const link = isAtom
+        ? ($el.find("link").first().attr("href") || $el.find("link").first().text()).trim()
+        : $el.find("link").first().text().trim();
+      const guid = (isAtom ? $el.find("id").first().text() : $el.find("guid").first().text()).trim();
+      const dateStr = isAtom
+        ? ($el.find("published").first().text() || $el.find("updated").first().text()).trim()
+        : $el.find("pubDate").first().text().trim();
+      const summary = (isAtom
+        ? $el.find("summary").first().text() || $el.find("content").first().text()
+        : $el.find("description").first().text()
+      ).trim();
+
+      const parsedDate = dateStr ? new Date(dateStr) : null;
+      const published_at = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate.getTime() : now;
+      const id = guid || link || `${feedUrl}#${title}`;
+      if (!link && !guid) return; // no stable identity at all — skip rather than risk resending forever
+
+      items.push({
+        id,
+        feed_url: feedUrl,
+        link,
+        title,
+        published_at,
+        summary: summary || null,
+        created_at: now,
+        updated_at: now,
+      });
+    });
+
+    items.sort((a, b) => b.published_at - a.published_at);
+    return items;
+  }
+
+  /**
+   * Fetch every configured feed and return only items not seen before, newest
+   * first. Does NOT mark returned items as seen — that only happens once an item
+   * is actually delivered (see markItemSeen), so a Telegram-side failure gets
+   * retried next run instead of being silently dropped. A feed seen for the
+   * first time is the one exception: its current items are marked seen
+   * immediately and none are returned — adding a feed shouldn't blast its
+   * entire back-catalog to Telegram. One feed's failure is logged and skipped;
+   * it never aborts the others.
+   */
+  private async collectNewItems(feeds: string[]): Promise<RSSItem[]> {
+    const newItems: RSSItem[] = [];
+    for (const feedUrl of feeds) {
+      try {
+        const items = await this.fetchFeedItems(feedUrl);
+        const existingSeen = await this.getSeenIds(feedUrl);
+        if (existingSeen === null) {
+          // First time we've ever fetched this feed: baseline only, send nothing.
+          await this.markSeen(feedUrl, items.map((i) => i.id), []);
+          console.log(`[rss-to-telegram] New feed ${feedUrl}: recorded ${items.length} existing item(s) as baseline`);
+          continue;
+        }
+        const seenSet = new Set(existingSeen);
+        const fresh = items.filter((i) => !seenSet.has(i.id)).slice(0, MAX_ITEMS_PER_FEED_PER_RUN);
+        newItems.push(...fresh);
+      } catch (error) {
+        console.error(`[rss-to-telegram] Failed to fetch feed ${feedUrl}:`, error instanceof Error ? error.message : error);
+      }
+    }
+    newItems.sort((a, b) => a.published_at - b.published_at); // send oldest-first within the batch
+    return newItems;
   }
 
   /**
@@ -280,6 +432,56 @@ export default class RSSToTelegramAgent extends BaseDuty {
 
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     });
+
+    // GET/POST/DELETE /rss-to-telegram/feeds - manage the list of RSS/Atom feed URLs
+    this.api.http.registerRoute("/rss-to-telegram/feeds", async (req: Request) => {
+      if (req.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+      }
+
+      if (req.method === "GET") {
+        return Response.json({ feeds: await this.getFeeds() }, { headers: corsHeaders });
+      }
+
+      if (req.method === "POST") {
+        try {
+          const body = await req.json().catch(() => ({}));
+          const url = typeof body?.url === "string" ? body.url.trim() : "";
+          if (!url) {
+            return Response.json({ error: "Missing url" }, { status: 400, headers: corsHeaders });
+          }
+          try {
+            new URL(url);
+          } catch {
+            return Response.json({ error: "Invalid url" }, { status: 400, headers: corsHeaders });
+          }
+          const feeds = await this.addFeed(url);
+          return Response.json({ ok: true, feeds }, { headers: corsHeaders });
+        } catch (error) {
+          return Response.json({
+            error: error instanceof Error ? error.message : String(error),
+          }, { status: 500, headers: corsHeaders });
+        }
+      }
+
+      if (req.method === "DELETE") {
+        try {
+          const body = await req.json().catch(() => ({}));
+          const url = typeof body?.url === "string" ? body.url.trim() : "";
+          if (!url) {
+            return Response.json({ error: "Missing url" }, { status: 400, headers: corsHeaders });
+          }
+          const feeds = await this.removeFeed(url);
+          return Response.json({ ok: true, feeds }, { headers: corsHeaders });
+        } catch (error) {
+          return Response.json({
+            error: error instanceof Error ? error.message : String(error),
+          }, { status: 500, headers: corsHeaders });
+        }
+      }
+
+      return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
+    });
   }
 
   /**
@@ -288,7 +490,7 @@ export default class RSSToTelegramAgent extends BaseDuty {
   private getCorsHeaders(): Record<string, string> {
     return {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
   }
@@ -346,22 +548,15 @@ export default class RSSToTelegramAgent extends BaseDuty {
       }
     }
 
-    // Get last checked timestamp
-    const lastChecked = ((await this.api.memory.retrieve("rss_last_checked")) as number) || 0;
-    const now = Date.now();
+    const feeds = await this.getFeeds();
+    if (feeds.length === 0) {
+      console.log("[rss-to-telegram] No feeds configured. Add one via the /rss-to-telegram/ UI.");
+      return;
+    }
 
     try {
-      // Query rss-feed agent for new items
-      console.log(`[rss-to-telegram] Querying rss-feed agent for items since ${new Date(lastChecked).toISOString()}...`);
-      
-      const items = (await this.api.events.query("rss-feed", "get-new-items", {
-        since: lastChecked,
-      })) as RSSItem[];
-
-      if (!Array.isArray(items)) {
-        console.error("[rss-to-telegram] Invalid response from rss-feed agent");
-        return;
-      }
+      console.log(`[rss-to-telegram] Checking ${feeds.length} feed(s) for new items...`);
+      const items = await this.collectNewItems(feeds);
 
       console.log(`[rss-to-telegram] Found ${items.length} new item(s)`);
 
@@ -393,6 +588,7 @@ export default class RSSToTelegramAgent extends BaseDuty {
           });
 
           sentCount++;
+          await this.markItemSeen(item);
           console.log(`[rss-to-telegram] Sent: ${item.title.substring(0, 50)}...`);
 
           // Small delay to respect rate limits (~30 req/sec = ~33ms between requests)
@@ -420,18 +616,13 @@ export default class RSSToTelegramAgent extends BaseDuty {
         }
       }
 
-      // Update last checked timestamp to now
       if (sentCount > 0) {
-        await this.api.memory.store("rss_last_checked", now);
         console.log(`[rss-to-telegram] ✅ Sent ${sentCount} item(s), ${errorCount} error(s)`);
+      } else if (errorCount > 0) {
+        console.log(`[rss-to-telegram] ${errorCount} item(s) failed to send — will retry next run`);
       }
     } catch (error) {
-      console.error("[rss-to-telegram] Query failed:", error);
-      
-      // If query timeout, don't update last checked timestamp
-      if (error instanceof Error && error.message.includes("timeout")) {
-        console.log("[rss-to-telegram] Query timed out, will retry on next run");
-      }
+      console.error("[rss-to-telegram] Sync failed:", error);
     }
   }
 
@@ -709,11 +900,16 @@ export default class RSSToTelegramAgent extends BaseDuty {
         chatId: ''
       });
       const [submitting, setSubmitting] = useState(false);
-      
+      const [feeds, setFeeds] = useState([]);
+      const [newFeedUrl, setNewFeedUrl] = useState('');
+      const [feedError, setFeedError] = useState(null);
+      const [feedSubmitting, setFeedSubmitting] = useState(false);
+
       useEffect(() => {
         loadConfig();
+        loadFeeds();
       }, []);
-      
+
       const loadConfig = async () => {
         try {
           setLoading(true);
@@ -726,6 +922,56 @@ export default class RSSToTelegramAgent extends BaseDuty {
           setError(err.message);
         } finally {
           setLoading(false);
+        }
+      };
+
+      const loadFeeds = async () => {
+        try {
+          const res = await fetch('/rss-to-telegram/feeds');
+          if (!res.ok) throw new Error('Failed to load feeds');
+          const data = await res.json();
+          setFeeds(data.feeds || []);
+        } catch (err) {
+          setFeedError(err.message);
+        }
+      };
+
+      const handleAddFeed = async (e) => {
+        e.preventDefault();
+        const url = newFeedUrl.trim();
+        if (!url) return;
+        try {
+          setFeedSubmitting(true);
+          setFeedError(null);
+          const res = await fetch('/rss-to-telegram/feeds', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to add feed');
+          setFeeds(data.feeds);
+          setNewFeedUrl('');
+        } catch (err) {
+          setFeedError(err.message);
+        } finally {
+          setFeedSubmitting(false);
+        }
+      };
+
+      const handleRemoveFeed = async (url) => {
+        try {
+          setFeedError(null);
+          const res = await fetch('/rss-to-telegram/feeds', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to remove feed');
+          setFeeds(data.feeds);
+        } catch (err) {
+          setFeedError(err.message);
         }
       };
       
@@ -847,6 +1093,41 @@ export default class RSSToTelegramAgent extends BaseDuty {
                 className: 'button button-primary',
                 disabled: submitting
               }, submitting ? 'Saving...' : (config?.tokenConfigured && config?.chatIdConfigured ? 'Update Configuration' : 'Save Configuration'))
+            )
+          ),
+          React.createElement('div', { className: 'form-section' },
+            React.createElement('h2', null, 'RSS/Atom Feeds'),
+            feedError && React.createElement('div', { className: 'error' }, feedError),
+            feeds.length === 0
+              ? React.createElement('div', { className: 'status-label' }, 'No feeds configured yet.')
+              : feeds.map((url) =>
+                  React.createElement('div', { className: 'status-item', key: url },
+                    React.createElement('span', { className: 'status-value' }, url),
+                    React.createElement('button', {
+                      type: 'button',
+                      className: 'button',
+                      onClick: () => handleRemoveFeed(url)
+                    }, 'Remove')
+                  )
+                ),
+            React.createElement('form', { onSubmit: handleAddFeed, style: { marginTop: '1rem' } },
+              React.createElement('div', { className: 'form-group' },
+                React.createElement('label', null, 'Add Feed URL'),
+                React.createElement('input', {
+                  type: 'url',
+                  placeholder: 'https://example.com/feed.xml',
+                  value: newFeedUrl,
+                  onChange: (e) => setNewFeedUrl(e.target.value)
+                }),
+                React.createElement('div', { className: 'help-text' },
+                  'RSS 2.0 or Atom. New feeds are baselined on first check — only items published after that are sent.'
+                )
+              ),
+              React.createElement('button', {
+                type: 'submit',
+                className: 'button button-primary',
+                disabled: feedSubmitting
+              }, feedSubmitting ? 'Adding...' : 'Add Feed')
             )
           )
         )

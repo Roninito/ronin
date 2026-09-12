@@ -18,13 +18,13 @@ bun run ronin start
 # Make sure you're in the ronin directory
 cd ronin
 
-# List all agents
+# List all duties
 bun run ronin list
 
-# Run an agent
+# Run a duty (duty id = filename in duties/, e.g. duties/test-agent.ts -> test-agent)
 bun run ronin run test-agent
 
-# Start the system (schedules all agents)
+# Start the system (schedules all duties)
 bun run ronin start
 
 # List plugins
@@ -47,4 +47,3 @@ bun run ronin create plugin my-plugin
 **Module not found errors?**
 - Make sure you're in the ronin directory
 - Run `bun install` to ensure dependencies are installed
-

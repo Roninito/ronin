@@ -1,5 +1,11 @@
 # GitHub Push Troubleshooting
 
+> **Archived:** written for the repo's initial push (references a
+> `/home/ronin/Appz/ronin` path and a `roninito` username/repo-name that
+> don't match this repo's actual current remote). The repo is already set up
+> and pushing normally, so this is historical, not live guidance. Moved here
+> 2026-09 during a docs cleanup.
+
 ## Common Issues and Solutions
 
 ### Issue: "Please make sure you have the correct access rights and the repository exists"

@@ -4,7 +4,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "description": "Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files",
+  "description": "Bun-based automation runtime for scheduling and executing TypeScript/JavaScript Duty files",
   "module": "src/index.ts",
   "type": "module",
   "bin": {

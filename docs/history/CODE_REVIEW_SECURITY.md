@@ -1,5 +1,11 @@
 # Code Review: Security & Exception Handling
 
+> **Archived:** point-in-time record, moved here 2026-09 during a docs
+> cleanup. File paths referenced below (e.g. `src/agent/AgentRegistry.ts`)
+> predate the Agent→Duty rename and no longer exist under those names — see
+> `ARCHITECTURE.md` for current state. Findings may or may not still apply;
+> re-verify against current source before acting on them.
+
 **Date:** 2026-02-12  
 **Scope:** Ronin codebase - unhandled exceptions, security vulnerabilities
 

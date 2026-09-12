@@ -39,7 +39,7 @@
 - Commands asking about sensitive configuration
 
 #### Always Require Authorization
-- Agent creation/modification
+- Duty creation/modification
 - File system operations
 - Shell command execution
 - Configuration changes
@@ -138,7 +138,7 @@ SECURITY RULES:
 
 ### Compliance
 This rulebook applies to:
-- All agents
+- All duties
 - All plugins
 - All API endpoints
 - All AI completions

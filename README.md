@@ -1,12 +1,16 @@
-# Ronin - Bun AI Agent Library
+# Ronin
 
 > **Canonical architecture:** see [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 
-A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript agent task files with memory/context management, leveraging Bun's native features (cron, file watching, HTTP) and integrating with Ollama (qwen3:1.7b) for local AI capabilities.
+A Bun-based automation runtime for scheduling and running TypeScript/JavaScript
+**Duties** — with memory/context management, Bun's native features (cron,
+file watching, HTTP), and local-first AI via Ollama by default (cloud
+providers optional).
 
 ## Documentation
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — canonical, always current. If any other document disagrees with it, this one wins.
+- [`DUTIES.md`](./DUTIES.md) — how to write a Duty file (the practical reference).
 - [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md) — markdown SOPs Duties consult as guidance (`/workflows` page, `ronin workflow` CLI).
 - [`docs/REMOTE_ACCESS.md`](./docs/REMOTE_ACCESS.md) — using the dashboard from your phone via a Cloudflare Tunnel.
 - [`docs/history/`](./docs/history/) — archived planning docs and phase summaries. Point-in-time record, never live guidance.
@@ -14,20 +18,20 @@ A Bun-based AI agent library for scheduling and executing TypeScript/JavaScript 
 
 ## Features
 
-- **Simple Agent Classes**: Write agents as TypeScript/JavaScript classes that extend a base `Agent` class
-- **Cron Scheduling**: Custom cron scheduler for time-based agent execution
+- **Simple Duty Classes**: Write duties as TypeScript/JavaScript classes that extend a base `BaseDuty` class
+- **Cron Scheduling**: Custom cron scheduler for time-based duty execution
 - **File Watching**: Watch files and directories for changes
-- **Webhook Support**: HTTP webhooks for triggering agents
-- **Memory System**: SQLite-based storage for agent state and conversation history
-- **Rich API**: Agents receive an `api` object with AI, files, database, HTTP, and event capabilities
+- **Webhook Support**: HTTP webhooks for triggering duties
+- **Memory System**: SQLite-based storage for duty state and conversation history
+- **Rich API**: Duties receive an `api` object with AI, files, database, HTTP, and event capabilities
 - **Plugin System**: Auto-discoverable plugins with built-in git and shell plugins
-- **Function Calling**: AI agents can use plugins as tools via Ollama's function calling API
+- **Function Calling**: Duties can use plugins as tools via AI function calling
 - **Hybrid Intelligence**: Tool orchestration system with local + cloud AI support
 - **MCP Client**: Connect to external MCP servers for filesystem, GitHub, web search, and database tools
 - **Workflows**: Markdown SOPs (`workflows/*.md`) describing how a category of work should go — hand-edited or AI-drafted, discovered and folded into a Duty's context automatically, never compiled or executed directly. See [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md).
 - **Desktop Mode**: macOS integration with Quick Actions, menubar, and notifications
 - **Optional Desktop Client**: ElectronBun shell with built-in Home/Dashboard view
-- **CLI Management**: Simple CLI to start, run, list, and check status of agents
+- **CLI Management**: Simple CLI to start, run, list, and check status of duties
 
 ## Quick Start
 
@@ -56,29 +60,29 @@ bun install
 # Setup environment (interactive)
 ./setup-env.sh
 
-# List available agents
+# List available duties
 bun run ronin list
 
 # List available plugins
 bun run ronin plugins list
 
-# Run a specific agent manually
-bun run ronin run example-agent
+# Run a specific duty manually (duty id = filename in duties/)
+bun run ronin run example-duty
 
 # Create a new plugin
 bun run ronin create plugin my-plugin
 
-# Create a new agent with AI assistance (interactive)
-bun run ronin create agent "monitor log files and alert on errors"
-bun run ronin create agent "backup database" --local  # Create in local directory
+# Create a new duty with AI assistance (interactive)
+bun run ronin create duty "monitor log files and alert on errors"
+bun run ronin create duty "backup database" --local  # Create in external ~/.ronin/duties directory
 
-# Cancel agent creation if needed
-bun run ronin cancel agent-creation
+# Cancel duty creation if needed
+bun run ronin cancel duty-creation
 
 # Ask questions about Ronin (requires Ronin to be running)
 bun run ronin start  # Start Ronin first
 bun run ronin ask "how do plugins work?"
-bun run ronin ask grok "explain agent scheduling"  # Use Grok
+bun run ronin ask grok "explain duty scheduling"  # Use Grok
 bun run ronin ask gemini "how to create plugins"  # Use Gemini
 bun run ronin ask  # Interactive mode
 bun run ronin ask "question" --ask-model ministral-3:3b  # Use specific Ollama model
@@ -89,14 +93,15 @@ bun run ronin mcp add filesystem --path ~/Documents  # Add filesystem access
 bun run ronin mcp add brave-search               # Add web search (requires API key)
 bun run ronin mcp list                          # List configured servers
 
-# Manage skills (AgentSkills standard)
+# Manage skills (follows Anthropic's external "Agent Skills" markdown format —
+# see the note in DUTIES.md; this is unrelated to Ronin's own Duty concept)
 bun run ronin skills list                       # List all skills
 bun run ronin skills discover "log monitor"    # Discover skills by query
 bun run ronin skills explore log-monitor        # Explore skill details
 bun run ronin skills use log-monitor --ability=countErrors --params='{"logPath":"/var/log/app.log"}'
 bun run ronin create skill "monitor logs and alert on errors"  # Create new skill
 
-# Start all agents (schedules them and keeps running)
+# Start all duties (schedules them and keeps running)
 bun run ronin start
 
 # Launch optional ElectronBun desktop client
@@ -109,6 +114,13 @@ bun start
 ```
 
 **Note:** After installing globally (`bun link` or `npm install -g`), you can use `ronin` directly instead of `bun run ronin`.
+
+**Note on `example-duty`:** the example duty file is still named
+`duties/example-agent.ts` (class `ExampleAgent`) — one of several duty files
+that predate the Agent→Duty rename and haven't been renamed yet. Its duty id
+is `example-agent`, not `example-duty`; run it with `bun run ronin run
+example-agent`. See `ARCHITECTURE.md` §4 for the full list of these naming
+leftovers.
 
 ## First-Time Setup
 
@@ -158,16 +170,16 @@ bun run ronin ai list
 bun run ronin ai run qwen3
 ```
 
-## Writing Agents
+## Writing Duties
 
-See [AGENTS.md](./AGENTS.md) for detailed documentation on writing agent files.
+See [DUTIES.md](./DUTIES.md) for detailed documentation on writing duty files.
 
 ## Plugins
 
 Ronin includes a plugin system for extending functionality:
 
-- **Built-in Plugins**: Git, Shell, Scrape, Torrent, Telegram, Discord, Realm, LangChain, RAG, Grok, Gemini, Hyprland, and Web-Scraper plugins included
-- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*`, `api.rag.*` for type-safe, ergonomic access
+- **Built-in Plugins**: auto-discovered from `plugins/` — git, shell, web-scraper, torrent, telegram, discord, realm (WebRTC/WebSocket relay), reticulum (mesh networking), langchain, email, notion, obsidian, cloudflare, and several coding-CLI adapters (claude-cli, cursor-cli, gemini-cli, opencode-cli, qwen-cli), among others
+- **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*`, `api.realm.*`, `api.reticulum.*`, `api.email.*` for type-safe, ergonomic access. Everything else goes through `api.plugins.call(name, method, ...args)`.
 - **Auto-discovery**: Plugins automatically loaded from `plugins/` directory
 - **Function Calling**: Plugins available as tools for AI function calling
 - **CLI Tools**: Create and manage plugins via CLI
@@ -189,11 +201,6 @@ await this.api.discord?.sendMessage(clientId, "channel-id", "Hello!");
 // LangChain integration
 const result = await this.api.langchain?.runChain("Hello {name}!", { name: "World" });
 
-// RAG (Retrieval-Augmented Generation)
-await this.api.rag?.init("my-docs");
-await this.api.rag?.addDocuments("my-docs", [{ content: "Document text..." }]);
-const ragResult = await this.api.rag?.query("my-docs", "What is this about?", {}, this.api);
-
 // Or use generic API for any plugin
 await this.api.plugins.call("custom-plugin", "method");
 ```
@@ -202,7 +209,7 @@ See [docs/PLUGINS.md](./docs/PLUGINS.md) for plugin development guide.
 
 ## Function Calling
 
-Agents can use AI function calling to interact with plugins:
+Duties can use AI function calling to interact with plugins:
 
 ```typescript
 const { toolCalls } = await this.api.ai.callTools(
@@ -215,40 +222,41 @@ See [docs/TOOL_CALLING.md](./docs/TOOL_CALLING.md) for detailed guide.
 
 ## Plan Workflow (Event-Sourced)
 
-Ronin includes a powerful event-driven workflow system for managing plans and tasks:
+Ronin includes an event-driven system for turning a proposed plan into a
+tracked, human-approved unit of executed work:
 
-**Architecture:**
-- **Intent Ingress** - Captures plans from Telegram (#ronin #plan)
-- **Todo Agent** - State authority, manages kanban board
-- **Coder Bot** - Pure reactor, executes approved plans
-- **Observers** - Alert and log all events
-- **Manual Approval** - API for human approval
+**Architecture (real duties, from `duties/`):**
+- **`duties/tasking.ts`** (`TodoAgent`) — state authority; listens for `PlanProposed`, creates a Kanban card; serves the `/todo` dashboard and `/api/todo/*` endpoints
+- **`duties/manual-approval.ts`** — approve/reject/block API (`/api/plans/:id/approve` etc.); emits approval events
+- **`duties/coder-bot.ts`** — pure reactor; on `PlanApproved`, shells out to a coding CLI to execute the plan
+- **`duties/alert-observer.ts`, `duties/log-observer.ts`** — observe and log the same events
+
+**How a plan actually gets proposed:** there is no dedicated inbound-channel
+listener bundled with Ronin (no Telegram/Discord hashtag capture duty).
+`PlanProposed` is only ever emitted by an AI tool call to `local.events.emit`
+(see [DUTIES.md](./DUTIES.md)'s `api.events` section) — typically from a
+tool-calling chat session such as the `/chat` UI (`duties/chatty.ts`). Wire
+your own inbound trigger (a channel-bridge duty, a webhook) if you want a
+fixed intake pipeline instead of chat-driven proposals.
 
 **Key Principles:**
 - ✅ No shared state (all communication via events)
-- ✅ Single state authority (Todo Agent owns kanban)
-- ✅ Pure reactors (Coder Bot never touches state)
+- ✅ Single state authority (`TodoAgent` owns the kanban board)
+- ✅ Pure reactor (`coder-bot.ts` never touches board state directly)
 - ✅ Observable everything (all transitions emit events)
 
 **Quick Example:**
 ```bash
-# 1. Send plan via Telegram
-"#ronin #plan Create user auth system"
-
-# 2. View in kanban
+# 1. View the kanban board
 curl http://localhost:3000/todo
 
-# 3. Approve via API
-curl -X POST http://localhost:3000/api/plans/approve \
-  -H "Content-Type: application/json" \
-  -d '{"planId": "plan-123"}'
+# 2. Approve a proposed plan
+curl -X POST http://localhost:3000/api/plans/<id>/approve
 
-# 4. Coder Bot executes, Todo updates, Alerts sent
+# 3. Coder Bot executes, Todo updates, observers log/alert
 ```
 
-**Events:** PlanProposed → PlanApproved → PlanCompleted/Failed
-
-See [docs/PLAN_WORKFLOW.md](./docs/PLAN_WORKFLOW.md) for complete documentation.
+**Events:** `PlanProposed` → `PlanApproved` → `PlanCompleted`/`PlanFailed`
 
 ## Desktop Mode (macOS)
 
@@ -283,33 +291,39 @@ See [docs/DESKTOP_MODE.md](./docs/DESKTOP_MODE.md) for complete documentation.
 
 ## Hybrid Intelligence
 
-Ronin includes a powerful Hybrid Intelligence system for tool orchestration and workflow management:
+Ronin includes a `ToolChat`/`ToolRouter` subsystem (`src/tools/`) for
+cost-aware tool orchestration, separate from the main model router (see
+`ARCHITECTURE.md` §7):
 
-- **6 Local Tools**: memory.search, file.read/list, shell.safe, http.request, reasoning
-- **4 Cloud Adapters**: OpenAI, Anthropic, Gemini, Ollama (free, default)
-- **6 Pre-built Workflows**: research, code-review, documentation, analysis, bug investigation
-- **Cost Tracking**: Built-in cost management and policy enforcement
-- **Offline Mode**: Works 100% offline with local tools
+- **Local tools** you can call without any AI: `local.memory.search`,
+  `local.file.read`/`list`, `local.shell.safe`, `local.http.request`,
+  `local.reasoning`, `local.events.emit`, `local.speech.say`,
+  `local.ronin_script.*`, `skills.list`/`run`, `local.discord.*`, and more —
+  see `src/tools/providers/LocalTools.ts` for the full, current set.
+- **Cloud adapters** (`src/tools/adapters/`): Anthropic, Gemini, OpenAI, and
+  an Ollama-cloud adapter, selected when a workflow needs to escalate beyond
+  local tools.
+- **6 pre-built workflows** (`src/tools/workflows/examples.ts`):
+  research-and-visualize, code-review, create-documentation, analyze-data,
+  investigate-bug, create-content.
+- **Cost tracking**: built-in cost management and policy enforcement.
+- **Offline Mode**: works 100% offline with local tools.
+
+> **Naming collision, not a typo:** this `WorkflowDefinition`/`WorkflowEngine`
+> pipeline is a different, older concept from the markdown `workflows/*.md`
+> Workflow SOPs described above and in `ARCHITECTURE.md` §2. Same word, two
+> unrelated systems — see the disclaimer in `ARCHITECTURE.md` §2 for the full
+> story.
 
 ```typescript
-// Use ToolChat for high-level interactions
-import { ToolChat } from "@ronin/tools";
+import { toolChat } from "../src/tools/ToolChat.js";
 
-const chat = new ToolChat(api);
-const result = await chat.complete("Analyze this codebase", {
-  tools: ["file.list", "reasoning"],
-  allowCloud: true, // Allow cloud AI if needed
-});
+const result = await toolChat(api, [
+  { role: "user", content: "Research this topic and create a summary" },
+], { enableTools: true });
 ```
 
-**Available Tools:**
-- `memory.search` - Semantic search through agent memory
-- `file.read/list` - File system operations
-- `shell.safe` - Safe shell command execution
-- `http.request` - HTTP requests with retry logic
-- `reasoning` - Chain-of-thought reasoning
-
-See [docs/HYBRID_INTELLIGENCE.md](./docs/HYBRID_INTELLIGENCE.md) for complete documentation.
+See [docs/HYBRID_INTELLIGENCE.md](./docs/HYBRID_INTELLIGENCE.md) for more detail.
 
 ## Configuration
 
@@ -369,7 +383,7 @@ export OLLAMA_MODEL="qwen3:1.7b"              # Default
 
 ```bash
 export WEBHOOK_PORT="3000"    # Webhook server port (default: 3000)
-                              # Also used for Fishy server and status endpoint
+                              # Also used for the status endpoint
 export PORT="3000"            # General server port
 ```
 
@@ -380,22 +394,22 @@ export FISHY_DATA_DIR="~/.ronin/data"         # Fishy data directory (default)
 export FISHY_DB_PATH="~/.ronin/data/fishing.db" # Fishing database path (default)
 ```
 
-#### Agent Directories
+#### Duty Directories
 
 ```bash
-export RONIN_EXTERNAL_AGENT_DIR="~/.ronin/agents"  # External agent directory (default)
+export RONIN_EXTERNAL_DUTY_DIR="~/.ronin/duties"  # External duty directory (default)
 ```
 
-**Note:** You can also set the external agent directory using the config command:
+**Note:** You can also set the external duty directory using the config command:
 ```bash
-bun run ronin config --external-agent-dir ~/my-agents
+bun run ronin config --external-duty-dir ~/my-duties
 ```
 
-This allows you to store agents outside the project folder. Agents from both the local `./agents` directory and the external directory will be loaded by default.
+This allows you to store duties outside the project folder. Duties from both the local `./duties` directory and the external directory will be loaded by default.
 
 ### CLI Options
 
-- `--agent-dir <dir>` - Agent directory (default: `./agents`)
+- `--duty-dir <dir>` - Duty directory (default: `./duties`)
 - `--plugin-dir <dir>` - Built-in plugin directory (default: `./plugins`)
 - `--user-plugin-dir <dir>` - User plugins directory (default: `~/.ronin/plugins`)
 - `--ollama-url <url>` - Ollama API URL
@@ -425,47 +439,47 @@ The `ask` command supports using different AI models/tiers:
 ```
 ronin/
 ├── src/
-│   ├── agent/          # Agent base class, loader, and registry
+│   ├── duty/            # BaseDuty, DutyLoader, DutyRegistry
 │   ├── memory/          # SQLite-based memory system
 │   ├── api/             # API namespace (ai, files, db, http, events)
-│   ├── plugins/         # Plugin system (loader, tool generator)
+│   ├── tools/           # ToolRouter, adapters, LocalTools, ToolChat
 │   ├── cli/             # CLI commands
 │   ├── types/           # TypeScript types
 │   └── index.ts         # Main library export
-├── agents/              # Your agent files (loaded by start command)
+├── duties/              # Your duty files (loaded by the `start` command)
 ├── plugins/             # Plugin files (auto-discovered)
 │   ├── git.ts           # Built-in git plugin
 │   ├── shell.ts          # Built-in shell plugin
 │   └── hyprland.ts      # Example custom plugin
 ├── docs/                # Documentation
-│   ├── ARCHITECTURE.md  # System architecture
+│   ├── ARCHITECTURE.md  # System architecture (canonical)
 │   ├── PLUGINS.md       # Plugin development guide
 │   └── TOOL_CALLING.md  # Function calling guide
 └── tests/               # Test files
 ```
 
-**Note:** 
-- The default local agent directory is `./agents`
-- The default external agent directory is `~/.ronin/agents`
-- You can override local with `--agent-dir` or use `--local` to create in the external directory
+**Note:**
+- The default local duty directory is `./duties`
+- The default external duty directory is `~/.ronin/duties`
+- You can override local with `--duty-dir` or use `--local` to create in the external directory
 - The `plugins/` directory is where you place plugin files
 - Both are auto-discovered by the `start` command
 
-### External Agent Directory
+### External Duty Directory
 
-You can store agents outside the project folder by setting an external agent directory. This is useful for:
-- Sharing agents across multiple projects
-- Keeping agents in a centralized location
-- Separating agent code from project code
+You can store duties outside the project folder by setting an external duty directory. This is useful for:
+- Sharing duties across multiple projects
+- Keeping duties in a centralized location
+- Separating duty code from project code
 
-**Set external agent directory:**
+**Set external duty directory:**
 
 ```bash
 # Using config command (recommended)
-bun run ronin config --external-agent-dir ~/my-agents
+bun run ronin config --external-duty-dir ~/my-duties
 
 # Or using environment variable
-export RONIN_EXTERNAL_AGENT_DIR=~/my-agents
+export RONIN_EXTERNAL_DUTY_DIR=~/my-duties
 ```
 
 **View current configuration:**
@@ -474,15 +488,15 @@ export RONIN_EXTERNAL_AGENT_DIR=~/my-agents
 bun run ronin config --show
 ```
 
-When you run `bun run ronin start`, agents from both:
-- Local directory: `./agents` (default, or custom path set via `--agent-dir`)
-- External directory: `~/.ronin/agents` (default, or custom path set via `RONIN_EXTERNAL_AGENT_DIR` or config file)
+When you run `bun run ronin start`, duties from both:
+- Local directory: `./duties` (default, or custom path set via `--duty-dir`)
+- External directory: `~/.ronin/duties` (default, or custom path set via `RONIN_EXTERNAL_DUTY_DIR` or config file)
 
-will be discovered and loaded. The external directory is optional - if it doesn't exist or isn't set, only local agents will be loaded.
+will be discovered and loaded. The external directory is optional - if it doesn't exist or isn't set, only local duties will be loaded.
 
 ### Plugin System
 
-Ronin uses a dual-plugin system similar to agents:
+Ronin uses a dual-plugin system similar to duties:
 
 **Built-in plugins:** Located in `./plugins` (project-specific)
 - Managed and updated with the codebase
@@ -503,7 +517,7 @@ When loading plugins, Ronin checks both directories. If a plugin exists in both:
 **Initialize user directories:**
 
 ```bash
-# Create ~/.ronin/ structure with agents/ and plugins/ directories
+# Create ~/.ronin/ structure with duties/ and plugins/ directories
 bun run ronin config --init
 ```
 
@@ -537,7 +551,7 @@ Ronin stores user configuration and sensitive data in `~/.ronin/`:
 ```
 ~/.ronin/
 ├── config.json           # Main configuration (API keys, paths)
-├── agents/               # User agents (shared across projects)
+├── duties/               # User duties (shared across projects)
 ├── plugins/              # User plugins (override built-ins)
 ├── data/                 # Application data
 └── ai-models.json        # AI model registry
@@ -563,7 +577,7 @@ bun run ronin config --grok-api-key sk-xxxxx
 bun run ronin config --gemini-api-key AIxxxxx
 
 # Set custom directories
-bun run ronin config --external-agent-dir ~/my-agents
+bun run ronin config --external-duty-dir ~/my-duties
 bun run ronin config --user-plugin-dir ~/my-plugins
 ```
 
@@ -605,7 +619,7 @@ sudo nano /etc/systemd/system/ronin.service
 
 ```ini
 [Unit]
-Description=Ronin AI Agent System
+Description=Ronin Automation Service
 After=network.target
 
 [Service]
@@ -655,7 +669,7 @@ sudo systemctl restart ronin  # Restart
 1. **Create launchd plist file:**
 
 ```bash
-nano ~/Library/LaunchAgents/com.ronin.agent.plist
+nano ~/Library/LaunchAgents/com.ronin.plist
 ```
 
 2. **Add the following content** (adjust paths as needed):
@@ -666,7 +680,7 @@ nano ~/Library/LaunchAgents/com.ronin.agent.plist
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.ronin.agent</string>
+  <string>com.ronin</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/bun</string>
@@ -699,11 +713,15 @@ nano ~/Library/LaunchAgents/com.ronin.agent.plist
 </plist>
 ```
 
+> `~/Library/LaunchAgents/` is macOS's own directory name for user launch
+> daemons — that's Apple's terminology, unrelated to Ronin's Duty/Agent
+> naming, and isn't something to rename.
+
 3. **Load and start the service:**
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.ronin.agent.plist
-launchctl start com.ronin.agent
+launchctl load ~/Library/LaunchAgents/com.ronin.plist
+launchctl start com.ronin
 ```
 
 4. **Check status:**
@@ -717,9 +735,9 @@ tail -f /tmp/ronin.error.log   # View errors
 5. **Manage the service:**
 
 ```bash
-launchctl stop com.ronin.agent    # Stop
-launchctl start com.ronin.agent   # Start
-launchctl unload ~/Library/LaunchAgents/com.ronin.agent.plist  # Remove
+launchctl stop com.ronin    # Stop
+launchctl start com.ronin   # Start
+launchctl unload ~/Library/LaunchAgents/com.ronin.plist  # Remove
 ```
 
 ### Windows (NSSM - Non-Sucking Service Manager)
@@ -733,43 +751,43 @@ launchctl unload ~/Library/LaunchAgents/com.ronin.agent.plist  # Remove
 
 ```cmd
 # Open Command Prompt or PowerShell as Administrator
-nssm install RoninAgent "C:\path\to\bun.exe" "run ronin start"
+nssm install RoninService "C:\path\to\bun.exe" "run ronin start"
 
 # Set working directory
-nssm set RoninAgent AppDirectory "C:\path\to\ronin"
+nssm set RoninService AppDirectory "C:\path\to\ronin"
 
 # Set environment variables
-nssm set RoninAgent AppEnvironmentExtra "OLLAMA_URL=http://localhost:11434" 
+nssm set RoninService AppEnvironmentExtra "OLLAMA_URL=http://localhost:11434" 
 "OLLAMA_MODEL=qwen3:1.7b" "GROK_API_KEY=your-grok-key" "GEMINI_API_KEY=your-gemini-key"
 
 # Set output files
-nssm set RoninAgent AppStdout "C:\path\to\ronin\ronin.log"
-nssm set RoninAgent AppStderr "C:\path\to\ronin\ronin.error.log"
+nssm set RoninService AppStdout "C:\path\to\ronin\ronin.log"
+nssm set RoninService AppStderr "C:\path\to\ronin\ronin.error.log"
 
 # Configure auto-restart
-nssm set RoninAgent AppRestartDelay 10000
-nssm set RoninAgent AppExit Default Restart
+nssm set RoninService AppRestartDelay 10000
+nssm set RoninService AppExit Default Restart
 ```
 
 3. **Start the service:**
 
 ```cmd
-nssm start RoninAgent
+nssm start RoninService
 ```
 
 4. **Check status:**
 
 ```cmd
-nssm status RoninAgent
+nssm status RoninService
 ```
 
 5. **Manage the service:**
 
 ```cmd
-nssm stop RoninAgent      # Stop
-nssm start RoninAgent     # Start
-nssm restart RoninAgent   # Restart
-nssm remove RoninAgent    # Remove service (confirm with 'y')
+nssm stop RoninService      # Stop
+nssm start RoninService     # Start
+nssm restart RoninService   # Restart
+nssm remove RoninService    # Remove service (confirm with 'y')
 ```
 
 **Alternative: Windows Task Scheduler**
@@ -777,7 +795,7 @@ nssm remove RoninAgent    # Remove service (confirm with 'y')
 1. **Open Task Scheduler** (search for "Task Scheduler" in Start menu)
 
 2. **Create Basic Task:**
-   - Name: "Ronin Agent System"
+   - Name: "Ronin Automation Service"
    - Trigger: "When the computer starts"
    - Action: "Start a program"
    - Program: `C:\path\to\bun.exe`
@@ -796,7 +814,7 @@ nssm remove RoninAgent    # Remove service (confirm with 'y')
 
 - **systemd**: Use `Environment=` directives in the service file
 - **launchd**: Use `EnvironmentVariables` dictionary in the plist file
-- **NSSM**: Use `nssm set RoninAgent AppEnvironmentExtra` command
+- **NSSM**: Use `nssm set RoninService AppEnvironmentExtra` command
 - **Task Scheduler**: Set in task properties → Actions → Edit → Add arguments
 
 Alternatively, create a `.env` file in the Ronin directory and load it in your service configuration, or use a wrapper script that sources your environment.
@@ -806,13 +824,13 @@ Alternatively, create a `.env` file in the Ronin directory and load it in your s
 After starting the daemon, verify it's working:
 
 ```bash
-# Check if agents are running
+# Check if duties are running
 bun run ronin status
 
 # Check webhook server (if configured)
 curl http://localhost:3000/health
 
-# Check fishy server (requires fishy agent in ~/.ronin/agents)
+# Check fishy server (requires a "fishy" duty in ~/.ronin/duties)
 curl http://localhost:3000/fishy/api/fish
 ```
 

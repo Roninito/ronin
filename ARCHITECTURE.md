@@ -32,7 +32,11 @@ coordinating, scheduling, or planning *other* Duties.
 - **Analyze** — reason over signal + memory, using the model router. Decide.
 - **Respond** — execute Tools, emit events, write memory.
 
-**MNGR** is just the Duty whose Respond actions assign work to other Duties.
+**There is no built-in Duty that assigns work to other Duties.** Duties
+coordinate only by emitting and listening for events on the shared bus (§6).
+"MNGR" is not an internal coordinating Duty — it's the name of a separate,
+external application Ronin optionally talks to over HTTP. See §6 for exactly
+what that integration is.
 
 ---
 
@@ -113,15 +117,34 @@ second one silently wins) worth cleaning up in a future pass.
 
 ---
 
-## 4. Capability migration (complete)
+## 4. Capability migration
 
 | Current | Reclassified as | Status |
 |---------|-----------------|--------|
-| `agents/` | **Duty** | ✅ Renamed to `duties/`. Agent → Duty hard rename complete. |
+| `agents/` | **Duty** | ⚠️ Directory and core classes renamed (`duties/`, `BaseDuty`, `DutyRegistry`, `DutyLoader`, `DutyAPI`). The rename is **not** complete end-to-end — see note below. |
 | `plugins/` | **Tool Pack** | ✅ Kept as bundles. Each plugin method is a registered Tool. |
 | `skills/` | **Skill** | ✅ Kept. Language-agnostic markdown defs. |
 | `techniques/` | **Skill** | ✅ Removed. Converted to SKILL.md format. Technique execution code deleted. |
 | `katas/`, `contracts/`, `src/task/` | **Engine-internal** (§5) | ✅ Kept permanently — see §5, this is not a removal candidate. |
+
+**Known "Agent" leaks (not fixed, listed so nobody assumes otherwise):**
+- Duty files/classes still named after "agent": `duties/example-agent.ts`
+  (`ExampleAgent`), `duties/test-agent.ts` (`TestAgent`),
+  `duties/tool-calling-agent.ts` (`ToolCallingAgent`), `duties/docs-agent.ts`
+  (`DocsAgent`), `duties/dojo-agent.ts` (`DojoAgent`),
+  `duties/agent-registry.ts` (class is actually named `DutyRegistry`, despite
+  the filename), `duties/agent-dependency-dashboard.ts`
+  (`AgentDependencyDashboard`), and `duties/tasking.ts`'s own class
+  (`TodoAgent`). These all `extends BaseDuty` — they're ordinary Duties whose
+  file/class names predate the rename.
+- Live CLI output still says "agent": `ronin interactive` prints
+  `Agents: N running`, `Agent Status:`, `run <agent-name>`
+  (`src/cli/commands/interactive.ts`); `ronin schedule` help text says
+  "Manage cron schedules for agents" (`src/cli/commands/schedule.ts`); the
+  kata-authoring system prompt says "You are a Kata DSL expert for the Ronin
+  agent system" (`src/cli/commands/kata.ts`).
+- `package.json`'s `description` field still reads "agent library" /
+  "agent task files".
 
 **Provider plugins:**
 - `plugins/grok.ts` → ✅ Removed. Provider is now an adapter behind ToolRouter.
@@ -137,7 +160,7 @@ second one silently wins) worth cleaning up in a future pass.
 removal candidate ("the one remaining open call to drop"). That framing was
 wrong and is retired.** Measured from the source (`src/task/engine.ts`
 hard-depends on `KataRegistry`; `src/realms/` is a whole distributed kata
-registry; `agents/dojo-agent.ts` has dozens of kata references): kata, task,
+registry; `duties/dojo-agent.ts` has dozens of kata references): kata, task,
 and contract are not vestigial — they are a working execution engine,
 actively developed and extended. Only `technique` was ever vestigial, and
 it's the thing that was actually removed (§4).
@@ -175,21 +198,23 @@ folder, unrelated to whether kata/contract/task stay (they do).
 
 ---
 
-## 6. Orchestration: one spine, many sensors
+## 6. Orchestration: one spine, no dispatcher
 
-There is one event bus and one scheduler. The three things that previously felt
-like separate orchestration systems are reclassified:
+There is one event bus and one scheduler. There is **no central coordinator
+that assigns work across Duties.** Each Duty independently decides what to
+react to; the only cross-Duty coordination mechanism is the event bus
+(`api.events.emit`/`.on`), where any Duty can emit an event and any other
+Duty can choose to listen for it. Nothing enforces that a listener exists,
+and nothing routes work to a "free" Duty — coordination is whatever the
+authors of two specific Duties agreed on by event name.
 
 | Previously | Now |
 |------------|-----|
 | Reactive triggers (cron, file-watch, webhook, contract event-triggers) | **Sensors.** They emit events into the bus; they do not run logic. |
-| Behavior tree (SAR/MNGR) | **MNGR**, a coordinating Duty. Its tree is its Respond strategy; leaves are Tools. |
-| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (Todo, Coder) plus Sensors, wired on the same bus. |
+| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (`duties/tasking.ts`'s `TodoAgent`, `duties/coder-bot.ts`, `duties/manual-approval.ts`, `duties/alert-observer.ts`, `duties/log-observer.ts`) plus Sensors, wired on the same bus (§6.2). |
 
 ```
 Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► effects ──► bus
-                                  ▲
-                                MNGR (coordinating Duty)
 ```
 
 **Rules:**
@@ -197,6 +222,56 @@ Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► eff
    state-authority Duty for its domain.
 2. Sensors are dumb. Logic lives in Duties.
 3. Cross-Duty communication is events only. No direct calls into another Duty's internals.
+
+### 6.1 What "MNGR" actually is
+
+**MNGR is a separate, external application** (a sibling project outside this
+repo), not an internal Ronin concept. Ronin's only relationship to it is a
+one-shot registration handshake plus a webhook receiver:
+
+- `plugins/mngr.ts` — a Tool Pack with three methods (`getConfig`, `register`,
+  `listTasks`) that call the *external* MNGR app's HTTP API. The file's own
+  header spells this out explicitly to prevent exactly the confusion this
+  document used to cause.
+- `duties/mngr-worker.ts` (`MngrWorkerDuty`) — registers Ronin's webhook URL
+  with the external MNGR app hourly, and exposes `/api/agent/tasks` for MNGR
+  to push tasks *into* Ronin. Every incoming task runs one hardcoded pipeline
+  (resolve an `envoyProjectId`, call the `envoy` plugin, run a single
+  `api.ai.chat()` call, draft an ENVOY email item). It is a single-purpose
+  webhook handler for one integration, not a general task router.
+- Configured via `MngrIntegrationConfig` (`src/config/types.ts`) —
+  `baseUrl`, `registrationSecret`, `inboundToken`, `roninEndpointUrl`. No
+  internal-coordinator config exists.
+
+An internal coordinating Duty was proposed at one point and explicitly
+dropped — see the comment above `handleDecomposeAPI` in `duties/tasking.ts`:
+*"Decomposition intent (spec §9.3, renamed away from 'MNGR' — see the
+integration plan for why: neither the aspirational coordinating Duty nor the
+external MNGR app integration is a safe dependency here)."* That decomposition
+endpoint does goal→Kanban-card breakdown with a single LLM call; it does not
+dispatch to other Duties.
+
+### 6.2 The closest things to "orchestration" that actually exist
+
+- **`duties/tasking.ts` (`TodoAgent`)** — a self-contained Kanban/task-board
+  Duty (~4800 lines). It listens for `PlanProposed`/`PlanApproved`, serves
+  `/todo` and `/api/todo/*`, and can decompose a goal into cards via a single
+  `api.ai.complete()` call. When a command needs code executed, it routes to
+  an *external coding CLI* (`claude`, `opencode`, `qwen`, `cursor`, `gemini`
+  — each a Plugin) via `src/tasking/executors.ts`, based on card labels or a
+  keyword heuristic. It never dispatches to other Ronin Duties.
+- **`duties/coder-bot.ts`** — reacts to `PlanApproved` events and executes
+  approved plans by shelling out to a coding CLI.
+- **Two independent Duty-*authoring* flows** — `duties/agent-creator-orchestrator.ts`
+  (LangGraph state machine, triggered by `create_agent`/`cancel_creation`
+  events) and `duties/duty-executor.ts` (the chat-reachable
+  `duties.proposeDuty` tool, human-approved before the file is written).
+  Both **generate new Duty files**; neither runs or coordinates the Duties
+  they create.
+- **`api.langchain.runAgent`** (`plugins/langchain.ts`) — a real LangChain
+  `AgentExecutor` (tool-calling loop), instantiated fresh per call. This is
+  the one place "agent" means an actual distinct sub-concept (a bounded
+  LLM+tools loop) rather than a legacy name for a Duty.
 
 ---
 
@@ -220,8 +295,16 @@ api.ai.callTools(prompt, opts)     // tool-calling loop
 ## 8. Safety boundary
 
 Ronin shares OpenClaw's attack surface: shell execution + file access + inbound
-channels. The `#ronin #plan` → Coder Bot path means **untrusted channel input
-can propose executable work.**
+channels. Any tool-calling chat surface (e.g. the `/chat` UI in
+`duties/chatty.ts`) can have the model call the `local.events.emit` tool to
+emit `PlanProposed` (`src/tools/providers/LocalTools.ts`), which
+`duties/tasking.ts`'s `TodoAgent` turns into a Kanban card. **This means chat
+input can propose executable work** — but it cannot execute it unapproved:
+`duties/manual-approval.ts` gates the step from `PlanProposed` to
+`PlanApproved`, and only `PlanApproved` is what `duties/coder-bot.ts` acts on
+by shelling out to a coding CLI. (There is no dedicated "Intent Ingress" duty
+watching a channel for a hashtag — `PlanProposed` is only ever emitted by an
+AI tool call, by whatever duty/chat surface chose to make one.)
 
 Hardening:
 
@@ -250,7 +333,10 @@ ronin/
 │   ├── memory/         # SQLite store (duty_state, conversations, memories)
 │   ├── kata/           # engine-internal — compiled phase-graphs (§5)
 │   ├── contract/        # engine-internal — trigger → kata binding, propose/approve flow (§5)
-│   └── task/            # engine-internal — running kata instances (§5)
+│   ├── task/            # engine-internal — running kata instances (§5)
+│   ├── mesh/            # cross-instance discovery (Reticulum) — separate Ronin installs finding each other, not inter-Duty coordination. Exists, not wired into any duty-dispatch path.
+│   ├── os/              # Desktop Mode: menubar/tray, OS installers. Additive UI layered on top of duties after they register routes — doesn't run or manage them.
+│   └── realms/          # Distributed *kata* registry (versioned kata repos, install requests). Defined in source; not referenced/instantiated anywhere else in the codebase — dormant.
 ├── duties/             # Your Duties
 ├── plugins/            # Capability plugins (langchain, gemini-cli, cloudflare, etc.)
 ├── skills/             # Markdown Skill defs — language-agnostic
@@ -280,6 +366,9 @@ ronin/
 | `duties/contract-executor.ts` | Owns the contract/cron/event engines, the `contracts.proposeReflex` tool, and the `/contracts` review page |
 | `plugins/cloudflare/src/RouteGuard.ts`, `QuickTunnel.ts` | Route whitelist enforcement; real anonymous quick tunnels |
 | `packages/sar/` | Executor, Chain, MiddlewareStack — the shared SAR machinery |
+| `plugins/mngr.ts`, `duties/mngr-worker.ts` | The external-MNGR-app integration — registration handshake + inbound task webhook. See §6.1. |
+| `src/mesh/MeshDiscoveryService.ts` | Cross-instance service discovery over Reticulum — see §9, dormant/unwired |
+| `src/realms/registry.ts` | Distributed kata registry — see §9, dormant/unwired |
 
 ---
 
@@ -350,12 +439,14 @@ specifically because they were violated before:
 
 ---
 
-## 13. Migration notes (historical, all complete)
+## 13. Migration notes
 
 ### Agent → Duty
 - `BaseAgent` → `BaseDuty`, `AgentRegistry` → `DutyRegistry`, `AgentLoader` → `DutyLoader`
 - `agents/` → `duties/`, `--agent-dir` → `--duty-dir`
 - `setAgentState` → `setDutyState` (Memory); DB `agent_name` → `duty_name` columns
+- **Not fully done** — see the "Known Agent leaks" note under §4 for what
+  still says "agent" in file names, class names, and live CLI output.
 
 ### Provider consolidation
 - `plugins/grok.ts`, `plugins/gemini.ts` → removed, replaced by ToolRouter adapters
@@ -371,4 +462,9 @@ specifically because they were violated before:
 
 ---
 
-**Last updated:** August 2026.
+**Last updated:** September 2026 — corrected the MNGR/orchestration claims in
+§1 and §6 to match the actual code (MNGR is an external app, not an internal
+coordinating Duty; there is no cross-Duty dispatcher), and stopped overclaiming
+the Agent→Duty rename as complete (§4, §13). Added `src/mesh/`, `src/os/`,
+`src/realms/` to the target tree (§9) since they exist in source and were
+previously undocumented.

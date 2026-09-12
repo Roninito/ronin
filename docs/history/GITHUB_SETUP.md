@@ -1,5 +1,11 @@
 # GitHub Setup Guide
 
+> **Archived:** this documented the repo's one-time initial push. That already
+> happened — the repo has a remote and history now — so these are no longer
+> live instructions. Kept as a historical record; also references `agents/`
+> and the removed `grok.ts`/`gemini.ts` plugin files, both stale. Moved here
+> 2026-09 during a docs cleanup.
+
 ## Quick Setup Steps
 
 ### 1. Stage and Commit Files

@@ -10,13 +10,29 @@ import {
   buildToolPrompt,
   windowMessages,
   invalidateChatSummary,
-  filterToolSchemas,
   injectMermaidLinkIntoResponse,
   injectContractProposalCardIntoResponse,
   injectWorkflowProposalCardIntoResponse,
   injectDutyProposalCardIntoResponse,
 } from "../src/utils/prompt.js";
 import { discoverWorkflow } from "../src/workflow/discovery.js";
+import { loadToolContext, expandToolContextForCategory } from "../src/tools/toolDocs.js";
+import { getOrCreateRouteToken, hasValidRouteToken, isLocalRequest } from "../plugins/cloudflare/src/routeToken.js";
+import { renderProviderIconSvg, getProviderVisual } from "../src/utils/providerIcons.js";
+import { ArtifactStore } from "../src/artifacts/store.js";
+import { registerArtifactRoutes, registerArtifactAssetRoute } from "../src/artifacts/tools.js";
+import { runArtifactMigrations } from "../src/artifacts/migrations.js";
+import { getArtifactAssetsDir, sanitizeAssetFilename, resolveStoredAssetPath } from "../src/artifacts/storage.js";
+
+/** Server-side HTML escaping for values interpolated into the page shell (not the embedded client script). */
+function escapeHtmlServer(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 interface Chat {
   id: string;
@@ -270,6 +286,250 @@ export default class ChattyAgent extends BaseDuty {
     this.api.http.registerRoute("/chat/manifest.json", this.handleManifest.bind(this));
     this.api.http.registerRoute("/chat/sw.js", this.handleServiceWorker.bind(this));
     this.api.http.registerRoute("/chat/icon.svg", this.handleIcon.bind(this));
+    // Voice input/output for the chat UI.
+    this.api.http.registerRoute("/api/chat/transcribe", this.handleTranscribe.bind(this));
+    this.api.http.registerRoute("/api/chat/speak", this.handleSpeak.bind(this));
+    // Files panel — save a chat-session file into the real Artifact library, and browse it.
+    this.api.http.registerRoute("/api/chat/artifact/save", this.handleArtifactSave.bind(this));
+    this.api.http.registerRoute("/api/chat/artifact/library", this.handleArtifactLibrary.bind(this));
+    this.api.http.registerRoute("/api/chat/artifact/load", this.handleArtifactLoad.bind(this));
+  }
+
+  /** Text-ish extensions the /chat files panel will inline as content; anything else is download-only via its asset URL. */
+  private static readonly TEXT_ASSET_EXTENSIONS = new Set([
+    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".py", ".rb", ".go", ".rs", ".java", ".c", ".cpp", ".h",
+    ".css", ".scss", ".html", ".htm", ".xml", ".svg", ".sh", ".bash", ".yaml", ".yml", ".toml", ".ini",
+    ".json", ".md", ".txt", ".csv", ".sql",
+  ]);
+
+  /**
+   * Creates a new artifact (or appends to an existing one) from a file shown
+   * in the /chat files panel — the direct, button-triggered equivalent of the
+   * artifact_create + artifact_addAsset tools, bypassing the LLM tool-call
+   * layer since this is a plain UI action, not a model decision.
+   */
+  private async handleArtifactSave(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+
+    let body: { name?: string; filename?: string; content?: string; artifactId?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    if (!body.filename || typeof body.content !== "string") {
+      return Response.json({ error: "filename and content are required" }, { status: 400 });
+    }
+
+    try {
+      await runArtifactMigrations(this.api.db);
+      const store = new ArtifactStore(this.api);
+      let artifactId = body.artifactId;
+
+      if (artifactId && !(await store.load(artifactId))) {
+        artifactId = undefined; // stale id (e.g. from a since-cleared session) — fall through to create
+      }
+      if (!artifactId) {
+        const created = await store.create({
+          name: body.name?.trim() || "Chat Session Files",
+          type: "prototype",
+          description: "Files saved from a /chat session",
+        });
+        artifactId = created.id;
+        registerArtifactRoutes(this.api, store, artifactId);
+      }
+
+      const { writeFile } = await import("fs/promises");
+      const { existsSync } = await import("fs");
+      const { join } = await import("path");
+
+      const assetsDir = getArtifactAssetsDir(this.api, artifactId);
+      const safeName = sanitizeAssetFilename(body.filename);
+      let finalName = safeName;
+      let n = 1;
+      while (existsSync(join(assetsDir, finalName))) {
+        const dot = safeName.lastIndexOf(".");
+        finalName = dot > 0 ? `${safeName.slice(0, dot)}-${n}${safeName.slice(dot)}` : `${safeName}-${n}`;
+        n++;
+      }
+      await writeFile(join(assetsDir, finalName), body.content, "utf-8");
+
+      await store.addAsset(artifactId, {
+        type: "code",
+        filename: finalName,
+        source: "chat-session",
+        downloadedAt: new Date().toISOString(),
+        storedPath: finalName,
+      });
+      registerArtifactAssetRoute(this.api, artifactId, finalName);
+
+      return Response.json({
+        success: true,
+        artifactId,
+        storedPath: finalName,
+        url: `/api/artifact/${artifactId}/asset/${finalName}`,
+      });
+    } catch (error) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Save failed" },
+        { status: 500 },
+      );
+    }
+  }
+
+  /** Lists all real artifacts (the "library" the files panel can browse) — same data as GET /api/artifacts, but routed through this duty's own token gate. */
+  private async handleArtifactLibrary(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+    await runArtifactMigrations(this.api.db);
+    const store = new ArtifactStore(this.api);
+    const artifacts = await store.listAll();
+    return Response.json({ artifacts });
+  }
+
+  /** Loads one artifact's files for the panel, inlining text-ish asset content and leaving everything else as a download link. */
+  private async handleArtifactLoad(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+    const id = new URL(req.url).searchParams.get("id");
+    if (!id) return Response.json({ success: false, error: "id is required" }, { status: 400 });
+
+    await runArtifactMigrations(this.api.db);
+    const store = new ArtifactStore(this.api);
+    const file = await store.load(id);
+    if (!file) return Response.json({ success: false, error: "Artifact not found" }, { status: 404 });
+
+    const { readFile } = await import("fs/promises");
+    const files = await Promise.all(
+      file.assetRecords
+        .filter((a) => a.storedPath)
+        .map(async (a) => {
+          const ext = a.filename.slice(a.filename.lastIndexOf(".")).toLowerCase();
+          const url = `/api/artifact/${id}/asset/${a.storedPath}`;
+          if (!ChattyAgent.TEXT_ASSET_EXTENSIONS.has(ext)) {
+            return { filename: a.filename, storedPath: a.storedPath, url, content: null };
+          }
+          try {
+            const content = await readFile(resolveStoredAssetPath(this.api, id, a.storedPath!), "utf-8");
+            return { filename: a.filename, storedPath: a.storedPath, url, content };
+          } catch {
+            return { filename: a.filename, storedPath: a.storedPath, url, content: null };
+          }
+        }),
+    );
+
+    return Response.json({ success: true, name: file.metadata.name, files });
+  }
+
+  /**
+   * Gate for every /chat-related route once it may be reached through a
+   * Cloudflare tunnel (see duties/cloudflare-connect.ts / docs/REMOTE_ACCESS.md).
+   * Requests addressed to localhost (see routeToken.ts's isLocalRequest —
+   * checked via the Host header, since cloudflared forwards tunnel traffic
+   * over a local connection too, so socket address alone can't tell them
+   * apart) always pass; remote requests need the shared token, either as
+   * ?token= (the first hit, from the QR code) or an Authorization header
+   * (every fetch() after that, once the chat page's own JS has stored it).
+   * Returns a 401 Response if the request should be rejected, or null to proceed.
+   */
+  private requireRemoteToken(req: Request): Response | null {
+    if (isLocalRequest(req)) return null;
+    if (hasValidRouteToken(req, getOrCreateRouteToken())) return null;
+    return new Response("Unauthorized — missing or invalid token", { status: 401 });
+  }
+
+  /** Transcribes a recorded audio blob (from the mic button) to text via the stt plugin. */
+  private async handleTranscribe(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    if (!this.api.plugins.has("stt")) {
+      return Response.json({ error: "STT plugin not loaded" }, { status: 503 });
+    }
+
+    const { writeFile, unlink } = await import("fs/promises");
+    const { join } = await import("path");
+    const { tmpdir } = await import("os");
+    const { randomUUID } = await import("crypto");
+
+    const audioBuffer = Buffer.from(await req.arrayBuffer());
+    if (audioBuffer.length === 0) {
+      return Response.json({ error: "Empty audio" }, { status: 400 });
+    }
+
+    const id = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const rawPath = join(tmpdir(), `ronin-chat-audio-${id}.webm`);
+    const wavPath = join(tmpdir(), `ronin-chat-audio-${id}.wav`);
+    try {
+      await writeFile(rawPath, audioBuffer);
+      // Browsers only produce webm/ogg (Opus). Convert to 16kHz mono WAV first —
+      // whisper.cpp's CLI expects WAV and won't decode webm itself, and WAV is
+      // accepted by all three STT backends (apple, whisper, deepgram).
+      await this.convertToWav(rawPath, wavPath);
+      const result = (await this.api.plugins.call("stt", "transcribe", wavPath)) as { text: string };
+      return Response.json({ text: result.text });
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "Transcription failed" },
+        { status: 500 },
+      );
+    } finally {
+      await unlink(rawPath).catch(() => {});
+      await unlink(wavPath).catch(() => {});
+    }
+  }
+
+  /** Converts an audio file to 16kHz mono WAV via ffmpeg (required for whisper.cpp). */
+  private async convertToWav(inputPath: string, outputPath: string): Promise<void> {
+    const { spawn } = await import("child_process");
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn("ffmpeg", ["-y", "-i", inputPath, "-ar", "16000", "-ac", "1", outputPath], {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      let stderr = "";
+      proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+      proc.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg conversion failed: ${stderr.trim() || `exit code ${code}`}`));
+      });
+      proc.on("error", (err) => {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+          reject(new Error("ffmpeg is required to convert recorded audio for transcription. Install it with: brew install ffmpeg"));
+        } else {
+          reject(new Error(`Failed to run ffmpeg: ${err.message}`));
+        }
+      });
+    });
+  }
+
+  /** Speaks text aloud through the host machine's speakers via the local.speech.say tool. */
+  private async handleSpeak(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+
+    let text = "";
+    try {
+      const body = await req.json();
+      text = typeof body?.text === "string" ? body.text : "";
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    if (!text.trim()) {
+      return Response.json({ error: "No text to speak" }, { status: 400 });
+    }
+
+    try {
+      const result = await this.api.tools.execute("local.speech.say", { text });
+      return Response.json({ success: result.success, error: result.error ?? null });
+    } catch (error) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Speech failed" },
+        { status: 500 },
+      );
+    }
   }
 
   /** Web app manifest — lets /chat be installed as a standalone app (Android "Add to Home Screen", desktop Chrome install). */
@@ -335,6 +595,8 @@ self.addEventListener("fetch", (event) => {
    * Handle chat management API (GET /api/chats, POST /api/chats)
    */
   private async handleChatsAPI(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
     if (req.method === "GET") {
       const chats = await this.getChats();
       return Response.json(chats);
@@ -350,6 +612,8 @@ self.addEventListener("fetch", (event) => {
    * Handle chat by ID API (GET /api/chats/:id, DELETE /api/chats/:id, PATCH /api/chats/:id)
    */
   private async handleChatByIdAPI(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
     const url = new URL(req.url);
     const path = url.pathname;
     
@@ -386,6 +650,14 @@ self.addEventListener("fetch", (event) => {
    * Serve chat UI
    */
   private async handleChatUI(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
+
+    const aiConfig = this.api.config.getAI();
+    const activeProvider = aiConfig.provider;
+    const activeProviderLabel = getProviderVisual(activeProvider).label;
+    const activeModelName = this.localModel;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +1131,26 @@ self.addEventListener("fetch", (event) => {
       color: ${hankoTheme.colors.textPrimary};
       transition: background 150ms ease, border-color 150ms ease;
     }
+    .model-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: ${hankoTheme.spacing.sm};
+      font-size: 0.68rem;
+      color: ${hankoTheme.colors.textTertiary};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .model-indicator svg { flex-shrink: 0; }
+    .model-indicator .model-indicator-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: normal;
+      color: ${hankoTheme.colors.textSecondary};
+      font-size: 0.72rem;
+    }
     .chat-container {
       background: ${hankoTheme.colors.background};
     }
@@ -982,6 +1274,162 @@ self.addEventListener("fetch", (event) => {
       border-color: ${hankoTheme.colors.accent}99;
       color: ${hankoTheme.colors.textPrimary};
     }
+    #mic-button {
+      font-size: 0.9rem;
+      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.02);
+      color: ${hankoTheme.colors.textSecondary};
+      padding: 0.8rem 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    #mic-button:hover:not(:disabled) {
+      background: ${hankoTheme.colors.accent}29;
+      border-color: ${hankoTheme.colors.accent}99;
+      color: ${hankoTheme.colors.textPrimary};
+    }
+    #mic-button.recording {
+      background: rgba(220,50,50,0.25);
+      border-color: rgba(220,50,50,0.6);
+      color: #fff;
+      animation: mic-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+    #files-panel-toggle, #speak-toggle {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #files-panel-toggle {
+      margin-left: auto;
+    }
+    #files-panel-toggle.active, #speak-toggle.active {
+      border-color: ${hankoTheme.colors.accent}99;
+      color: ${hankoTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent}22;
+    }
+    .artifact-panel {
+      width: 420px;
+      flex-shrink: 0;
+      background: ${hankoTheme.colors.backgroundSecondary};
+      border-left: 1px solid ${hankoTheme.colors.border};
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .artifact-panel[hidden] { display: none; }
+    .artifact-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: ${hankoTheme.colors.textPrimary};
+      flex-shrink: 0;
+    }
+    .artifact-panel-header-actions { display: flex; gap: 6px; }
+    .artifact-panel-header-actions button {
+      background: transparent;
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .artifact-panel-header-actions button.active {
+      border-color: ${hankoTheme.colors.accent}99;
+      color: ${hankoTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent}22;
+    }
+    .artifact-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 6px 8px;
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      flex-shrink: 0;
+    }
+    .artifact-tabs:empty { display: none; }
+    .artifact-tab {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 999px;
+      white-space: nowrap;
+      cursor: pointer;
+      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${hankoTheme.colors.textSecondary};
+      border: 1px solid transparent;
+    }
+    .artifact-tab.active {
+      background: ${hankoTheme.colors.accent}22;
+      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${hankoTheme.colors.accent}66;
+    }
+    .artifact-file-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid ${hankoTheme.colors.border};
+      font-size: 0.75rem;
+      color: ${hankoTheme.colors.textSecondary};
+      flex-shrink: 0;
+    }
+    .artifact-file-toolbar:empty { display: none; }
+    .artifact-file-toolbar .filename {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: ${hankoTheme.fonts.mono};
+    }
+    .artifact-file-toolbar button {
+      background: transparent;
+      border: 1px solid ${hankoTheme.colors.border};
+      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 0.72rem;
+    }
+    .artifact-file-toolbar button:hover { background: ${hankoTheme.colors.accent}22; }
+    .artifact-content { flex: 1; overflow: auto; padding: 10px; }
+    .artifact-content pre {
+      margin: 0;
+      font-family: ${hankoTheme.fonts.mono};
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .artifact-content img { max-width: 100%; border-radius: ${hankoTheme.borderRadius.sm}; }
+    .artifact-empty {
+      color: ${hankoTheme.colors.textTertiary};
+      font-size: 0.8rem;
+      padding: 24px 16px;
+      text-align: center;
+    }
+    .artifact-library-list { display: flex; flex-direction: column; gap: 6px; }
+    .artifact-library-item {
+      padding: 8px 10px;
+      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${hankoTheme.borderRadius.sm};
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .artifact-library-item:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
+    .artifact-library-item .name { font-weight: 600; color: ${hankoTheme.colors.textPrimary}; }
+    .artifact-library-item .meta { color: ${hankoTheme.colors.textTertiary}; font-size: 0.68rem; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -989,11 +1437,17 @@ self.addEventListener("fetch", (event) => {
     ${getHeaderHomeIconHTML()}
     <h1>💬 Ronin Chat</h1>
     <div class="header-meta">Chat with AI that understands your Ronin setup</div>
+    <button id="files-panel-toggle" title="Files from this chat">📁 Files</button>
+    <button id="speak-toggle" title="Read Ronin's replies aloud on this Mac's speakers">🔇 Speak replies</button>
   </div>
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-header">
         <button class="new-chat-button" id="new-chat-button" title="New Chat">+ NEW CHAT</button>
+        <div class="model-indicator" title="${escapeHtmlServer(`${activeProviderLabel} — ${activeModelName}`)}">
+          ${renderProviderIconSvg(activeProvider, 16)}
+          <span class="model-indicator-name">${escapeHtmlServer(activeModelName)}</span>
+        </div>
       </div>
       <div class="chat-list" id="chat-list">
         <div class="chat-tabs-empty">Loading chats...</div>
@@ -1004,7 +1458,22 @@ self.addEventListener("fetch", (event) => {
       <div id="drop-zone">Drop files here to analyze</div>
       <div class="input-area">
         <textarea id="message-input" rows="1" placeholder="Ask Ronin..."></textarea>
+        <button id="mic-button" title="Voice input">🎤</button>
         <button id="send-button">Send</button>
+      </div>
+    </div>
+    <div id="artifact-panel" class="artifact-panel" hidden>
+      <div class="artifact-panel-header">
+        <span class="artifact-panel-title" id="artifact-panel-title">Files</span>
+        <div class="artifact-panel-header-actions">
+          <button id="artifact-library-toggle" title="Browse saved artifacts">📚 Library</button>
+          <button id="artifact-panel-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="artifact-tabs" id="artifact-tabs"></div>
+      <div class="artifact-file-toolbar" id="artifact-file-toolbar"></div>
+      <div class="artifact-content" id="artifact-content">
+        <div class="artifact-empty">No files yet — code Ronin writes in this chat will show up here.</div>
       </div>
     </div>
   </div>
@@ -1014,6 +1483,227 @@ self.addEventListener("fetch", (event) => {
     let currentMessages = []; // Maintain message state
     if (window.self !== window.top) {
       document.body.classList.add('embedded-client');
+    }
+
+    // Remote-access token (see duties/cloudflare-connect.ts's /connect QR code):
+    // the first hit from a scanned QR arrives as /chat?token=..., which the
+    // server itself accepts once; store it here so every subsequent fetch on
+    // this device can authenticate too, then scrub it from the visible URL.
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const tokenFromUrl = params.get('token');
+      if (tokenFromUrl) {
+        try { localStorage.setItem('ronin-remote-token', tokenFromUrl); } catch (e) {}
+        params.delete('token');
+        const clean = location.pathname + (params.toString() ? '?' + params.toString() : '');
+        history.replaceState(null, '', clean);
+      }
+    })();
+
+    function authFetch(url, options) {
+      options = options || {};
+      let token = null;
+      try { token = localStorage.getItem('ronin-remote-token'); } catch (e) {}
+      if (token) {
+        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+      }
+      return fetch(url, options);
+    }
+
+    // --- Files panel: code blocks from this chat, plus a browser for the real Artifact library ---
+    let sessionFiles = [];
+    let activeFileId = null;
+    let panelMode = 'files'; // 'files' | 'library'
+    let currentSaveArtifactId = null; // remembered across saves within this page load
+
+    const artifactPanel = document.getElementById('artifact-panel');
+    const artifactTabsEl = document.getElementById('artifact-tabs');
+    const artifactToolbarEl = document.getElementById('artifact-file-toolbar');
+    const artifactContentEl = document.getElementById('artifact-content');
+    const artifactPanelTitleEl = document.getElementById('artifact-panel-title');
+    const filesPanelToggle = document.getElementById('files-panel-toggle');
+
+    const LANGUAGE_TO_EXT = {
+      javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', jsx: 'jsx', tsx: 'tsx',
+      python: 'py', py: 'py', json: 'json', html: 'html', css: 'css',
+      bash: 'sh', shell: 'sh', sh: 'sh', ruby: 'rb', go: 'go', rust: 'rs',
+      java: 'java', c: 'c', cpp: 'cpp', sql: 'sql', yaml: 'yaml', yml: 'yaml', markdown: 'md',
+    };
+
+    function escapeHtmlPanel(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function extractSessionFilesFromMessages(messages) {
+      const found = [];
+      let counter = 1;
+      (messages || []).forEach((msg) => {
+        if (msg.role !== 'assistant' || !msg.content) return;
+        const re = /\`\`\`([a-zA-Z0-9_+-]*)\\n([\\s\\S]*?)\`\`\`/g;
+        let m;
+        while ((m = re.exec(msg.content))) {
+          const lang = (m[1] || '').trim().toLowerCase();
+          const code = m[2] || '';
+          if (code.trim().split('\\n').length < 2) continue; // skip one-liners — not worth a "file"
+          const ext = LANGUAGE_TO_EXT[lang] || (lang || 'txt');
+          found.push({ id: 'sf-' + counter, filename: 'snippet-' + counter + '.' + ext, language: lang || ext, content: code });
+          counter++;
+        }
+      });
+      return found;
+    }
+
+    function syncSessionFilesFromHistory(messages) {
+      const extracted = extractSessionFilesFromMessages(messages);
+      const byContent = new Map(sessionFiles.map(function (f) { return [f.content, f]; }));
+      sessionFiles = extracted.map(function (f) {
+        const existing = byContent.get(f.content);
+        return existing || f;
+      });
+      if (!sessionFiles.some(function (f) { return f.id === activeFileId; })) {
+        activeFileId = sessionFiles.length ? sessionFiles[sessionFiles.length - 1].id : null;
+      }
+    }
+
+    function openArtifactPanel() {
+      artifactPanel.hidden = false;
+      filesPanelToggle.classList.add('active');
+      renderArtifactPanel();
+    }
+    function closeArtifactPanel() {
+      artifactPanel.hidden = true;
+      filesPanelToggle.classList.remove('active');
+    }
+    filesPanelToggle.addEventListener('click', function () {
+      if (artifactPanel.hidden) openArtifactPanel(); else closeArtifactPanel();
+    });
+    document.getElementById('artifact-panel-close').addEventListener('click', closeArtifactPanel);
+    document.getElementById('artifact-library-toggle').addEventListener('click', function (e) {
+      panelMode = panelMode === 'library' ? 'files' : 'library';
+      e.currentTarget.classList.toggle('active', panelMode === 'library');
+      renderArtifactPanel();
+    });
+
+    function renderArtifactPanel() {
+      if (!artifactPanel || artifactPanel.hidden) return;
+
+      if (panelMode === 'library') {
+        artifactPanelTitleEl.textContent = 'Artifact Library';
+        artifactTabsEl.innerHTML = '';
+        artifactToolbarEl.innerHTML = '';
+        artifactContentEl.innerHTML = '<div class="artifact-empty">Loading...</div>';
+        authFetch('/api/chat/artifact/library').then(function (r) { return r.json(); }).then(function (data) {
+          const items = data.artifacts || [];
+          if (!items.length) {
+            artifactContentEl.innerHTML = '<div class="artifact-empty">No saved artifacts yet.</div>';
+            return;
+          }
+          artifactContentEl.innerHTML = '<div class="artifact-library-list">' + items.map(function (a) {
+            return '<div class="artifact-library-item" data-id="' + escapeHtmlPanel(a.id) + '">' +
+              '<div class="name">' + escapeHtmlPanel(a.name) + '</div>' +
+              '<div class="meta">' + escapeHtmlPanel(a.type) + ' · ' + escapeHtmlPanel(a.state) + ' · updated ' + new Date(a.updated).toLocaleString() + '</div>' +
+              '</div>';
+          }).join('') + '</div>';
+          artifactContentEl.querySelectorAll('.artifact-library-item').forEach(function (el) {
+            el.addEventListener('click', function () { loadArtifactIntoPanel(el.getAttribute('data-id')); });
+          });
+        }).catch(function () {
+          artifactContentEl.innerHTML = '<div class="artifact-empty">Failed to load library.</div>';
+        });
+        return;
+      }
+
+      artifactPanelTitleEl.textContent = 'Files';
+
+      if (!sessionFiles.length) {
+        artifactTabsEl.innerHTML = '';
+        artifactToolbarEl.innerHTML = '';
+        artifactContentEl.innerHTML = '<div class="artifact-empty">No files yet — code Ronin writes in this chat will show up here.</div>';
+        return;
+      }
+
+      artifactTabsEl.innerHTML = sessionFiles.map(function (f) {
+        return '<div class="artifact-tab' + (f.id === activeFileId ? ' active' : '') + '" data-id="' + escapeHtmlPanel(f.id) + '">' + escapeHtmlPanel(f.filename) + '</div>';
+      }).join('');
+      artifactTabsEl.querySelectorAll('.artifact-tab').forEach(function (el) {
+        el.addEventListener('click', function () { activeFileId = el.getAttribute('data-id'); renderArtifactPanel(); });
+      });
+
+      let active = sessionFiles.filter(function (f) { return f.id === activeFileId; })[0] || sessionFiles[0];
+      activeFileId = active.id;
+
+      artifactToolbarEl.innerHTML =
+        '<span class="filename">' + escapeHtmlPanel(active.filename) + '</span>' +
+        '<button id="artifact-copy-btn">Copy</button>' +
+        '<button id="artifact-download-btn">Download</button>' +
+        '<button id="artifact-save-btn">' + (active.savedArtifactId ? 'Saved ✓' : 'Save') + '</button>';
+
+      document.getElementById('artifact-copy-btn').addEventListener('click', function () {
+        navigator.clipboard.writeText(active.content).catch(function () {});
+      });
+      document.getElementById('artifact-download-btn').addEventListener('click', function () {
+        if (active.downloadUrl) { window.open(active.downloadUrl, '_blank'); return; }
+        const blob = new Blob([active.content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = active.filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById('artifact-save-btn').addEventListener('click', function () {
+        const btn = document.getElementById('artifact-save-btn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        authFetch('/api/chat/artifact/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: currentSaveArtifactId ? undefined : 'Chat Session Files',
+            filename: active.filename,
+            content: active.content,
+            artifactId: currentSaveArtifactId || undefined,
+          }),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (data.success) {
+            currentSaveArtifactId = data.artifactId;
+            active.savedArtifactId = data.artifactId;
+            active.savedStoredPath = data.storedPath;
+          }
+        }).catch(function (e) { console.error('Save failed:', e); }).then(function () { renderArtifactPanel(); });
+      });
+
+      artifactContentEl.innerHTML = '<pre><code class="language-' + escapeHtmlPanel(active.language || '') + '">' + escapeHtmlPanel(active.content) + '</code></pre>';
+      if (typeof hljs !== 'undefined' && hljs) {
+        artifactContentEl.querySelectorAll('pre code').forEach(function (block) {
+          try { hljs.highlightElement(block); } catch (e) {}
+        });
+      }
+    }
+
+    function loadArtifactIntoPanel(artifactId) {
+      artifactContentEl.innerHTML = '<div class="artifact-empty">Loading...</div>';
+      authFetch('/api/chat/artifact/load?id=' + encodeURIComponent(artifactId)).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.success) { artifactContentEl.innerHTML = '<div class="artifact-empty">Failed to load.</div>'; return; }
+        const loaded = (data.files || []).map(function (f, i) {
+          return {
+            id: 'lib-' + artifactId + '-' + i,
+            filename: f.filename,
+            language: LANGUAGE_TO_EXT[f.filename.split('.').pop()] ? f.filename.split('.').pop() : '',
+            content: f.content != null ? f.content : '(binary file — use Download)',
+            savedArtifactId: artifactId,
+            savedStoredPath: f.storedPath,
+            downloadUrl: f.url,
+          };
+        });
+        panelMode = 'files';
+        document.getElementById('artifact-library-toggle').classList.remove('active');
+        sessionFiles = loaded.length ? loaded : [{ id: 'lib-empty', filename: data.name || 'artifact', language: '', content: '(no files in this artifact yet)' }];
+        activeFileId = sessionFiles[0].id;
+        currentSaveArtifactId = artifactId;
+        renderArtifactPanel();
+      }).catch(function () {
+        artifactContentEl.innerHTML = '<div class="artifact-empty">Failed to load.</div>';
+      });
     }
 
     if ('serviceWorker' in navigator) {
@@ -1055,7 +1745,7 @@ self.addEventListener("fetch", (event) => {
     
     async function loadChats() {
       try {
-        const response = await fetch('/api/chats');
+        const response = await authFetch('/api/chats');
         if (!response.ok) throw new Error('Failed to load chats');
         chats = await response.json();
         renderChatList();
@@ -1104,7 +1794,7 @@ self.addEventListener("fetch", (event) => {
       chatHistory.innerHTML = '<div class="empty-state">Loading...</div>';
       
       try {
-        const response = await fetch(\`/api/chats/\${chatId}\`);
+        const response = await authFetch(\`/api/chats/\${chatId}\`);
         if (!response.ok) throw new Error('Failed to load chat');
         const chat = await response.json();
         currentMessages = chat.messages || [];
@@ -1118,7 +1808,7 @@ self.addEventListener("fetch", (event) => {
     
     async function createNewChat() {
       try {
-        const response = await fetch('/api/chats', {
+        const response = await authFetch('/api/chats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: 'New Chat' })
@@ -1138,7 +1828,7 @@ self.addEventListener("fetch", (event) => {
       if (!confirm('Delete this chat?')) return;
       
       try {
-        const response = await fetch(\`/api/chats/\${chatId}\`, { method: 'DELETE' });
+        const response = await authFetch(\`/api/chats/\${chatId}\`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Failed to delete chat');
         
         await loadChats(); // Reload to get updated list
@@ -1228,7 +1918,7 @@ self.addEventListener("fetch", (event) => {
       const buttons = actionsEl.querySelectorAll('button');
       buttons.forEach(b => b.disabled = true);
       try {
-        const res = await fetch(action === 'approve' ? cfg.approveUrl : cfg.refuseUrl, {
+        const res = await authFetch(action === 'approve' ? cfg.approveUrl : cfg.refuseUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
@@ -1259,6 +1949,8 @@ self.addEventListener("fetch", (event) => {
             <div class="hero-console">Secure Link Active</div>
           </div>
         \`;
+        syncSessionFilesFromHistory(messages);
+        renderArtifactPanel();
         return;
       }
       
@@ -1321,8 +2013,10 @@ self.addEventListener("fetch", (event) => {
       });
       
       container.scrollTop = container.scrollHeight;
+      syncSessionFilesFromHistory(messages);
+      renderArtifactPanel();
     }
-    
+
     async function sendMessage() {
       const input = document.getElementById('message-input');
       const button = document.getElementById('send-button');
@@ -1362,7 +2056,7 @@ self.addEventListener("fetch", (event) => {
       currentMessages.push(assistantMessage);
       
       try {
-        const response = await fetch('/api/chat', {
+        const response = await authFetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, chatId: currentChatId }),
@@ -1399,10 +2093,11 @@ self.addEventListener("fetch", (event) => {
         }
         
         clearTimeout(timeoutId);
-        
+        maybeSpeak(aiResponse);
+
         // Reload chat from database to ensure consistency and refresh chat list (for title updates)
         await loadChats();
-        const chatResponse = await fetch(\`/api/chats/\${currentChatId}\`);
+        const chatResponse = await authFetch(\`/api/chats/\${currentChatId}\`);
         if (chatResponse.ok) {
           const chat = await chatResponse.json();
           currentMessages = chat.messages || [];
@@ -1444,6 +2139,94 @@ self.addEventListener("fetch", (event) => {
         sendMessage();
       }
     });
+
+    // --- Voice input (push-to-talk mic button) ---
+    const micButton = document.getElementById('mic-button');
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    function stripMarkdownForSpeech(text) {
+      return text
+        .replace(/\`\`\`[\\s\\S]*?\`\`\`/g, '')
+        .replace(/[*_#\`>~]/g, '')
+        .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, '$1')
+        .trim();
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          micButton.classList.remove('recording');
+          micButton.textContent = '⏳';
+          micButton.disabled = true;
+          try {
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            const res = await authFetch('/api/chat/transcribe', { method: 'POST', body: blob });
+            const data = await res.json();
+            if (data.text) {
+              messageInput.value = (messageInput.value ? messageInput.value + ' ' : '') + data.text;
+              autoResizeInput();
+              messageInput.focus();
+            } else if (data.error) {
+              console.error('Transcription failed:', data.error);
+            }
+          } catch (err) {
+            console.error('Transcription request failed:', err);
+          } finally {
+            micButton.textContent = '🎤';
+            micButton.disabled = false;
+          }
+        };
+        mediaRecorder.start();
+        micButton.classList.add('recording');
+        micButton.textContent = '⏹';
+      } catch (err) {
+        console.error('Microphone access failed:', err);
+        alert('Could not access the microphone: ' + err.message);
+      }
+    }
+
+    micButton.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      } else {
+        startRecording();
+      }
+    });
+
+    // --- Voice output (speak replies aloud) ---
+    const SPEAK_TOGGLE_KEY = 'ronin-chat-speak-replies';
+    const speakToggle = document.getElementById('speak-toggle');
+
+    function speakEnabled() {
+      try { return localStorage.getItem(SPEAK_TOGGLE_KEY) === 'true'; } catch { return false; }
+    }
+    function renderSpeakToggle() {
+      const on = speakEnabled();
+      speakToggle.classList.toggle('active', on);
+      speakToggle.textContent = on ? '🔊 Speak replies' : '🔇 Speak replies';
+    }
+    speakToggle.addEventListener('click', () => {
+      try { localStorage.setItem(SPEAK_TOGGLE_KEY, speakEnabled() ? 'false' : 'true'); } catch {}
+      renderSpeakToggle();
+    });
+    renderSpeakToggle();
+
+    function maybeSpeak(text) {
+      if (!speakEnabled() || !text) return;
+      // Fire-and-forget — plays through this Mac's speakers (via local.speech.say),
+      // not the browser/device viewing this page.
+      authFetch('/api/chat/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: stripMarkdownForSpeech(text) }),
+      }).catch(err => console.error('Speak request failed:', err));
+    }
     
     // Keyboard shortcut for new chat
     document.addEventListener('keydown', (e) => {
@@ -1496,6 +2279,8 @@ self.addEventListener("fetch", (event) => {
    * Handle chat API requests
    */
   private async handleChatAPI(req: Request): Promise<Response> {
+    const denied = this.requireRemoteToken(req);
+    if (denied) return denied;
     if (req.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
     }
@@ -1715,18 +2500,26 @@ self.addEventListener("fetch", (event) => {
     const chatModel = params.model;
     const toolCallingModel = params.model === this.localModel ? this.toolModel : params.model;
 
-    const allSchemas = this.api.tools.getSchemas();
-    const toolSchemas = filterToolSchemas(allSchemas, {
-      message: params.userMessage,
-      hasSkills: !!this.api.skills,
-      maxSchemas: 12,
-    });
+    // Auto-wrapped plugin tools (~186 of them, one per plugin method) are NOT
+    // included up front — that's 8-20k tokens of schema overhead on every
+    // turn, and this path bypasses the tokenGuard middleware entirely.
+    // Everything else (local.*, mcp:*, and duty-self-registered tools like
+    // contracts.proposeReflex) stays always visible; the model sees a compact
+    // category index instead and calls local.tools.load_category to pull in a
+    // specific plugin category's real schemas when it decides it needs one.
+    // See src/tools/toolDocs.ts (buildToolContext/expandToolContextForCategory
+    // — also unit-tested directly there, independent of chat's own machinery).
+    const toolContext = await loadToolContext(this.api);
+    const systemPromptWithToolIndex = toolContext.categoryIndexText
+      ? `${params.systemPrompt}\n\n${toolContext.categoryIndexText}`
+      : params.systemPrompt;
+
     const toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }> = [];
     const calledToolSignatures = new Set<string>();
     let consecutiveEmptyResults = 0;
     let finalResponse = "";
 
-    if (toolSchemas.length === 0) {
+    if (toolContext.schemas.length === 0) {
       const fallback = await this.api.ai.chat(params.aiMessages, {
         model: chatModel,
         maxTokens: 2000,
@@ -1737,18 +2530,18 @@ self.addEventListener("fetch", (event) => {
 
     for (let iteration = 0; iteration < this.maxToolIterations; iteration++) {
       const prompt = buildToolPrompt({
-        systemPrompt: params.systemPrompt,
+        systemPrompt: systemPromptWithToolIndex,
         aiMessages: params.aiMessages,
         toolResults,
       });
 
       // Tool-calling round: use smart model for reliable function calling
-      // OpenAIFunctionSchema (from filterToolSchemas) and DutyAPI's Tool are the same
+      // OpenAIFunctionSchema and DutyAPI's Tool are the same
       // {type:"function", function:{name,description,parameters}} wire shape — Tool's
       // `parameters` is just declared narrower (no nested items/enum) than the real
       // JSONSchema type these schemas actually carry. callTools forwards the array
       // straight through to the provider as JSON, so this is a type-only mismatch.
-      const result = await this.api.ai.callTools(prompt, toolSchemas as unknown as Tool[], {
+      const result = await this.api.ai.callTools(prompt, toolContext.schemas as unknown as Tool[], {
         model: toolCallingModel,
         maxTokens: 2000,
         temperature: 0.7,
@@ -1786,7 +2579,7 @@ self.addEventListener("fetch", (event) => {
           const execution = await this.api.tools.execute(call.name, call.arguments || {}, {
             conversationId: `chatty-${Date.now()}`,
             originalQuery: params.userMessage,
-            metadata: { agentName: "chatty" },
+            metadata: { dutyName: "chatty" },
           });
           if (sayToolNames.has(call.name)) ranSayTool = true;
           else ranNonSayTool = true;
@@ -1796,6 +2589,15 @@ self.addEventListener("fetch", (event) => {
             result: execution.data,
             error: execution.error,
           });
+
+          // Category loaded — bring its real tool schemas into scope so the
+          // model can actually invoke them on the next iteration. It already
+          // got the docs back as this call's result; this just makes the
+          // matching tools callable, not just readable.
+          if (call.name === "local.tools.load_category" && execution.success) {
+            const category = String((call.arguments as { category?: unknown } | undefined)?.category ?? "").trim();
+            if (category) expandToolContextForCategory(toolContext, category);
+          }
         } catch (error) {
           if (sayToolNames.has(call.name)) ranSayTool = true;
           else ranNonSayTool = true;

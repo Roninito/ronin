@@ -16,7 +16,6 @@
  */
 
 import type { DutyAPI } from "../types/index.js";
-import type { TaskContext } from "../task/types.js";
 import type { UseSkillResult } from "../types/skills.js";
 
 export class SkillAdapter {
@@ -30,7 +29,7 @@ export class SkillAdapter {
   async executeSkill(
     skillName: string,
     input: Record<string, unknown>,
-    _taskContext: TaskContext,
+    _taskContext: unknown,
     ability?: string
   ): Promise<UseSkillResult> {
     if (!this.api.skills) {
@@ -78,7 +77,7 @@ export class SkillAdapter {
   async executeSkillWithTimeout(
     skillName: string,
     input: Record<string, unknown>,
-    taskContext: TaskContext,
+    taskContext: unknown,
     ability?: string,
     timeoutMs: number = 30000
   ): Promise<UseSkillResult> {

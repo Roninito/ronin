@@ -1,7 +1,6 @@
 import { createAPI } from "../../api/index.js";
 import type { DutyAPI } from "../../types/api.js";
 import { DutyLoader, DutyRegistry, HotReloadService } from "../../duty/index.js";
-import { KataLoader } from "../../kata/loader.js";
 import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
@@ -47,7 +46,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   if (process.env.RONIN_READ_ONLY === "1") {
     return null;
   }
-  // Checked first, before any duty/plugin/kata loading — closes the race window
+  // Checked first, before any duty/plugin/contract loading — closes the race window
   // where two launches (any mix of foreground/--ninja/--daemon/interactive) could
   // both get most of the way through startup before either one reached the
   // webhook port bind that used to be the only thing stopping duplicates.
@@ -124,13 +123,8 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
 
   logger.info("Loaded duties", { count: duties.length });
 
-  // Load katas and contracts from filesystem
-  const kataLoader = new KataLoader(process.cwd());
-  const kataResult = await kataLoader.loadAll(api);
-  if (kataResult.loaded > 0 || kataResult.errors.length > 0) {
-    logger.info("Loaded katas from files", { loaded: kataResult.loaded, skipped: kataResult.skipped, errors: kataResult.errors.length });
-  }
-
+  // Load contracts from filesystem — each declares its own phase graph inline
+  // (no separate kata-loading step since the Kata registry was removed).
   const contractLoader = new ContractLoader(process.cwd());
   const contractResult = await contractLoader.loadAll(api);
   if (contractResult.loaded > 0 || contractResult.errors.length > 0) {
@@ -236,7 +230,13 @@ async function runNinjaMode(): Promise<void> {
   if (existing !== null) {
     console.error(`❌ Ronin is already running (PID ${existing}).`);
     console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
-    process.exit(1);
+    // Exit 0, not 1: "already running" means the thing this command exists to
+    // ensure (a running Ronin) is already true — it's not a failure. The
+    // macOS LaunchAgent (ai.ronin.desktop) uses KeepAlive.SuccessfulExit:
+    // false, which restarts on ANY non-zero exit — with exit(1) here, every
+    // refusal was read as a crash and immediately relaunched, in a loop, by
+    // the very mechanism meant to keep exactly one instance running.
+    process.exit(0);
   }
 
   const args = process.argv.slice(2).filter((a) => a !== "--ninja");
@@ -286,7 +286,9 @@ async function runDaemonMode(): Promise<void> {
     console.error(`Daemon already running with PID ${existing}`);
     console.error(`  Logs: ${DAEMON_LOG_PATH}`);
     console.error(`  Use 'ronin daemon stop' to stop it.`);
-    process.exit(1);
+    // See the matching comment in runNinjaMode() above — exit 0, not 1, so
+    // the LaunchAgent's KeepAlive doesn't treat this refusal as a crash.
+    process.exit(0);
   }
 
   const args = process.argv.slice(2).filter((a) => a !== "--daemon");
@@ -354,7 +356,9 @@ export async function startCommand(options: StartOptions = {}): Promise<void> {
     if (error instanceof AlreadyRunningError) {
       console.error(`❌ Ronin is already running (PID ${error.pid}).`);
       console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
-      process.exit(1);
+      // See the matching comment in runNinjaMode() above — exit 0, not 1, so
+      // the LaunchAgent's KeepAlive doesn't treat this refusal as a crash.
+      process.exit(0);
     }
     const err = error as { code?: string; message?: string };
     const message = err?.message || String(error);

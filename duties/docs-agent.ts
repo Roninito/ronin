@@ -5,7 +5,7 @@ import { join, relative, extname, basename } from "path";
 import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 interface DocumentItem {
-  type: "markdown" | "book-chapter";
+  type: "markdown";
   path: string;
   name: string;
   displayName: string;
@@ -14,8 +14,6 @@ interface DocumentItem {
 
 interface DocumentList {
   markdown: DocumentItem[];
-  bookChapters: DocumentItem[];
-  skillsDuties: DocumentItem[];
 }
 
 /**
@@ -25,18 +23,12 @@ interface DocumentList {
 export default class DocsAgent extends BaseDuty {
   private documents: DocumentList = {
     markdown: [],
-    bookChapters: [],
-    skillsDuties: [],
   };
   private docsPath: string;
-  private bookPath: string;
-  private skillsDutiesPath: string;
 
   constructor(api: DutyAPI) {
     super(api);
     this.docsPath = join(process.cwd(), "docs");
-    this.bookPath = join(this.docsPath, "book", "chapters");
-    this.skillsDutiesPath = join(this.docsPath, "skills-and-duties", "chapters");
     this.discoverDocuments();
     this.registerRoutes();
     console.log("📚 Docs agent ready. Documentation viewer available at /docs");
@@ -65,110 +57,11 @@ export default class DocsAgent extends BaseDuty {
         }
       }
 
-      // Discover book chapters
-      const bookChapters: DocumentItem[] = [];
-      try {
-        // Read main chapters directory
-        const mainChapters = await readdir(this.bookPath, { withFileTypes: true });
-        
-        for (const dirent of mainChapters) {
-          if (dirent.isDirectory() && dirent.name === "appendices") {
-            // Read appendices directory
-            const appendicesPath = join(this.bookPath, "appendices");
-            const appendices = await readdir(appendicesPath, { withFileTypes: true });
-            
-            for (const appDirent of appendices) {
-              if (appDirent.isFile() && extname(appDirent.name) === ".html") {
-                const name = basename(appDirent.name, ".html");
-                bookChapters.push({
-                  type: "book-chapter",
-                  path: `docs/book/chapters/appendices/${appDirent.name}`,
-                  name: appDirent.name,
-                  displayName: this.formatDisplayName(name),
-                  category: "Appendices",
-                });
-              }
-            }
-          } else if (dirent.isFile() && extname(dirent.name) === ".html") {
-            const name = basename(dirent.name, ".html");
-            bookChapters.push({
-              type: "book-chapter",
-              path: `docs/book/chapters/${dirent.name}`,
-              name: dirent.name,
-              displayName: this.formatDisplayName(name),
-              category: "Book Chapters",
-            });
-          }
-        }
-        
-        // Sort book chapters by name (which includes chapter numbers)
-        bookChapters.sort((a, b) => {
-          // Sort appendices after main chapters
-          if (a.category !== b.category) {
-            return a.category === "Appendices" ? 1 : -1;
-          }
-          return a.name.localeCompare(b.name);
-        });
-      } catch (error) {
-        console.warn("[Docs] Could not read book chapters directory:", error);
-      }
-
-      // Discover skills-and-duties chapters
-      const skillsDuties: DocumentItem[] = [];
-      try {
-        const sdDirs = await readdir(this.skillsDutiesPath, { withFileTypes: true });
-        
-        for (const dirent of sdDirs) {
-          if (dirent.isDirectory()) {
-            // Read subdirectories (plugins/, agents/)
-            const subDir = join(this.skillsDutiesPath, dirent.name);
-            const subFiles = await readdir(subDir, { withFileTypes: true });
-            const categoryName = dirent.name === "plugins" ? "Plugin Skills" : dirent.name === "agents" ? "Agent Duties" : this.formatDisplayName(dirent.name);
-            
-            for (const subDirent of subFiles) {
-              if (subDirent.isFile() && extname(subDirent.name) === ".html") {
-                const name = basename(subDirent.name, ".html");
-                skillsDuties.push({
-                  type: "book-chapter",
-                  path: `docs/skills-and-duties/chapters/${dirent.name}/${subDirent.name}`,
-                  name: subDirent.name,
-                  displayName: this.formatDisplayName(name),
-                  category: categoryName,
-                });
-              }
-            }
-          } else if (dirent.isFile() && extname(dirent.name) === ".html") {
-            const name = basename(dirent.name, ".html");
-            skillsDuties.push({
-              type: "book-chapter",
-              path: `docs/skills-and-duties/chapters/${dirent.name}`,
-              name: dirent.name,
-              displayName: this.formatDisplayName(name),
-              category: "Skills & Duties",
-            });
-          }
-        }
-        
-        // Sort: Agent Duties first, then Plugin Skills, then by name within each category
-        skillsDuties.sort((a, b) => {
-          if (a.category !== b.category) {
-            if (a.category === "Agent Duties") return -1;
-            if (b.category === "Agent Duties") return 1;
-            return a.category.localeCompare(b.category);
-          }
-          return a.name.localeCompare(b.name);
-        });
-      } catch (error) {
-        console.warn("[Docs] Could not read skills-and-duties directory:", error);
-      }
-
       this.documents = {
         markdown: markdownFiles.sort((a, b) => a.displayName.localeCompare(b.displayName)),
-        bookChapters,
-        skillsDuties,
       };
 
-      console.log(`[Docs] Discovered ${markdownFiles.length} markdown files, ${bookChapters.length} book chapters, and ${skillsDuties.length} skills & duties`);
+      console.log(`[Docs] Discovered ${markdownFiles.length} markdown files`);
     } catch (error) {
       console.error("[Docs] Failed to discover documents:", error);
     }
@@ -199,9 +92,6 @@ export default class DocsAgent extends BaseDuty {
     this.api.http.registerRoute("/api/docs/content", this.handleDocsContentAPI.bind(this));
     this.api.http.registerRoute("/api/docs/scrape", this.handleDocsScrapeAPI.bind(this));
     this.api.http.registerRoute("/api/docs/ingest", this.handleDocsIngestAPI.bind(this));
-    // Serve book CSS files
-    this.api.http.registerRoute("/docs/book/styles/", this.handleBookCSS.bind(this));
-    this.api.http.registerRoute("/docs/skills-and-duties/styles/", this.handleSkillsDutiesCSS.bind(this));
     // Standalone pre-built HTML guide (not markdown, so it isn't picked up by
     // the .md-only discovery above — served directly instead).
     this.api.http.registerRoute("/guide", this.handleGuideUI.bind(this), {
@@ -234,56 +124,6 @@ export default class DocsAgent extends BaseDuty {
     return content.replace(/\s+/g, " ").trim();
   }
 
-  /**
-   * Handle book CSS file requests
-   */
-  private async handleBookCSS(req: Request): Promise<Response> {
-    try {
-      const url = new URL(req.url);
-      const pathname = url.pathname;
-      // Extract filename from path like /docs/book/styles/book.css
-      const filename = pathname.split("/").pop() || "book.css";
-      const cssPath = join(this.docsPath, "book", "styles", filename);
-      
-      // Security check
-      const bookStylesDir = join(this.docsPath, "book", "styles");
-      if (!cssPath.startsWith(bookStylesDir)) {
-        return new Response("Invalid path", { status: 400 });
-      }
-
-      const content = await readFile(cssPath, "utf-8");
-      return new Response(content, {
-        headers: { "Content-Type": "text/css" },
-      });
-    } catch (error) {
-      return new Response("CSS file not found", { status: 404 });
-    }
-  }
-
-  /**
-   * Handle skills-and-duties CSS file requests
-   */
-  private async handleSkillsDutiesCSS(req: Request): Promise<Response> {
-    try {
-      const url = new URL(req.url);
-      const pathname = url.pathname;
-      const filename = pathname.split("/").pop() || "book.css";
-      const cssPath = join(this.docsPath, "skills-and-duties", "styles", filename);
-      
-      // Security check
-      const stylesDir = join(this.docsPath, "skills-and-duties", "styles");
-      if (!cssPath.startsWith(stylesDir)) {
-        return new Response("Invalid path", { status: 400 });
-      }
-
-      const content = await readFile(cssPath, "utf-8");
-      return new Response(content, {
-        headers: { "Content-Type": "text/css" },
-      });
-    } catch (error) {
-      return new Response("CSS file not found", { status: 404 });
-    }
-  }
 
   /**
    * Handle document list API
@@ -381,11 +221,7 @@ export default class DocsAgent extends BaseDuty {
         return Response.json({ error: "Provide either path or query" }, { status: 400 });
       }
 
-      const allDocs = [
-        ...this.documents.markdown,
-        ...this.documents.bookChapters,
-        ...this.documents.skillsDuties,
-      ];
+      const allDocs = [...this.documents.markdown];
 
       const q = query.toLowerCase();
       const hits: Array<{ path: string; name: string; score: number; excerpt: string }> = [];
@@ -435,11 +271,7 @@ export default class DocsAgent extends BaseDuty {
 
     try {
       await this.discoverDocuments();
-      const docs = [
-        ...this.documents.markdown,
-        ...this.documents.bookChapters,
-        ...this.documents.skillsDuties,
-      ];
+      const docs = [...this.documents.markdown];
 
       let ingested = 0;
       for (const doc of docs) {
@@ -686,132 +518,23 @@ export default class DocsAgent extends BaseDuty {
       font-weight: 600;
     }
     
-    /* Book chapter content - use same styling as markdown */
-    .book-chapter-content {
-      width: 100%;
-      min-height: 100%;
-    }
-    
-    /* Override any book chapter specific elements to match our theme */
-    .book-chapter-content .chapter-header {
-      margin-bottom: ${hankoTheme.spacing.lg};
-      padding-bottom: ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-    }
-    
-    .book-chapter-content .chapter-number {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: ${hankoTheme.spacing.xs};
-    }
-    
-    .book-chapter-content .chapter-title {
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 2rem;
-      font-weight: 300;
-      margin: 0;
-    }
-    
-    /* Ensure all text uses our theme colors - but NOT hljs syntax tokens */
-    .book-chapter-content {
-      color: ${hankoTheme.colors.textPrimary};
-    }
-    
-    .book-chapter-content p,
-    .book-chapter-content li,
-    .book-chapter-content td,
-    .book-chapter-content h1,
-    .book-chapter-content h2,
-    .book-chapter-content h3,
-    .book-chapter-content h4,
-    .book-chapter-content span:not([class*="hljs"]),
-    .book-chapter-content div:not([class*="hljs"]) {
-      color: ${hankoTheme.colors.textPrimary} !important;
-    }
-    
-    .book-chapter-content :not(pre) > code {
-      background: ${hankoTheme.colors.backgroundSecondary} !important;
-      color: ${hankoTheme.colors.textPrimary} !important;
-    }
-    
-    .book-chapter-content pre {
-      background: ${hankoTheme.colors.backgroundSecondary} !important;
-      border: 1px solid ${hankoTheme.colors.border} !important;
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
-      overflow-x: auto;
-      margin: ${hankoTheme.spacing.md} 0;
-    }
-    
-    .book-chapter-content pre code {
-      background: transparent !important;
-      padding: 0;
-      font-size: 0.85em;
-      line-height: 1.6;
-    }
-    
-    /* Let hljs tokens use their own colors */
-    .book-chapter-content pre code [class*="hljs"] {
-      color: inherit;
-    }
-    
-    .book-chapter-content a {
-      color: ${hankoTheme.colors.textSecondary} !important;
-    }
-    
-    .book-chapter-content a:hover {
-      color: ${hankoTheme.colors.textPrimary} !important;
-    }
-    
-    .book-chapter-content table {
-      border-color: ${hankoTheme.colors.border} !important;
-    }
-    
-    .book-chapter-content th {
-      background: ${hankoTheme.colors.backgroundSecondary} !important;
-      color: ${hankoTheme.colors.textPrimary} !important;
-    }
-    
-    .book-chapter-content td {
-      border-color: ${hankoTheme.colors.border} !important;
-    }
-    
-    /* Code example titles */
-    .book-chapter-content .code-example-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: ${hankoTheme.colors.textTertiary} !important;
-      margin-bottom: ${hankoTheme.spacing.xs};
-    }
   </style>
 </head>
 <body>
   <div class="header">
     ${getHeaderHomeIconHTML()}
     <h1>📚 Ronin Documentation</h1>
-    <div class="header-meta">Complete guide to building AI agents with Ronin</div>
+    <div class="header-meta">Reference documentation for building with Ronin</div>
   </div>
 
   <div class="main-container">
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section">
-        <div class="sidebar-section-title">📚 Book Chapters</div>
-        <div id="book-chapters-list"></div>
-      </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">⚔️ Skills & Duties</div>
-        <div id="skills-duties-list"></div>
-      </div>
-      <div class="sidebar-section">
         <div class="sidebar-section-title">📄 Documentation</div>
         <div id="markdown-list"></div>
       </div>
     </div>
-    
+
     <div class="content-area" id="content-area">
       <div class="content-wrapper">
         <div class="loading" id="loading">Select a document to view</div>
@@ -822,7 +545,7 @@ export default class DocsAgent extends BaseDuty {
   
   <script>
     let currentPath = null;
-    let documents = { markdown: [], bookChapters: [], skillsDuties: [] };
+    let documents = { markdown: [] };
     let hljsReady = false;
     let markedReady = false;
     
@@ -868,46 +591,9 @@ export default class DocsAgent extends BaseDuty {
     }
     
     function renderSidebar() {
-      const bookChaptersList = document.getElementById('book-chapters-list');
-      const skillsDutiesList = document.getElementById('skills-duties-list');
       const markdownList = document.getElementById('markdown-list');
-      
-      bookChaptersList.innerHTML = '';
-      skillsDutiesList.innerHTML = '';
       markdownList.innerHTML = '';
-      
-      // Render book chapters
-      documents.bookChapters.forEach(doc => {
-        const item = document.createElement('div');
-        item.className = 'doc-item';
-        item.textContent = doc.displayName;
-        item.onclick = () => loadDocument(doc.path, doc.type);
-        if (currentPath === doc.path) {
-          item.classList.add('active');
-        }
-        bookChaptersList.appendChild(item);
-      });
-      
-      // Render skills & duties (grouped by category)
-      let lastCategory = '';
-      (documents.skillsDuties || []).forEach(doc => {
-        if (doc.category !== lastCategory) {
-          const catHeader = document.createElement('div');
-          catHeader.style.cssText = 'font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${hankoTheme.colors.textTertiary}; margin-top: 0.5rem; margin-bottom: 0.25rem; padding-left: 0.75rem;';
-          catHeader.textContent = doc.category;
-          skillsDutiesList.appendChild(catHeader);
-          lastCategory = doc.category;
-        }
-        const item = document.createElement('div');
-        item.className = 'doc-item';
-        item.textContent = doc.displayName;
-        item.onclick = () => loadDocument(doc.path, doc.type);
-        if (currentPath === doc.path) {
-          item.classList.add('active');
-        }
-        skillsDutiesList.appendChild(item);
-      });
-      
+
       // Render markdown files
       documents.markdown.forEach(doc => {
         const item = document.createElement('div');
@@ -943,8 +629,6 @@ export default class DocsAgent extends BaseDuty {
         
         if (type === 'markdown') {
           renderMarkdown(data.content);
-        } else if (type === 'book-chapter') {
-          renderBookChapter(data.content);
         } else {
           content.innerHTML = \`<pre><code>\${escapeHtml(data.content)}</code></pre>\`;
           highlightAllCode(content);
@@ -1027,43 +711,6 @@ export default class DocsAgent extends BaseDuty {
       });
     }
     
-    function renderBookChapter(html) {
-      const content = document.getElementById('content');
-      // Book chapters are full HTML documents with their own CSS
-      // Extract the content and render with our theme instead of book.css
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      
-      // Extract the main content div (book chapters use .content class)
-      const contentDiv = doc.querySelector('.content') || doc.body;
-      
-      // Clear any previous content first
-      content.innerHTML = '';
-      
-      // Create a wrapper with our markdown-content class to use our theme
-      const wrapper = document.createElement('div');
-      wrapper.className = 'markdown-content book-chapter-content';
-      
-      // Copy the inner HTML but we'll need to override styles
-      wrapper.innerHTML = contentDiv.innerHTML;
-      
-      // Override any inline styles that might conflict
-      wrapper.querySelectorAll('*').forEach(el => {
-        // Remove any inline styles that set light colors
-        if (el.style.color && el.style.color.includes('rgb(31, 41, 55)')) {
-          el.style.color = '';
-        }
-        if (el.style.backgroundColor && el.style.backgroundColor.includes('rgb(255')) {
-          el.style.backgroundColor = '';
-        }
-      });
-      
-      content.appendChild(wrapper);
-      
-      // Apply syntax highlighting to all code blocks
-      highlightAllCode(wrapper);
-    }
-    
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -1078,7 +725,7 @@ export default class DocsAgent extends BaseDuty {
       const hash = window.location.hash.slice(1);
       if (hash) {
         // Find document by path or name
-        const allDocs = [...documents.markdown, ...documents.bookChapters, ...(documents.skillsDuties || [])];
+        const allDocs = [...documents.markdown];
         const doc = allDocs.find(d => d.path === hash || d.name === hash);
         if (doc) {
           loadDocument(doc.path, doc.type);

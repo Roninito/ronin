@@ -1,9 +1,50 @@
 contract portfolio-sync v1
   description Sync Alpaca portfolio data every 15 minutes during US market hours (Mon-Fri, 9am-4pm ET)
-  target kata alpaca-portfolio-sync v1
   trigger cron "*/15 9-16 * * 1-5"
   on_failure {
     action retry
     max_retries 2
     notify false
   }
+
+  initial sense-market
+
+  # Phase 1: collect market/account state
+  phase sense-market
+    run skill alpaca_getAccount
+    next collect-positions
+
+  # Phase 2: collect current positions
+  phase collect-positions
+    run skill alpaca_getPositions
+    next collect-orders
+
+  # Phase 3: collect recent orders
+  phase collect-orders
+    run skill alpaca_getOrderHistory
+    next request-approval
+
+  # Phase 4: explicit human-in-the-loop request
+  phase request-approval
+    run skill local.notify.ask
+    next wait-approval
+
+  # Phase 5: execution requires explicit approval event
+  phase wait-approval
+    wait event portfolio.trading.approved
+    next execute-orders
+
+  # Phase 6: execute approved order payload
+  phase execute-orders
+    run skill alpaca_placeOrder
+    next persist-state
+
+  # Phase 7: write report/state artifact
+  phase persist-state
+    run skill mcp_filesystem_write_file
+    next done
+
+  # Phase 8: complete
+  phase done
+    run skill local.notify.ask
+    complete

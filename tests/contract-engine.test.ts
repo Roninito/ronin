@@ -3,6 +3,11 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { runEngineMigrations } from "../src/database/migrations.js";
 import { ContractStorageV2 } from "../src/contract/storage-v2.js";
 import { CronEngine, ContractEngine } from "../src/contract/engine.js";
+import type { ContractPhase } from "../src/types/shared.js";
+
+const ONE_PHASE: Record<string, ContractPhase> = {
+  go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" },
+};
 
 // Mock DutyAPI with in-memory database + a minimal event bus
 // (same db-mock pattern as tests/artifacts.test.ts)
@@ -59,8 +64,8 @@ describe("Contract engine — V2 storage wiring", () => {
     await storage.create({
       name: "daily-digest",
       version: "v1",
-      targetKata: "codebase-digest",
-      targetKataVersion: "v2",
+      initialPhase: "go",
+      phases: ONE_PHASE,
       parameters: {},
       triggerType: "cron",
       triggerConfig: { type: "cron", expression: "* * * * *" },
@@ -77,8 +82,6 @@ describe("Contract engine — V2 storage wiring", () => {
     expect(received).not.toBeNull();
     expect(received.contractName).toBe("daily-digest");
     expect(typeof received.contractId).toBe("string");
-    expect(received.kataName).toBe("codebase-digest");
-    expect(received.kataVersion).toBe("v2");
     expect(received.expression).toBe("* * * * *");
   });
 
@@ -86,8 +89,8 @@ describe("Contract engine — V2 storage wiring", () => {
     await storage.create({
       name: "disabled-one",
       version: "v1",
-      targetKata: "x",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: ONE_PHASE,
       parameters: {},
       triggerType: "cron",
       triggerConfig: { type: "cron", expression: "* * * * *" },
@@ -107,8 +110,8 @@ describe("Contract engine — V2 storage wiring", () => {
     await storage.create({
       name: "midnight-only",
       version: "v1",
-      targetKata: "x",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: ONE_PHASE,
       parameters: {},
       triggerType: "cron",
       // Guaranteed not to match "now" in this century.
@@ -129,8 +132,8 @@ describe("Contract engine — V2 storage wiring", () => {
     await storage.create({
       name: "weekly-report",
       version: "v1",
-      targetKata: "finance.audit",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: ONE_PHASE,
       parameters: {},
       triggerType: "cron",
       triggerConfig: { type: "cron", expression: "* * * * *" },
@@ -151,8 +154,7 @@ describe("Contract engine — V2 storage wiring", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(spawnRequest).not.toBeNull();
-    expect(spawnRequest.kataName).toBe("finance.audit");
-    expect(spawnRequest.kataVersion).toBe("v1");
+    expect(spawnRequest.contractName).toBe("weekly-report");
     expect(typeof spawnRequest.contractId).toBe("string");
 
     const row = await storage.getByName("weekly-report");
@@ -170,8 +172,6 @@ describe("Contract engine — V2 storage wiring", () => {
     (api as any).events.emit("contract.event_triggered", {
       contractId: "7",
       contractName: "quiet-handoff",
-      kataName: "quiet-handoff-kata",
-      kataVersion: "v1",
       timestamp: Date.now(),
       eventPayload: { trust_level: 35, rival: { name: "Kael" } },
     }, "test");

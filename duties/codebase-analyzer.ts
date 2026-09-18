@@ -73,7 +73,7 @@ export default class CodebaseAnalyzerAgent extends BaseDuty {
 
     const dirsToSearch = [
       join(this.rootDir, "src"),
-      join(this.rootDir, "agents"),
+      join(this.rootDir, "duties"),
     ];
 
     for (const dir of dirsToSearch) {

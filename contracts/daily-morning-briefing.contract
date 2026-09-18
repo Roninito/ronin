@@ -1,6 +1,5 @@
 contract daily-morning-briefing v1
-  description Run the morning briefing kata every day at 8am
-  target kata morning-briefing v1
+  description Run the morning briefing every day at 8am
   trigger cron "0 8 * * *"
   parameters {
     location: current
@@ -8,3 +7,27 @@ contract daily-morning-briefing v1
   on_failure {
     action ignore
   }
+
+  initial weather
+
+  # Phase 1: Get weather forecast
+  # Note: on systems with the "weather" marketplace skill installed under
+  # ~/.ronin/skills (abilities: current, forecast), that installed copy
+  # shadows the repo-bundled skills/weather (ability: morning-briefing) —
+  # user-level skills dirs are checked before the project dir. "current" is
+  # the ability that's actually reachable on such systems; the bundled
+  # morning-briefing ability only resolves on a fresh install with no
+  # marketplace weather skill installed.
+  phase weather
+    run skill weather ability current
+    next mail
+
+  # Phase 2: Check email inbox for overnight messages
+  phase mail
+    run skill apple-mail-skill
+    next post
+
+  # Phase 3: Post combined briefing to Discord
+  phase post
+    run skill discord
+    complete

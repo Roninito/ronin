@@ -18,7 +18,7 @@ export interface ContractProposalRow {
   chat_id: string | null;
   intent: string;
   contract_json: string;
-  kata_dsl: string | null;
+  phases_dsl: string | null;
   preview: string;
   status: ProposalStatus;
   supersedes_id: string | null;
@@ -31,7 +31,7 @@ export interface ContractProposalRecord {
   chatId?: string;
   intent: string;
   contract: ContractV2Definition;
-  kataDsl?: string;
+  phasesDsl?: string;
   preview: string;
   status: ProposalStatus;
   supersedesId?: string;
@@ -45,7 +45,7 @@ function hydrate(row: ContractProposalRow): ContractProposalRecord {
     chatId: row.chat_id ?? undefined,
     intent: row.intent,
     contract: JSON.parse(row.contract_json) as ContractV2Definition,
-    kataDsl: row.kata_dsl ?? undefined,
+    phasesDsl: row.phases_dsl ?? undefined,
     preview: row.preview,
     status: row.status,
     supersedesId: row.supersedes_id ?? undefined,
@@ -66,7 +66,7 @@ export class ContractProposalStorage {
     chatId?: string;
     intent: string;
     contract: ContractV2Definition;
-    kataDsl?: string;
+    phasesDsl?: string;
     preview: string;
     supersedesId?: string;
   }): Promise<ContractProposalRecord> {
@@ -75,14 +75,14 @@ export class ContractProposalStorage {
 
     await this.api.db?.execute?.(
       `INSERT INTO contract_proposals (
-        id, chat_id, intent, contract_json, kata_dsl, preview, status, supersedes_id, created_at, decided_at
+        id, chat_id, intent, contract_json, phases_dsl, preview, status, supersedes_id, created_at, decided_at
       ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, NULL)`,
       [
         id,
         input.chatId ?? null,
         input.intent,
         JSON.stringify(input.contract),
-        input.kataDsl ?? null,
+        input.phasesDsl ?? null,
         input.preview,
         input.supersedesId ?? null,
         now,
@@ -98,7 +98,7 @@ export class ContractProposalStorage {
       chatId: input.chatId,
       intent: input.intent,
       contract: input.contract,
-      kataDsl: input.kataDsl,
+      phasesDsl: input.phasesDsl,
       preview: input.preview,
       status: "pending",
       supersedesId: input.supersedesId,

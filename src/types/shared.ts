@@ -3,7 +3,7 @@
  * Extracted from techniques/types.ts during architecture refactor
  */
 
-import type { Condition, ConditionGroup } from "../kata/conditions.js";
+import type { Condition, ConditionGroup } from "../contract/conditions.js";
 
 // ── Schema Utilities ────────────────────────────────────────────────────────────
 
@@ -112,13 +112,45 @@ export interface AlertConfig {
 
 export type FailureConfig = RetryConfig | AlertConfig | Record<string, never>;
 
+// ── Contract Phases (replaces Kata as of 2026-09-17) ─────────────────────────
+// A contract now declares its own phase graph inline instead of pointing at
+// a separately-authored, versioned Kata artifact. Grammar carries over from
+// Kata's `run skill`/`wait event`/`next`|`complete`|`fail` — `spawn kata` and
+// `requires` declarations are dropped (see plan: neither was reachable/load-
+// bearing in practice).
+
+export type PhaseAction =
+  | { type: "run"; skill: string; ability?: string }
+  | { type: "wait"; eventName: string; timeout?: number };
+
+export type PhaseTerminal = "complete" | "fail";
+
+export interface ContractPhase {
+  name: string;
+  action: PhaseAction;
+  next?: string; // Next phase name, or undefined if terminal
+  terminal?: PhaseTerminal; // Set if this phase is terminal (no next)
+}
+
+/** Validation error from the phase-graph compiler (src/contract/phase-compiler.ts) */
+export interface ValidationError {
+  rule: string; // e.g. "unreachable_phase", "missing_transition"
+  phase?: string;
+  message: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
 /** Full contract definition */
 export interface ContractV2Definition {
   name: string;
   version: string;
   description?: string;
-  targetKata: string;
-  targetKataVersion: string;
+  initialPhase: string;
+  phases: Record<string, ContractPhase>;
   parameters: Record<string, unknown>;
   triggerType: TriggerType;
   triggerConfig: TriggerConfig;
@@ -134,8 +166,8 @@ export interface ContractV2Row {
   name: string;
   version: string;
   description: string | null;
-  target_kata: string;
-  target_kata_version: string;
+  initial_phase: string;
+  phases: string; // JSON Record<string, ContractPhase>
   parameters: string | null;
   trigger_type: string;
   trigger_config: string;
@@ -154,14 +186,13 @@ export interface ContractV2Row {
 export interface ContractListFilters {
   enabled?: boolean;
   triggerType?: TriggerType;
-  kata?: string;
   sort?: "name" | "created" | "next_run";
   limit?: number;
 }
 
 // ── Tasks v2 ─────────────────────────────────────────────────────────────────────
 
-export type TaskV2Status = "pending" | "running" | "completed" | "failed" | "canceled";
+export type TaskV2Status = "pending" | "running" | "waiting_for_event" | "completed" | "failed" | "canceled";
 
 /** Database row for tasks v2 */
 export interface TaskV2Row {
@@ -171,6 +202,8 @@ export interface TaskV2Row {
   source_kata: string;
   source_kata_version: string;
   status: TaskV2Status;
+  current_phase: string | null;
+  variables: string | null; // JSON — accumulated phase output, keyed by phase name
   started_at: number | null;
   completed_at: number | null;
   duration: number | null;
@@ -202,7 +235,6 @@ export interface TaskPhaseRow {
 /** Filters for listing tasks */
 export interface TaskListFilters {
   status?: TaskV2Status;
-  kata?: string;
   contract?: string;
   limit?: number;
 }

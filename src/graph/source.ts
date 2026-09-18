@@ -8,10 +8,10 @@
 import { readFileSync } from "fs";
 import type { DutyAPI } from "../types/index.js";
 import type { GraphNode, ContractNode } from "./types.js";
-import type { ContractV2Definition } from "../types/shared.js";
+import type { ContractV2Definition, ContractPhase } from "../types/shared.js";
 import { DutyProposalStorage } from "../duty/proposal-storage.js";
 import { ContractProposalStorage } from "../contract/proposal-storage.js";
-import { KataStorage } from "../task/storage.js";
+import { formatContractPhasesDsl } from "../contract/phase-format.js";
 
 export interface NodeSource {
   code: string;
@@ -24,15 +24,14 @@ function formatContractDsl(c: {
   name: string;
   version: string;
   description?: string;
-  targetKata: string;
-  targetKataVersion: string;
+  initialPhase: string;
+  phases: Record<string, ContractPhase>;
   triggerConfig: { type: string; expression?: string; eventType?: string; path?: string };
   parameters?: Record<string, unknown>;
   onFailureAction?: string;
 }): string {
   const lines = [`contract ${c.name} ${c.version}`];
   if (c.description) lines.push(`  description ${c.description}`);
-  lines.push(`  target kata ${c.targetKata} ${c.targetKataVersion}`);
   if (c.triggerConfig.type === "cron" && c.triggerConfig.expression) {
     lines.push(`  trigger cron "${c.triggerConfig.expression}"`);
   } else if (c.triggerConfig.type === "event" && c.triggerConfig.eventType) {
@@ -44,7 +43,23 @@ function formatContractDsl(c: {
     lines.push(`  parameters { ${Object.entries(c.parameters).map(([k, v]) => `${k}: ${v}`).join(", ")} }`);
   }
   if (c.onFailureAction) lines.push(`  on_failure { action ${c.onFailureAction} }`);
+  lines.push("");
+  lines.push(formatContractPhasesDsl(c.initialPhase, c.phases));
   return lines.join("\n");
+}
+
+/** ContractNode's flat phases array -> the Record<name, ContractPhase> shape formatContractPhasesDsl expects. */
+function nodePhasesToRecord(phases: ContractNode["phases"]): Record<string, ContractPhase> {
+  const record: Record<string, ContractPhase> = {};
+  for (const p of phases) {
+    record[p.name] = {
+      name: p.name,
+      action: p.skill ? { type: "run", skill: p.skill, ability: p.ability } : { type: "wait", eventName: p.eventName ?? "" },
+      next: p.next,
+      terminal: p.terminal,
+    };
+  }
+  return record;
 }
 
 function formatContractNodeAsDsl(node: ContractNode): string {
@@ -52,8 +67,8 @@ function formatContractNodeAsDsl(node: ContractNode): string {
     name: node.name,
     version: node.version,
     description: node.description,
-    targetKata: node.targetName,
-    targetKataVersion: node.targetVersion ?? "v1",
+    initialPhase: node.initialPhase,
+    phases: nodePhasesToRecord(node.phases),
     triggerConfig: {
       type: node.triggerType,
       expression: node.cronExpression,
@@ -101,13 +116,6 @@ export async function getNodeSource(node: GraphNode, api: DutyAPI): Promise<Node
     // text was never persisted past the (now-decided) proposal row. Show a
     // clearly-labeled reconstruction from stored fields instead of a dead end.
     return { code: formatContractNodeAsDsl(node), language: "dsl", reconstructed: true };
-  }
-
-  if (node.kind === "kata") {
-    const storage = new KataStorage(api);
-    await storage.init();
-    const row = await storage.getByVersion(node.name, node.version);
-    return row?.sourceCode ? { code: row.sourceCode, language: "dsl" } : null;
   }
 
   if (node.kind === "sensor") {

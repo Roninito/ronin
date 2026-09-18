@@ -107,8 +107,6 @@ export class CronEngine {
                 contractId: String(row.id),
                 contractName: row.name,
                 contractVersion: row.version,
-                kataName: row.target_kata,
-                kataVersion: row.target_kata_version,
                 expression: triggerConfig.expression,
                 timestamp: now.getTime(),
               },
@@ -164,19 +162,16 @@ export class ContractEngine {
   private async handleCronTrigger(payload: {
     contractId: string;
     contractName: string;
-    kataName: string;
-    kataVersion: string;
     timestamp: number;
   }): Promise<void> {
     try {
-      // Emit task spawn request
-      // TaskEngine will pick this up and create a task
+      // Emit task spawn request — the task-executor duty picks this up and
+      // creates a task straight off this contract's own inline phase graph.
       this.api.events?.emit(
         "task.spawn_requested",
         {
           type: "task.spawn_requested",
-          kataName: payload.kataName,
-          kataVersion: payload.kataVersion,
+          contractName: payload.contractName,
           contractId: payload.contractId,
           timestamp: payload.timestamp,
         },
@@ -189,9 +184,7 @@ export class ContractEngine {
         logger.error(`Failed to record execution for '${payload.contractName}': ${error}`);
       });
 
-      logger.info(
-        `Contract triggered task: ${payload.kataName} v${payload.kataVersion} (contract: ${payload.contractId})`
-      );
+      logger.info(`Contract triggered task: ${payload.contractName} (contract: ${payload.contractId})`);
     } catch (error) {
       logger.error(`Error handling cron trigger: ${error}`);
     }
@@ -203,8 +196,6 @@ export class ContractEngine {
   private async handleEventTrigger(payload: {
     contractId: string;
     contractName: string;
-    kataName: string;
-    kataVersion: string;
     timestamp: number;
     eventPayload?: Record<string, unknown>;
   }): Promise<void> {
@@ -213,8 +204,7 @@ export class ContractEngine {
         "task.spawn_requested",
         {
           type: "task.spawn_requested",
-          kataName: payload.kataName,
-          kataVersion: payload.kataVersion,
+          contractName: payload.contractName,
           contractId: payload.contractId,
           timestamp: payload.timestamp,
           initialVariables: payload.eventPayload,
@@ -226,9 +216,7 @@ export class ContractEngine {
         logger.error(`Failed to record execution for '${payload.contractName}': ${error}`);
       });
 
-      logger.info(
-        `Contract triggered task via event: ${payload.kataName} v${payload.kataVersion}`
-      );
+      logger.info(`Contract triggered task via event: ${payload.contractName}`);
     } catch (error) {
       logger.error(`Error handling event trigger: ${error}`);
     }

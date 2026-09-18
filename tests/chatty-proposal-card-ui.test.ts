@@ -39,7 +39,8 @@ describe("Chatty /chat page — proposal card script is syntactically valid", ()
     const handler = routes.get("/chat");
     expect(handler).toBeDefined();
 
-    const res = await handler!(new Request("http://localhost/chat"));
+    const req = new Request("http://localhost/chat", { headers: { Host: "localhost" } });
+    const res = await handler!(req);
     const html = await res.text();
 
     // The page has multiple <script> blocks (CDN <script src=...> tags, a small

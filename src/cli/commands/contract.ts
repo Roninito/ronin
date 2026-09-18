@@ -2,9 +2,9 @@
  * Contract CLI — Full suite of contract management commands
  *
  * Subcommands:
- *   list        List contracts (--enabled/--disabled/--trigger/--kata/--sort/--limit)
+ *   list        List contracts (--enabled/--disabled/--trigger/--sort/--limit)
  *   show        Show contract details (--history, --next-runs, --stats)
- *   create      Create a contract (--kata, --cron/--event/--webhook, --params, --on-failure, ...)
+ *   create      Create a contract (--phases-file, --cron/--event/--webhook, --params, --on-failure, ...)
  *   update      Update contract settings
  *   enable      Enable a contract
  *   disable     Disable a contract
@@ -17,7 +17,7 @@
  *   export      Export contract (--format, --output)
  *   import      Import from file
  *   stats       Show overall contract statistics
- *   propose     AI-generates a contract (+ kata, if needed) from plain language
+ *   propose     AI-generates a contract (phases inline) from plain language
  */
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
@@ -28,11 +28,12 @@ import { createInterface } from "readline";
 import { getConfigService } from "../../config/ConfigService.js";
 import { createAPI } from "../../api/index.js";
 import { ContractStorageV2 } from "../../contract/storage-v2.js";
-import { ContractParserV2, ContractParseError } from "../../contract/parser-v2.js";
-import type { ContractV2Row, ContractListFilters, TriggerType } from "../../types/shared.js";
+import { ContractParserV2, ContractParseError, parsePhaseBlocks } from "../../contract/parser-v2.js";
+import { validateContractPhases } from "../../contract/phase-compiler.js";
+import { describePhaseChain, formatContractPhasesDsl } from "../../contract/phase-format.js";
+import type { ContractV2Row, ContractListFilters, TriggerType, ContractPhase } from "../../types/shared.js";
 import { getNextCronRun, cronToHuman } from "../../contract/cron.js";
 import { proposeContract, ContractProposeError } from "../../contract/propose.js";
-import { KataRegistry } from "../../kata/registry.js";
 
 // ── ANSI helpers ──────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export interface ContractOptions {
   enabled?: boolean;
   disabled?: boolean;
   triggerType?: string;
-  kata?: string;
+  phasesFile?: string;
   sort?: string;
   limit?: number;
   // create/update
@@ -157,7 +158,6 @@ async function cmdList(args: string[], options: ContractOptions): Promise<void> 
 
   const filters: ContractListFilters = {
     triggerType: options.triggerType as TriggerType | undefined,
-    kata: options.kata,
     sort: options.sort as any,
     limit: options.limit,
   };
@@ -181,7 +181,7 @@ async function cmdList(args: string[], options: ContractOptions): Promise<void> 
   for (const [typeLabel, items] of Object.entries(byType)) {
     console.log(c.cyan(`${typeLabel} (${items.length}):`));
     for (const row of items) {
-      console.log(`  ${c.bold(row.name)}  →  ${row.target_kata} ${c.dim("v" + row.target_kata_version)}`);
+      console.log(`  ${c.bold(row.name)}  →  ${describePhaseChain(row.initial_phase, JSON.parse(row.phases))}`);
       console.log(`    ${formatTrigger(row)}    ${formatStatus(row)}`);
       if (row.description) console.log(`    ${c.dim(row.description)}`);
     }
@@ -209,8 +209,8 @@ async function cmdShow(args: string[], options: ContractOptions): Promise<void> 
   console.log(`${c.bold("Status:")}   ${formatStatus(row)}`);
   if (row.description) console.log(`${c.bold("Description:")} ${row.description}`);
   console.log();
-  console.log(c.bold("Target Kata:"));
-  console.log(`  ${row.target_kata} ${c.dim("v" + row.target_kata_version)}`);
+  console.log(c.bold("Phases:"));
+  console.log(`  ${describePhaseChain(row.initial_phase, JSON.parse(row.phases))}`);
   console.log();
   console.log(c.bold("Trigger:"));
   console.log(`  Type: ${row.trigger_type}`);
@@ -275,10 +275,26 @@ async function cmdShow(args: string[], options: ContractOptions): Promise<void> 
 
 async function cmdCreate(args: string[], options: ContractOptions): Promise<void> {
   const name = args[0];
-  if (!name) { console.error(c.red("Usage: ronin contract create <name> --kata <kata> [--cron <expr>|--event <type>|--webhook <path>] [options]")); process.exit(1); }
+  if (!name) { console.error(c.red("Usage: ronin contract create <name> --phases-file <file> [--cron <expr>|--event <type>|--webhook <path>] [options]")); process.exit(1); }
 
-  const kata = options.kata;
-  if (!kata) { console.error(c.red("--kata <name> is required")); process.exit(1); }
+  const phasesFile = options.phasesFile;
+  if (!phasesFile) { console.error(c.red("--phases-file <path> is required")); process.exit(1); }
+
+  const resolvedPhasesFile = resolve(phasesFile);
+  if (!existsSync(resolvedPhasesFile)) { console.error(c.red(`Phases file not found: ${phasesFile}`)); process.exit(1); }
+
+  const phasesSource = readFileSync(resolvedPhasesFile, "utf8");
+  const { initialPhase, phases } = parsePhaseBlocks(phasesSource.split("\n"), 0);
+  if (!initialPhase || Object.keys(phases).length === 0) {
+    console.error(c.red(`--phases-file must contain an "initial <phase>" line and at least one "phase" block`));
+    process.exit(1);
+  }
+  const validation = validateContractPhases(initialPhase, phases);
+  if (!validation.valid) {
+    console.error(c.red("❌ Invalid phases file:"));
+    for (const e of validation.errors) console.error(c.red(`  - ${e.message}`));
+    process.exit(1);
+  }
 
   // Determine trigger
   let triggerType: TriggerType;
@@ -331,8 +347,8 @@ async function cmdCreate(args: string[], options: ContractOptions): Promise<void
       name,
       version: options.version ?? "v1",
       description: options.description,
-      targetKata: kata,
-      targetKataVersion: "v1",
+      initialPhase,
+      phases,
       parameters: params,
       triggerType,
       triggerConfig: triggerConfig as any,
@@ -342,7 +358,7 @@ async function cmdCreate(args: string[], options: ContractOptions): Promise<void
     });
 
     console.log(c.green(`✅ Contract created: ${name}`));
-    console.log(`   Kata: ${kata}`);
+    console.log(`   Phases: ${describePhaseChain(initialPhase, phases)}`);
     console.log(`   Trigger: ${triggerType} ${options.cron ?? options.event ?? options.webhook ?? ""}`);
     console.log(`   Status: ${c.green("Enabled")}`);
 
@@ -428,7 +444,7 @@ async function cmdDelete(args: string[], options: ContractOptions): Promise<void
 
   if (!options.force) {
     console.log(c.yellow(`⚠ Warning: This will stop scheduled execution of:`));
-    console.log(`  Kata: ${row.target_kata} ${c.dim("v" + row.target_kata_version)}`);
+    console.log(`  Phases: ${describePhaseChain(row.initial_phase, JSON.parse(row.phases))}`);
     const confirm = await prompt("Delete this contract? [y/N]: ");
     if (!confirm.toLowerCase().startsWith("y")) { console.log(c.dim("Cancelled.")); return; }
   }
@@ -487,7 +503,7 @@ async function cmdDryRun(args: string[], options: ContractOptions): Promise<void
   const n = options.nextRuns ?? 5;
 
   console.log(c.bold(`\n🔍 Dry-run: ${name} v${row.version}\n`));
-  console.log(`Kata: ${row.target_kata} ${c.dim("v" + row.target_kata_version)}`);
+  console.log(`Phases: ${describePhaseChain(row.initial_phase, JSON.parse(row.phases))}`);
   console.log(`Trigger: ${row.trigger_type}`);
 
   if (row.trigger_type === "cron" && triggerCfg.expression) {
@@ -530,7 +546,7 @@ async function cmdValidate(args: string[], options: ContractOptions): Promise<vo
     const def = parser.parse(source);
     console.log(c.green(`✅ Contract definition valid`));
     console.log(`   Name:    ${c.bold(def.name)} v${def.version}`);
-    console.log(`   Kata:    ${def.targetKata} v${def.targetKataVersion}`);
+    console.log(`   Phases:  ${describePhaseChain(def.initialPhase, def.phases)}`);
     console.log(`   Trigger: ${def.triggerType}`);
     const paramCount = Object.keys(def.parameters).length;
     if (paramCount > 0) console.log(`   Params:  ${paramCount}`);
@@ -589,8 +605,8 @@ async function cmdExport(args: string[], options: ContractOptions): Promise<void
       name: row.name,
       version: row.version,
       description: row.description,
-      target_kata: row.target_kata,
-      target_kata_version: row.target_kata_version,
+      initial_phase: row.initial_phase,
+      phases: JSON.parse(row.phases),
       parameters: row.parameters ? JSON.parse(row.parameters) : {},
       trigger_type: row.trigger_type,
       trigger_config: JSON.parse(row.trigger_config),
@@ -605,7 +621,6 @@ async function cmdExport(args: string[], options: ContractOptions): Promise<void
     const failureCfg = row.on_failure_config ? JSON.parse(row.on_failure_config) : {};
     output = `contract ${row.name} v${row.version}\n`;
     if (row.description) output += `  description "${row.description}"\n`;
-    output += `  target kata ${row.target_kata} v${row.target_kata_version}\n`;
     output += `  trigger ${row.trigger_type}`;
     if (triggerCfg.expression) output += ` "${triggerCfg.expression}"`;
     else if (triggerCfg.eventType) output += ` "${triggerCfg.eventType}"`;
@@ -620,7 +635,9 @@ async function cmdExport(args: string[], options: ContractOptions): Promise<void
     if (failureCfg.maxAttempts) output += `    max_attempts ${failureCfg.maxAttempts}\n`;
     if (failureCfg.backoff) output += `    backoff ${failureCfg.backoff}\n`;
     if (failureCfg.alertEmail) output += `    alert_email "${failureCfg.alertEmail}"\n`;
-    output += `  }\n`;
+    output += `  }\n\n`;
+    const phasesDsl = formatContractPhasesDsl(row.initial_phase, JSON.parse(row.phases));
+    output += phasesDsl.split("\n").map((line) => (line ? `  ${line}` : line)).join("\n");
   }
 
   if (options.outputFile) {
@@ -648,8 +665,8 @@ async function cmdImport(args: string[], options: ContractOptions): Promise<void
         name: options.name ?? data.name,
         version: data.version ?? "v1",
         description: data.description,
-        targetKata: data.target_kata,
-        targetKataVersion: data.target_kata_version ?? "v1",
+        initialPhase: data.initial_phase,
+        phases: data.phases ?? {},
         parameters: data.parameters ?? {},
         triggerType: data.trigger_type,
         triggerConfig: data.trigger_config,
@@ -730,9 +747,10 @@ async function cmdTest(args: string[], options: ContractOptions): Promise<void> 
     ? (typeof contract.on_failure_config === "string" ? (() => { try { return JSON.parse(contract.on_failure_config as string); } catch { return {}; } })() : contract.on_failure_config)
     : {};
 
+  const phaseChain = describePhaseChain(contract.initial_phase, JSON.parse(contract.phases));
   console.log(c.bold(`\n🧪 Testing contract: ${contract.name} v${contract.version ?? "v1"}`));
   console.log(`\nContract Configuration:`);
-  console.log(`  Kata: ${contract.target_kata} v${contract.target_kata_version ?? "v1"}`);
+  console.log(`  Phases: ${phaseChain}`);
   const paramKeys = Object.keys(params);
   console.log(`  Parameters: ${paramKeys.length > 0 ? paramKeys.join(", ") : "(none)"}`);
   if (contract.on_failure_action) {
@@ -741,7 +759,7 @@ async function cmdTest(args: string[], options: ContractOptions): Promise<void> 
 
   if (options.dryRun) {
     console.log(c.yellow("\n⚠️  Dry-run mode — skipping execution"));
-    console.log(`\nWould execute kata: ${contract.target_kata} v${contract.target_kata_version ?? "v1"}`);
+    console.log(`\nWould run phases: ${phaseChain}`);
     if (paramKeys.length) {
       console.log("With parameters:");
       for (const [k, v] of Object.entries(params)) console.log(`  ${k}: ${JSON.stringify(v)}`);
@@ -749,18 +767,18 @@ async function cmdTest(args: string[], options: ContractOptions): Promise<void> 
     return;
   }
 
-  console.log(`\nExecuting kata with contract parameters...\n`);
+  console.log(`\nChecking contract configuration...\n`);
   const start = Date.now();
-  // Emit a test event so any running contract engine can pick it up.
-  // Without a full executor wired here, we surface params and confirm readiness.
+  // Note: this only validates config/readiness — it does not emit
+  // contract.execute to actually run the phases via task-executor.
   console.log(c.green(`✅ Contract configuration is valid`));
-  console.log(`  Kata:    ${contract.target_kata}`);
+  console.log(`  Phases:  ${phaseChain}`);
   console.log(`  Trigger: ${triggerDisplay}`);
   if (paramKeys.length) {
     console.log(`  Params:  ${paramKeys.map((k) => `${k}=${JSON.stringify(params[k])}`).join(", ")}`);
   }
   const elapsed = Date.now() - start;
-  console.log(c.dim(`\n(${elapsed}ms — use ronin kata test ${contract.target_kata} --params '${JSON.stringify(params)}' to run the kata directly)`));
+  console.log(c.dim(`\n(${elapsed}ms)`));
 }
 
 async function cmdPropose(args: string[], options: ContractOptions): Promise<void> {
@@ -772,7 +790,7 @@ async function cmdPropose(args: string[], options: ContractOptions): Promise<voi
   }
 
   console.log(c.cyan(`📜 Drafting contract for: ${c.bold(intent)}`));
-  console.log(c.dim("   Using AI to draft trigger, condition, and kata (if needed)…\n"));
+  console.log(c.dim("   Using AI to draft trigger, condition, and phases…\n"));
 
   const api = await getApi(options);
 
@@ -790,10 +808,10 @@ async function cmdPropose(args: string[], options: ContractOptions): Promise<voi
 
   console.log(c.bold(`📋 Proposed contract: ${c.cyan(proposal.contract.name)}`));
   console.log(`   ${proposal.preview}`);
-  if (proposal.kataDsl) {
+  if (proposal.phasesDsl) {
     console.log();
     console.log(c.dim("─".repeat(60)));
-    console.log(proposal.kataDsl);
+    console.log(proposal.phasesDsl);
     console.log(c.dim("─".repeat(60)));
   }
   console.log();
@@ -807,10 +825,6 @@ async function cmdPropose(args: string[], options: ContractOptions): Promise<voi
   }
 
   try {
-    if (proposal.kataDsl) {
-      const registry = new KataRegistry(api);
-      await registry.register(proposal.kataDsl);
-    }
     const storage = new ContractStorageV2(api);
     await storage.create({ ...proposal.contract, enabled: true });
     console.log(c.green(`✅ Contract registered: ${c.bold(proposal.contract.name)}`));
@@ -850,13 +864,13 @@ ${c.bold("SUBCOMMANDS")}
   export <name>     Export a contract
   import <file>     Import a contract
   stats             Show overall statistics
-  propose <intent>  AI-generates a contract (+ kata, if needed) from plain language
+  propose <intent>  AI-generates a contract (phases inline) from plain language
 
 ${c.bold("PROPOSE OPTIONS")}
   --yes, -y   Skip confirmation prompt
 
 ${c.bold("CREATE OPTIONS")}
-  --kata <name>           Target kata (required)
+  --phases-file <path>    File with "initial <phase>"/"phase <name> ..." blocks (required)
   --cron <expression>     Cron schedule
   --event <type>          Event trigger type
   --webhook <path>        Webhook path
@@ -872,7 +886,6 @@ ${c.bold("LIST OPTIONS")}
   --enabled            Show only enabled
   --disabled           Show only disabled
   --trigger <type>     Filter by trigger type
-  --kata <name>        Filter by kata
   --sort <field>       Sort by: name, created, next_run
   --limit <n>          Limit results
 

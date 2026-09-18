@@ -39,7 +39,8 @@ describe("Chatty /chat page — duty-proposal card (three-way PROPOSAL_KINDS)", 
 
     const handler = routes.get("/chat");
     expect(handler).toBeDefined();
-    const res = await handler!(new Request("http://localhost/chat"));
+    const req = new Request("http://localhost/chat", { headers: { Host: "localhost" } });
+    const res = await handler!(req);
     const html = await res.text();
 
     const scriptBlocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
@@ -83,12 +84,13 @@ describe("Chatty /chat page — duty-proposal card (three-way PROPOSAL_KINDS)", 
     const fnMatch = script.match(/async function decideProposal\([\s\S]*?\n {4}\}/);
     expect(fnMatch).not.toBeNull();
 
-    // decideProposal does a real fetch() — stub it out and just capture which
-    // URL it resolved to, proving the lookup (not the old two-way ternary)
-    // picked the duty config's approveUrl for kind: 'duty'.
+    // decideProposal calls authFetch() (which itself wraps fetch() to attach a
+    // remote-access token — see routeToken.ts) — stub authFetch and just
+    // capture which URL it resolved to, proving the lookup (not the old
+    // two-way ternary) picked the duty config's approveUrl for kind: 'duty'.
     let calledUrl: string | undefined;
     const runDecide = new Function(
-      "fetch",
+      "authFetch",
       kindsMatch![0] + "\n" + fnMatch![0] +
       "\nreturn decideProposal('dprop_1', 'duty', 'approve', { querySelectorAll: () => [], innerHTML: '' });"
     );

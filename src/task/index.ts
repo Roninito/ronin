@@ -2,16 +2,7 @@
  * Task Module Exports
  */
 
-export * from "./types.js";
-export { TaskStorage, KataStorage } from "./storage.js";
-export { TaskEngine } from "./engine.js";
-export { TaskExecutor } from "./executor.js";
-export { ChildTaskCoordinator, DefaultRetryPolicies } from "./child-coordinator.js";
-
-export { ParallelCoordinator } from "./parallel-coordinator.js";
-export type {
-  ParallelSpawn,
-  ParallelPhaseConfig,
-  ParallelTaskState,
-} from "./parallel-coordinator.js";
-export { JoinStrategies, FailureModes, createParallelSpawn } from "./parallel-coordinator.js";
+export { TaskStorageV2 } from "./storage-v2.js";
+export { ContractTaskEngine } from "./contract-task-engine.js";
+export type { PhaseGraph } from "./contract-task-engine.js";
+export { ContractTaskExecutor } from "./contract-task-executor.js";

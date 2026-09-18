@@ -38,7 +38,7 @@ export default class CanvasEditorDuty extends BaseDuty {
     super(api);
     this.api.http.registerRoute("/canvas", this.handleCanvasPage.bind(this), {
       title: "Canvas",
-      description: "Live topology graph of duties, contracts, and katas",
+      description: "Live topology graph of duties and contracts",
       icon: "🗺️",
     });
     this.api.http.registerWebSocket?.(WS_PATH, {
@@ -382,7 +382,7 @@ export default class CanvasEditorDuty extends BaseDuty {
   <div id="main-row">
   <div id="palette">
     <div id="palette-search-wrap">
-      <input id="palette-search" type="text" placeholder="Search duties, contracts, katas…">
+      <input id="palette-search" type="text" placeholder="Search duties, contracts…">
     </div>
     <div id="palette-pinned">
       <div class="palette-item palette-action" id="palette-new-duty">+ New duty</div>
@@ -402,7 +402,6 @@ export default class CanvasEditorDuty extends BaseDuty {
     <div class="legend">
       <div class="row"><span class="swatch" style="background:var(--forge-cyan)"></span> duty</div>
       <div class="row"><span class="swatch" style="background:var(--forge-gold)"></span> contract / sensor</div>
-      <div class="row"><span class="swatch" style="background:#9B7EDE"></span> kata</div>
       <div class="row"><span class="swatch" style="background:var(--forge-amber)"></span> broadcast / beam / query edge</div>
       <div class="row"><span class="swatch" style="background:var(--forge-danger)"></span> dangling target</div>
     </div>
@@ -499,7 +498,7 @@ export default class CanvasEditorDuty extends BaseDuty {
     const FORGE_CYAN = '#4DD0E1';
     const FORGE_GOLD = '#C9A24B';
     const FORGE_DANGER = '#E05252';
-    const FORGE_KATA = '#9B7EDE';
+    const FORGE_PHASE = '#9B7EDE'; // dot color for a contract's inline phase-chain rows in its tooltip
 
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '${WS_PATH}';
     let ws;
@@ -591,7 +590,6 @@ export default class CanvasEditorDuty extends BaseDuty {
     function colorForKind(kind) {
       if (kind === 'duty') return FORGE_CYAN;
       if (kind === 'contract' || kind === 'sensor') return FORGE_GOLD;
-      if (kind === 'kata') return FORGE_KATA;
       if (kind === 'phantom') return FORGE_DANGER;
       return '#888';
     }
@@ -661,7 +659,7 @@ export default class CanvasEditorDuty extends BaseDuty {
 
     function renderPalette() {
       const search = (document.getElementById('palette-search').value || '').toLowerCase();
-      const groups = { duty: [], contract: [], kata: [] };
+      const groups = { duty: [], contract: [] };
       for (const n of nodesById.values()) {
         if (!groups[n.kind]) continue; // sensors/phantoms never listed — they ride along with their owner
         if (search && !n.name.toLowerCase().includes(search)) continue;
@@ -669,9 +667,9 @@ export default class CanvasEditorDuty extends BaseDuty {
       }
       for (const key of Object.keys(groups)) groups[key].sort((a, b) => a.name.localeCompare(b.name));
 
-      const labelFor = { duty: 'Duties', contract: 'Contracts', kata: 'Katas' };
+      const labelFor = { duty: 'Duties', contract: 'Contracts' };
       let html = '';
-      for (const kind of ['duty', 'contract', 'kata']) {
+      for (const kind of ['duty', 'contract']) {
         const items = groups[kind];
         if (items.length === 0) continue;
         html += '<div class="palette-group-label">' + labelFor[kind] + ' (' + items.length + ')</div>';
@@ -804,7 +802,7 @@ export default class CanvasEditorDuty extends BaseDuty {
         const el = cy.getElementById(id);
         if (el.length) {
           el.data({ label: n.name, kind: n.kind, ghost: n.ghost });
-          el.removeClass('duty contract kata sensor ghost');
+          el.removeClass('duty contract sensor ghost');
           el.addClass((n.ghost ? 'ghost ' : '') + n.kind);
         }
       }
@@ -1042,18 +1040,17 @@ export default class CanvasEditorDuty extends BaseDuty {
           (node.triggerType === 'cron' ? 'cron: ' + escapeHtml(node.cronExpression || '') :
            node.triggerType === 'event' ? 'event: ' + escapeHtml(node.eventName || '') :
            'webhook: ' + escapeHtml(node.webhookPath || '')) + '</div>';
-        html += '<div class="tt-section"><div class="tt-label">Runs</div>kata ' + escapeHtml(node.targetName) + (node.targetVersion ? ' ' + escapeHtml(node.targetVersion) : '') + '</div>';
+        html += '<div class="tt-section"><div class="tt-label">Runs</div>' +
+          (node.phases.length
+            ? node.phases.map(p => '<div class="tt-port-row"><span class="tt-dot" style="background:' + FORGE_PHASE + '"></span>' +
+                escapeHtml(p.name) + (p.skill ? ' (' + escapeHtml(p.skill) + (p.ability ? ' · ' + escapeHtml(p.ability) : '') + ')' : p.eventName ? ' (wait: ' + escapeHtml(p.eventName) + ')' : '') +
+                (p.next ? ' → ' + escapeHtml(p.next) : p.terminal ? ' → ' + escapeHtml(p.terminal) : '') + '</div>').join('')
+            : '<span class="tt-empty">No phases.</span>') +
+          '</div>';
         html += '<div class="tt-section"><div class="tt-label">Status</div>' + (node.active ? 'active' : node.approvalStatus === 'pending' ? 'pending approval' : 'inactive') + '</div>';
         if (node.nextExecutions && node.nextExecutions.length) {
           html += portList('Next runs', node.nextExecutions.slice(0, 3).map(d => new Date(d).toLocaleString()), FORGE_GOLD);
         }
-      } else if (node.kind === 'kata') {
-        html += '<div class="tt-section"><div class="tt-label">Phases</div>' +
-          (node.phases.length
-            ? node.phases.map(p => '<div class="tt-port-row"><span class="tt-dot" style="background:' + FORGE_KATA + '"></span>' +
-                escapeHtml(p.name) + (p.skill ? ' (' + escapeHtml(p.skill) + ')' : '') + (p.next ? ' → ' + escapeHtml(p.next) : '') + '</div>').join('')
-            : '<span class="tt-empty">No phases derived.</span>') +
-          '</div>';
       } else if (node.kind === 'sensor') {
         html += '<div class="tt-section"><div class="tt-label">' + escapeHtml(node.sensorType) + '</div>' +
           Object.entries(node.config || {}).map(([k, v]) => escapeHtml(k) + ': ' + escapeHtml(String(v))).join('<br>') + '</div>';

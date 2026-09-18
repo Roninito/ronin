@@ -5,7 +5,6 @@
  *
  *   contract <name> <version>
  *     description "<text>"
- *     target kata <name> <version>
  *     trigger cron "<expression>"
  *     trigger event "<eventType>"
  *     trigger webhook "<path>"
@@ -20,15 +19,123 @@
  *       max_delay 30s
  *       alert_email "email"
  *     }
+ *     initial <phase>
+ *     phase <name>
+ *       run skill <name> [ability <name>]
+ *       next <phase> | complete | fail
+ *     phase <name>
+ *       wait event <name> [timeout <ms>]
+ *       next <phase> | complete | fail
+ *
+ * The phase graph replaced `target kata <name> <version>` (2026-09-17) — a
+ * contract now declares its own phases inline instead of pointing at a
+ * separately-versioned Kata artifact. See src/contract/phase-compiler.ts for
+ * the validation (reachability/cycles/dangling `next`) run at the end of parse().
  */
 
-import type { ContractV2Definition, TriggerType, TriggerConfig, FailureAction } from "../types/shared.js";
+import type { ContractV2Definition, TriggerType, TriggerConfig, FailureAction, ContractPhase, PhaseAction } from "../types/shared.js";
+import { validateContractPhases } from "./phase-compiler.js";
 
 export class ContractParseError extends Error {
   constructor(message: string, public line?: number) {
     super(line !== undefined ? `Line ${line}: ${message}` : message);
     this.name = "ContractParseError";
   }
+}
+
+/**
+ * Parse the `initial <phase>` / `phase <name> ...` block(s) starting at
+ * `lines[startIdx]`. Consumes every contiguous, recognized phase-grammar line
+ * (skipping blank lines and `#` comments) and stops at the first line that
+ * isn't part of this grammar (or EOF), returning where it stopped so the
+ * caller can resume parsing the rest of a full .contract file from there.
+ * Standalone so `propose.ts` can reuse it for phase-only AI-drafted snippets
+ * that never had a `contract NAME vN` header/trigger wrapper.
+ */
+export function parsePhaseBlocks(
+  lines: string[],
+  startIdx: number,
+): { initialPhase: string; phases: Record<string, ContractPhase>; nextIdx: number } {
+  let idx = startIdx;
+  let initialPhase = "";
+  const phases: Record<string, ContractPhase> = {};
+
+  function peekMeaningful(): { text: string; lineNo: number } | null {
+    let i = idx;
+    while (i < lines.length) {
+      const text = lines[i]!.trimEnd();
+      if (text.trim() !== "" && !text.trim().startsWith("#")) return { text: text.trim(), lineNo: i + 1 };
+      i++;
+    }
+    return null;
+  }
+
+  function consumeMeaningful(): { text: string; lineNo: number } | null {
+    while (idx < lines.length) {
+      const text = lines[idx]!.trimEnd();
+      const lineNo = idx + 1;
+      idx++;
+      if (text.trim() !== "" && !text.trim().startsWith("#")) return { text: text.trim(), lineNo };
+    }
+    return null;
+  }
+
+  for (;;) {
+    const peeked = peekMeaningful();
+    if (!peeked) break;
+
+    const initialMatch = peeked.text.match(/^initial\s+(\S+)\s*$/);
+    if (initialMatch) {
+      consumeMeaningful();
+      initialPhase = initialMatch[1]!;
+      continue;
+    }
+
+    const phaseMatch = peeked.text.match(/^phase\s+(\S+)\s*$/);
+    if (!phaseMatch) break; // Not part of the phase grammar — hand control back.
+    consumeMeaningful();
+    const phaseName = phaseMatch[1]!;
+
+    const actionLine = consumeMeaningful();
+    if (!actionLine) throw new ContractParseError(`phase '${phaseName}' has no action`, peeked.lineNo);
+
+    let action: PhaseAction;
+    const runMatch = actionLine.text.match(/^run\s+skill\s+(\S+)(?:\s+ability\s+(\S+))?\s*$/);
+    const waitMatch = actionLine.text.match(/^wait\s+event\s+(\S+)(?:\s+timeout\s+(\d+))?\s*$/);
+    if (runMatch) {
+      action = { type: "run", skill: runMatch[1]!, ability: runMatch[2] };
+    } else if (waitMatch) {
+      action = { type: "wait", eventName: waitMatch[1]!, timeout: waitMatch[2] ? Number(waitMatch[2]) : undefined };
+    } else {
+      throw new ContractParseError(
+        `Expected "run skill <name>" or "wait event <name>" for phase '${phaseName}'`,
+        actionLine.lineNo,
+      );
+    }
+
+    const terminalLine = consumeMeaningful();
+    if (!terminalLine) throw new ContractParseError(`phase '${phaseName}' has no next/complete/fail`, actionLine.lineNo);
+
+    const nextMatch = terminalLine.text.match(/^next\s+(\S+)\s*$/);
+    let next: string | undefined;
+    let terminal: "complete" | "fail" | undefined;
+    if (nextMatch) {
+      next = nextMatch[1]!;
+    } else if (terminalLine.text === "complete") {
+      terminal = "complete";
+    } else if (terminalLine.text === "fail") {
+      terminal = "fail";
+    } else {
+      throw new ContractParseError(
+        `Expected "next <phase>", "complete", or "fail" for phase '${phaseName}'`,
+        terminalLine.lineNo,
+      );
+    }
+
+    phases[phaseName] = { name: phaseName, action, next, terminal };
+  }
+
+  return { initialPhase, phases, nextIdx: idx };
 }
 
 export class ContractParserV2 {
@@ -60,8 +167,8 @@ export class ContractParserV2 {
     const version = headerMatch[2]!;
 
     let description: string | undefined;
-    let targetKata = "";
-    let targetKataVersion = "v1";
+    let initialPhase = "";
+    let phases: Record<string, ContractPhase> = {};
     let triggerType: TriggerType = "manual";
     let triggerConfig: TriggerConfig = { type: "manual" };
     const parameters: Record<string, unknown> = {};
@@ -79,14 +186,15 @@ export class ContractParserV2 {
         description = extractQuoted(stripped.replace(/^description\s+/, ""));
       } else if (stripped.startsWith("author ")) {
         author = extractQuoted(stripped.replace(/^author\s+/, ""));
-      } else if (stripped.startsWith("target kata ")) {
-        const m = stripped.match(/^target kata\s+(\S+)\s+(v\d+)\s*$/);
-        // Non-null: both capture groups are mandatory in the regexes above.
-        if (m) { targetKata = m[1]!; targetKataVersion = m[2]!; }
-        else {
-          const m2 = stripped.match(/^target kata\s+(\S+)\s*$/);
-          if (m2) targetKata = m2[1]!;
-        }
+      } else if (stripped.startsWith("initial ") || stripped.startsWith("phase ")) {
+        // Hand off to the standalone phase-block parser; it consumes every
+        // contiguous initial/phase line and reports where it stopped so this
+        // loop can resume from the next non-phase line (idx currently points
+        // just past the line we peeked at, hence idx - 1).
+        const result = parsePhaseBlocks(lines, idx - 1);
+        if (result.initialPhase) initialPhase = result.initialPhase;
+        phases = { ...phases, ...result.phases };
+        idx = result.nextIdx;
       } else if (stripped.startsWith("trigger ")) {
         const m = stripped.match(/^trigger\s+(cron|event|webhook)\s+(.*)\s*$/);
         if (m) {
@@ -140,14 +248,23 @@ export class ContractParserV2 {
       }
     }
 
-    if (!targetKata) throw new ContractParseError("target kata is required");
+    if (!initialPhase) throw new ContractParseError("initial <phase> is required");
+    if (Object.keys(phases).length === 0) throw new ContractParseError("at least one phase block is required");
+
+    const validation = validateContractPhases(initialPhase, phases);
+    if (!validation.valid) {
+      const first = validation.errors[0];
+      throw new ContractParseError(
+        first ? `${first.rule}: ${first.message}` : "invalid phase graph",
+      );
+    }
 
     return {
       name,
       version,
       description,
-      targetKata,
-      targetKataVersion,
+      initialPhase,
+      phases,
       parameters,
       triggerType,
       triggerConfig,

@@ -4,14 +4,18 @@ import { runEngineMigrations } from "../src/database/migrations.js";
 import { ContractProposalStorage } from "../src/contract/proposal-storage.js";
 import { ContractStorageV2 } from "../src/contract/storage-v2.js";
 import ContractExecutorAgent from "../duties/contract-executor.js";
-import type { ContractV2Definition } from "../src/types/shared.js";
+import type { ContractV2Definition, ContractPhase } from "../src/types/shared.js";
+
+const NOTIFY_PHASES: Record<string, ContractPhase> = {
+  notify: { name: "notify", action: { type: "run", skill: "notify.user" }, terminal: "complete" },
+};
 
 const SAMPLE_CONTRACT: ContractV2Definition = {
   name: "quiet-handoff-reflex",
   version: "v1",
   description: "test",
-  targetKata: "quiet.handoff",
-  targetKataVersion: "v1",
+  initialPhase: "notify",
+  phases: NOTIFY_PHASES,
   parameters: {},
   triggerType: "event",
   triggerConfig: { type: "event", eventType: "trust.changed" },
@@ -19,7 +23,7 @@ const SAMPLE_CONTRACT: ContractV2Definition = {
   enabled: true,
 };
 
-const KATA_DSL = "kata quiet.handoff v1\n  requires skill notify.user\n\n  initial notify\n\n  phase notify\n    run skill notify.user\n    complete\n";
+const PHASES_DSL = "initial notify\n\nphase notify\n  run skill notify.user\n  complete\n";
 
 function createMockAPI(): { api: DutyAPI; routes: Map<string, (req: Request) => Response | Promise<Response>> } {
   const Database = require("bun:sqlite").Database;
@@ -135,12 +139,12 @@ describe("Contract proposal approve/refuse routes", () => {
     new ContractExecutorAgent(api); // registers routes in its constructor
   });
 
-  it("approve: registers the kata (if any) and the contract enabled, marks the proposal approved", async () => {
+  it("approve: registers the contract (with its inline phases) enabled, marks the proposal approved", async () => {
     const rec = await storage.create({
       intent: "when trust drops, quietly hand off",
       contract: SAMPLE_CONTRACT,
-      kataDsl: KATA_DSL,
-      preview: "Fires when trust.changed → drafts a new kata 'quiet.handoff'",
+      phasesDsl: PHASES_DSL,
+      preview: "Fires when trust.changed → runs notify",
     });
 
     const handler = routes.get("/api/contracts/proposals/approve")!;
@@ -153,6 +157,8 @@ describe("Contract proposal approve/refuse routes", () => {
     const contractRow = await contractStorage.getByName("quiet-handoff-reflex");
     expect(contractRow).not.toBeNull();
     expect(contractRow?.enabled).toBe(1);
+    expect(contractRow?.initial_phase).toBe("notify");
+    expect(Object.keys(JSON.parse(contractRow?.phases ?? "{}"))).toEqual(["notify"]);
 
     const proposalRow = await storage.getById(rec.id);
     expect(proposalRow?.status).toBe("approved");
@@ -162,7 +168,7 @@ describe("Contract proposal approve/refuse routes", () => {
     const rec = await storage.create({
       intent: "when trust drops, quietly hand off",
       contract: SAMPLE_CONTRACT,
-      kataDsl: KATA_DSL,
+      phasesDsl: PHASES_DSL,
       preview: "preview",
     });
 
@@ -243,7 +249,7 @@ describe("GET /contracts dashboard review page", () => {
     expect(emptyHtml).toContain("No pending proposals");
     expect(emptyHtml).toContain("No contracts registered yet");
 
-    await storage.create({ intent: "test", contract: SAMPLE_CONTRACT, preview: "Fires when trust.changed → runs kata 'quiet.handoff'" });
+    await storage.create({ intent: "test", contract: SAMPLE_CONTRACT, preview: "Fires when trust.changed → runs notify" });
     const html = await (await handlerEmpty(new Request("http://localhost/contracts"))).text();
     expect(html).toContain("proposal-card");
     expect(html).toContain("Fires when trust.changed");

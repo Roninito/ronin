@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { evaluateCondition, evaluateConditionGroup, conditionToHuman } from "../src/kata/conditions.js";
+import { evaluateCondition, evaluateConditionGroup, conditionToHuman } from "../src/contract/conditions.js";
 
 // `evaluateCondition`/`evaluateConditionGroup` were built for kata task variables
 // but had zero runtime callers and zero tests anywhere in the repo before this file.

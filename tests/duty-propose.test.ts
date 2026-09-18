@@ -29,17 +29,26 @@ function mockAPI(aiResponse: string): DutyAPI {
   } as unknown as DutyAPI;
 }
 
-// proposeDuty's collision check calls ensureDefaultDutyDir(), which resolves
-// from process.cwd() (not $HOME) — so isolation here means chdir'ing into a
-// scratch directory for the duration of each test, not overriding HOME.
+// proposeDuty's collision check calls resolveExternalDutyDir(), which
+// resolves to ~/.ronin/duties (os.homedir()-based) unless
+// RONIN_EXTERNAL_DUTY_DIR is set. A chdir doesn't isolate that, and neither
+// does overriding process.env.HOME (Bun's os.homedir() doesn't re-read it at
+// runtime, unlike Node's) — set RONIN_EXTERNAL_DUTY_DIR itself instead, so
+// this never reads or races against the real ~/.ronin/duties.
 describe("proposeDuty", () => {
   let scratchDir: string | undefined;
   let originalCwd: string | undefined;
+  let originalExternalDutyDir: string | undefined;
 
   afterEach(() => {
     if (originalCwd) {
       process.chdir(originalCwd);
       originalCwd = undefined;
+    }
+    if (originalExternalDutyDir === undefined) {
+      delete process.env.RONIN_EXTERNAL_DUTY_DIR;
+    } else {
+      process.env.RONIN_EXTERNAL_DUTY_DIR = originalExternalDutyDir;
     }
     if (scratchDir) {
       rmSync(scratchDir, { recursive: true, force: true });
@@ -51,6 +60,8 @@ describe("proposeDuty", () => {
     scratchDir = mkdtempSync(join(tmpdir(), "ronin-duty-propose-"));
     originalCwd = process.cwd();
     process.chdir(scratchDir);
+    originalExternalDutyDir = process.env.RONIN_EXTERNAL_DUTY_DIR;
+    process.env.RONIN_EXTERNAL_DUTY_DIR = join(scratchDir, "duties");
   }
 
   it("drafts a valid duty and derives a kebab-case name + preview from the intent", async () => {

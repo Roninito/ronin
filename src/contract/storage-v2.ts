@@ -39,7 +39,7 @@ export class ContractStorageV2 {
     const now = Date.now();
     await this.api.db?.execute?.(
       `INSERT INTO contracts_v2 (
-        name, version, description, target_kata, target_kata_version,
+        name, version, description, initial_phase, phases,
         parameters, trigger_type, trigger_config,
         on_failure_action, on_failure_config, enabled,
         created_at, updated_at, author
@@ -48,8 +48,8 @@ export class ContractStorageV2 {
         def.name,
         def.version ?? "v1",
         def.description ?? null,
-        def.targetKata,
-        def.targetKataVersion ?? "v1",
+        def.initialPhase,
+        JSON.stringify(def.phases ?? {}),
         Object.keys(def.parameters ?? {}).length > 0 ? JSON.stringify(def.parameters) : null,
         def.triggerType,
         JSON.stringify(def.triggerConfig),
@@ -70,7 +70,7 @@ export class ContractStorageV2 {
     const sets: string[] = ["updated_at = ?"];
     const params: unknown[] = [now];
 
-    const allowed = ["description", "target_kata", "target_kata_version", "parameters",
+    const allowed = ["description", "initial_phase", "phases", "parameters",
       "trigger_type", "trigger_config", "on_failure_action", "on_failure_config",
       "enabled", "author", "next_scheduled_at"] as const;
 
@@ -110,7 +110,6 @@ export class ContractStorageV2 {
     if (filters.enabled === true) { sql += " AND enabled = 1"; }
     else if (filters.enabled === false) { sql += " AND enabled = 0"; }
     if (filters.triggerType) { sql += " AND trigger_type = ?"; params.push(filters.triggerType); }
-    if (filters.kata) { sql += " AND target_kata = ?"; params.push(filters.kata); }
 
     const sortMap: Record<string, string> = {
       name: "name ASC",

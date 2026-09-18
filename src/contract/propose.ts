@@ -1,37 +1,40 @@
 /**
  * contract propose — AI-authoring for event/cron-triggered contracts ("reflexes").
  *
- * Mirrors `kata propose`'s pattern (src/cli/commands/kata.ts: intent → AI
- * completion → parse → validate → preview → confirm → register), reused by
- * both the `contract propose` CLI command and the Chatty tool
+ * Intent → AI completion → parse → validate → preview → confirm → register,
+ * reused by both the `contract propose` CLI command and the Chatty tool
  * (contracts.proposeReflex). This module only drafts — it never writes to
  * any table. Nothing goes live until the caller explicitly registers the
  * returned proposal (CLI: after a y/n prompt; Chatty: after an approval card).
+ *
+ * As of 2026-09-17 a contract drafts its own inline phase graph directly
+ * (there is no more Kata registry to point an "existing" proposal at) —
+ * every proposal now carries `phasesDsl`. Accepted tradeoff: two contracts
+ * wanting the same phase sequence each carry their own DSL text now; there's
+ * no shared, versioned artifact left to reuse across contracts.
  */
 
 import type { DutyAPI } from "../types/index.js";
-import { KataParser } from "../kata/parser.js";
-import { KataCompiler } from "../kata/compiler.js";
-import { KataStorage } from "../task/storage.js";
-import { KATA_DSL_GRAMMAR } from "../kata/dsl-grammar.js";
-import { conditionToHuman } from "../kata/conditions.js";
-import type { Condition, ConditionGroup } from "../kata/conditions.js";
-import type { CompiledKata } from "../kata/types.js";
+import { parsePhaseBlocks } from "./parser-v2.js";
+import { validateContractPhases } from "./phase-compiler.js";
+import { CONTRACT_PHASE_GRAMMAR } from "./phase-grammar.js";
+import { describePhaseChain } from "./phase-format.js";
+import { conditionToHuman } from "./conditions.js";
+import type { Condition, ConditionGroup } from "./conditions.js";
 import { cronToHuman } from "./cron.js";
-import type { ContractV2Definition, TriggerConfig } from "../types/shared.js";
+import type { ContractV2Definition, TriggerConfig, ContractPhase } from "../types/shared.js";
 
 export class ContractProposeError extends Error {
-  /** Raw AI-drafted kata DSL, when the failure happened during kata compilation —
-   *  surfaced by callers (matching kata propose's own "print raw DSL on failure"
-   *  behavior) so a human can see what the model actually produced. */
+  /** Raw AI-drafted phases DSL, when the failure happened during phase
+   *  parsing/validation — surfaced by callers so a human can see what the
+   *  model actually produced. */
   rawDsl?: string;
 }
 
 export interface ContractProposal {
   contract: ContractV2Definition;
-  kataDsl?: string;
-  kataCompiled?: CompiledKata;
-  /** Deterministic, plain-language rendering of trigger + condition + kata — the
+  phasesDsl: string;
+  /** Deterministic, plain-language rendering of trigger + condition + phases — the
    *  only thing an approval UI should ever show a human (never raw JSON). */
   preview: string;
 }
@@ -48,20 +51,13 @@ interface RawProposalJSON {
     eventType: string;
     condition?: Condition | ConditionGroup;
   };
-  existingKataName?: string | null;
-  existingKataVersion?: string | null;
-  newKataDsl?: string | null;
+  phasesDsl: string;
 }
 
 function buildSystemPrompt(
   intent: string,
-  existingKatas: { name: string; version: string; requiredSkills: string[] }[],
   availableSkills: { name: string; description: string; abilities: { name: string; description?: string; input: string[] }[] }[],
 ): string {
-  const kataList = existingKatas.length > 0
-    ? existingKatas.map((k) => `  - ${k.name} v${k.version}${k.requiredSkills.length ? ` (skills: ${k.requiredSkills.join(", ")})` : ""}`).join("\n")
-    : "  (none registered)";
-
   const skillsList = availableSkills.length > 0
     ? availableSkills.map((s) => {
         const abilities = s.abilities.length > 0
@@ -71,7 +67,7 @@ function buildSystemPrompt(
       }).join("\n")
     : "  (none discovered)";
 
-  return `You are a contract-authoring expert for the Ronin agent system. A "contract" binds a trigger (cron schedule or event) to a kata (a phase-graph of work) — when the trigger fires (and an optional condition holds), the kata runs.
+  return `You are a contract-authoring expert for the Ronin agent system. A "contract" binds a trigger (cron schedule or event) to a phase graph of work — when the trigger fires (and an optional condition holds), the phases run in order.
 
 Given a plain-English intent, respond with ONLY a single JSON object (no markdown fences, no explanation) matching this shape:
 
@@ -84,12 +80,8 @@ Given a plain-English intent, respond with ONLY a single JSON object (no markdow
     { "type": "cron", "expression": "<5-field cron expression>" }
     // if triggerType is "event":
     { "type": "event", "eventType": "dot.separated.event.name", "condition": <optional, see below> },
-  "existingKataName": "<name from the Existing katas list below, or null>",
-  "existingKataVersion": "<version, or null>",
-  "newKataDsl": "<a full Kata DSL definition, or null — set this ONLY if existingKataName is null>"
+  "phasesDsl": "<the phases-block DSL text — see grammar below>"
 }
-
-Exactly one of existingKataName or newKataDsl must be non-null, never both.
 
 IMPORTANT — choosing triggerType:
 - Use "cron" whenever the intent is periodic/recurring on its own (words like "daily",
@@ -101,38 +93,25 @@ IMPORTANT — choosing triggerType:
 - Use "event" only when the intent explicitly reacts to something happening in THIS app
   right now (e.g. "when a duty fails", "when trust drops below 40") — never invent an
   eventType name just to represent "new data is available" or "a day has passed";
-  fetching/checking for new data belongs in the kata's phases (via "run skill"), not in
-  the trigger.
-- CRITICAL: the trigger only decides WHEN the kata runs — it never supplies data. If the
-  intent needs data from somewhere (e.g. "discord messages"), the kata MUST have an
+  fetching/checking for new data belongs in the phases (via "run skill"), not in the
+  trigger.
+- CRITICAL: the trigger only decides WHEN the phases run — it never supplies data. If the
+  intent needs data from somewhere (e.g. "discord messages"), the phases MUST have an
   explicit phase that fetches it (e.g. "run skill discord ability read_messages") before
   any phase that processes or forwards that data. Never skip the fetch phase and assume
   the trigger already provided the data.
-
-IMPORTANT — katas and skills are different things, do not confuse them:
-- A "kata" is a complete named automation (format "domain.action", e.g. "discord-daily-digest")
-  that may already be registered and ready to reuse as-is. existingKataName may ONLY be a name
-  copied verbatim from the "Existing katas" list below — never a skill name.
-- A "skill" (e.g. "discord", "telegram", "summarize") is a single building block a kata's phases
-  call via "run skill <skill-name>" inside newKataDsl. Skills are never valid values for
-  existingKataName, even if a skill and a kata happen to share a similar name.
-- If the "Existing katas" list says "(none registered)", existingKataName MUST be null and you
-  MUST draft newKataDsl instead.
 
 Condition shape (optional, only for event triggers, use when the intent has a qualifier like "when X and Y", "only if Z"):
   A single condition: { "variable": "path.to.value", "operator": "==|!=|>|>=|<|<=|in|not_in|contains|starts_with|ends_with", "value": <any> }
   A group: { "type": "AND"|"OR", "conditions": [ <condition or group>, ... ] }
   "variable" is a dot-path into whatever payload the firing event carries (e.g. "trust_level", "rival.distance") — infer plausible field names from the intent.
 
-Existing katas you may target instead of drafting a new one:
-${kataList}
-
-If none of the existing katas fit the intent, draft a new one-phase (or few-phase) kata instead, using this grammar for newKataDsl. Each "run skill" phase action can only call a skill+ability listed below — never invent a skill or ability name that isn't in this list. If the intent needs a capability no listed skill provides, say so in the description rather than inventing one:
+Draft the phases for "phasesDsl" using this grammar. Each "run skill" phase action can only call a skill+ability listed below — never invent a skill or ability name that isn't in this list. If the intent needs a capability no listed skill provides, say so in the description rather than inventing one:
 
 Available skills (name: description — abilities: ability(input params), ...):
 ${skillsList}
 
-${KATA_DSL_GRAMMAR}
+${CONTRACT_PHASE_GRAMMAR}
 
 User intent: ${intent}`;
 }
@@ -168,43 +147,15 @@ function buildTriggerPreview(triggerConfig: TriggerConfig): string {
   return `on trigger: ${triggerConfig.type}`;
 }
 
-/**
- * Draft a contract (and, if needed, a new one-phase kata) from a plain-English
- * intent. Pure drafting — writes nothing to any table.
- */
-/** Real skill/ability existence check the DSL compiler doesn't do itself (it only
- *  checks "used implies declared in requires", not "does this skill/ability exist"). */
-/** The model reliably gets the skill/ability names and phase logic right but
- *  intermittently forgets a "requires skill X" line for every skill it uses
- *  in a "run skill X" phase — a purely mechanical bookkeeping slip the DSL
- *  compiler treats as fatal. Deterministically patch it rather than burning a
- *  retry (an LLM call) on something regex can fix for free. */
-function fixMissingRequiresLines(dsl: string): string {
-  const usedSkills = new Set<string>();
-  for (const m of dsl.matchAll(/\brun\s+skill\s+(\S+)/g)) if (m[1]) usedSkills.add(m[1]);
-  const declaredSkills = new Set<string>();
-  for (const m of dsl.matchAll(/\brequires\s+skill\s+(\S+)/g)) if (m[1]) declaredSkills.add(m[1]);
-  const missing = [...usedSkills].filter((s) => !declaredSkills.has(s));
-  if (missing.length === 0) return dsl;
-
-  const lines = dsl.split("\n");
-  const newRequiresLines = missing.map((s) => `  requires skill ${s}`);
-  const lastRequiresIdx = lines.reduce((acc, line, i) => (/^\s*requires\s+skill\b/.test(line) ? i : acc), -1);
-  if (lastRequiresIdx >= 0) {
-    lines.splice(lastRequiresIdx + 1, 0, ...newRequiresLines);
-  } else {
-    const kataLineIdx = lines.findIndex((line) => /^\s*kata\s+\S+\s+v\d+/.test(line));
-    lines.splice(kataLineIdx + 1, 0, ...newRequiresLines);
-  }
-  return lines.join("\n");
-}
-
+/** Real skill/ability existence check the phase compiler doesn't do itself (it only
+ *  checks the phase graph's own shape — reachability/cycles/terminals — not whether a
+ *  named skill/ability actually exists). */
 function validateSkillReferences(
-  compiled: CompiledKata,
+  phases: Record<string, ContractPhase>,
   availableSkills: { name: string; abilities: { name: string }[] }[],
 ): string[] {
   const errors: string[] = [];
-  for (const phase of Object.values(compiled.phases)) {
+  for (const phase of Object.values(phases)) {
     const action = phase.action;
     if (action.type !== "run") continue;
     const skill = availableSkills.find((s) => s.name.toLowerCase() === action.skill.toLowerCase());
@@ -226,7 +177,6 @@ function validateSkillReferences(
 async function attemptProposal(
   promptText: string,
   api: DutyAPI,
-  existingKatas: { name: string; version: string; requiredSkills: string[] }[],
   availableSkills: { name: string; description: string; abilities: { name: string; description?: string; input: string[] }[] }[],
 ): Promise<ContractProposal> {
   const raw = await api.ai.complete(promptText);
@@ -238,63 +188,48 @@ async function attemptProposal(
     throw new ContractProposeError(`AI did not return valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  if (!parsed.name || !parsed.triggerType || !parsed.triggerConfig) {
-    throw new ContractProposeError("AI proposal is missing required fields (name, triggerType, triggerConfig)");
+  if (!parsed.name || !parsed.triggerType || !parsed.triggerConfig || !parsed.phasesDsl) {
+    throw new ContractProposeError("AI proposal is missing required fields (name, triggerType, triggerConfig, phasesDsl)");
   }
 
   const triggerConfig = buildTriggerConfig(parsed.triggerConfig);
 
-  let targetKata: string;
-  let targetKataVersion: string;
-  let kataDsl: string | undefined;
-  let kataCompiled: CompiledKata | undefined;
-  let kataPreview: string;
+  let initialPhase: string;
+  let phases: Record<string, ContractPhase>;
+  try {
+    const result = parsePhaseBlocks(parsed.phasesDsl.split("\n"), 0);
+    initialPhase = result.initialPhase;
+    phases = result.phases;
+  } catch (error) {
+    const proposeError = new ContractProposeError(
+      `Drafted phases failed to parse: ${error instanceof Error ? error.message : String(error)}`
+    );
+    proposeError.rawDsl = parsed.phasesDsl;
+    throw proposeError;
+  }
 
-  if (parsed.newKataDsl) {
-    parsed.newKataDsl = fixMissingRequiresLines(parsed.newKataDsl);
-    const parser = new KataParser();
-    const compiler = new KataCompiler();
-    try {
-      const ast = parser.parse(parsed.newKataDsl);
-      kataCompiled = compiler.compile(ast);
-    } catch (error) {
-      const proposeError = new ContractProposeError(
-        `Drafted kata failed validation: ${error instanceof Error ? error.message : String(error)}`
-      );
-      proposeError.rawDsl = parsed.newKataDsl;
-      throw proposeError;
-    }
-    const referenceErrors = validateSkillReferences(kataCompiled, availableSkills);
-    if (referenceErrors.length > 0) {
-      const proposeError = new ContractProposeError(`Drafted kata references skills/abilities that don't exist:\n  - ${referenceErrors.join("\n  - ")}`);
-      proposeError.rawDsl = parsed.newKataDsl;
-      throw proposeError;
-    }
-    kataDsl = parsed.newKataDsl;
-    targetKata = kataCompiled.name;
-    targetKataVersion = kataCompiled.version;
-    const phaseCount = Object.keys(kataCompiled.phases).length;
-    kataPreview = `drafts a new kata '${targetKata}' (${phaseCount} phase${phaseCount === 1 ? "" : "s"})`;
-  } else if (parsed.existingKataName) {
-    const exists = existingKatas.some((k) => k.name === parsed.existingKataName);
-    if (!exists) {
-      throw new ContractProposeError(
-        `AI referenced kata '${parsed.existingKataName}' which is not registered — refusing to target an unverified kata`
-      );
-    }
-    targetKata = parsed.existingKataName;
-    targetKataVersion = parsed.existingKataVersion ?? "v1";
-    kataPreview = `runs kata '${targetKata}'`;
-  } else {
-    throw new ContractProposeError("AI proposal named neither an existing kata nor drafted a new one");
+  const validation = validateContractPhases(initialPhase, phases);
+  if (!validation.valid) {
+    const proposeError = new ContractProposeError(
+      `Drafted phases failed validation:\n  - ${validation.errors.map((e) => e.message).join("\n  - ")}`
+    );
+    proposeError.rawDsl = parsed.phasesDsl;
+    throw proposeError;
+  }
+
+  const referenceErrors = validateSkillReferences(phases, availableSkills);
+  if (referenceErrors.length > 0) {
+    const proposeError = new ContractProposeError(`Drafted phases reference skills/abilities that don't exist:\n  - ${referenceErrors.join("\n  - ")}`);
+    proposeError.rawDsl = parsed.phasesDsl;
+    throw proposeError;
   }
 
   const contract: ContractV2Definition = {
     name: parsed.name,
     version: "v1",
     description: parsed.description,
-    targetKata,
-    targetKataVersion,
+    initialPhase,
+    phases,
     parameters: {},
     triggerType: parsed.triggerType,
     triggerConfig,
@@ -302,9 +237,9 @@ async function attemptProposal(
     enabled: true,
   };
 
-  const preview = `Fires ${buildTriggerPreview(triggerConfig)} → ${kataPreview}${parsed.description ? ` — ${parsed.description}` : ""}`;
+  const preview = `Fires ${buildTriggerPreview(triggerConfig)} → runs ${describePhaseChain(initialPhase, phases)}${parsed.description ? ` — ${parsed.description}` : ""}`;
 
-  return { contract, kataDsl, kataCompiled, preview };
+  return { contract, phasesDsl: parsed.phasesDsl, preview };
 }
 
 const MAX_ATTEMPTS = 4;
@@ -314,18 +249,15 @@ export async function proposeContract(intent: string, api: DutyAPI): Promise<Con
     throw new ContractProposeError("Intent required");
   }
 
-  const kataStorage = new KataStorage(api);
-  await kataStorage.init();
-  const existingKatas = await kataStorage.list();
   const availableSkills = api.skills ? await api.skills.list_skills_with_abilities().catch(() => []) : [];
 
-  const systemPrompt = buildSystemPrompt(intent, existingKatas, availableSkills);
+  const systemPrompt = buildSystemPrompt(intent, availableSkills);
   let promptText = systemPrompt;
   let lastError: ContractProposeError | undefined;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await attemptProposal(promptText, api, existingKatas, availableSkills);
+      return await attemptProposal(promptText, api, availableSkills);
     } catch (error) {
       lastError = error instanceof ContractProposeError ? error : new ContractProposeError(String(error));
       if (attempt === MAX_ATTEMPTS) break;

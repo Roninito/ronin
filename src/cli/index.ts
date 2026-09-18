@@ -29,7 +29,6 @@ import { emitCommand } from "./commands/emit.js";
 import { clientCommand } from "./commands/client.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
-import { kataCommand } from "./commands/kata.js";
 import { contractCommand } from "./commands/contract.js";
 import { taskCommand } from "./commands/task.js";
 import { workflowCommand } from "./commands/workflow.js";
@@ -185,7 +184,7 @@ async function main() {
       break;
 
     case "kill":
-      await killCommand();
+      await killCommand({ dryRun: args.includes("--dry-run") });
       break;
 
     case "interactive":
@@ -294,22 +293,6 @@ async function main() {
           ollamaModel: getArg("--ollama-model", args),
           dbPath: getArg("--db-path", args),
         });
-      } else if (args[0] === "kata") {
-        const intent = args.slice(1).filter((a) => !a.startsWith("--")).join(" ");
-        if (!intent.trim()) {
-          console.error("❌ Intent required");
-          console.log('Usage: ronin create kata "sync obsidian notes to telegram daily"');
-          process.exit(1);
-        }
-        await kataCommand(["propose", ...args.slice(1)], {
-          dbPath: getArg("--db-path", args),
-          pluginDir: getArg("--plugin-dir", args),
-          userPluginDir: getArg("--user-plugin-dir", args),
-          ollamaUrl: getArg("--ollama-url", args),
-          ollamaModel: getArg("--ollama-model", args),
-          local: args.includes("--local"),
-          yes: args.includes("--yes") || args.includes("-y"),
-        });
       } else if (args[0] === "workflow") {
         const description = args.slice(1).filter((a) => !a.startsWith("--")).join(" ");
         if (!description.trim()) {
@@ -327,7 +310,7 @@ async function main() {
         });
       } else {
         console.error(`❌ Unknown create command: ${args[0]}`);
-        console.log("Available: ronin create plugin <name>, ronin create duty [description], ronin create skill \"<description>\", ronin create kata \"<intent>\", ronin create workflow \"<description>\"");
+        console.log("Available: ronin create plugin <name>, ronin create duty [description], ronin create skill \"<description>\", ronin create workflow \"<description>\"");
         process.exit(1);
       }
       break;
@@ -645,30 +628,15 @@ async function main() {
       break;
     }
 
-    case "kata": {
-      const kataArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--port"]);
-      await kataCommand(kataArgs, {
-        dbPath: getArg("--db-path", args),
-        pluginDir: getArg("--plugin-dir", args),
-        userPluginDir: getArg("--user-plugin-dir", args),
-        ollamaUrl: getArg("--ollama-url", args),
-        ollamaModel: getArg("--ollama-model", args),
-        port: getArg("--port", args) ? parseInt(getArg("--port", args)!) : undefined,
-        local: args.includes("--local"),
-        yes: args.includes("--yes") || args.includes("-y"),
-      });
-      break;
-    }
-
     case "contract": {
-      const contractArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--kata", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
+      const contractArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--phases-file", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
       await contractCommand(contractArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
         userPluginDir: getArg("--user-plugin-dir", args),
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
-        kata: getArg("--kata", args),
+        phasesFile: getArg("--phases-file", args),
         triggerType: getArg("--trigger", args),
         cron: getArg("--cron", args),
         event: getArg("--event", args),
@@ -717,13 +685,12 @@ async function main() {
     }
 
     case "task": {
-      const taskArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--kata", "--contract", "--limit"]);
+      const taskArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--contract", "--limit"]);
       await taskCommand(taskArgs, {
         dbPath: getArg("--db-path", args),
         pluginDir: getArg("--plugin-dir", args),
         userPluginDir: getArg("--user-plugin-dir", args),
         status: getArg("--status", args),
-        kata: getArg("--kata", args),
         contract: getArg("--contract", args),
         limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
         force: args.includes("--force"),
@@ -787,7 +754,6 @@ Creation:
   create duty [desc]      AI-powered duty creation (interactive)
   create skill "desc"     AI-powered skill creation
   create plugin <name>    Create a new plugin template
-  create kata "intent"     AI-generates a kata from plain language
   create workflow "desc"   AI-drafts a workflow markdown SOP
   cancel                  Cancel pending duty creation
 
@@ -820,8 +786,7 @@ Integrations:
   os <subcommand>         Desktop Mode commands (macOS)
 
 Advanced (Execution Engine):
-  kata <subcommand>       Manage katas — deterministic workflow definitions (ronin kata help)
-  contract <subcommand>   Manage contracts — schedules/triggers that run a kata (ronin contract help)
+  contract <subcommand>   Manage contracts — schedules/triggers that declare their own phase graph (ronin contract help)
   task <subcommand>       View and manage task executions (ronin task help)
   workflow <subcommand>   Manage workflow markdown SOPs (ronin workflow help)
 

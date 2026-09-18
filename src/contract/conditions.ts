@@ -1,20 +1,15 @@
 /**
- * Conditional Branching for Katas
+ * Conditional Guards for Contract Triggers
  *
- * Phase 9: if/else support in Kata DSL
+ * Relocated from src/kata/conditions.ts (2026-09-17) — despite living under
+ * "kata" historically, this has never gated branching between Kata phases;
+ * its only real consumers are Contract event triggers deciding whether to
+ * fire at all (src/contract/event-engine.ts) and the AI proposal preview
+ * that renders a trigger's guard as plain text (src/contract/propose.ts).
  *
- * Enables runtime decision-making based on:
- * - Previous skill output
- * - Task variables
- * - Environment state
- *
- * Example:
- *   phase check_risk
- *   run skill risk.assess
- *   if risk_level == "high"
- *     next escalate
- *   else
- *     next approve
+ * Example (an event trigger's guard, evaluated against the firing event's payload):
+ *   trigger event portfolio.price_alert
+ *   when risk_level == "high"
  */
 
 export type ConditionOperator =
@@ -247,7 +242,7 @@ export function createOrGroup(
 }
 
 /**
- * Condition DSL parser (used by KataParser Phase 9)
+ * Condition DSL parser, used to parse a trigger guard's "when <condition>" clause.
  */
 export class ConditionParser {
   /**

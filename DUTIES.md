@@ -91,7 +91,11 @@ Duties receive an `api` object with the following capabilities:
 - `complete(prompt, options?)` - Get AI completion (routed to the configured tier/model)
 - `stream(prompt, options?)` - Stream AI responses
 - `chat(messages, options?)` - Chat with messages
-- `callTools(prompt, tools, options?)` - Tool-calling loop
+- `callTools(prompt, tools, options?)` - Tool-calling loop. **`tools` is exactly
+  what the model sees — nothing gets added automatically.** If you want plugin
+  tools included, pass `api.tools.getSchemas()` (or a filtered subset of it)
+  yourself. See `ARCHITECTURE.md` §7.1 for why (a prior version silently
+  injected every plugin tool into every call regardless of what you passed).
 
 ### `api.memory`
 - `store(key, value)` - Store a value
@@ -135,6 +139,13 @@ args or the caller passes `metadata: { dutyName: "..." }` in the tool context.
 - `has(pluginName)` - Check if plugin is loaded
 - `list()` - List all loaded plugins
 
+Every plugin method is also auto-registered as a model-callable tool
+(`<pluginName>_<methodName>`, generic schema unless the plugin declares
+`toolMetadata`) — see `ARCHITECTURE.md` §7.1. Chat discovers these lazily via
+`local.tools.load_category(category)` rather than seeing all ~186 of them
+upfront; a duty calling `api.ai.callTools()` directly can just pass the
+specific ones it wants from `api.tools.getSchemas()`.
+
 ### Plugin Direct APIs
 
 Plugins with type-safe direct accessors on `DutyAPI` today:
@@ -149,8 +160,7 @@ Plugins with type-safe direct accessors on `DutyAPI` today:
   LangChain tool-calling `AgentExecutor` — the one place "agent" names an
   actual distinct concept rather than a legacy label for Duty)
 - `api.realm.*` - WebRTC/WebSocket remote-access relay (call-sign based; see
-  `plugins/realm.ts` — unrelated to the `src/realms/` kata-registry module of
-  the same near-name)
+  `plugins/realm.ts`)
 - `api.reticulum.*` - Reticulum mesh networking (radio/LAN/wide-area)
 - `api.email.*` - Email management
 

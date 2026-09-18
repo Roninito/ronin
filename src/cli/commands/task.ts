@@ -2,7 +2,7 @@
  * Task CLI — list, show, cancel, retry
  *
  * Subcommands:
- *   list            List tasks (--status, --kata, --contract, --limit)
+ *   list            List tasks (--status, --contract, --limit)
  *   show <task-id>  Show task details with phase breakdown
  *   cancel <id>     Cancel a running/pending task
  *   retry <id>      Retry a failed task
@@ -32,7 +32,6 @@ export interface TaskOptions {
   pluginDir?: string;
   userPluginDir?: string;
   status?: string;
-  kata?: string;
   contract?: string;
   limit?: number;
   force?: boolean;
@@ -102,7 +101,6 @@ async function cmdList(args: string[], options: TaskOptions): Promise<void> {
 
   const tasks = await storage.listTasks({
     status: options.status as TaskV2Status | undefined,
-    kata: options.kata,
     contract: options.contract,
     limit: options.limit ?? 20,
   });
@@ -113,7 +111,7 @@ async function cmdList(args: string[], options: TaskOptions): Promise<void> {
   }
 
   console.log(c.bold(`\nTasks (${tasks.length}):\n`));
-  const header = `  ${"Task ID".padEnd(16)} ${"Status".padEnd(14)} ${"Kata".padEnd(30)} ${"Duration".padEnd(10)} Started`;
+  const header = `  ${"Task ID".padEnd(16)} ${"Status".padEnd(14)} ${"Contract".padEnd(30)} ${"Duration".padEnd(10)} Started`;
   console.log(c.dim(header));
   console.log(c.dim("  " + "─".repeat(85)));
 
@@ -122,10 +120,10 @@ async function cmdList(args: string[], options: TaskOptions): Promise<void> {
       : task.status === "failed" ? c.red("failed".padEnd(12))
       : task.status === "running" ? c.cyan("running".padEnd(12))
       : c.dim(task.status.padEnd(12));
-    const kata = `${task.source_kata}`.slice(0, 28).padEnd(30);
+    const contractName = `${task.source_contract ?? task.source_kata}`.slice(0, 28).padEnd(30);
     const dur = formatDuration(task.duration).padEnd(10);
     const started = relativeTime(task.started_at);
-    console.log(`  ${task.task_id.padEnd(16)} ${statusStr}   ${kata} ${dur} ${started}`);
+    console.log(`  ${task.task_id.padEnd(16)} ${statusStr}   ${contractName} ${dur} ${started}`);
   }
   console.log();
 }
@@ -152,9 +150,11 @@ async function cmdShow(args: string[], options: TaskOptions): Promise<void> {
   console.log();
   console.log(`${c.bold("Task:")}    ${c.cyan(task.task_id)}`);
   console.log(`${c.bold("Status:")}  ${formatTaskStatus(task.status)}`);
-  console.log(`${c.bold("Kata:")}    ${task.source_kata} ${c.dim("v" + task.source_kata_version)}`);
   if (task.source_contract) {
     console.log(`${c.bold("Contract:")} ${task.source_contract}`);
+  }
+  if (task.current_phase) {
+    console.log(`${c.bold("Phase:")}    ${task.current_phase}`);
   }
   console.log(`${c.bold("Created:")} ${relativeTime(task.created_at)}`);
   if (task.started_at) console.log(`${c.bold("Started:")} ${relativeTime(task.started_at)}`);
@@ -233,7 +233,7 @@ async function cmdRetry(args: string[], options: TaskOptions): Promise<void> {
   // Reset to pending
   await storage.updateTaskStatus(taskId, "pending", { error: undefined });
   console.log(c.green(`✅ Task reset to pending: ${taskId}`));
-  console.log(c.dim("The kata-runner agent will pick it up on the next tick."));
+  console.log(c.dim("The task-runner duty will pick it up on the next tick."));
 }
 
 // ── Help ──────────────────────────────────────────────────────────────────────
@@ -253,7 +253,6 @@ ${c.bold("SUBCOMMANDS")}
 
 ${c.bold("LIST OPTIONS")}
   --status <status>      Filter by status (pending|running|completed|failed|canceled)
-  --kata <name>          Filter by source kata
   --contract <name>      Filter by source contract
   --limit <n>            Limit results (default: 20)
 `);

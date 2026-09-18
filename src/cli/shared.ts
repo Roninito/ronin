@@ -52,7 +52,7 @@ export function parseGlobalOptions(args: string[]): GlobalOptions {
 /**
  * Remove known flags (and the value token immediately after each one) from
  * an args array, leaving only positional subcommand arguments. Used by
- * commands like kdb/kata/contract/workflow/task that take a leading
+ * commands like kdb/contract/workflow/task that take a leading
  * subcommand followed by a mix of positional args and --flag <value> pairs.
  */
 export function stripFlags(args: string[], flagsWithValues: string[]): string[] {
@@ -97,9 +97,15 @@ Usage: ronin restart [options]
 Stop and restart Ronin. Accepts the same options as "start".
 `,
   kill: `
-Usage: ronin kill
+Usage: ronin kill [options]
 
-Force-kill all running Ronin instances (SIGKILL).
+Force-kill every running Ronin process — the one bound to the webhook port,
+plus any leftover CLI sub-processes, ninja-mode children, or zombies from
+unclean shutdowns. Always safe to run; equivalent to "ronin stop" but
+without the SIGTERM grace window.
+
+Options:
+  --dry-run               Print what would be killed without sending signals.
 `,
   run: `
 Usage: ronin run <duty-name> [options]
@@ -325,7 +331,6 @@ Types:
   plugin <name>          Create a new plugin template
   duty [description]     AI-powered duty creation (interactive)
   skill "description"    Generate an AgentSkill from a description (SkillMaker)
-  kata "intent"           AI-generates a kata DSL from plain language (alias for "kata propose")
   workflow "description"  AI-drafts a workflow markdown SOP (alias for "workflow propose")
 
 Options (duty):
@@ -333,7 +338,7 @@ Options (duty):
   --no-preview         Skip preview before saving
   --edit               Open in editor after creation
 
-Options (kata, workflow):
+Options (workflow):
   --yes, -y            Skip confirmation prompt
 `,
   daemon: `
@@ -392,18 +397,11 @@ Usage: ronin version
 
 Print the installed Ronin version and check for available updates.
 `,
-  kata: `
-Usage: ronin kata <subcommand> [options]
-
-Manage katas — deterministic workflow definitions run by the execution engine.
-
-Run "ronin kata" or "ronin kata help" for the full subcommand list and options
-(propose, list, show, validate, register, test, deprecate, delete).
-`,
   contract: `
 Usage: ronin contract <subcommand> [options]
 
-Manage contracts — schedules/triggers (cron, event, or webhook) that run a kata.
+Manage contracts — schedules/triggers (cron, event, or webhook) bound to a
+phase graph declared inline on the contract itself.
 
 Run "ronin contract" or "ronin contract help" for the full subcommand list and
 options (list, show, create, update, enable, disable, test, validate, register,
@@ -412,7 +410,7 @@ delete, history, dry-run, export, import, stats, propose).
   task: `
 Usage: ronin task <subcommand> [options]
 
-View and manage task executions produced by contracts/katas.
+View and manage task executions produced by contracts.
 
 Run "ronin task" or "ronin task help" for the full subcommand list and options
 (list, show, cancel, retry).

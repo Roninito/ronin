@@ -68,7 +68,8 @@ describe("Chatty PWA install support", () => {
 
   it("/chat's <head> links the manifest and icon, and registers the service worker", async () => {
     const handler = routes.get("/chat");
-    const html = await (await handler!(new Request("http://localhost/chat"))).text();
+    const req = new Request("http://localhost/chat", { headers: { Host: "localhost" } });
+    const html = await (await handler!(req)).text();
     expect(html).toContain('<link rel="manifest" href="/chat/manifest.json">');
     expect(html).toContain('<link rel="icon" href="/chat/icon.svg"');
     expect(html).toContain("navigator.serviceWorker.register('/chat/sw.js')");

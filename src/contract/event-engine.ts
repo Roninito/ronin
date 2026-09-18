@@ -22,8 +22,8 @@
 import type { DutyAPI } from "../types/index.js";
 import { ContractStorageV2 } from "./storage-v2.js";
 import type { EventTriggerConfig, ContractV2Row } from "../types/shared.js";
-import { evaluateCondition, evaluateConditionGroup } from "../kata/conditions.js";
-import type { Condition, ConditionGroup } from "../kata/conditions.js";
+import { evaluateCondition, evaluateConditionGroup } from "./conditions.js";
+import type { Condition, ConditionGroup } from "./conditions.js";
 import { logger } from "../utils/logger.js";
 
 interface Subscription {
@@ -150,8 +150,6 @@ export class EventTriggerEngine {
           contractId: String(row.id),
           contractName: row.name,
           contractVersion: row.version,
-          kataName: row.target_kata,
-          kataVersion: row.target_kata_version,
           eventType: triggerConfig.eventType,
           eventPayload: eventPayload && typeof eventPayload === "object" ? eventPayload : undefined,
           timestamp: Date.now(),

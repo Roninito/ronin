@@ -67,8 +67,8 @@ describe("EventTriggerEngine", () => {
     await storage.create({
       name: "quiet-handoff",
       version: "v1",
-      targetKata: "quiet-handoff-kata",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: { go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" as const } },
       parameters: {},
       triggerType: "event",
       triggerConfig: { type: "event", eventType: "trust.changed" },
@@ -86,7 +86,6 @@ describe("EventTriggerEngine", () => {
 
     expect(received).not.toBeNull();
     expect(received.contractName).toBe("quiet-handoff");
-    expect(received.kataName).toBe("quiet-handoff-kata");
     expect(received.eventPayload).toEqual({ trust_level: 20 });
   });
 
@@ -94,8 +93,8 @@ describe("EventTriggerEngine", () => {
     await storage.create({
       name: "low-trust-handoff",
       version: "v1",
-      targetKata: "handoff",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: { go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" as const } },
       parameters: {},
       triggerType: "event",
       triggerConfig: {
@@ -125,8 +124,8 @@ describe("EventTriggerEngine", () => {
     await storage.create({
       name: "disabled-reflex",
       version: "v1",
-      targetKata: "x",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: { go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" as const } },
       parameters: {},
       triggerType: "event",
       triggerConfig: { type: "event", eventType: "demo.fired" },
@@ -148,8 +147,8 @@ describe("EventTriggerEngine", () => {
     await storage.create({
       name: "toggle-me",
       version: "v1",
-      targetKata: "x",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: { go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" as const } },
       parameters: {},
       triggerType: "event",
       triggerConfig: { type: "event", eventType: "demo.toggle" },
@@ -175,8 +174,8 @@ describe("EventTriggerEngine", () => {
     await storage.create({
       name: "e2e-reflex",
       version: "v1",
-      targetKata: "quiet-handoff-kata",
-      targetKataVersion: "v1",
+      initialPhase: "go",
+      phases: { go: { name: "go", action: { type: "run", skill: "x" }, terminal: "complete" as const } },
       parameters: {},
       triggerType: "event",
       triggerConfig: {
@@ -199,7 +198,7 @@ describe("EventTriggerEngine", () => {
     await flush();
 
     expect(spawnRequest).not.toBeNull();
-    expect(spawnRequest.kataName).toBe("quiet-handoff-kata");
+    expect(spawnRequest.contractName).toBe("e2e-reflex");
     expect(spawnRequest.initialVariables).toEqual({ distance: 30, name: "Kael" });
 
     const row = await storage.getByName("e2e-reflex");

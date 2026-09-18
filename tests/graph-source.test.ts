@@ -7,8 +7,7 @@ import { runEngineMigrations } from "../src/database/migrations.js";
 import { getNodeSource } from "../src/graph/source.js";
 import { DutyProposalStorage } from "../src/duty/proposal-storage.js";
 import { ContractProposalStorage } from "../src/contract/proposal-storage.js";
-import { KataStorage } from "../src/task/storage.js";
-import type { DutyNode, ContractNode, KataNode, SensorNode } from "../src/graph/types.js";
+import type { DutyNode, ContractNode, SensorNode } from "../src/graph/types.js";
 import type { ContractV2Definition } from "../src/types/shared.js";
 
 function createMockAPI(): DutyAPI {
@@ -74,7 +73,9 @@ describe("getNodeSource", () => {
     await runEngineMigrations((api as any).db);
     const contract: ContractV2Definition = {
       name: "ghost-contract", version: "v1", description: "test",
-      targetKata: "some.kata", targetKataVersion: "v1", parameters: {},
+      initialPhase: "start",
+      phases: { start: { name: "start", action: { type: "run", skill: "some-skill" }, terminal: "complete" } },
+      parameters: {},
       triggerType: "cron", triggerConfig: { type: "cron", expression: "0 9 * * *" },
       onFailureAction: "ignore", enabled: true,
     };
@@ -84,13 +85,14 @@ describe("getNodeSource", () => {
     const node: ContractNode = {
       id: "contract:ghost-contract", kind: "contract", name: "ghost-contract", ghost: true, proposalId: rec.id,
       sourceRef: { origin: "proposal" }, version: "v1", triggerType: "cron", cronExpression: "0 9 * * *",
-      targetKind: "kata", targetName: "some.kata", targetVersion: "v1", active: false, approvalStatus: "pending",
+      initialPhase: "start", phases: [{ name: "start", skill: "some-skill", terminal: "complete" }],
+      active: false, approvalStatus: "pending",
     };
     const source = await getNodeSource(node, api);
     expect(source!.language).toBe("dsl");
     expect(source!.code).toContain("contract ghost-contract v1");
     expect(source!.code).toContain('trigger cron "0 9 * * *"');
-    expect(source!.code).toContain("target kata some.kata v1");
+    expect(source!.code).toContain("run skill some-skill");
   });
 
   it("reconstructs DSL from stored fields for a real contract with no backing file", async () => {
@@ -98,25 +100,12 @@ describe("getNodeSource", () => {
     const node: ContractNode = {
       id: "contract:no-file", kind: "contract", name: "no-file", ghost: false,
       sourceRef: { origin: "registry", registryId: "1" }, version: "v1", triggerType: "event", eventName: "trust.changed",
-      targetKind: "kata", targetName: "handoff", targetVersion: "v1", active: true, approvalStatus: "live",
+      initialPhase: "handoff", phases: [{ name: "handoff", skill: "handoff-skill", terminal: "complete" }],
+      active: true, approvalStatus: "live",
     };
     const source = await getNodeSource(node, api);
     expect(source!.reconstructed).toBe(true);
     expect(source!.code).toContain('trigger event "trust.changed"');
-  });
-
-  it("returns a kata's real DSL source", async () => {
-    api = createMockAPI();
-    const storage = new KataStorage(api);
-    await storage.init();
-    await storage.save("k_v1", "k", "v1", "kata k v1\n  initial start\n\n  phase start\n    complete\n", { name: "k", version: "v1", requires: [], initial: "start", phases: {} }, "chk");
-
-    const node: KataNode = {
-      id: "kata:k@v1", kind: "kata", name: "k", ghost: false,
-      sourceRef: { origin: "registry" }, version: "v1", phases: [],
-    };
-    const source = await getNodeSource(node, api);
-    expect(source).toEqual({ code: "kata k v1\n  initial start\n\n  phase start\n    complete\n", language: "dsl" });
   });
 
   it("returns a synthesized description for a sensor node", async () => {

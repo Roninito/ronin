@@ -1,19 +1,42 @@
 /**
- * Dojo Agent: User-gated Kata Proposals & Realms Integration
+ * Dojo Agent: User-gated Contract Proposals & Realms Integration
  *
  * When a capability is missing or requested:
- * 1. Search realms for matching katas
+ * 1. Search realms for a matching automation
  * 2. Propose to user (pending approval)
  * 3. Wait for user decision
- * 4. Install approved katas
+ * 4. Register approved contracts
  *
- * "Dojo" = training ground where new katas are vetting before activation
+ * "Dojo" = training ground where new automations are vetted before activation.
+ *
+ * As of 2026-09-17 this drafts/installs Contracts (inline phase graphs)
+ * instead of Kata DSL + KataRegistry — Kata was removed. This flow is
+ * dormant today (nothing in the current duty set emits `capability.missing`),
+ * so there's no live behavior this had to preserve exactly; the realm-search
+ * → AI-draft → approval shape is kept, retargeted at the new model. Renamed
+ * every `kata.*` event this emits/listens for to `dojo.*` to avoid colliding
+ * with the unrelated `contract.proposal_approved`/`contract.task_*` events
+ * the chatty-tool proposal flow and the task engine already use.
  */
 
 import { randomUUID } from "crypto";
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import { KataRegistry } from "../src/kata/registry.js";
+import { parsePhaseBlocks } from "../src/contract/parser-v2.js";
+import { validateContractPhases } from "../src/contract/phase-compiler.js";
+import { CONTRACT_PHASE_GRAMMAR } from "../src/contract/phase-grammar.js";
+import { describePhaseChain } from "../src/contract/phase-format.js";
+import { ContractStorageV2 } from "../src/contract/storage-v2.js";
+import type { ContractPhase } from "../src/types/shared.js";
+
+interface DraftedContract {
+  name: string;
+  initialPhase: string;
+  phases: Record<string, ContractPhase>;
+  phasesDsl: string;
+  tags?: string[];
+  complexity?: string;
+}
 
 export default class DojoAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -24,12 +47,12 @@ export default class DojoAgent extends BaseDuty {
       await this.handleMissingCapability(payload);
     });
 
-    // Listen for kata.user_approved events
-    this.api.events.on("kata.user_approved", async (payload: any) => {
-      await this.handleApprovedKata(payload);
+    // Listen for dojo.contract_approved events (renamed from kata.user_approved)
+    this.api.events.on("dojo.contract_approved", async (payload: any) => {
+      await this.handleApprovedContract(payload);
     });
 
-    console.log("🥋 Dojo Agent ready. Listening for capability.missing and kata.user_approved");
+    console.log("🥋 Dojo Agent ready. Listening for capability.missing and dojo.contract_approved");
   }
 
   async execute(): Promise<void> {
@@ -41,9 +64,9 @@ export default class DojoAgent extends BaseDuty {
     context?: string;
   }): Promise<void> {
     try {
-      // Search realms for matching katas
+      // Search realms for a matching automation
       const results = await this.api.ai.complete(
-        `Search for katas that match this intent: ${payload.intent}
+        `Search for existing automations that match this intent: ${payload.intent}
 
         Return JSON with structure:
         {
@@ -64,24 +87,24 @@ export default class DojoAgent extends BaseDuty {
       const discovered = (this.api as any).realms.discover(parsed.search_query);
 
       if (discovered.length === 0) {
-        // No kata found - propose creation
-        await this.proposeNewKata(payload.intent);
+        // Nothing found - propose creating a new contract
+        await this.proposeNewContract(payload.intent);
         return;
       }
 
-      // Found katas - propose best match
+      // Found candidates - propose best match
       const proposal = discovered[0]; // TODO: better ranking
-      await this.proposeKataInstall(proposal);
+      await this.proposeContractInstall(proposal);
     } catch (error) {
       console.error("Dojo error:", error);
       this.api.events.emit("dojo.error", { error: String(error) }, "dojo");
     }
   }
 
-  private async proposeKataInstall(proposal: any): Promise<void> {
+  private async proposeContractInstall(proposal: any): Promise<void> {
     const proposalId = randomUUID();
 
-    await this.api.memory.store(`kata_proposal_${proposalId}`, {
+    await this.api.memory.store(`contract_proposal_${proposalId}`, {
       type: "install",
       proposal,
       createdAt: Date.now(),
@@ -89,10 +112,10 @@ export default class DojoAgent extends BaseDuty {
 
     // Emit event for UI to show approval dialog
     this.api.events.emit(
-      "kata.install_proposed",
+      "dojo.install_proposed",
       {
         proposalId,
-        kataName: proposal.name,
+        contractName: proposal.name,
         versions: proposal.versions.map((v: any) => ({
           version: v.version,
           complexity: v.complexity,
@@ -105,55 +128,78 @@ export default class DojoAgent extends BaseDuty {
     );
   }
 
-  private async proposeNewKata(intent: string): Promise<void> {
+  private async proposeNewContract(intent: string): Promise<void> {
     const proposalId = randomUUID();
 
-    // Use AI to generate kata proposal
-    const proposal = await this.api.ai.complete(
-      `Create a kata proposal for this intent: ${intent}
+    // Have the AI draft the phases-block DSL directly (same approach as
+    // src/contract/propose.ts), rather than a structured phase-description
+    // array we'd then have to hand-convert.
+    const raw = await this.api.ai.complete(
+      `Create an automation proposal for this intent: ${intent}
 
       Return JSON with structure:
       {
         "name": "example.intent",
-        "phases": [
-          { "name": "phase1", "description": "..." }
-        ],
-        "required_skills": ["skill1"],
+        "phasesDsl": "<phases-block DSL text — see grammar below>",
         "tags": ["automation"],
         "complexity": "simple"
-      }`
+      }
+
+      ${CONTRACT_PHASE_GRAMMAR}`
     );
 
-    const parsed = JSON.parse(proposal);
+    let parsed: { name: string; phasesDsl: string; tags?: string[]; complexity?: string };
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      console.error("[dojo] AI proposal was not valid JSON");
+      return;
+    }
 
-    await this.api.memory.store(`kata_proposal_${proposalId}`, {
+    const { initialPhase, phases } = parsePhaseBlocks(parsed.phasesDsl.split("\n"), 0);
+    const validation = validateContractPhases(initialPhase, phases);
+    if (!validation.valid) {
+      console.error(`[dojo] AI-drafted phases failed validation: ${validation.errors.map((e) => e.message).join("; ")}`);
+      return;
+    }
+
+    const draft: DraftedContract = {
+      name: parsed.name,
+      initialPhase,
+      phases,
+      phasesDsl: parsed.phasesDsl,
+      tags: parsed.tags,
+      complexity: parsed.complexity,
+    };
+
+    await this.api.memory.store(`contract_proposal_${proposalId}`, {
       type: "create",
-      proposal: parsed,
+      proposal: draft,
       originalIntent: intent,
       createdAt: Date.now(),
     });
 
     // Emit event for UI to show proposal dialog
     this.api.events.emit(
-      "kata.creation_proposed",
+      "dojo.creation_proposed",
       {
         proposalId,
-        kataName: parsed.name,
-        phases: parsed.phases,
-        requiredSkills: parsed.required_skills,
-        tags: parsed.tags,
-        complexity: parsed.complexity,
+        contractName: draft.name,
+        chain: describePhaseChain(draft.initialPhase, draft.phases),
+        phasesDsl: draft.phasesDsl,
+        tags: draft.tags,
+        complexity: draft.complexity,
       },
       "dojo"
     );
   }
 
-  private async handleApprovedKata(payload: {
+  private async handleApprovedContract(payload: {
     proposalId: string;
     approvedBy: string;
   }): Promise<void> {
     const proposal = await this.api.memory.retrieve(
-      `kata_proposal_${payload.proposalId}`
+      `contract_proposal_${payload.proposalId}`
     ) as { type: "install" | "create"; proposal: any } | undefined;
 
     if (!proposal) {
@@ -162,11 +208,9 @@ export default class DojoAgent extends BaseDuty {
     }
 
     if (proposal.type === "install") {
-      // Install from realm
       await this.installFromRealm(proposal.proposal, payload.approvedBy);
     } else if (proposal.type === "create") {
-      // Create new kata
-      await this.createNewKata(proposal.proposal, payload.approvedBy);
+      await this.registerNewContract(proposal.proposal as DraftedContract, payload.approvedBy);
     }
   }
 
@@ -181,80 +225,77 @@ export default class DojoAgent extends BaseDuty {
 
     (this.api as any).realms.approveInstall(requestId.id, approvedBy);
 
-    // Get DSL source from realm discovery result and register locally
+    // Get phases DSL source from the realm discovery result and register it
+    // as a manual-trigger contract locally — a realm-installed automation
+    // has no schedule/event of its own; the user wires one up afterward via
+    // the dashboard.
     const source = proposal.versions[0].source;
     if (source) {
       try {
-        const registry = new KataRegistry(this.api);
-        await registry.register(source);
-        console.log(`[dojo] Installed kata '${proposal.name}' from realm '${proposal.fromRealm}'`);
+        const { initialPhase, phases } = parsePhaseBlocks(String(source).split("\n"), 0);
+        const validation = validateContractPhases(initialPhase, phases);
+        if (!validation.valid) {
+          throw new Error(validation.errors.map((e) => e.message).join("; "));
+        }
+
+        const storage = new ContractStorageV2(this.api);
+        await storage.init();
+        await storage.create({
+          name: proposal.name,
+          version: proposal.versions[0].version ?? "v1",
+          initialPhase,
+          phases,
+          parameters: {},
+          triggerType: "manual",
+          triggerConfig: { type: "manual" },
+          onFailureAction: "ignore",
+          enabled: true,
+        });
+        console.log(
+          `[dojo] Installed contract '${proposal.name}' from realm '${proposal.fromRealm}' (manual trigger — set a schedule/event in the dashboard)`
+        );
       } catch (error) {
-        console.error(`[dojo] Failed to compile/register kata from realm: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[dojo] Failed to parse/register contract from realm: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
     this.api.events.emit(
-      "kata.installed",
+      "dojo.installed",
       {
-        kataName: proposal.name,
-        kataVersion: proposal.versions[0].version,
+        contractName: proposal.name,
+        contractVersion: proposal.versions[0].version,
         fromRealm: proposal.fromRealm,
       },
       "dojo"
     );
   }
 
-  private async createNewKata(proposal: any, approvedBy: string) {
-    // Build DSL source from the AI-generated proposal structure
-    const lines: string[] = [];
-
-    // Header
-    lines.push(`kata ${proposal.name} v1`);
-
-    // Required skills
-    const skills: string[] = proposal.required_skills ?? [];
-    for (const skill of skills) {
-      lines.push(`  requires skill ${skill}`);
-    }
-
-    // Initial phase
-    const phases: Array<{ name: string; description?: string }> = proposal.phases ?? [];
-    if (phases.length > 0) {
-      lines.push(`  initial ${phases[0]!.name}`);
-    }
-    lines.push("");
-
-    // Phase blocks — each phase runs its corresponding skill (or first skill as fallback)
-    for (let i = 0; i < phases.length; i++) {
-      const phase = phases[i]!;
-      const skill = skills[i] ?? skills[0] ?? "noop";
-      lines.push(`  phase ${phase.name}`);
-      lines.push(`    run skill ${skill}`);
-      if (i < phases.length - 1) {
-        lines.push(`    next ${phases[i + 1]!.name}`);
-      } else {
-        lines.push(`    complete`);
-      }
-      lines.push("");
-    }
-
-    const source = lines.join("\n").trim();
-
-    // Compile, validate, and register
+  private async registerNewContract(proposal: DraftedContract, approvedBy: string) {
     try {
-      const registry = new KataRegistry(this.api);
-      const compiled = await registry.register(source);
-      console.log(`[dojo] Created and registered kata '${compiled.name}' v${compiled.version} (${phases.length} phases)`);
+      const storage = new ContractStorageV2(this.api);
+      await storage.init();
+      await storage.create({
+        name: proposal.name,
+        version: "v1",
+        initialPhase: proposal.initialPhase,
+        phases: proposal.phases,
+        parameters: {},
+        triggerType: "manual",
+        triggerConfig: { type: "manual" },
+        onFailureAction: "ignore",
+        enabled: true,
+      });
+      console.log(`[dojo] Created and registered contract '${proposal.name}' (${Object.keys(proposal.phases).length} phases)`);
     } catch (error) {
-      console.error(`[dojo] Failed to compile/register new kata: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`[dojo] Failed to register new contract: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     this.api.events.emit(
-      "kata.created",
+      "dojo.created",
       {
-        kataName: proposal.name,
+        contractName: proposal.name,
         createdBy: approvedBy,
-        phases: phases.map((p) => p.name),
+        phases: Object.keys(proposal.phases),
       },
       "dojo"
     );

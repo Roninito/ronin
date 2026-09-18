@@ -14,27 +14,37 @@ import type { DutyEventsDecl, DutyBeamDecl, DutyQueriesDecl } from "../types/dut
 import { DutyLoader } from "../duty/DutyLoader.js";
 import { ContractStorageV2 } from "../contract/storage-v2.js";
 import { ContractProposalStorage } from "../contract/proposal-storage.js";
-import { KataStorage } from "../task/storage.js";
 import { DutyProposalStorage } from "../duty/proposal-storage.js";
 import { CronEvaluator } from "../contract/cron.js";
 import { scanDutySource } from "./scanner.js";
+import type { ContractPhase } from "../types/shared.js";
 import type {
   DerivedGraph,
   GraphNode,
   GraphEdge,
   DutyNode,
   ContractNode,
-  KataNode,
   SensorNode,
   BroadcastEdge,
   BeamEdge,
   QueryEdge,
-  ContractRunEdge,
   Derivation,
   CapabilityChip,
   BeamDecl,
   QueryOutDecl,
 } from "./types.js";
+
+/** ContractPhase's Record<name, phase> shape → ContractNode's flat array shape. */
+function phasesToNodeArray(phases: Record<string, ContractPhase>): ContractNode["phases"] {
+  return Object.values(phases).map((p) => ({
+    name: p.name,
+    skill: p.action.type === "run" ? p.action.skill : undefined,
+    ability: p.action.type === "run" ? p.action.ability : undefined,
+    eventName: p.action.type === "wait" ? p.action.eventName : undefined,
+    next: p.next,
+    terminal: p.terminal,
+  }));
+}
 
 interface DutyStatics {
   name: string;
@@ -190,6 +200,12 @@ async function deriveContractAndSensorNodes(
     } catch {
       /* leave empty */
     }
+    let phases: Record<string, ContractPhase> = {};
+    try {
+      phases = JSON.parse(row.phases);
+    } catch {
+      /* leave empty on malformed phases JSON */
+    }
     const triggerType = (row.trigger_type as ContractNode["triggerType"]) ?? "cron";
     let nextExecutions: string[] | undefined;
     if (triggerType === "cron" && cfg.expression) {
@@ -224,9 +240,8 @@ async function deriveContractAndSensorNodes(
       eventName: triggerType === "event" ? cfg.eventType : undefined,
       webhookPath: triggerType === "webhook" ? cfg.path : undefined,
       nextExecutions,
-      targetKind: "kata",
-      targetName: row.target_kata,
-      targetVersion: row.target_kata_version,
+      initialPhase: row.initial_phase,
+      phases: phasesToNodeArray(phases),
       active: !!row.enabled,
       approvalStatus: "live",
     });
@@ -245,48 +260,14 @@ async function deriveContractAndSensorNodes(
       triggerType: p.contract.triggerType as ContractNode["triggerType"],
       cronExpression: p.contract.triggerConfig.type === "cron" ? p.contract.triggerConfig.expression : undefined,
       eventName: p.contract.triggerConfig.type === "event" ? p.contract.triggerConfig.eventType : undefined,
-      targetKind: "kata",
-      targetName: p.contract.targetKata,
-      targetVersion: p.contract.targetKataVersion,
+      initialPhase: p.contract.initialPhase,
+      phases: phasesToNodeArray(p.contract.phases),
       active: false,
       approvalStatus: "pending",
     });
   }
 
   return { contracts, sensors };
-}
-
-async function deriveKataNodes(api: DutyAPI): Promise<KataNode[]> {
-  const storage = new KataStorage(api);
-  await storage.init();
-  const list = await storage.list();
-
-  const nodes: KataNode[] = [];
-  for (const k of list) {
-    const row = await storage.getByVersion(k.name, k.version);
-    let phases: KataNode["phases"] = [];
-    if (row?.compiledGraph) {
-      try {
-        phases = Object.values(row.compiledGraph.phases ?? {}).map((p: any) => ({
-          name: p.name,
-          skill: p.action?.type === "run" ? p.action.skill : undefined,
-          next: p.next,
-        }));
-      } catch {
-        /* leave empty on malformed compiled graph */
-      }
-    }
-    nodes.push({
-      id: `kata:${k.name}@${k.version}`,
-      kind: "kata",
-      name: k.name,
-      ghost: false,
-      sourceRef: { origin: "registry", registryId: `${k.name}@${k.version}` },
-      version: k.version,
-      phases,
-    });
-  }
-  return nodes;
 }
 
 function deriveDutySensorNodes(duties: DutyNode[]): SensorNode[] {
@@ -399,21 +380,9 @@ function deriveEdges(nodes: GraphNode[]): GraphEdge[] {
     }
   }
 
-  // Contract-run edges: contract -> its target kata.
-  for (const node of nodes) {
-    if (node.kind !== "contract") continue;
-    const targetId = `kata:${node.targetName}@${node.targetVersion ?? "v1"}`;
-    edges.push({
-      id: nextId("run"),
-      kind: "contract-run",
-      sourceNodeId: node.id,
-      targetNodeId: targetId,
-      ghost: node.ghost,
-      proposalId: node.proposalId,
-      derivation: "declared",
-      danglingTarget: !nodeIds.has(targetId),
-    } as ContractRunEdge);
-  }
+  // Contract-run edges (contract -> its target kata) no longer apply — a
+  // contract's phases are inline on the node itself as of 2026-09-17, so
+  // there's no separate kata node left to point an edge at.
 
   return edges;
 }
@@ -421,10 +390,9 @@ function deriveEdges(nodes: GraphNode[]): GraphEdge[] {
 export async function deriveGraph(api: DutyAPI, options: { dutyDir?: string } = {}): Promise<DerivedGraph> {
   const duties = await deriveDutyNodes(api, options.dutyDir ?? "duties");
   const { contracts, sensors: contractSensors } = await deriveContractAndSensorNodes(api);
-  const katas = await deriveKataNodes(api);
   const dutySensors = deriveDutySensorNodes(duties);
 
-  const nodes: GraphNode[] = [...duties, ...contracts, ...katas, ...contractSensors, ...dutySensors];
+  const nodes: GraphNode[] = [...duties, ...contracts, ...contractSensors, ...dutySensors];
   const edges = deriveEdges(nodes);
 
   return { nodes, edges, derivedAt: Date.now() };

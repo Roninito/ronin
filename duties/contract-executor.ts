@@ -1,5 +1,5 @@
 /**
- * Contract Executor Agent — Phase 7
+ * Contract Executor Agent
  *
  * Orchestrates contract and cron execution:
  * 1. Starts CronEngine (evaluates cron expressions)
@@ -10,12 +10,12 @@
  *     ↓ emits contract.cron_triggered
  *   ContractEngine
  *     ↓ emits task.spawn_requested
- *   TaskExecutor
- *     ↓ creates and runs task
+ *   duties/task-executor.ts
+ *     ↓ creates and runs the task off the contract's own inline phase graph
  */
 
-import { BaseDuty } from "@ronin/duty/index.js";
-import type { DutyAPI } from "@ronin/types/index.js";
+import { BaseDuty } from "../src/duty/index.js";
+import type { DutyAPI } from "../src/types/index.js";
 import {
   CronEngine,
   ContractEngine,
@@ -25,12 +25,13 @@ import {
   ContractProposeError,
 } from "../src/contract/index.js";
 import { ContractStorageV2 } from "../src/contract/storage-v2.js";
-import { KataRegistry } from "../src/kata/registry.js";
-import { KataStorage } from "../src/task/storage.js";
 import { toKebabCase } from "../src/duty/duty-authoring.js";
 import { cronToHuman, getNextCronRun } from "../src/contract/cron.js";
-import { conditionToHuman } from "../src/kata/conditions.js";
-import type { TriggerConfig, ContractV2Definition } from "../src/types/shared.js";
+import { conditionToHuman } from "../src/contract/conditions.js";
+import { parsePhaseBlocks } from "../src/contract/parser-v2.js";
+import { validateContractPhases } from "../src/contract/phase-compiler.js";
+import { describePhaseChain, formatContractPhasesDsl } from "../src/contract/phase-format.js";
+import type { TriggerConfig, ContractV2Definition, ContractPhase } from "../src/types/shared.js";
 import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 /** Prefix route for /api/contracts/item/<name> and /api/contracts/item/<name>/chat
@@ -120,7 +121,7 @@ export default class ContractExecutorAgent extends BaseDuty {
           const rec = await this.proposalStorage.create({
             intent: args.intent,
             contract: proposal.contract,
-            kataDsl: proposal.kataDsl,
+            phasesDsl: proposal.phasesDsl,
             preview: proposal.preview,
             supersedesId: args.reviseProposalId,
           });
@@ -201,19 +202,21 @@ export default class ContractExecutorAgent extends BaseDuty {
     const contractStorage = new ContractStorageV2(this.api);
     const row = await contractStorage.getByName(name);
     if (!row) return new Response("Not found", { status: 404 });
+    const phases = JSON.parse(row.phases) as Record<string, ContractPhase>;
     return Response.json({
       ...row,
       trigger_config: JSON.parse(row.trigger_config),
       parameters: row.parameters ? JSON.parse(row.parameters) : {},
+      phases,
+      phasesDsl: formatContractPhasesDsl(row.initial_phase, phases),
     });
   }
 
   /**
    * Manual create-or-update, no approval gate — this is the direct-authoring
    * path alongside contracts.proposeReflex's AI-drafted-then-approved one.
-   * When the body includes a freshly chat-drafted kataDsl, register it first
-   * (same ordering handleApproveProposal already uses below) so target_kata/
-   * target_kata_version point at a real, compiled kata before the row is written.
+   * Phases are parsed/validated from raw DSL text here rather than pointing
+   * at a separate registered artifact — there's nothing left to register.
    */
   private async handleSaveContract(req: Request, name: string): Promise<Response> {
     try {
@@ -221,12 +224,10 @@ export default class ContractExecutorAgent extends BaseDuty {
         description?: string;
         triggerType?: "cron" | "event";
         triggerConfig?: TriggerConfig;
-        targetKata?: string;
-        targetKataVersion?: string;
         parameters?: Record<string, unknown>;
         onFailureAction?: "retry" | "alert" | "ignore";
         enabled?: boolean;
-        kataDsl?: string;
+        phasesDsl?: string;
       };
 
       const kebabName = toKebabCase(name);
@@ -242,27 +243,34 @@ export default class ContractExecutorAgent extends BaseDuty {
         }
       }
 
-      let targetKata = body.targetKata;
-      let targetKataVersion = body.targetKataVersion || "v1";
-      if (body.kataDsl) {
-        const registry = new KataRegistry(this.api);
-        const compiled = await registry.register(body.kataDsl);
-        targetKata = compiled.name;
-        targetKataVersion = compiled.version;
+      let initialPhase: string | undefined;
+      let phases: Record<string, ContractPhase> | undefined;
+      if (body.phasesDsl && body.phasesDsl.trim()) {
+        try {
+          const result = parsePhaseBlocks(body.phasesDsl.split("\n"), 0);
+          const validation = validateContractPhases(result.initialPhase, result.phases);
+          if (!validation.valid) {
+            return Response.json({ success: false, message: `Invalid phases: ${validation.errors.map((e) => e.message).join("; ")}` }, { status: 400 });
+          }
+          initialPhase = result.initialPhase;
+          phases = result.phases;
+        } catch (error) {
+          return Response.json({ success: false, message: `Invalid phases: ${error instanceof Error ? error.message : String(error)}` }, { status: 400 });
+        }
       }
 
       const contractStorage = new ContractStorageV2(this.api);
       const existing = await contractStorage.getByName(kebabName);
 
       if (!existing) {
-        if (!targetKata) return Response.json({ success: false, message: "Target kata required" }, { status: 400 });
+        if (!initialPhase || !phases) return Response.json({ success: false, message: "Phases required" }, { status: 400 });
         if (!body.triggerType || !body.triggerConfig) return Response.json({ success: false, message: "Trigger required" }, { status: 400 });
         const def: ContractV2Definition = {
           name: kebabName,
           version: "v1",
           description: body.description,
-          targetKata,
-          targetKataVersion,
+          initialPhase,
+          phases,
           parameters: body.parameters ?? {},
           triggerType: body.triggerType,
           triggerConfig: body.triggerConfig,
@@ -273,8 +281,8 @@ export default class ContractExecutorAgent extends BaseDuty {
       } else {
         const fields: Record<string, unknown> = {};
         if (body.description !== undefined) fields.description = body.description;
-        if (targetKata !== undefined) fields.target_kata = targetKata;
-        if (targetKataVersion !== undefined) fields.target_kata_version = targetKataVersion;
+        if (initialPhase !== undefined) fields.initial_phase = initialPhase;
+        if (phases !== undefined) fields.phases = JSON.stringify(phases);
         if (body.parameters !== undefined) fields.parameters = Object.keys(body.parameters).length > 0 ? JSON.stringify(body.parameters) : null;
         if (body.triggerType !== undefined) fields.trigger_type = body.triggerType;
         if (body.triggerConfig !== undefined) fields.trigger_config = JSON.stringify(body.triggerConfig);
@@ -301,7 +309,7 @@ export default class ContractExecutorAgent extends BaseDuty {
   /**
    * One discussion turn scoped to a single contract (or "_new" for a
    * not-yet-created one, same sentinel workflow-manager.ts's chat uses).
-   * Always redrafts the full contract (trigger + kata) via the same
+   * Always redrafts the full contract (trigger + phases) via the same
    * proposeContract() pipeline contracts.proposeReflex uses — reuses its
    * skill catalog, retry loop, and validation untouched. Never auto-saves:
    * returns a draft for the client to apply into the form, Save is separate.
@@ -326,7 +334,8 @@ export default class ContractExecutorAgent extends BaseDuty {
             triggerText = `when ${cfg.eventType} fires` + (cfg.condition ? ` and ${conditionToHuman(cfg.condition)}` : "");
           }
         } catch { /* leave as raw trigger_type */ }
-        intent = `Revise this existing contract named "${existing.name}":\n  Description: ${existing.description ?? "(none)"}\n  Trigger: ${triggerText}\n  Target kata: ${existing.target_kata} v${existing.target_kata_version}\n\nUser's requested change: ${message}`;
+        const existingPhases = JSON.parse(existing.phases) as Record<string, ContractPhase>;
+        intent = `Revise this existing contract named "${existing.name}":\n  Description: ${existing.description ?? "(none)"}\n  Trigger: ${triggerText}\n  Phases: ${describePhaseChain(existing.initial_phase, existingPhases)}\n\nUser's requested change: ${message}`;
       } else {
         intent = message;
       }
@@ -338,9 +347,7 @@ export default class ContractExecutorAgent extends BaseDuty {
           description: proposal.contract.description,
           triggerType: proposal.contract.triggerType,
           triggerConfig: proposal.contract.triggerConfig,
-          targetKata: proposal.contract.targetKata,
-          targetKataVersion: proposal.contract.targetKataVersion,
-          kataDsl: proposal.kataDsl,
+          phasesDsl: proposal.phasesDsl,
         },
       });
     } catch (error) {
@@ -359,11 +366,9 @@ export default class ContractExecutorAgent extends BaseDuty {
     if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
 
     const contractStorage = new ContractStorageV2(this.api);
-    const kataStorage = new KataStorage(this.api);
-    const [contracts, proposals, katas] = await Promise.all([
+    const [contracts, proposals] = await Promise.all([
       contractStorage.list({ sort: "name" }),
       this.proposalStorage.listPending(),
-      kataStorage.list(),
     ]);
 
     const triggerTextOf = (row: { trigger_type: string; trigger_config: string }): string => {
@@ -381,7 +386,7 @@ export default class ContractExecutorAgent extends BaseDuty {
           <strong>${escapeHtml(row.name)}</strong>
           <span class="contract-status ${row.enabled ? "enabled" : "disabled"}">${row.enabled ? "Enabled" : "Disabled"}</span>
         </div>
-        <div class="contract-item-detail">${escapeHtml(triggerTextOf(row))} → runs kata '${escapeHtml(row.target_kata)}'</div>
+        <div class="contract-item-detail">${escapeHtml(triggerTextOf(row))} → ${escapeHtml(describePhaseChain(row.initial_phase, JSON.parse(row.phases)))}</div>
         <div class="contract-item-meta">Executions: ${row.execution_count}${row.last_executed_at ? ` · Last: ${new Date(row.last_executed_at).toLocaleString()}` : ""}</div>
         <div class="contract-item-actions">
           <button onclick="event.stopPropagation(); toggleEnabled('${escapeHtml(row.name)}', ${row.enabled ? "true" : "false"})">${row.enabled ? "Disable" : "Enable"}</button>
@@ -397,8 +402,6 @@ export default class ContractExecutorAgent extends BaseDuty {
           <button class="proposal-card-refuse" onclick="decideProposal('${escapeHtml(p.id)}','refuse',this.parentElement)">Refuse</button>
         </div>
       </div>`).join("\n") || `<div class="empty-state">No pending proposals.</div>`;
-
-    const kataOptions = katas.map((k) => `<option value="${escapeHtml(k.name)}">${escapeHtml(k.name)} (${escapeHtml(k.version)})</option>`).join("");
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -563,8 +566,12 @@ export default class ContractExecutorAgent extends BaseDuty {
             </select>
           </div>
           <div class="field-row">
-            <label>Target Kata</label>
-            <select id="f-kata">${kataOptions}</select>
+            <label>On Failure</label>
+            <select id="f-on-failure">
+              <option value="ignore">Ignore</option>
+              <option value="alert">Alert</option>
+              <option value="retry">Retry</option>
+            </select>
           </div>
         </div>
 
@@ -582,19 +589,14 @@ export default class ContractExecutorAgent extends BaseDuty {
           <input type="text" id="f-cond-value" placeholder="condition value (optional)" style="margin-top:${hankoTheme.spacing.xs};" />
         </div>
 
-        <div class="field-cols">
-          <div class="field-row">
-            <label>On Failure</label>
-            <select id="f-on-failure">
-              <option value="ignore">Ignore</option>
-              <option value="alert">Alert</option>
-              <option value="retry">Retry</option>
-            </select>
-          </div>
-          <div class="field-row field-row-inline" style="margin-top: 20px;">
-            <input type="checkbox" id="f-enabled" checked />
-            <label style="margin:0;text-transform:none;">Enabled</label>
-          </div>
+        <div class="field-row field-row-inline">
+          <input type="checkbox" id="f-enabled" checked />
+          <label style="margin:0;text-transform:none;">Enabled</label>
+        </div>
+
+        <div class="field-row">
+          <label>Phases</label>
+          <textarea id="f-phases" placeholder="initial step-one&#10;&#10;phase step-one&#10;  run skill some-skill&#10;  complete" style="min-height: 140px;"></textarea>
         </div>
 
         <div class="field-row">
@@ -621,8 +623,6 @@ export default class ContractExecutorAgent extends BaseDuty {
     function esc(v){return String(v||'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
     let selectedName = null; // null while nothing selected/new
-    let pendingKataDsl = undefined; // set when a chat draft included a new kata, cleared on select/new/save
-
     function showDetail() {
       document.getElementById('detail-panel').style.display = '';
       document.getElementById('no-selection').style.display = 'none';
@@ -645,7 +645,7 @@ export default class ContractExecutorAgent extends BaseDuty {
       document.getElementById('f-cond-operator').value = cond ? (cond.operator || '') : '';
       document.getElementById('f-cond-value').value = cond && cond.value !== undefined ? String(cond.value) : '';
       applyTriggerType();
-      document.getElementById('f-kata').value = data.targetKata || '';
+      document.getElementById('f-phases').value = data.phasesDsl || '';
       document.getElementById('f-on-failure').value = data.onFailureAction || 'ignore';
       document.getElementById('f-enabled').checked = data.enabled !== false;
       document.getElementById('f-parameters').value = data.parameters && Object.keys(data.parameters).length ? JSON.stringify(data.parameters, null, 2) : '';
@@ -656,7 +656,6 @@ export default class ContractExecutorAgent extends BaseDuty {
       if (!res.ok) return;
       const data = await res.json();
       selectedName = name;
-      pendingKataDsl = undefined;
       showDetail();
       document.querySelectorAll('.contract-item').forEach(el => el.classList.toggle('selected', el.dataset.name === name));
       document.getElementById('detail-name').value = name;
@@ -667,7 +666,6 @@ export default class ContractExecutorAgent extends BaseDuty {
 
     function newContract() {
       selectedName = null;
-      pendingKataDsl = undefined;
       showDetail();
       document.querySelectorAll('.contract-item').forEach(el => el.classList.remove('selected'));
       document.getElementById('detail-name').value = '';
@@ -701,11 +699,10 @@ export default class ContractExecutorAgent extends BaseDuty {
         description: document.getElementById('f-description').value.trim(),
         triggerType,
         triggerConfig,
-        targetKata: document.getElementById('f-kata').value,
+        phasesDsl: document.getElementById('f-phases').value,
         parameters,
         onFailureAction: document.getElementById('f-on-failure').value,
         enabled: document.getElementById('f-enabled').checked,
-        kataDsl: pendingKataDsl,
       };
     }
 
@@ -718,7 +715,7 @@ export default class ContractExecutorAgent extends BaseDuty {
       try { payload = readForm(); } catch (e) { statusEl.textContent = e.message; return; }
       if (!payload.triggerConfig.expression && payload.triggerType === 'cron') { statusEl.textContent = 'Cron expression required.'; return; }
       if (!payload.triggerConfig.eventType && payload.triggerType === 'event') { statusEl.textContent = 'Event type required.'; return; }
-      if (!payload.targetKata) { statusEl.textContent = 'Target kata required.'; return; }
+      if (!payload.phasesDsl || !payload.phasesDsl.trim()) { statusEl.textContent = 'Phases required.'; return; }
       statusEl.textContent = 'Saving...';
       try {
         const res = await fetch('/api/contracts/item/' + encodeURIComponent(targetName), {
@@ -730,7 +727,6 @@ export default class ContractExecutorAgent extends BaseDuty {
         if (res.ok && body.success) {
           statusEl.textContent = 'Saved.';
           selectedName = body.name;
-          pendingKataDsl = undefined;
           nameField.value = body.name;
           nameField.disabled = true;
           await loadContractList();
@@ -818,10 +814,7 @@ export default class ContractExecutorAgent extends BaseDuty {
             document.getElementById('detail-name').disabled = !selectedName;
           }
           fillForm(draft);
-          pendingKataDsl = draft.kataDsl;
-          document.getElementById('save-status').textContent = draft.kataDsl
-            ? 'Draft applied (includes a new kata) — review and Save when ready.'
-            : 'Draft applied — review and Save when ready.';
+          document.getElementById('save-status').textContent = 'Draft applied — review and Save when ready.';
         };
         actions.appendChild(btn);
         el.appendChild(actions);
@@ -883,11 +876,6 @@ export default class ContractExecutorAgent extends BaseDuty {
       if (!proposal) return new Response("Proposal not found", { status: 404 });
       if (proposal.status !== "pending") {
         return Response.json({ success: false, message: `Proposal is already ${proposal.status}` }, { status: 409 });
-      }
-
-      if (proposal.kataDsl) {
-        const registry = new KataRegistry(this.api);
-        await registry.register(proposal.kataDsl);
       }
 
       const contractStorage = new ContractStorageV2(this.api);

@@ -6,9 +6,8 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { runEngineMigrations } from "../src/database/migrations.js";
 import { deriveGraph } from "../src/graph/derive.js";
 import { ContractStorageV2 } from "../src/contract/storage-v2.js";
-import { KataStorage } from "../src/task/storage.js";
 import type { ContractV2Definition } from "../src/types/shared.js";
-import type { ContractNode, DutyNode, KataNode, SensorNode } from "../src/graph/types.js";
+import type { ContractNode, DutyNode, SensorNode } from "../src/graph/types.js";
 
 function createMockAPI(): DutyAPI {
   const Database = require("bun:sqlite").Database;
@@ -33,8 +32,8 @@ const SAMPLE_CONTRACT: ContractV2Definition = {
   name: "daily-audit",
   version: "v1",
   description: "test contract",
-  targetKata: "finance.audit",
-  targetKataVersion: "v1",
+  initialPhase: "check",
+  phases: { check: { name: "check", action: { type: "run", skill: "finance.extract" }, terminal: "complete" } },
   parameters: {},
   triggerType: "cron",
   triggerConfig: { type: "cron", expression: "0 9 * * *" },
@@ -119,31 +118,13 @@ describe("deriveGraph", () => {
     expect(beamEdge!.derivation).toBe("declared");
   });
 
-  it("derives a live contract node with next executions and a cron sensor, and resolves a contract-run edge to a real kata", async () => {
+  it("derives a live contract node with next executions, a cron sensor, and its own inline phases", async () => {
     scratchDir = mkdtempSync(join(tmpdir(), "ronin-graph-derive-"));
     api = createMockAPI();
     await runEngineMigrations((api as any).db);
 
     const contractStorage = new ContractStorageV2(api);
     await contractStorage.create(SAMPLE_CONTRACT);
-
-    const kataStorage = new KataStorage(api);
-    await kataStorage.init();
-    await kataStorage.save(
-      "finance.audit_v1",
-      "finance.audit",
-      "v1",
-      "kata finance.audit v1\n  requires skill finance.extract\n\n  initial check\n\n  phase check\n    run skill finance.extract\n    complete\n",
-      {
-        name: "finance.audit",
-        version: "v1",
-        requires: [],
-        initial: "check",
-        phases: { check: { name: "check", action: { type: "run", skill: "finance.extract" } } },
-        requiredSkills: ["finance.extract"],
-      },
-      "checksum123"
-    );
 
     const graph = await deriveGraph(api, { dutyDir: scratchDir });
 
@@ -153,18 +134,13 @@ describe("deriveGraph", () => {
     expect(contractNode!.approvalStatus).toBe("live");
     expect(contractNode!.triggerType).toBe("cron");
     expect(contractNode!.nextExecutions?.length).toBe(5);
+    // Phases now live inline on the contract node itself — no separate kata
+    // node/edge to resolve (Kata removed 2026-09-17).
+    expect(contractNode!.initialPhase).toBe("check");
+    expect(contractNode!.phases).toEqual([{ name: "check", skill: "finance.extract", ability: undefined, eventName: undefined, next: undefined, terminal: "complete" }]);
 
     const cronSensor = graph.nodes.find((n): n is SensorNode => n.kind === "sensor" && n.id === "sensor:cron:daily-audit");
     expect(cronSensor).toBeDefined();
     expect(cronSensor!.config.expression).toBe("0 9 * * *");
-
-    const kataNode = graph.nodes.find((n): n is KataNode => n.kind === "kata" && n.name === "finance.audit");
-    expect(kataNode).toBeDefined();
-    expect(kataNode!.phases).toEqual([{ name: "check", skill: "finance.extract", next: undefined }]);
-
-    const runEdge = graph.edges.find((e) => e.kind === "contract-run");
-    expect(runEdge).toBeDefined();
-    expect(runEdge!.targetNodeId).toBe("kata:finance.audit@v1");
-    expect(runEdge!.danglingTarget).toBe(false);
   });
 });

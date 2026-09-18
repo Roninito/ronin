@@ -11,7 +11,6 @@ import { homedir } from "os";
 import { ensureDefaultExternalDutyDir, ensureDefaultDutyDir } from "../cli/commands/config.js";
 import { getDefaultCache } from "./cache.js";
 import type { DutyAPI } from "../types/index.js";
-import type { OpenAIFunctionSchema } from "../tools/types.js";
 
 export interface RoninContext {
   duties: Array<{ name: string; description?: string }>;
@@ -411,7 +410,14 @@ export function injectContractProposalCardIntoResponse(
     const data = tr.result as Record<string, unknown>;
     if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
     const fence = "```contract-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
-    if (!response.includes(data.id)) fences.push(fence);
+    // Check for the fence itself, not just the bare id — a model that
+    // narrates the id in prose ("...with ID prop_123") must not suppress the
+    // card. Real bug: this used to check `response.includes(data.id)`, so a
+    // model saying "I've drafted it, ID: prop_123" silently swallowed the
+    // card every time, contradicting this function's whole point (see the
+    // doc comment above: the card must appear regardless of what the model
+    // says in prose).
+    if (!response.includes(fence)) fences.push(fence);
   }
   if (fences.length === 0) return response;
   return response + "\n\n" + fences.join("\n\n");
@@ -433,7 +439,10 @@ export function injectWorkflowProposalCardIntoResponse(
     const data = tr.result as Record<string, unknown>;
     if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
     const fence = "```workflow-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
-    if (!response.includes(data.id)) fences.push(fence);
+    // See injectContractProposalCardIntoResponse above — check the fence
+    // itself, not the bare id, or a model narrating the id in prose silently
+    // suppresses the card.
+    if (!response.includes(fence)) fences.push(fence);
   }
   if (fences.length === 0) return response;
   return response + "\n\n" + fences.join("\n\n");
@@ -458,7 +467,12 @@ export function injectDutyProposalCardIntoResponse(
     const data = tr.result as Record<string, unknown>;
     if (typeof data.id !== "string" || typeof data.preview !== "string" || typeof data.code !== "string") continue;
     const fence = "```duty-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview, code: data.code }) + "\n```";
-    if (!response.includes(data.id)) fences.push(fence);
+    // See injectContractProposalCardIntoResponse above — this exact bug is
+    // what was reported: the model narrated the id in prose ("with ID
+    // dprop_..."), `response.includes(data.id)` was true, and the card was
+    // silently never appended even though the proposal was drafted
+    // successfully. Check the fence itself, not the bare id.
+    if (!response.includes(fence)) fences.push(fence);
   }
   if (fences.length === 0) return response;
   return response + "\n\n" + fences.join("\n\n");
@@ -547,163 +561,3 @@ export async function windowMessages(
   return result;
 }
 
-/**
- * Filter tool schemas by message context to stay within budget and relevance.
- * Always includes core tools (including local.memory.search); conditionally includes Discord/Telegram, speech.
- */
-export function filterToolSchemas(
-  allSchemas: OpenAIFunctionSchema[],
-  context: {
-    message: string;
-    hasSkills?: boolean;
-    maxSchemas?: number;
-  }
-): OpenAIFunctionSchema[] {
-  const maxSchemas = context.maxSchemas ?? 12;
-  const msg = (context.message ?? "").toLowerCase();
-
-  // Check if this looks like a tool-using query vs simple chat
-  const isToolQuery = /\b(weather|email|mail|discord|telegram|search|run|execute|list files|read file|write file|delete|database|ronin\.db|diagram|mermaid|flowchart|recall|remember|memory)\b/.test(msg);
-  const isQuestion = /\b(what|how|who|where|when|why|which|can|could|would|will|is|are|do|does|did)\b/.test(msg);
-  const isGreeting = /\b(hello|hi|hey|good morning|good afternoon|good evening|greetings|howdy)\b/.test(msg);
-  // Include tools when user asks about duties/architecture (so memory can be used).
-  // "contract"/"kata" belong in this bucket too — they're first-class engine
-  // concepts exactly like "duty", not an oversight to leave out.
-  const isAboutDuties = /\b(duty|duties|contract|contracts|kata|katas|intent-ingress|chatty|ronin)\b/.test(msg);
-  // "propose"/"proposal" added after a real bug: "can you propose a contract"
-  // matched none of create/make/build/generate/new-duty/new-skill, so
-  // contracts.proposeReflex (and duties.proposeDuty) never entered the tool
-  // set for the most natural way to ask for one — the model had nothing to
-  // call and hallucinated a search instead, looping on it.
-  const isCreationRequest = /\b(create|make|build|generate|write me|propose|proposal|proposing|new duty|new skill|new contract)\b/.test(msg);
-  const isLookupRequest = /\b(list|show|get|find)\b.*\b(duty|duties|agent|plugin|skill|route|tool|contract|contracts|kata|katas)\b/.test(msg);
-  // "when X happens, do Y" / "whenever" / "every time" / "automatically" — reflex
-  // (event/schedule-triggered automation) requests. contracts.proposeReflex has no
-  // other way into the tool set: it isn't a lookup, isn't a greeting, and the
-  // wording rarely overlaps isCreationRequest's create/make/build vocabulary.
-  const isReflexRequest = /\b(whenever|automatically|every time|reflex)\b/.test(msg)
-    || /\bwhen\b.{0,80}\b(do|run|notify|alert|trigger|send|handoff|hand off)\b/.test(msg);
-
-  // Hand-tuned keyword regexes above can't anticipate every plugin (they missed "list
-  // mngr tasks" and "show me the last 3 git commits" entirely — "tasks"/"commits" aren't
-  // in isLookupRequest's noun list). A message that literally names a real plugin is
-  // strong, generic signal regardless of phrasing.
-  const knownPluginPrefixes = new Set<string>();
-  for (const schema of allSchemas) {
-    const n = schema.function?.name ?? "";
-    const underscore = n.indexOf("_");
-    if (underscore > 2) knownPluginPrefixes.add(n.slice(0, underscore));
-  }
-  const mentionsKnownPlugin = Array.from(knownPluginPrefixes).some((p) => msg.includes(p));
-
-  // Only include tools for genuine action requests, not for explanatory questions
-  if (!isToolQuery && !isAboutDuties && !isCreationRequest && !isLookupRequest && !isReflexRequest && !mentionsKnownPlugin) {
-    return []; // Return empty for simple chat/questions - let the model answer from knowledge
-  }
-  // Greetings should never get tools
-  if (isGreeting && !isToolQuery && !isCreationRequest && !isReflexRequest) {
-    return [];
-  }
-
-  const coreNames = new Set([
-    "local.memory.search",
-    "local.events.emit",
-    "skills.run",
-  ]);
-  // contracts.proposeReflex/duties.proposeDuty are dot-named (no "_"), so the
-  // registration-order truncation below never gave them the "plugin literally
-  // mentioned in message" priority boost that plugin_method-style tools get —
-  // on a message with lots of other tool matches (e.g. mentioning both
-  // "discord" and "telegram"), they could be silently truncated out of the
-  // model's options on exactly the "create/propose a contract" requests they
-  // exist for. Guarantee them a slot whenever the message looks like a
-  // creation/reflex request, same as the other always-included core tools.
-  if (isCreationRequest || isReflexRequest) {
-    coreNames.add("contracts.proposeReflex");
-    coreNames.add("duties.proposeDuty");
-  }
-
-  const includeDiscord = /discord|guild|channel.*discord/.test(msg);
-  const includeTelegram = /telegram|telegram bot/.test(msg);
-  const includeSpeech = /say|speak|listen|voice|hear|tell me out loud/.test(
-    msg
-  );
-  const includeDb = /\b(database|tables?|schema|ronin\.db|sql)\b/.test(msg);
-  const isDiagramRequest = /\b(diagram|mermaid|flowchart|flow chart|chart|draw)\b/.test(msg);
-
-  const result: OpenAIFunctionSchema[] = [];
-  for (const schema of allSchemas) {
-    const name = schema.function?.name ?? "";
-    if (coreNames.has(name) || (name === "skills.run" && context.hasSkills)) {
-      result.push(schema);
-      continue;
-    }
-    if (isDiagramRequest && name.startsWith("local.ronin_script.")) {
-      continue;
-    }
-    if (name === "local.db.query" && includeDb) {
-      result.push(schema);
-      continue;
-    }
-    if (name.startsWith("local.discord.") && includeDiscord) {
-      result.push(schema);
-      continue;
-    }
-    if (name.startsWith("local.telegram.") && includeTelegram) {
-      result.push(schema);
-      continue;
-    }
-    if (
-      (name === "local.speech.say" || name === "local.speech.listen") &&
-      includeSpeech
-    ) {
-      result.push(schema);
-      continue;
-    }
-    if (
-      !name.startsWith("local.discord.") &&
-      !name.startsWith("local.telegram.") &&
-      // Raw discord_*/telegram_* plugin tools require a manually-managed
-      // clientId/botId (from a discord_initBot/telegram_initBot call that's
-      // never actually offered — see isPluginMethodSkipped) and are a dead
-      // end for the model. local.discord.*/local.telegram.* cover the same
-      // ground with auto-init from config, so never surface the raw ones here.
-      !name.startsWith("discord_") &&
-      !name.startsWith("telegram_")
-    ) {
-      result.push(schema);
-    }
-  }
-
-  if (result.length > maxSchemas) {
-    // Plain slice() here truncates in registration order — local tools first, then
-    // plugins roughly by load order — so a plugin loaded late (e.g. mngr is 8th, git
-    // later still) could get silently cut from the model's options entirely by tools
-    // it had nothing to do with the request, even when its own name is right there in
-    // the message ("list mngr tasks"). Stable-sort tools whose plugin prefix is
-    // literally mentioned in the message to the front before truncating, so an explicit
-    // mention always survives the cap.
-    result.sort((a, b) => {
-      // coreNames (including contracts.proposeReflex/duties.proposeDuty when
-      // conditionally added above) must survive truncation unconditionally —
-      // being in the pre-truncation candidate list isn't enough on its own,
-      // since a message mentioning several plugins by name (e.g. both
-      // "discord" and "telegram") can fill all maxSchemas slots with
-      // "mentioned" catch-all tools before a core tool that scored 0 (e.g.
-      // "contract" singular in the message vs "contracts" plural in the tool
-      // name) ever gets considered.
-      const priority = (s: OpenAIFunctionSchema): number => {
-        const n = s.function?.name ?? "";
-        if (coreNames.has(n)) return 2;
-        // Check every "_"/"."-separated segment, not just the first (plugin-prefix)
-        // one — a dot-named tool like "local.discord.getBotInfo" is just as relevant
-        // to a message mentioning "discord" as an underscore-named "discord_getBotInfo"
-        // is, even though "discord" is its second segment, not its first.
-        return n.split(/[_.]/).some((seg) => seg.length > 2 && msg.includes(seg)) ? 1 : 0;
-      };
-      return priority(b) - priority(a);
-    });
-    return result.slice(0, maxSchemas);
-  }
-  return result;
-}

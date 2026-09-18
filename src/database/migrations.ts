@@ -175,6 +175,32 @@ CREATE TABLE IF NOT EXISTS task_phases (
 
 CREATE INDEX IF NOT EXISTS idx_task_phases_task ON task_phases(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_phases_status ON task_phases(status);
+
+-- ── Contract→Task migration (dropping Kata as an intermediate layer) ────────
+-- Phases now live inline on the contract row instead of a separately
+-- versioned Kata artifact. Tasks track their live phase pointer and
+-- variables directly instead of re-deriving them from a Kata registry lookup.
+
+ALTER TABLE contracts_v2 ADD COLUMN initial_phase TEXT NOT NULL DEFAULT '';
+ALTER TABLE contracts_v2 ADD COLUMN phases TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE tasks_v2 ADD COLUMN current_phase TEXT;
+ALTER TABLE tasks_v2 ADD COLUMN variables TEXT;
+
+-- target_kata was NOT NULL — ContractStorageV2.create() no longer populates
+-- it at all, so leaving it in place (as originally planned, deferred to a
+-- later cleanup pass) blocks every insert rather than just sitting unused.
+-- Dropping it now instead, since Bun's bundled SQLite supports DROP COLUMN
+-- (verified before writing this migration) and contracts_v2 had no real
+-- rows depending on it — the loader re-parses .contract files from disk on
+-- every start and overwrites whatever's stored. The old idx_contracts_v2_target
+-- index (on target_kata) has to go first — SQLite refuses to drop a column
+-- an index still references.
+DROP INDEX IF EXISTS idx_contracts_v2_target;
+ALTER TABLE contracts_v2 DROP COLUMN target_kata;
+ALTER TABLE contracts_v2 DROP COLUMN target_kata_version;
+
+-- contract_proposals.kata_dsl is now "the drafted phases block", not kata source.
+ALTER TABLE contract_proposals RENAME COLUMN kata_dsl TO phases_dsl;
 `;
 
 /**
@@ -194,7 +220,21 @@ export async function runEngineMigrations(db: any): Promise<void> {
         await db.execute(statement);
       }
     } catch (error: any) {
-      if (!error.message?.includes("already exists")) {
+      const msg: string = error.message ?? "";
+      // ALTER TABLE ADD/DROP COLUMN isn't naturally idempotent like
+      // CREATE TABLE IF NOT EXISTS — this reruns on every duty construction,
+      // so a column that already exists (or was already dropped) must be
+      // swallowed the same way "already exists" is for CREATE TABLE/INDEX.
+      // Matched as a PREFIX, not a substring: SQLite's real "column doesn't
+      // exist" re-run error starts with these exact phrases, but the same
+      // words also appear inside unrelated, real failures — e.g. dropping a
+      // column an index still depends on fails with "error in index ... after
+      // drop column: no such column: X", which must NOT be swallowed.
+      const alreadyApplied =
+        msg.includes("already exists") ||
+        msg.startsWith("duplicate column") ||
+        msg.startsWith("no such column");
+      if (!alreadyApplied) {
         console.error("[engine-migrations] Error:", error.message);
         throw error;
       }

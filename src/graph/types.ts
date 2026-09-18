@@ -7,7 +7,7 @@
  * ContractRegistry, real CronEvaluator for next-execution times.
  */
 
-export type NodeKind = "duty" | "contract" | "kata" | "sensor";
+export type NodeKind = "duty" | "contract" | "sensor";
 export type Derivation = "declared" | "scanned" | "runtime";
 
 export interface SourceRef {
@@ -69,18 +69,18 @@ export interface ContractNode extends BaseNode {
   eventName?: string;
   webhookPath?: string;
   nextExecutions?: string[]; // ISO strings, cron triggers only
-  /** Always "kata" today — the real schema (contracts_v2) has no target-duty column. */
-  targetKind: "kata";
-  targetName: string;
-  targetVersion?: string;
+  /** The contract's own inline phase graph (2026-09-17 — replaced pointing at a separate Kata node). */
+  initialPhase: string;
+  phases: Array<{
+    name: string;
+    skill?: string;
+    ability?: string;
+    eventName?: string;
+    next?: string;
+    terminal?: "complete" | "fail";
+  }>;
   active: boolean;
   approvalStatus: "live" | "pending";
-}
-
-export interface KataNode extends BaseNode {
-  kind: "kata";
-  version: string;
-  phases: Array<{ name: string; skill?: string; next?: string }>;
 }
 
 export interface SensorNode extends BaseNode {
@@ -89,7 +89,7 @@ export interface SensorNode extends BaseNode {
   config: Record<string, string>;
 }
 
-export type GraphNode = DutyNode | ContractNode | KataNode | SensorNode;
+export type GraphNode = DutyNode | ContractNode | SensorNode;
 
 export type EdgeKind = "broadcast" | "beam" | "query" | "contract-run";
 

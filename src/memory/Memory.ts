@@ -2,6 +2,18 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import type { Memory, ConversationEntry } from "./types.js";
+import obsidianPlugin from "../../plugins/obsidian.js";
+
+// Plugin.methods is typed as Record<string, (...args: any[]) => any> (see
+// src/plugins/base.ts) so it can hold every plugin's differently-shaped
+// methods — indexing into it needs a concrete signature back for a known,
+// fixed set of methods like these.
+const obsidianVault = obsidianPlugin.methods as {
+  ensureFolder: (folderPath: string) => void;
+  writeNote: (filePath: string, content: string) => void;
+  appendNote: (filePath: string, content: string) => void;
+  deleteNote: (filePath: string) => boolean;
+};
 
 /**
  * File-backed memory: every entry is a plain markdown file under
@@ -10,19 +22,38 @@ import type { Memory, ConversationEntry } from "./types.js";
  * `conversations` / `duty_state` tables and the ontology knowledge graph:
  * opaque SQLite blobs made it hard to see what was actually stored,
  * including accidentally-stored secrets. See docs/KNOWLEDGE_RETRIEVAL_GUIDE.md.
+ *
+ * `dataDir` is expected to live inside the configured Obsidian vault
+ * (see `memory.vaultPath` in config, wired in createAPI()) — every write
+ * this class makes goes through plugins/obsidian.ts's writeNote/appendNote/
+ * deleteNote rather than touching `fs` directly, so the vault plugin is the
+ * one place that actually persists to the vault.
  */
 export class MemoryStore {
   private notesDir: string;
   private conversationsDir: string;
   private blackboardsDir: string;
+  private readonly rootDir: string;
 
   constructor(dataDir: string = "memory") {
+    this.rootDir = dataDir;
     this.notesDir = path.join(dataDir, "notes");
     this.conversationsDir = path.join(dataDir, "conversations");
     this.blackboardsDir = path.join(dataDir, "blackboards");
     for (const dir of [this.notesDir, this.conversationsDir, this.blackboardsDir]) {
-      fs.mkdirSync(dir, { recursive: true });
+      obsidianVault.ensureFolder(dir);
     }
+  }
+
+  /**
+   * Absolute path of the memory root this store was created against
+   * (e.g. the configured Obsidian vault's `memory/` folder). Exposed so peer
+   * subsystems (e.g. tool-docs regen at duties/tools-indexer.ts:30) can write
+   * siblings under the same root instead of falling back to a CWD-relative
+   * default that may point somewhere completely different.
+   */
+  getRootDir(): string {
+    return this.rootDir;
   }
 
   // ── Notes (store/retrieve/search/addContext/getRecent) ──────────────────
@@ -50,7 +81,7 @@ export class MemoryStore {
       updatedAt: now,
     });
     const body = "```json\n" + JSON.stringify(value, null, 2) + "\n```\n";
-    fs.writeFileSync(file, `${frontmatter}\n\n${body}`, "utf-8");
+    obsidianVault.writeNote(file, `${frontmatter}\n\n${body}`);
   }
 
   /** Retrieve a value by key, or null if it was never stored. */
@@ -94,16 +125,14 @@ export class MemoryStore {
       createdAt: now,
       ...(metadata ?? {}),
     });
-    fs.writeFileSync(file, `${frontmatter}\n\n${text}\n`, "utf-8");
+    obsidianVault.writeNote(file, `${frontmatter}\n\n${text}\n`);
     return slug;
   }
 
   /** Delete a stored key's note, if it exists. Returns whether anything was removed. */
   async forget(key: string): Promise<boolean> {
     const file = this.notePath(this.slugFor(key));
-    if (!fs.existsSync(file)) return false;
-    fs.unlinkSync(file);
-    return true;
+    return obsidianVault.deleteNote(file);
   }
 
   /**
@@ -123,7 +152,7 @@ export class MemoryStore {
         const updatedAt = frontmatter.updatedAt ? new Date(String(frontmatter.updatedAt)) : new Date(fs.statSync(file).mtimeMs);
         if (updatedAt >= updatedBefore) continue;
       }
-      fs.unlinkSync(file);
+      obsidianVault.deleteNote(file);
       removed++;
     }
     return removed;
@@ -181,7 +210,7 @@ export class MemoryStore {
     const now = new Date().toISOString();
     const file = this.conversationPath(dutyName);
     const prefix = fs.existsSync(file) ? "\n" : "";
-    fs.appendFileSync(file, `${prefix}### ${role} — ${now}\n${content}\n`, "utf-8");
+    obsidianVault.appendNote(file, `${prefix}### ${role} — ${now}\n${content}\n`);
     return now;
   }
 
@@ -228,14 +257,14 @@ export class MemoryStore {
 
   /** Overwrite a duty's blackboard entirely. */
   async setBlackboard(dutyName: string, content: string): Promise<void> {
-    fs.writeFileSync(this.blackboardPath(dutyName), content, "utf-8");
+    obsidianVault.writeNote(this.blackboardPath(dutyName), content);
   }
 
   /** Append to a duty's blackboard without disturbing what's already there. */
   async appendBlackboard(dutyName: string, content: string): Promise<void> {
     const file = this.blackboardPath(dutyName);
     const prefix = fs.existsSync(file) && fs.statSync(file).size > 0 ? "\n" : "";
-    fs.appendFileSync(file, `${prefix}${content}`, "utf-8");
+    obsidianVault.appendNote(file, `${prefix}${content}`);
   }
 
   close(): void {

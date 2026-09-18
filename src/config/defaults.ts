@@ -177,6 +177,7 @@ export const DEFAULT_CONFIG: FullConfig = {
       clipboard: false,
       shortcuts: true,
       fileWatching: true,
+      screenCapture: true,
     },
     folders: ["~/Desktop", "~/Downloads"],
     bridge: {
@@ -192,14 +193,17 @@ export const DEFAULT_CONFIG: FullConfig = {
 
   speech: {
     stt: {
-      backend: "apple",
+      backend: "whisper",
       whisperModelPath: "",
       whisperBinary: "whisper-cli",
       deepgramApiKey: "",
     },
     tts: {
+      backend: "piper",
       piperModelPath: "",
       piperBinary: "piper",
+      agentVoiceUrl: "http://127.0.0.1:7161",
+      agentVoiceVoice: "",
     },
   },
 
@@ -290,8 +294,11 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "speech.stt.deepgramApiKey": "DEEPGRAM_API_KEY",
   "speech.stt.whisperModelPath": "WHISPER_MODEL_PATH",
   "speech.stt.whisperBinary": "WHISPER_BINARY",
+  "speech.tts.backend": "TTS_BACKEND",
   "speech.tts.piperModelPath": "PIPER_MODEL_PATH",
   "speech.tts.piperBinary": "PIPER_BINARY",
+  "speech.tts.agentVoiceUrl": "AGENT_VOICE_URL",
+  "speech.tts.agentVoiceVoice": "AGENT_VOICE_VOICE",
   "mngr.baseUrl": "MNGR_BASE_URL",
   "mngr.registrationSecret": "MNGR_REGISTRATION_SECRET",
   "mngr.inboundToken": "RONIN_INBOUND_TOKEN",

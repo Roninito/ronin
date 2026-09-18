@@ -5,6 +5,26 @@ import { homedir } from "os";
 import { mkdir, readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { getProviderVisual, renderProviderIconSvg, PROVIDER_LABELS } from "../src/utils/providerIcons.js";
+
+/**
+ * Curated model-name options for the AI model-slot dropdowns. Ollama's group
+ * is a starting placeholder — /config/api/ollama-models live-replaces it with
+ * whatever's actually installed, client-side, on page load. The other
+ * providers don't have a "list models" API wired up in Ronin, so these stay
+ * a hand-picked, periodically-updated list rather than a live query.
+ */
+const MODEL_OPTGROUPS = [
+  { provider: "ollama", label: "Ollama (local)", options: ["granite3.2-16k", "ministral-3:3b", "qwen2.5:14b", "llama3.1:8b", "kimi-k2.5"] },
+  { provider: "openai", label: "OpenAI", options: ["gpt-4o", "gpt-4o-mini", "gpt-5", "o3", "o3-mini"] },
+  { provider: "anthropic", label: "Anthropic", options: ["claude-sonnet-5", "claude-opus-5", "claude-haiku-4-5-20251001", "claude-fable-5-1"] },
+  { provider: "gemini", label: "Gemini", options: ["gemini-3-pro-preview", "gemini-2.5-pro", "gemini-2.5-flash"] },
+  { provider: "grok", label: "Grok", options: ["grok-4", "grok-4-fast"] },
+];
+
+const VISION_MODEL_OPTGROUPS = [
+  { provider: "ollama", label: "Ollama (local, vision-capable)", options: ["llava", "llava:13b", "bakllava", "moondream"] },
+];
 
 interface ConfigBackup {
   id: string;
@@ -166,7 +186,7 @@ export default class ConfigEditorAgent extends BaseDuty {
       fields: {
         provider: {
           type: 'select',
-          options: ['ollama', 'openai', 'gemini', 'grok'],
+          options: ['ollama', 'openai', 'anthropic', 'gemini', 'grok', 'lmstudio'],
           default: 'ollama',
           description: 'AI Provider',
           helpText: 'Primary provider for completions'
@@ -215,10 +235,12 @@ export default class ConfigEditorAgent extends BaseDuty {
         models: {
           type: 'nested',
           description: 'Model slots',
+          helpText: 'Ollama options are the models actually installed on this machine (live-checked); other providers are a curated list.',
           fields: {
-            default: { type: 'string', default: 'ministral-3:3b', description: 'Default slot' },
-            fast: { type: 'string', default: 'ministral-3:3b', description: 'Fast slot' },
-            smart: { type: 'string', default: 'kimi-k2.5', description: 'Smart/cloud slot (e.g. kimi-k2.5)' },
+            default: { type: 'select', large: true, optgroups: MODEL_OPTGROUPS, default: 'ministral-3:3b', description: 'Default slot' },
+            fast: { type: 'select', large: true, optgroups: MODEL_OPTGROUPS, default: 'ministral-3:3b', description: 'Fast slot' },
+            smart: { type: 'select', large: true, optgroups: MODEL_OPTGROUPS, default: 'kimi-k2.5', description: 'Smart/cloud slot' },
+            vision: { type: 'select', large: true, optgroups: VISION_MODEL_OPTGROUPS, default: '', description: 'Vision slot', helpText: 'Used by api.ai.analyzeImage() — Ollama vision models only for now' },
             embedding: { type: 'string', default: 'nomic-embed-text', description: 'Embedding model' }
           }
         },
@@ -428,6 +450,25 @@ export default class ConfigEditorAgent extends BaseDuty {
               description: 'Enable TTS',
               helpText: 'Enable text-to-speech notifications'
             },
+            backend: {
+              type: 'select',
+              options: ['piper', 'agent-voice'],
+              default: 'piper',
+              description: 'TTS Backend',
+              helpText: 'Piper (local, generic voices) or agent-voice (cloned/persona voices via a running agent-voice server, see https://github.com/rodaddy/agent-voice)'
+            },
+            agentVoiceUrl: {
+              type: 'string',
+              default: 'http://127.0.0.1:7161',
+              description: 'agent-voice Server URL',
+              helpText: 'Base URL of a running `agent-voice serve` instance'
+            },
+            agentVoiceVoice: {
+              type: 'string',
+              default: '',
+              description: 'agent-voice Voice Name',
+              helpText: 'Name of the voice directory to speak with (e.g. "skippy")'
+            },
             piperModelPath: {
               type: 'path',
               default: '',
@@ -550,7 +591,8 @@ export default class ConfigEditorAgent extends BaseDuty {
             notifications: { type: 'boolean', default: true, description: 'Notifications' },
             clipboard: { type: 'boolean', default: false, description: 'Clipboard access' },
             shortcuts: { type: 'boolean', default: true, description: 'Keyboard shortcuts' },
-            fileWatching: { type: 'boolean', default: true, description: 'File watching' }
+            fileWatching: { type: 'boolean', default: true, description: 'File watching' },
+            screenCapture: { type: 'boolean', default: true, description: 'Allow AI-triggered screenshots' }
           }
         },
         folders: {
@@ -819,7 +861,8 @@ export default class ConfigEditorAgent extends BaseDuty {
           notifications: true,
           clipboard: false,
           shortcuts: true,
-          fileWatching: true
+          fileWatching: true,
+          screenCapture: true
         },
         folders: ['~/Desktop', '~/Downloads'],
         bridge: { port: 17341, host: 'localhost' }
@@ -836,6 +879,9 @@ export default class ConfigEditorAgent extends BaseDuty {
         },
         tts: {
           enabled: true,
+          backend: 'piper',
+          agentVoiceUrl: 'http://127.0.0.1:7161',
+          agentVoiceVoice: '',
           piperModelPath: '',
           piperBinary: 'piper',
           speakerId: 0,
@@ -863,6 +909,7 @@ export default class ConfigEditorAgent extends BaseDuty {
     this.api.http.registerRoute('/config/api/restore', this.handleRestoreBackup.bind(this));
     this.api.http.registerRoute('/config/api/backup', this.handleCreateBackup.bind(this));
     this.api.http.registerRoute('/config/api/dashnav', this.handleDashNavConfig.bind(this));
+    this.api.http.registerRoute('/config/api/ollama-models', this.handleOllamaModels.bind(this));
 
     // Auth routes
     this.api.http.registerRoute('/config/login', this.handleLogin.bind(this));
@@ -1414,6 +1461,38 @@ export default class ConfigEditorAgent extends BaseDuty {
       border-color: ${hankoTheme.colors.accent};
     }
 
+    select.select-large {
+      height: auto;
+      padding: 0.25rem;
+    }
+    select.select-large option, select.select-large optgroup {
+      padding: 0.4rem 0.5rem;
+    }
+
+    .provider-icon-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .provider-icon-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      background: ${hankoTheme.colors.backgroundTertiary};
+      border: 1px solid ${hankoTheme.colors.border};
+      font-size: 0.72rem;
+      color: ${hankoTheme.colors.textSecondary};
+    }
+    .provider-icon-chip.active-provider {
+      border-color: ${hankoTheme.colors.accent}99;
+      color: ${hankoTheme.colors.textPrimary};
+      background: ${hankoTheme.colors.accent}22;
+    }
+
     .help-text {
       font-size: 0.75rem;
       color: ${hankoTheme.colors.textTertiary};
@@ -1636,6 +1715,30 @@ export default class ConfigEditorAgent extends BaseDuty {
       return t.includes('password') || t.includes('token') || t.includes('api key') || t.includes('apikey');
     }
 
+    // Mirrors src/utils/providerIcons.ts server-side — duplicated here since
+    // this whole settings form is built client-side from JSON config, with no
+    // bridge back to server-rendered TS helpers per field.
+    const PROVIDER_VISUALS = {
+      ollama: { label: 'Ollama', color: '#1a1a1a', initial: 'O' },
+      openai: { label: 'OpenAI', color: '#10A37F', initial: 'AI' },
+      anthropic: { label: 'Anthropic', color: '#D97757', initial: 'A' },
+      gemini: { label: 'Gemini', color: '#4285F4', initial: 'G' },
+      grok: { label: 'Grok', color: '#000000', initial: 'X' },
+      lmstudio: { label: 'LM Studio', color: '#6366F1', initial: 'L' },
+    };
+    function providerIconSvg(provider, size) {
+      size = size || 20;
+      const v = PROVIDER_VISUALS[provider] || { label: provider || 'Unknown', color: '#6b7280', initial: (provider || '?').slice(0, 1).toUpperCase() };
+      const fontSize = v.initial.length > 1 ? size * 0.4 : size * 0.5;
+      return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" role="img" aria-label="' + v.label + '"><circle cx="12" cy="12" r="12" fill="' + v.color + '"/><text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="' + fontSize + '" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="600" fill="#fff">' + v.initial + '</text></svg>';
+    }
+    function renderProviderIconRow(activeProvider) {
+      return '<div class="provider-icon-row">' + Object.keys(PROVIDER_VISUALS).map(function (p) {
+        const active = p === activeProvider ? ' active-provider' : '';
+        return '<span class="provider-icon-chip' + active + '">' + providerIconSvg(p, 16) + '<span>' + PROVIDER_VISUALS[p].label + '</span></span>';
+      }).join('') + '</div>';
+    }
+
     function renderField(path, schemaNode, value, sectionKey) {
       const def = schemaNode.default;
       const desc = schemaNode.description || path.split('.').pop();
@@ -1665,9 +1768,27 @@ export default class ConfigEditorAgent extends BaseDuty {
           \${help ? \`<div class="help-text">\${escapeHtml(help)}</div>\` : ''}</div>\`;
       }
       if (schemaNode.type === 'select') {
-        const opts = (schemaNode.options || []).map(o => \`<option value="\${escapeHtml(o)}"\${String(val) === String(o) ? ' selected' : ''}>\${escapeHtml(o)}</option>\`).join('');
+        // optgroups (array of {label, options}) takes precedence over a flat options list —
+        // used for the AI model-slot selects, which span several providers' model names.
+        const placeholderOpt = (val === '' || val == null) ? \`<option value="" selected>— not set —</option>\` : '';
+        let opts;
+        if (Array.isArray(schemaNode.optgroups)) {
+          opts = schemaNode.optgroups.map(g => {
+            const groupOpts = (g.options || []).map(o => \`<option value="\${escapeHtml(o)}"\${String(val) === String(o) ? ' selected' : ''}>\${escapeHtml(o)}</option>\`).join('');
+            return \`<optgroup label="\${escapeHtml(g.label)}" data-provider="\${escapeHtml(g.provider || '')}">\${groupOpts}</optgroup>\`;
+          }).join('');
+          // A custom value not in any curated list (e.g. a locally-pulled Ollama model
+          // not yet live-fetched) still needs to show up as the selected option.
+          if (val && !schemaNode.optgroups.some(g => (g.options || []).some(o => String(o) === String(val)))) {
+            opts = \`<option value="\${escapeHtml(val)}" selected>\${escapeHtml(val)} (current)</option>\` + opts;
+          }
+        } else {
+          opts = (schemaNode.options || []).map(o => \`<option value="\${escapeHtml(o)}"\${String(val) === String(o) ? ' selected' : ''}>\${escapeHtml(o)}</option>\`).join('');
+        }
+        opts = placeholderOpt + opts;
+        const sizeAttr = schemaNode.large ? ' size="8" class="select-large"' : '';
         return \`<div class="form-group"><label for="\${id}">\${escapeHtml(desc)}</label>
-          <select id="\${id}" data-path="\${escapeHtml(path)}" onchange="updateConfig('\${path.replace(/'/g, "\\\\'")}', this.value)">\${opts}</select>
+          <select id="\${id}" data-path="\${escapeHtml(path)}"\${sizeAttr} onchange="updateConfig('\${path.replace(/'/g, "\\\\'")}', this.value)">\${opts}</select>
           \${help ? \`<div class="help-text">\${escapeHtml(help)}</div>\` : ''}</div>\`;
       }
       if ((schemaNode.type === 'nested' || schemaNode.fields) && schemaNode.fields) {
@@ -1720,6 +1841,9 @@ export default class ConfigEditorAgent extends BaseDuty {
       const title = schemaNode.description || sectionKey;
       const help = schemaNode.helpText || '';
       let body = '';
+      if (sectionKey === 'ai') {
+        body += renderProviderIconRow(value && value.provider);
+      }
       if (schemaNode.type === 'nested' && schemaNode.fields) {
         for (const [k, subSchema] of Object.entries(schemaNode.fields)) {
           if (subSchema.optional && (!value || value[k] === undefined || value[k] === null)) continue;
@@ -1966,6 +2090,39 @@ export default class ConfigEditorAgent extends BaseDuty {
       renderDashNavList();
     }
 
+    // Replaces the placeholder Ollama optgroup in each model-slot select with
+    // whatever's actually installed, once the live list comes back — leaves
+    // the curated lists for every other provider untouched (no "list models"
+    // API wired up for those yet).
+    async function enhanceOllamaModelOptions() {
+      let models;
+      try {
+        const res = await fetch('/config/api/ollama-models');
+        const data = await res.json();
+        models = Array.isArray(data.models) ? data.models : [];
+      } catch {
+        return;
+      }
+      if (!models.length) return;
+
+      document.querySelectorAll('select[data-path^="ai.models."]').forEach((select) => {
+        const group = select.querySelector('optgroup[data-provider="ollama"]');
+        if (!group) return;
+        const currentValue = select.value;
+        group.innerHTML = models.map((m) => {
+          const selected = m === currentValue ? ' selected' : '';
+          return '<option value="' + escapeHtml(m) + '"' + selected + '>' + escapeHtml(m) + '</option>';
+        }).join('');
+        // If the live list now contains the current value, drop the synthetic
+        // "(current)" option renderField added for an unrecognized value.
+        if (models.includes(currentValue)) {
+          const stale = select.querySelector('option[selected]:not(optgroup option)');
+          if (stale && stale.textContent.endsWith('(current)')) stale.remove();
+        }
+        select.value = currentValue;
+      });
+    }
+
     async function loadConfig() {
       try {
         const [currentRes, schemaRes, defaultsRes, dashNavRes, routesRes] = await Promise.all([
@@ -2011,6 +2168,7 @@ export default class ConfigEditorAgent extends BaseDuty {
           }
         }
         renderForm();
+        enhanceOllamaModelOptions();
         renderShellList();
         if (!Array.isArray(dashNavConfig.routes)) dashNavConfig.routes = [];
         renderDashNavOptions();
@@ -2129,6 +2287,21 @@ export default class ConfigEditorAgent extends BaseDuty {
    */
   private async handleGetSchema(req: Request): Promise<Response> {
     return Response.json(this.configSchema);
+  }
+
+  /** Live-lists models actually installed on the configured Ollama instance, for the model-slot dropdowns. Read-only — no auth needed, same as handleGetConfig/handleGetSchema. */
+  private async handleOllamaModels(req: Request): Promise<Response> {
+    const ai = this.api.config.getAI();
+    const baseUrl = (ai.ollamaUrl || "http://localhost:11434").replace(/\/$/, "");
+    try {
+      const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return Response.json({ models: [] });
+      const data = await res.json();
+      const models = Array.isArray(data?.models) ? data.models.map((m: { name: string }) => m.name).filter(Boolean) : [];
+      return Response.json({ models });
+    } catch {
+      return Response.json({ models: [] });
+    }
   }
 
   /**

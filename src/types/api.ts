@@ -131,6 +131,8 @@ export interface DutyAPI {
     ): Promise<{ message: Message; toolCalls: ToolCall[] }>;
     /** Check whether a model is available/reachable via its provider. */
     checkModel(model?: string): Promise<boolean>;
+    /** Analyze an image with a vision-capable model (Ollama only for now). */
+    analyzeImage(imagePath: string, prompt: string, options?: { model?: string }): Promise<string>;
   };
 
   /**
@@ -152,6 +154,14 @@ export interface DutyAPI {
     getBlackboard(dutyName: string): Promise<string>;
     setBlackboard(dutyName: string, content: string): Promise<void>;
     appendBlackboard(dutyName: string, content: string): Promise<void>;
+    /**
+     * Absolute path of the memory root this API was created against
+     * (e.g. the configured Obsidian vault's `memory/` folder). Lets peer
+     * subsystems write siblings of `notes/` (e.g. tool docs) under the same
+     * root instead of guessing from CWD — a missing or wrong value here used
+     * to silently drop `memory/notes/tools/*.md` into the project repo on boot.
+     */
+    getRootDir(): string;
   };
 
   /**
@@ -740,15 +750,6 @@ export interface DutyAPI {
   };
 
   /**
-   * Speech operations (if piper and/or stt plugins are loaded)
-   * Provides text-to-speech and speech-to-text capabilities
-   */
-  speech?: {
-    say(text: string): Promise<void>;
-    listen(duration?: number, options?: { language?: string }): Promise<{ text: string; audioPath?: string }>;
-  };
-
-  /**
    * Notification operations for user interaction
    * Shows desktop notifications and interactive dialogs
    */
@@ -800,10 +801,6 @@ export interface DutyAPI {
     list(): import("../tools/types.js").ToolDefinition[];
     getSchemas(): import("../tools/types.js").OpenAIFunctionSchema[];
     has(name: string): boolean;
-    registerWorkflow(workflow: import("../tools/types.js").WorkflowDefinition): void;
-    executeWorkflow(name: string, args: Record<string, any>, context?: Partial<import("../tools/types.js").ToolContext>): Promise<any>;
-    getWorkflow(name: string): import("../tools/types.js").WorkflowDefinition | undefined;
-    listWorkflows(): import("../tools/types.js").WorkflowDefinition[];
     setPolicy(policy: import("../tools/types.js").ToolPolicy): void;
     getPolicy(): import("../tools/types.js").ToolPolicy;
     getCostStats(): { daily: number; monthly: number };

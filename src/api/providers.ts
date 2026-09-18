@@ -29,6 +29,8 @@ export interface AIProvider {
     options?: CompletionOptions,
   ): Promise<{ message: Message; toolCalls: ToolCall[] }>;
   checkModel(model?: string): Promise<boolean>;
+  /** Optional: providers with a vision-capable model may implement this. Ollama-only for now. */
+  analyzeImage?(imagePath: string, prompt: string, options?: CompletionOptions): Promise<string>;
 }
 
 // ─── Shared Helpers ────────────────────────────────────────────────────
@@ -115,6 +117,28 @@ export class OllamaProvider implements AIProvider {
         body: JSON.stringify({
           model, prompt, stream: false,
           options: { temperature: this.temp(options), num_predict: options.maxTokens },
+        }),
+      },
+      this.t(options),
+    );
+    this.assertOk(res, model);
+    const data = await res.json();
+    return data.response || "";
+  }
+
+  async analyzeImage(imagePath: string, prompt: string, options: CompletionOptions = {}): Promise<string> {
+    const model = options.model || this.defaultModel;
+    const { readFile } = await import("fs/promises");
+    const base64Image = (await readFile(imagePath)).toString("base64");
+
+    const res = await fetchWithTimeout(
+      `${this.baseUrl}/api/generate`,
+      {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          model, prompt, images: [base64Image], stream: false,
+          options: { temperature: this.temp(options) },
         }),
       },
       this.t(options),

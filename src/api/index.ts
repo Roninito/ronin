@@ -11,6 +11,7 @@ import { PluginLoader } from "../plugins/PluginLoader.js";
 import { pluginsToTools } from "../plugins/toolGenerator.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { initializeTools, getToolsAPI } from "./tools.js";
+import { generateAndWriteToolDocs, resolveToolDocsBaseDir } from "../tools/toolDocs.js";
 import type { DutyAPI, Message, CompletionOptions, ChatOptions, Tool } from "../types/api.js";
 import type { ToolDefinition } from "../tools/types.js";
 
@@ -129,10 +130,23 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
   const configService = getConfigService();
   await configService.load();
   
-  // Memory lives in a sibling `memory/` directory of plain markdown files,
-  // not the SQLite db — kept next to a custom --db-path so tests/CLI runs
-  // that isolate their db also isolate their memory.
-  const memoryDir = options.dbPath ? path.join(path.dirname(options.dbPath), "memory") : "memory";
+  // Memory lives in a `memory/` folder of plain markdown files, not the SQLite
+  // db. `memory.vaultPath` from config is the source of truth — if it's set, use
+  // it unconditionally, even when a `dbPath` was passed (otherwise running with
+  // `--db-path` would silently redirect memory to a sibling dir of the db, leaving
+  // the vault's notes unreachable to api.memory.search). When `vaultPath` is unset
+  // we fall back to a sibling-of-db layout, then finally to a strict refusal — never
+  // a project-local fallback (see MemoryStore header for why).
+  const vaultPath = configService.get<string | undefined>("memory.vaultPath");
+  let memoryDir: string | undefined = vaultPath;
+  if (!memoryDir) {
+    memoryDir = options.dbPath ? path.join(path.dirname(options.dbPath), "memory") : undefined;
+  }
+  if (!memoryDir) {
+    throw new Error(
+      "memory.vaultPath is not configured. Set it in ~/.ronin/config.json to a folder inside your Obsidian vault (e.g. \"<vault>/memory\")."
+    );
+  }
   const memoryStore = new MemoryStore(memoryDir);
   const db = new DatabaseAPI(options.dbPath);
   const pluginsAPI = new PluginsAPI();
@@ -219,6 +233,8 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
 
   const wrappedAi: DutyAPI["ai"] = {
     checkModel: (model?: string) => aiAPI.checkModel(model),
+    analyzeImage: (imagePath: string, prompt: string, options?: { model?: string }) =>
+      aiAPI.analyzeImage(imagePath, prompt, options),
 
     async complete(prompt: string, options?: CompletionOptions): Promise<string> {
       const start = Date.now();
@@ -350,7 +366,14 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
     ): Promise<{ message: Message; toolCalls: import("../types/api.js").ToolCall[] }> {
       const start = Date.now();
       const model = options?.model ?? defaultModel;
-      const allTools = [...pluginTools, ...tools];
+      // NOT `[...pluginTools, ...tools]` — that used to silently reinject every
+      // plugin tool into every call.ai.callTools() call regardless of what the
+      // caller passed, defeating deliberate curation everywhere it happened
+      // (schedule-manager.ts passing exactly one tool, tasking.ts filtering to a
+      // template's allowlist). Callers that want plugin tools get them from
+      // api.tools.getSchemas() (ToolRouter already has them via
+      // registerPluginToolsWithRouter below) and pass them explicitly.
+      const allTools = tools;
       try {
         const result = await aiAPI.callTools(prompt, allTools, options);
         eventsAPI.emit(
@@ -444,6 +467,8 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
       getBlackboard: (dutyName: string) => memoryStore.getBlackboard(dutyName),
       setBlackboard: (dutyName: string, content: string) => memoryStore.setBlackboard(dutyName, content),
       appendBlackboard: (dutyName: string, content: string) => memoryStore.appendBlackboard(dutyName, content),
+      /** Absolute path of the memory root this API was created against (e.g. the configured vault's `memory/` folder). */
+      getRootDir: () => memoryStore.getRootDir(),
     },
     files: new FilesAPI(),
     db: {
@@ -504,9 +529,21 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
   const toolsAPI = options.skipPlugins ? null : getToolsAPI(api);
   if (toolsAPI) (api as any).tools = toolsAPI;
 
-  // Register plugin tools with the router so execute() can dispatch to plugins
-  // (pluginTools are already passed to the AI in callTools; without this, execute would fail)
+  // Register plugin tools with the router so execute() can dispatch to plugins,
+  // and so api.tools.getSchemas()/list() see them — the one real source of truth
+  // for "what plugin tools exist" (see the callTools note above).
   registerPluginToolsWithRouter(api, pluginTools, toolsAPI);
+
+  // Write per-category (per-plugin) tool docs to the memory root's tools/
+  // subdir so chat can load a category's real signatures on demand instead of
+  // every tool being shoved into every request — see src/tools/toolDocs.ts.
+  // resolveToolDocsBaseDir() turns the relative sentinel into an absolute
+  // path anchored at the active memory root, so the docs land in the same
+  // vault the messenger reads from instead of dropping into the project repo.
+  if (toolsAPI) {
+    const absoluteToolDocsDir = resolveToolDocsBaseDir(api);
+    await generateAndWriteToolDocs(api, absoluteToolDocsDir);
+  }
 
   // Give plugins that expose setAPI(api) access to full runtime API.
   for (const plugin of plugins) {

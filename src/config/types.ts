@@ -54,6 +54,8 @@ export interface AIModelSlots {
   fast: string;
   smart: string;
   embedding: string;
+  /** Vision-capable model (e.g. an Ollama model like "llava") for api.ai.analyzeImage(). */
+  vision?: string;
 }
 
 export interface AIFallbackConfig {
@@ -207,6 +209,7 @@ export interface DesktopFeaturesConfig {
   clipboard: boolean;
   shortcuts: boolean;
   fileWatching: boolean;
+  screenCapture: boolean;
 }
 
 export interface DesktopBridgeConfig {
@@ -251,8 +254,14 @@ export interface STTConfig {
 }
 
 export interface TTSConfig {
+  /** Which engine local.speech.say (and duties calling piper directly) should use. */
+  backend: "piper" | "agent-voice";
   piperModelPath: string;
   piperBinary: string;
+  /** Base URL of a running `agent-voice serve` instance (https://github.com/rodaddy/agent-voice). */
+  agentVoiceUrl: string;
+  /** Name of the voice directory (under agent-voice's voices/) to speak with. */
+  agentVoiceVoice: string;
 }
 
 export interface SpeechConfig {
@@ -300,6 +309,13 @@ export interface ObsidianConfig {
   vaults: ObsidianVaultConfig[];
 }
 
+/** Where MemoryStore reads/writes — must be a folder inside the user's Obsidian
+ *  vault, not an arbitrary path. No default: unset means memory is unconfigured
+ *  and createAPI() refuses to start rather than fall back to a project-local dir. */
+export interface MemoryConfig {
+  vaultPath: string;
+}
+
 export interface FullConfig {
   configVersion: string;
   defaultCLI: string;
@@ -325,6 +341,7 @@ export interface FullConfig {
   notifications: NotificationsConfig;
   mesh: MeshNetworkConfig;
   obsidian?: ObsidianConfig;
+  memory?: MemoryConfig;
   alpaca: AlpacaConfig;
   mngr: MngrIntegrationConfig;
   envoy: EnvoyIntegrationConfig;
@@ -455,6 +472,7 @@ export type ConfigPath =
   | 'desktop.features.clipboard'
   | 'desktop.features.shortcuts'
   | 'desktop.features.fileWatching'
+  | 'desktop.features.screenCapture'
   | 'desktop.folders'
   | 'desktop.bridge'
   | 'desktop.bridge.port'
@@ -485,6 +503,8 @@ export type ConfigPath =
   | 'mesh.instance.description'
   | 'obsidian'
   | 'obsidian.vaults'
+  | 'memory'
+  | 'memory.vaultPath'
   | 'alpaca'
   | 'alpaca.apiKey'
   | 'alpaca.secretKey'

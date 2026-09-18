@@ -248,6 +248,28 @@ export class AIAPI {
     });
   }
 
+  /**
+   * Analyze an image with a vision-capable model. Ollama-only for now — the
+   * cloud providers (Anthropic/OpenAI/Gemini) don't have a wired vision path
+   * yet, matching the disconnected analyzeImage() adapters in
+   * src/tools/adapters/*Adapter.ts that this method deliberately doesn't use.
+   */
+  async analyzeImage(imagePath: string, prompt: string, options: { model?: string } = {}): Promise<string> {
+    const model = options.model ?? this.aiConfig?.models?.vision;
+    if (!model) {
+      throw new Error(
+        'No vision-capable model configured. Set config.ai.models.vision to a vision-capable Ollama model (e.g. "llava"), or pass options.model.',
+      );
+    }
+
+    const ollamaProvider = this.providerMap.get("ollama");
+    if (!ollamaProvider?.analyzeImage) {
+      throw new Error("Image analysis requires a configured Ollama provider (vision is Ollama-only for now).");
+    }
+
+    return ollamaProvider.analyzeImage(imagePath, prompt, { model });
+  }
+
   async *stream(prompt: string, options: CompletionOptions = {}): AsyncIterable<string> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
     const provider = this.getProviderForModel(options.model, resolved.model);

@@ -1,6 +1,13 @@
 import type { ToolDefinition, ToolContext, ToolResult } from "../types.js";
 import type { DutyAPI } from "../../types/index.js";
 import { parse, serialize, toJson, fromJson, fromJsonToScript } from "../../ronin-script/index.js";
+import { readCategoryDoc } from "../toolDocs.js";
+import { DEFAULT_EPHEMERAL_TTL_MS, registerEphemeralFile, sweepExpiredEphemeralFiles } from "../../utils/ephemeralFiles.js";
+import { mkdirSync } from "fs";
+import { writeFile as writeFileAsync, unlink as unlinkAsync } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import { randomUUID } from "crypto";
 
 // Global queue to ensure TTS playback is strictly serialized across all callers.
 let speechQueue: Promise<void> = Promise.resolve();
@@ -78,7 +85,17 @@ async function sendToChatChannel(
  * Built-in tools that run locally without external APIs
  */
 export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition) => void): void {
-  
+
+  // Ephemeral screenshot storage: ensure the directory exists and sweep any
+  // files orphaned by a crash/restart before their TTL timer could fire.
+  const screenshotsDir = join(api.config.getSystem().dataDir, "tmp", "screenshots");
+  try {
+    mkdirSync(screenshotsDir, { recursive: true });
+  } catch {
+    // Best-effort — local.screen.capture will surface a clear error if this directory is unusable.
+  }
+  void sweepExpiredEphemeralFiles(screenshotsDir).catch(() => {});
+
   // 1. Memory Search Tool
   register({
     name: "local.memory.search",
@@ -546,6 +563,54 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
     riskLevel: "low",
   });
 
+  // 3b. Tool Category Docs — load a plugin category's real tool signatures on
+  // demand. Plugin tools (~186 of them, one per plugin method) are deliberately
+  // NOT included in every chat request; the model sees a compact category index
+  // instead and calls this to get exact names/descriptions/parameters for one
+  // category before calling anything in it. See src/tools/toolDocs.ts.
+  register({
+    name: "local.tools.load_category",
+    description:
+      "Load the full tool signatures (names, descriptions, parameters) for one plugin category. Call this before calling any tool from a category you haven't loaded yet in this conversation — see the tool category index for available category names.",
+    parameters: {
+      type: "object",
+      properties: {
+        category: { type: "string", description: "Category name from the tool category index, e.g. \"git\" or \"telegram\"" },
+      },
+      required: ["category"],
+    },
+    provider: "local",
+    handler: async (args: { category: string }): Promise<ToolResult> => {
+      const startTime = Date.now();
+      const meta = (extra: Record<string, unknown> = {}) => ({
+        toolName: "local.tools.load_category",
+        provider: "local",
+        duration: Date.now() - startTime,
+        cached: false,
+        timestamp: Date.now(),
+        callId: `local-${Date.now()}`,
+        ...extra,
+      });
+      const category = (args?.category ?? "").trim();
+      if (!category) {
+        return { success: false, data: null, error: "category is required", metadata: meta() };
+      }
+      try {
+        const docs = await readCategoryDoc(api, category);
+        return { success: true, data: { category, docs }, metadata: meta() };
+      } catch {
+        return {
+          success: false,
+          data: null,
+          error: `No tool category named "${category}". Check the tool category index for valid names.`,
+          metadata: meta(),
+        };
+      }
+    },
+    cacheable: false,
+    riskLevel: "low",
+  });
+
   // 4. Shell Command Tool (restricted)
   register({
     name: "local.shell.safe",
@@ -873,7 +938,10 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       const startTime = Date.now();
       try {
         await runSpeechQueued(async () => {
-          if (api.plugins.has("piper")) {
+          const ttsConfig = api.config.getAll?.()?.speech?.tts;
+          if (ttsConfig?.backend === "agent-voice" && api.plugins.has("agent-voice")) {
+            await api.plugins.call("agent-voice", "speak", args.text, { voice: ttsConfig.agentVoiceVoice });
+          } else if (api.plugins.has("piper")) {
             await api.plugins.call("piper", "speakAndPlay", args.text);
           } else {
             // Fallback: macOS say command
@@ -918,6 +986,232 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
     },
     cacheable: false,
     riskLevel: "low",
+  });
+
+  // 9. Screen Capture Tool (uses screenshot plugin, macOS only)
+  register({
+    name: "local.screen.capture",
+    description: "Capture a screenshot of the Mac's screen. Modes: \"full\" (entire screen), \"display\" (a specific monitor), \"region\" (interactively drag-select an area), \"window\" (click a window). The image file is automatically deleted 60 seconds after capture — analyze it with local.vision.analyze right away.",
+    parameters: {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["full", "display", "region", "window"], description: "Capture mode (default: full)" },
+        displayId: { type: "number", description: "Display index, only used when mode is \"display\"" },
+      },
+      required: [],
+    },
+    provider: "local",
+    handler: async (args: { mode?: string; displayId?: number }): Promise<ToolResult> => {
+      const startTime = Date.now();
+      const desktop = api.config.getAll?.()?.desktop;
+      if (desktop?.features?.screenCapture === false) {
+        return {
+          success: false,
+          data: null,
+          error: "Screen capture is disabled (desktop.features.screenCapture is false in config).",
+          metadata: {
+            toolName: "local.screen.capture",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+      if (!api.plugins.has("screenshot")) {
+        return {
+          success: false,
+          data: null,
+          error: "Screenshot plugin not loaded (macOS only).",
+          metadata: {
+            toolName: "local.screen.capture",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+
+      try {
+        const mode = args.mode ?? "full";
+        const outputPath = join(screenshotsDir, `screenshot-${Date.now()}-${randomUUID().slice(0, 8)}.png`);
+
+        let result: { path: string; format: "png"; capturedAt: number };
+        switch (mode) {
+          case "full":
+            result = await api.plugins.call("screenshot", "captureFullScreen", outputPath) as typeof result;
+            break;
+          case "display":
+            result = await api.plugins.call("screenshot", "captureDisplay", args.displayId ?? 0, outputPath) as typeof result;
+            break;
+          case "region":
+            result = await api.plugins.call("screenshot", "captureInteractiveRegion", outputPath) as typeof result;
+            break;
+          case "window":
+            result = await api.plugins.call("screenshot", "captureInteractiveWindow", outputPath) as typeof result;
+            break;
+          default:
+            throw new Error(`Unknown mode "${mode}". Use "full", "display", "region", or "window".`);
+        }
+
+        registerEphemeralFile(result.path);
+
+        return {
+          success: true,
+          data: { path: result.path, expiresAt: Date.now() + DEFAULT_EPHEMERAL_TTL_MS },
+          metadata: {
+            toolName: "local.screen.capture",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          data: null,
+          error: error instanceof Error ? error.message : "Screenshot capture failed",
+          metadata: {
+            toolName: "local.screen.capture",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+    },
+    cacheable: false,
+    riskLevel: "medium",
+  });
+
+  // 10. Vision Analysis Tool (uses AIAPI.analyzeImage — Ollama vision models only)
+  register({
+    name: "local.vision.analyze",
+    description: "Analyze an image (e.g. a screenshot from local.screen.capture) with a vision-capable AI model and answer a question or describe it.",
+    parameters: {
+      type: "object",
+      properties: {
+        imagePath: { type: "string", description: "Path to the image file to analyze" },
+        prompt: { type: "string", description: "What to ask about the image (e.g. \"what's on this screen?\")" },
+      },
+      required: ["imagePath", "prompt"],
+    },
+    provider: "local",
+    handler: async (args: { imagePath: string; prompt: string }): Promise<ToolResult> => {
+      const startTime = Date.now();
+      try {
+        const answer = await api.ai.analyzeImage(args.imagePath, args.prompt);
+        return {
+          success: true,
+          data: { answer },
+          metadata: {
+            toolName: "local.vision.analyze",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          data: null,
+          error: error instanceof Error ? error.message : "Image analysis failed",
+          metadata: {
+            toolName: "local.vision.analyze",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      }
+    },
+    cacheable: false,
+    riskLevel: "low",
+  });
+
+  // 11. AppleScript Tool (dedicated, auditable — mirrors local.shell.safe's osascript-already-allowed path)
+  register({
+    name: "local.system.applescript",
+    description: "Run an AppleScript to control apps, windows, and system UI on this Mac (launch/quit apps, move windows, show dialogs, System Events UI scripting, etc.). This can take real actions on the system — write scripts deliberately.",
+    parameters: {
+      type: "object",
+      properties: {
+        script: { type: "string", description: "AppleScript source to execute" },
+      },
+      required: ["script"],
+    },
+    provider: "local",
+    handler: async (args: { script: string }): Promise<ToolResult> => {
+      const startTime = Date.now();
+      const scriptPath = join(tmpdir(), `ronin-applescript-${Date.now()}-${randomUUID().slice(0, 8)}.scpt`);
+      try {
+        await writeFileAsync(scriptPath, args.script, "utf-8");
+
+        const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+          const { spawn } = require("child_process");
+          const proc = spawn("osascript", [scriptPath], { stdio: ["ignore", "pipe", "pipe"] });
+          let stdout = "";
+          let stderr = "";
+          const timeout = setTimeout(() => {
+            proc.kill();
+            reject(new Error("AppleScript execution timed out after 10 seconds"));
+          }, 10000);
+          proc.stdout?.on("data", (d: Buffer) => { stdout += d.toString(); });
+          proc.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
+          proc.on("close", (code: number) => {
+            clearTimeout(timeout);
+            if (code === 0) resolve({ stdout, stderr });
+            else reject(new Error(stderr.trim() || `osascript exited with code ${code}`));
+          });
+          proc.on("error", (err: Error) => {
+            clearTimeout(timeout);
+            reject(new Error(`Failed to run osascript: ${err.message}`));
+          });
+        });
+
+        return {
+          success: true,
+          data: { stdout, stderr },
+          metadata: {
+            toolName: "local.system.applescript",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      } catch (error) {
+        return {
+          success: false,
+          data: null,
+          error: error instanceof Error ? error.message : "AppleScript execution failed",
+          metadata: {
+            toolName: "local.system.applescript",
+            provider: "local",
+            duration: Date.now() - startTime,
+            cached: false,
+            timestamp: Date.now(),
+            callId: `local-${Date.now()}`,
+          },
+        };
+      } finally {
+        await unlinkAsync(scriptPath).catch(() => {});
+      }
+    },
+    cacheable: false,
+    riskLevel: "medium",
   });
 
   // 8b. Skills tools (when skills plugin is loaded)
@@ -1021,6 +1315,29 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
             // ignore
           }
 
+          // Guard against misrouted calls: when the request is clearly a built-in tool
+          // operation ("show contents of X", "read the file Y", "list files in Z") rather
+          // than a skill invocation, return a hint naming the right local.* tool instead
+          // of asking the AI to pick a skill — small models on Telegram were picking
+          // skills.run for these (see 2026-09-17 failures), then the AI selection came
+          // back empty because no installed skill actually matches "show me a file".
+          const ql = (args.query ?? "").toLowerCase().trim();
+          const al = (args.action ?? "").toLowerCase().trim();
+          const combined = `${ql} ${al}`;
+          const looksLikeFileRequest =
+            /\b(show|read|open|view|get|cat|print|contents? of)\b.*\b(file|\.md|\.txt|\.json|\.yaml|\.yml)\b/.test(combined) ||
+            /\blist files? in\b/.test(combined) ||
+            /\bfind (the |a )?file\b/.test(combined) ||
+            /\b(show|read|view|open) me\b/.test(combined);
+          if (looksLikeFileRequest) {
+            return {
+              success: false,
+              data: null,
+              error: `This looks like a built-in tool request, not a skill. Call local.file.read({ path: "<absolute path>" }) directly — skills.run is for invoking installed AgentSkills, not for arbitrary file reads. If you don't know the absolute path, call local.memory.search("<filename>") first to find it.`,
+              metadata: meta(false),
+            };
+          }
+
           if (catalog.length > 0 && api.ai) {
             const catalogText = JSON.stringify(
               catalog.map((s) => ({ name: s.name, description: s.description, abilities: s.abilities.map((a) => ({ name: a.name, input: a.input })) }))
@@ -1030,7 +1347,9 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
 Skills available (name, description, abilities with name and input params):
 ${catalogText}
 
-Respond with JSON only, no other text: { "skillName": "<exact name from list>", "ability": "<exact ability name>", "params": {} }. Extract params from the request (e.g. location, title, query, limit, path, content, input) where they match ability inputs. Use the exact skill name and ability name from the list.`;
+If the request is a built-in operation (reading/showing a file, listing files, running a shell command, querying the database, searching memory) and NOT something any skill in the catalog does, return exactly: {"skillName": null, "ability": null, "params": {}}.
+
+Otherwise respond with JSON only, no other text: { "skillName": "<exact name from list>", "ability": "<exact ability name>", "params": {} }. Extract params from the request (e.g. location, title, query, limit, path, content, input) where they match ability inputs. Use the exact skill name and ability name from the list.`;
             try {
               const response = await api.ai.complete(prompt, { maxTokens: 512, temperature: 0 });
               const raw = typeof response === "string" ? response : (response as { content?: string })?.content ?? "";
@@ -1080,7 +1399,22 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
             abilities = explored?.abilities ?? [];
             picked = abilities.find((a) => a.name === aiChoice!.ability) ?? abilities[0];
             if (!picked) {
-              return { success: false, data: null, error: `Skill "${skillName}" has no abilities`, metadata: meta(false) };
+              // Doc-as-ability skill (e.g. kepano's obsidian-cli): no structured `## Abilities`
+              // section, the whole skill is documentation that the AI reads and acts on with
+              // local.shell.safe. Return the skill body so the call still succeeds and the AI
+              // has the operating instructions it needs to construct the actual shell command.
+              // See plugins/skills.ts:resolveSkillDir and explore_skill for the full instructions.
+              const instructions = (explored as { instructions?: string } | null)?.instructions ?? "";
+              return {
+                success: true,
+                data: {
+                  skillName,
+                  hint: `Skill "${skillName}" has no structured abilities — it is documentation. Read the instructions and execute the requested action directly with local.shell.safe or the relevant local.* tool.`,
+                  instructions,
+                  noAbilities: true,
+                },
+                metadata: meta(true),
+              };
             }
             abilityParams = { ...aiChoice.params, ...(args.params ?? {}) };
           } else {
@@ -1137,7 +1471,19 @@ Respond with JSON only, no other text: { "skillName": "<exact name from list>", 
             }
             abilities = explored?.abilities ?? [];
             if (!abilities.length) {
-              return { success: false, data: null, error: `Skill "${skillName}" has no abilities`, metadata: meta(false) };
+              // Same doc-as-ability fallback as the AI-select branch above — return the skill
+              // body so the AI can read the instructions and execute the action itself.
+              const instructions = (explored as { instructions?: string } | null)?.instructions ?? "";
+              return {
+                success: true,
+                data: {
+                  skillName,
+                  hint: `Skill "${skillName}" has no structured abilities — it is documentation. Read the instructions and execute the requested action directly with local.shell.safe or the relevant local.* tool.`,
+                  instructions,
+                  noAbilities: true,
+                },
+                metadata: meta(true),
+              };
             }
 
             const actionLower = args.action.toLowerCase();

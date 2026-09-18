@@ -45,3 +45,8 @@ temp/
 
 # Local planning directory
 .opencode/
+
+# Local Ronin runtime data (config.json has held live API keys/bot tokens
+# historically — see git history for .ronin/config.json, which is why this
+# is here now rather than relying on nothing having ever been committed)
+.ronin/

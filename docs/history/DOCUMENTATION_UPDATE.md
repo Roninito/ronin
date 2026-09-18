@@ -1,5 +1,11 @@
 # Documentation Update Summary
 
+> **Archived:** a point-in-time summary of a past change (the menubar event
+> system). References `agents/os-bridge.ts` (pre-rename path) and
+> `docs/book/` (deleted — see `ARCHITECTURE.md`'s changelog for why). Kept as
+> a historical record only; not live guidance. Moved here 2026-09 during a
+> docs cleanup.
+
 ## New Features Added
 
 ### 1. Menubar Event System

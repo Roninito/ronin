@@ -582,5 +582,5 @@ Account configurations are stored in `~/.ronin/data/email-accounts.json`. Passwo
 ## See Also
 
 - [Plugin Development Guide](PLUGINS.md) - General plugin documentation
-- [Event System](docs/book/chapters/20-event-system.html) - Inter-agent communication
-- [Agent Examples](docs/book/chapters/12-agent-examples.html) - More agent examples
+- [Architecture](../ARCHITECTURE.md) - Event bus and Duty concepts
+- [Writing Duties](../DUTIES.md) - Duty examples and API reference

@@ -4,6 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, writeFile, readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { resolveExternalDutyDir } from "../src/cli/commands/config.js";
+import { buildDutyAuthoringSystemPrompt } from "../src/duty/duty-authoring.js";
 
 interface PlanApprovedPayload {
   id: string;
@@ -15,6 +17,11 @@ interface PlanApprovedPayload {
   source?: string;
   sourceChannel?: string;
   sourceUser?: string;
+  /** Optional cheap single-completion draft (e.g. from duties/duty-executor.ts's
+   *  proposeDuty() review card) to hand the CLI as a starting point — a real
+   *  coding agent iterating on a draft tends to do better than one working from
+   *  nothing, and the human already reviewed this draft's shape before approving. */
+  draftCode?: string;
 }
 
 interface CLIConfig {
@@ -31,7 +38,7 @@ interface CLIResult {
 }
 
 /**
- * Coder Bot Agent - Silent Execution Model
+ * Coder Bot Duty - Silent Execution Model
  * 
  * Executes plans without user interaction using sensible defaults.
  * All decisions and results are logged to the task description.
@@ -41,13 +48,14 @@ interface CLIResult {
  * 2. Enhances prompt with sensible defaults
  * 3. Executes CLI (no blocking, no questions)
  * 4. Appends results to task description
- * 5. Triggers hot reload for agents
+ * 5. Triggers hot reload for duties
  * 6. Reports success/failure
  */
-export default class CoderBotAgent extends BaseDuty {
+export default class CoderBotDuty extends BaseDuty {
   private executionQueue: string[] = [];
   private isExecuting = false;
   private cliPlugins: Record<string, string> = {
+    claude: "claude-cli",
     qwen: "qwen-cli",
     cursor: "cursor-cli",
     opencode: "opencode-cli",
@@ -264,23 +272,30 @@ Status: 🔄 Executing
       const appTag = payload.tags?.find((tag) => tag.startsWith("app-"));
       const workspace = await this.resolveWorkspace(appTag, config);
 
-      // For fix/update operations, find existing agent
+      // For fix/update operations, find existing duty code
       let existingCode: string | undefined;
       if (operation === "fix" || operation === "update") {
-        existingCode = await this.findExistingAgent(payload.title || "", workspace);
+        existingCode = await this.findExistingDutyCode(payload.title || "", workspace);
         if (existingCode) {
           await this.appendToTask(planId, `
-Found existing agent code. Will ${operation} it.
+Found existing duty code. Will ${operation} it.
 `);
         }
       }
 
+      if (payload.draftCode) {
+        await this.appendToTask(planId, `
+Starting from a reviewed draft (see the approved proposal card).
+`);
+      }
+
       // Enhance prompt based on operation
       const enhancedPrompt = this.enhancePrompt(
-        payload.description || "", 
-        payload.tags, 
+        payload.description || "",
+        payload.tags,
         operation,
-        existingCode
+        existingCode,
+        payload.draftCode
       );
 
       // Update task with CLI info
@@ -301,24 +316,23 @@ Instruction: ${enhancedPrompt.substring(0, 200)}${enhancedPrompt.length > 200 ? 
         timestamp: Date.now(),
       }, "coder-bot");
 
-      // Execute CLI
+      // Execute CLI, watching for the real hot-reload event it should trigger
+      // (see runCliAndDetectDuty — far more reliable than guessing a filename
+      // out of the CLI's text output).
       const cliOptions = config.cliOptions?.[cli] || {};
-      const result = (await this.api.plugins.call(
+      const { result, reload: reloadResult } = await this.runCliAndDetectDuty(
         pluginName,
-        "execute",
         enhancedPrompt,
-        {
-          workspace,
-          ...cliOptions,
-        }
-      )) as CLIResult;
+        workspace,
+        cliOptions
+      );
 
       // Save output to file
       const outputPath = await this.saveOutput(planId, result);
 
       // Parse results for task log
       const decisions = this.parseDecisions(result.output);
-      
+
       await this.appendToTask(planId, `
 ═══════════════════════════════════════════════════
 CODE GENERATED:
@@ -330,9 +344,7 @@ Output saved to: ${outputPath}
 `);
 
       if (result.success) {
-        // Try to hot reload if it's an agent
-        const reloadResult = await this.attemptHotReload(workspace, result.output);
-        
+
         await this.appendToTask(planId, `
 ═══════════════════════════════════════════════════
 HOT RELOAD: ${reloadResult.success ? '✅ Success' : '❌ Failed'}
@@ -360,7 +372,7 @@ ${reloadResult.message}
 ═══════════════════════════════════════════════════
 [COMPLETED]
 Status: ✅ SUCCESS
-Agent: ${reloadResult.agentName || 'Unknown'}
+Duty: ${reloadResult.dutyName || 'Unknown'}
 Routes: ${reloadResult.routes?.join(', ') || 'None'}
 Created: ${new Date().toISOString()}
 ═══════════════════════════════════════════════════
@@ -409,18 +421,21 @@ ${errorMessage}
    * Enhance prompt with sensible defaults
    */
   private enhancePrompt(
-    description: string, 
-    tags?: string[], 
+    description: string,
+    tags?: string[],
     operation: string = "create",
-    existingCode?: string
+    existingCode?: string,
+    draftCode?: string
   ): string {
-    const isAgent = tags?.some(tag => tag.includes('agent'));
+    // "duty" is the current name; "agent" tags are accepted too since existing
+    // Kanban cards and callers may still use the pre-rename word.
+    const isDuty = tags?.some(tag => tag.includes('duty') || tag.includes('agent'));
     const isPlugin = tags?.some(tag => tag.includes('plugin'));
-    
+
     let enhanced = "";
-    
+
     if (operation === "fix" && existingCode) {
-      enhanced = `Fix bugs in the following Ronin ${isAgent ? 'agent' : isPlugin ? 'plugin' : 'code'}.
+      enhanced = `Fix bugs in the following Ronin ${isDuty ? 'duty' : isPlugin ? 'plugin' : 'code'}.
 
 CURRENT CODE:
 ${existingCode}
@@ -434,7 +449,7 @@ Instructions:
 3. Ensure TypeScript compiles without errors
 4. Keep the same file name and exports`;
     } else if (operation === "update" && existingCode) {
-      enhanced = `Update/modify the following Ronin ${isAgent ? 'agent' : isPlugin ? 'plugin' : 'code'}.
+      enhanced = `Update/modify the following Ronin ${isDuty ? 'duty' : isPlugin ? 'plugin' : 'code'}.
 
 CURRENT CODE:
 ${existingCode}
@@ -447,15 +462,30 @@ Instructions:
 2. Maintain backward compatibility where possible
 3. Ensure TypeScript compiles without errors
 4. Keep the same file name and exports`;
+    } else if (isDuty) {
+      // Duty creation: use the same authoring instructions duty-executor.ts's
+      // proposeDuty() draft was written against, so a real coding agent
+      // implements against the actual current BaseDuty/DutyAPI shape instead
+      // of a generic one-liner guess.
+      enhanced = `${buildDutyAuthoringSystemPrompt()}
+
+I want to create a duty that: ${description}
+${draftCode ? `
+A first-pass draft already exists and was reviewed by the user — use it as
+a starting point, but fix anything wrong rather than keeping it verbatim:
+
+${draftCode}
+` : ""}
+Write the complete duty file now. Save it directly into the current working
+directory (that's the duties directory this task is scoped to) using a
+kebab-case filename matching the duty's purpose.`;
     } else {
-      // Create operation (default)
+      // Generic / plugin creation (default when no duty/agent tag is present)
       enhanced = description;
-      
-      // Add context about Ronin
+
       enhanced += `
 
-Context: This is for the Ronin agent system.
-${isAgent ? 'Create a Ronin agent following the BaseDuty pattern.' : ''}
+Context: This is for the Ronin automation system.
 ${isPlugin ? 'Create a Ronin plugin following the Plugin pattern.' : ''}
 
 Use sensible defaults for any unspecified parameters:
@@ -469,11 +499,11 @@ Use sensible defaults for any unspecified parameters:
   }
 
   /**
-   * Find existing agent code for fix/update operations
+   * Find existing duty code for fix/update operations
    */
-  private async findExistingAgent(title: string, workspace: string): Promise<string | undefined> {
+  private async findExistingDutyCode(title: string, workspace: string): Promise<string | undefined> {
     try {
-      // Try to find agent by name in title
+      // Try to find the duty by name in title
       const possibleNames = [
         title.toLowerCase().replace(/\s+/g, '-'),
         title.toLowerCase().replace(/\s+/g, '_'),
@@ -482,20 +512,20 @@ Use sensible defaults for any unspecified parameters:
 
       for (const name of possibleNames) {
         // Check in workspace
-        const agentPath = join(workspace, `${name}.ts`);
-        if (existsSync(agentPath)) {
-          const code = await readFile(agentPath, 'utf-8');
+        const dutyPath = join(workspace, `${name}.ts`);
+        if (existsSync(dutyPath)) {
+          const code = await readFile(dutyPath, 'utf-8');
           return code;
         }
 
-        // Check in external agents dir
-        const externalPath = join(homedir(), '.ronin', 'agents', `${name}.ts`);
+        // Check in external duties dir
+        const externalPath = join(homedir(), '.ronin', 'duties', `${name}.ts`);
         if (existsSync(externalPath)) {
           const code = await readFile(externalPath, 'utf-8');
           return code;
         }
 
-        // Check with -agent suffix
+        // Check with legacy -agent suffix (pre-rename duty files still use it)
         const agentSuffixPath = join(workspace, `${name}-agent.ts`);
         if (existsSync(agentSuffixPath)) {
           const code = await readFile(agentSuffixPath, 'utf-8');
@@ -505,7 +535,7 @@ Use sensible defaults for any unspecified parameters:
 
       return undefined;
     } catch (error) {
-      console.error(`[coder-bot] Error finding existing agent:`, error);
+      console.error(`[coder-bot] Error finding existing duty:`, error);
       return undefined;
     }
   }
@@ -532,58 +562,75 @@ Use sensible defaults for any unspecified parameters:
   }
 
   /**
-   * Attempt to hot reload a newly created agent
+   * Run a coding CLI and detect whether it produced a duty HotReloadService picked up
    */
-  private async attemptHotReload(workspace: string, output: string): Promise<{
-    success: boolean;
-    message: string;
-    agentName?: string;
-    routes?: string[];
+  /**
+   * Run a coding CLI and observe whether it actually produced a duty
+   * HotReloadService picked up — by listening for the real duty_created /
+   * duty_reloaded events (HotReloadService.ts watches both duties/ and
+   * ~/.ronin/duties/ directly via fs.watch, independent of any explicit
+   * signal from this duty), not by regex-guessing a filename out of the
+   * CLI's text output. The listener is attached BEFORE the CLI runs: the
+   * file write happens during CLI execution, and fs.watch's own ~100ms
+   * debounce means the event can otherwise be missed if you only start
+   * listening after the CLI call resolves.
+   */
+  private async runCliAndDetectDuty(
+    pluginName: string,
+    enhancedPrompt: string,
+    workspace: string,
+    cliOptions: Record<string, unknown>
+  ): Promise<{
+    result: CLIResult;
+    reload: { success: boolean; message: string; dutyName?: string; routes?: string[] };
   }> {
+    const detected: Array<{ dutyName?: string; filePath?: string; routes?: string[] }> = [];
+    const onHotReload = (data: unknown) => {
+      const d = data as { dutyName?: string; filePath?: string; routes?: string[] };
+      if (d.filePath && d.filePath.startsWith(workspace)) {
+        detected.push(d);
+      }
+    };
+    this.api.events.on("duty_created", onHotReload);
+    this.api.events.on("duty_reloaded", onHotReload);
+
     try {
-      // Extract agent filename from output
-      const agentMatch = output.match(/(\w+-(?:agent|plugin))\.ts/i) || 
-                        output.match(/([\w-]+)\.(ts|js)/i);
-      
-      if (!agentMatch) {
-        return {
-          success: false,
-          message: "Could not identify agent file in output",
-        };
+      const result = (await this.api.plugins.call(
+        pluginName,
+        "execute",
+        enhancedPrompt,
+        { workspace, ...cliOptions }
+      )) as CLIResult;
+
+      // Give fs.watch's debounce a moment to fire if the CLI's own write
+      // landed right as (or just after) the process exited.
+      if (detected.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      const agentFile = agentMatch[1] + '.ts';
-      const agentPath = join(workspace, agentFile);
-      
-      if (!existsSync(agentPath)) {
-        // Try external agents dir
-        const externalPath = join(homedir(), '.ronin', 'agents', agentFile);
-        if (existsSync(externalPath)) {
-          // Hot reload will pick this up
-          return {
+      if (detected.length > 0) {
+        const last = detected[detected.length - 1]!;
+        return {
+          result,
+          reload: {
             success: true,
-            message: `Agent saved to ${externalPath}. Hot reload will load it automatically.`,
-            agentName: agentMatch[1],
-          };
-        }
-        
-        return {
-          success: false,
-          message: `Agent file not found at ${agentPath}`,
+            message: `Duty '${last.dutyName}' loaded from ${last.filePath}.`,
+            dutyName: last.dutyName,
+            routes: last.routes,
+          },
         };
       }
 
-      // File exists, hot reload service will pick it up if watching
       return {
-        success: true,
-        message: `Agent file created at ${agentPath}. Hot reload service will load it.`,
-        agentName: agentMatch[1],
+        result,
+        reload: {
+          success: false,
+          message: `CLI finished but no duty_created/duty_reloaded event was observed for a file under ${workspace} — check the output log to see what it actually did.`,
+        },
       };
-    } catch (error) {
-      return {
-        success: false,
-        message: `Hot reload check failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
+    } finally {
+      this.api.events.off("duty_created", onHotReload);
+      this.api.events.off("duty_reloaded", onHotReload);
     }
   }
 
@@ -592,8 +639,8 @@ Use sensible defaults for any unspecified parameters:
    */
   private async appendToTask(planId: string, content: string): Promise<void> {
     try {
-      // Query todo agent to find and update the task
-      // This uses the event system to communicate with todo agent
+      // Query the todo duty to find and update the task
+      // This uses the event system to communicate with the todo duty
       this.api.events.emit("TaskAppendDescription", {
         planId,
         content,
@@ -629,8 +676,8 @@ Use sensible defaults for any unspecified parameters:
     config: CLIConfig
   ): Promise<string> {
     if (!appTag) {
-      // Default to external agents directory for agent creation
-      return join(homedir(), ".ronin", "agents");
+      // Default to the external duties directory for duty creation.
+      return resolveExternalDutyDir();
     }
 
     const appName = appTag.replace("app-", "");
@@ -690,7 +737,7 @@ Use sensible defaults for any unspecified parameters:
   }
 
   async execute(): Promise<void> {
-    // This agent is event-driven
+    // This duty is event-driven
     console.log("[coder-bot] Running...");
   }
 }

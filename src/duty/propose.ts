@@ -18,7 +18,7 @@ import {
   validateDutyCode,
   extractDutyName,
 } from "./duty-authoring.js";
-import { ensureDefaultDutyDir } from "../cli/commands/config.js";
+import { resolveExternalDutyDir } from "../cli/commands/config.js";
 
 export class DutyProposeError extends Error {}
 
@@ -55,7 +55,12 @@ Generate the complete TypeScript duty code now. Output only the code, wrapped in
   }
 
   let dutyName = extractDutyName(intent);
-  const dutyDir = ensureDefaultDutyDir();
+  // External dir, matching where duties/duty-executor.ts actually writes the
+  // approved file — checking the project's own ./duties here would miss a
+  // real name collision in ~/.ronin/duties and vice versa. Respects
+  // RONIN_EXTERNAL_DUTY_DIR like start.ts/list.ts/schedule.ts/status.ts do,
+  // rather than hardcoding the literal default.
+  const dutyDir = resolveExternalDutyDir();
   if (existsSync(join(dutyDir, `${dutyName}.ts`))) {
     // Disambiguate rather than silently overwrite an existing duty on approval.
     dutyName = `${dutyName}-${Date.now().toString(36)}`;

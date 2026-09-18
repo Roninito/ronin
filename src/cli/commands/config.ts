@@ -103,6 +103,24 @@ export function ensureDefaultExternalDutyDir(): string {
   return dutyDir;
 }
 
+/**
+ * Resolve the external duty directory a caller should actually use, honoring
+ * RONIN_EXTERNAL_DUTY_DIR the same way start.ts/list.ts/schedule.ts/status.ts
+ * do — ensureDefaultExternalDutyDir() alone always means the literal
+ * ~/.ronin/duties default, with no override. Ensures the resolved directory
+ * exists either way (the override path isn't auto-created otherwise).
+ */
+export function resolveExternalDutyDir(): string {
+  const override = process.env.RONIN_EXTERNAL_DUTY_DIR;
+  if (override) {
+    if (!existsSync(override)) {
+      mkdirSync(override, { recursive: true });
+    }
+    return override;
+  }
+  return ensureDefaultExternalDutyDir();
+}
+
 // Backward compatibility aliases (for existing installations with old paths)
 export function getDefaultAgentDir(): string {
   // Check if ./duties exists, fall back to ./agents

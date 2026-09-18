@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "fs";
+import { existsSync, mkdtempSync, realpathSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import type { DutyAPI } from "@ronin/types/index.js";
@@ -76,9 +76,12 @@ function postJson(body: unknown): Request {
   });
 }
 
-// handleApproveProposal calls ensureDefaultDutyDir(), which resolves from
-// process.cwd() — isolate each test into a scratch directory so approval
-// never writes into the real repo's duties/ folder.
+// handleApproveProposal calls resolveExternalDutyDir(), which resolves to
+// ~/.ronin/duties (os.homedir()-based) unless RONIN_EXTERNAL_DUTY_DIR is
+// set — a chdir alone doesn't isolate it, and overriding process.env.HOME
+// doesn't work either (Bun's os.homedir() doesn't re-read it at runtime,
+// unlike Node's). Set RONIN_EXTERNAL_DUTY_DIR itself instead, so approval
+// never writes into the real ~/.ronin/duties.
 describe("Duty proposal approve/refuse routes", () => {
   let api: DutyAPI;
   let routes: Map<string, (req: Request) => Response | Promise<Response>>;
@@ -86,6 +89,7 @@ describe("Duty proposal approve/refuse routes", () => {
   let storage: DutyProposalStorage;
   let scratchDir: string;
   let originalCwd: string;
+  let originalExternalDutyDir: string | undefined;
 
   beforeEach(async () => {
     // realpathSync: macOS's tmpdir() returns a /var/folders path that's
@@ -94,6 +98,8 @@ describe("Duty proposal approve/refuse routes", () => {
     scratchDir = realpathSync(mkdtempSync(join(tmpdir(), "ronin-duty-approval-")));
     originalCwd = process.cwd();
     process.chdir(scratchDir);
+    originalExternalDutyDir = process.env.RONIN_EXTERNAL_DUTY_DIR;
+    process.env.RONIN_EXTERNAL_DUTY_DIR = join(scratchDir, "duties");
 
     ({ api, routes, emittedEvents } = createMockAPI());
     await runEngineMigrations((api as any).db);
@@ -103,10 +109,15 @@ describe("Duty proposal approve/refuse routes", () => {
 
   afterEach(() => {
     process.chdir(originalCwd);
+    if (originalExternalDutyDir === undefined) {
+      delete process.env.RONIN_EXTERNAL_DUTY_DIR;
+    } else {
+      process.env.RONIN_EXTERNAL_DUTY_DIR = originalExternalDutyDir;
+    }
     rmSync(scratchDir, { recursive: true, force: true });
   });
 
-  it("approve: writes the duty file, emits duty_file_updated, marks the proposal approved", async () => {
+  it("approve: hands off to coder-bot via PlanProposed+PlanApproved instead of writing the file itself, marks the proposal approved", async () => {
     const rec = await storage.create({
       intent: "watch our design threads",
       dutyName: "watch-our-design",
@@ -121,13 +132,25 @@ describe("Duty proposal approve/refuse routes", () => {
     expect(body.success).toBe(true);
     expect(body.dutyName).toBe("watch-our-design");
 
+    // The draft's single api.ai.complete() code has no compile-check or
+    // self-correction loop — approval must NOT write it straight to disk
+    // anymore. The real implementation comes from coder-bot.ts's CLI spawn,
+    // triggered by the events below, not from this handler.
     const filePath = join(scratchDir, "duties", "watch-our-design.ts");
-    expect(existsSync(filePath)).toBe(true);
-    expect(readFileSync(filePath, "utf-8")).toBe(VALID_CODE);
+    expect(existsSync(filePath)).toBe(false);
 
-    const fileUpdatedEvent = emittedEvents.find((e) => e.event === "duty_file_updated");
-    expect(fileUpdatedEvent).toBeDefined();
-    expect((fileUpdatedEvent!.data as any).filePath).toBe(filePath);
+    const proposedEvent = emittedEvents.find((e) => e.event === "PlanProposed");
+    expect(proposedEvent).toBeDefined();
+    expect((proposedEvent!.data as any).id).toBe(rec.id);
+    expect((proposedEvent!.data as any).title).toBe("watch-our-design");
+    expect((proposedEvent!.data as any).description).toBe("watch our design threads");
+    expect((proposedEvent!.data as any).tags).toEqual(["create", "duty"]);
+
+    const approvedPlanEvent = emittedEvents.find((e) => e.event === "PlanApproved");
+    expect(approvedPlanEvent).toBeDefined();
+    expect((approvedPlanEvent!.data as any).id).toBe(rec.id);
+    expect((approvedPlanEvent!.data as any).draftCode).toBe(VALID_CODE);
+    expect((approvedPlanEvent!.data as any).tags).toEqual(["create", "duty"]);
 
     const approvedEvent = emittedEvents.find((e) => e.event === "duty.proposal_approved");
     expect(approvedEvent).toBeDefined();
@@ -185,6 +208,9 @@ describe("Duty proposal approve/refuse routes", () => {
 
     const filePath = join(scratchDir, "duties", "bad-duty.ts");
     expect(existsSync(filePath)).toBe(false);
+    // Validation fails before hand-off — coder-bot.ts must never be triggered
+    // for a proposal this structurally broken.
+    expect(emittedEvents.some((e) => e.event === "PlanProposed" || e.event === "PlanApproved")).toBe(false);
   });
 
   it("GET /api/duties/proposals lists only pending proposals", async () => {

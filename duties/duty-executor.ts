@@ -2,25 +2,31 @@
  * Duty Executor Agent
  *
  * The duty-creation counterpart to duties/contract-executor.ts: drafts a new
- * Duty's TypeScript from a plain-English request, never writes it to disk or
- * registers it directly. It persists a pending proposal and returns its id
- * plus a preview + the full generated code for the chat UI to render as an
- * approval card (see /api/duties/proposals/approve|refuse below).
+ * Duty's TypeScript from a plain-English request via a single, cheap
+ * api.ai.complete() call, never writes it to disk or registers it directly.
+ * It persists a pending proposal and returns its id plus a preview + the
+ * drafted code for the chat UI to render as an approval card (see
+ * /api/duties/proposals/approve|refuse below).
  *
- * On approval, the file is written into the duties directory and a single
- * `duty_file_updated` event is emitted — the existing HotReloadService
- * listener (src/cli/commands/start.ts) picks it up and live-registers it,
- * no restart required. This duty never touches HotReloadService directly.
+ * On approval, this duty does NOT write proposal.code to disk itself — that
+ * single-completion draft has no compile-check or self-correction loop, and
+ * is treated as a reviewed starting point, not final code. Instead it emits
+ * PlanProposed (creates a visible Kanban card at /todo) then PlanApproved
+ * (no second approval needed — the human already approved in chat), handing
+ * the real implementation to duties/coder-bot.ts, which spawns an actual
+ * coding CLI (Claude Code, OpenCode, etc.) against the duties directory.
+ * HotReloadService picks up whatever file that CLI writes automatically
+ * (it watches the duties directories directly, independent of any event
+ * this duty emits).
  */
 
-import { writeFile } from "fs/promises";
 import { join } from "path";
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
 import { existsSync } from "fs";
 import { proposeDuty, DutyProposeError, DutyProposalStorage } from "../src/duty/index.js";
 import { validateDutyCode, toKebabCase } from "../src/duty/duty-authoring.js";
-import { ensureDefaultDutyDir } from "../src/cli/commands/config.js";
+import { resolveExternalDutyDir } from "../src/cli/commands/config.js";
 import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
 
 function escapeHtml(text: string): string {
@@ -362,7 +368,11 @@ export default class DutyExecutorAgent extends BaseDuty {
       // The AI-derived name is just a first guess (first few words of the
       // intent, kebab-cased) — let the human rename it at approval time,
       // since that's the only name they'll ever look it up by afterward.
-      const dutyDir = ensureDefaultDutyDir();
+      // External dir, not the project's own ./duties — an AI-drafted duty
+      // approved from chat is the user's personal automation, not project
+      // source. resolveExternalDutyDir() also respects RONIN_EXTERNAL_DUTY_DIR,
+      // matching src/duty/propose.ts's collision check.
+      const dutyDir = resolveExternalDutyDir();
       let finalDutyName = proposal.dutyName;
       if (nameOverride && nameOverride.trim()) {
         const candidate = toKebabCase(nameOverride.trim());
@@ -375,25 +385,47 @@ export default class DutyExecutorAgent extends BaseDuty {
         finalDutyName = candidate;
       }
 
-      const filePath = join(dutyDir, `${finalDutyName}.ts`);
-      await writeFile(filePath, proposal.code, "utf-8");
-
-      // The only "go live" step needed: the existing duty_file_updated
-      // listener in src/cli/commands/start.ts hands this straight to
-      // HotReloadService, which live-registers it — no restart, and this
-      // duty never touches HotReloadService or DutyRegistry directly.
-      this.api.events?.emit("duty_file_updated", { filePath }, "duty-executor");
-
       await this.proposalStorage.decide(id, "approved", finalDutyName);
+
+      // Hand off to the real coding-CLI pipeline (duties/coder-bot.ts)
+      // instead of writing proposal.code directly to disk — that draft came
+      // from a single api.ai.complete() call with no compile-check or
+      // self-correction loop. Emitting PlanProposed first creates a visible,
+      // trackable Kanban card (/todo); PlanApproved follows immediately since
+      // the human already approved this in chat — no second approval needed
+      // in the board itself. coder-bot.ts uses draftCode as a reviewed
+      // starting point for the CLI, not as the final code.
+      const now = Date.now();
+      this.api.events.emit("PlanProposed", {
+        id,
+        title: finalDutyName,
+        description: proposal.intent,
+        tags: ["create", "duty"],
+        source: "duty-executor",
+        proposedAt: now,
+      }, "duty-executor");
+      this.api.events.emit("PlanApproved", {
+        id,
+        title: finalDutyName,
+        description: proposal.intent,
+        tags: ["create", "duty"],
+        approvedAt: now,
+        draftCode: proposal.code,
+        source: "duty-executor",
+      }, "duty-executor");
 
       this.api.events?.emit(
         "duty.proposal_approved",
-        { id, dutyName: finalDutyName, filePath, timestamp: Date.now() },
+        { id, dutyName: finalDutyName, timestamp: now },
         "duty-executor"
       );
 
-      console.log(`[duty-executor] Duty proposal approved: ${finalDutyName} (${id})`);
-      return Response.json({ success: true, dutyName: finalDutyName });
+      console.log(`[duty-executor] Duty proposal approved: ${finalDutyName} (${id}) — handed off to coder-bot for implementation`);
+      return Response.json({
+        success: true,
+        dutyName: finalDutyName,
+        message: "Approved — a coding agent is implementing this now. Track progress at /todo.",
+      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`[duty-executor] Failed to approve duty proposal: ${msg}`);

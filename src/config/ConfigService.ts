@@ -91,6 +91,8 @@ export class ConfigService {
     if (tts) {
       if (tts.piperModelPath && process.env.PIPER_MODEL_PATH === undefined) process.env.PIPER_MODEL_PATH = tts.piperModelPath;
       if (tts.piperBinary && process.env.PIPER_BINARY === undefined) process.env.PIPER_BINARY = tts.piperBinary;
+      if (tts.agentVoiceUrl && process.env.AGENT_VOICE_URL === undefined) process.env.AGENT_VOICE_URL = tts.agentVoiceUrl;
+      if (tts.agentVoiceVoice && process.env.AGENT_VOICE_VOICE === undefined) process.env.AGENT_VOICE_VOICE = tts.agentVoiceVoice;
     }
   }
 

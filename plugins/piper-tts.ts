@@ -270,19 +270,15 @@ const piperPlugin: Plugin = {
       const modelUrl = `${baseUrl}/${lang}/${lang}_${region}/${name}/${quality}/${modelName}.onnx`;
       const configUrl = `${baseUrl}/${lang}/${lang}_${region}/${name}/${quality}/${modelName}.onnx.json`;
 
-      // This would need actual download implementation
-      // For now, return the URLs for manual download
-      console.log(`To download ${modelName}:`);
-      console.log(`  Model: ${modelUrl}`);
-      console.log(`  Config: ${configUrl}`);
-      console.log(`\nRun:`);
-      console.log(`  wget ${modelUrl} -P ${outputDir}`);
-      console.log(`  wget ${configUrl} -P ${outputDir}`);
-
-      return {
-        modelPath: join(outputDir, `${modelName}.onnx`),
-        configPath: join(outputDir, `${modelName}.onnx.json`)
-      };
+      // Not implemented: this used to return a fabricated {modelPath, configPath}
+      // for files that were never actually downloaded, which made callers believe
+      // the voice was ready when it wasn't. Fail loudly instead — the correct URLs
+      // are still surfaced so the user can fetch them manually.
+      throw new Error(
+        `downloadVoice() is not implemented — download the model manually:\n` +
+        `  wget ${modelUrl} -P ${outputDir}\n` +
+        `  wget ${configUrl} -P ${outputDir}`
+      );
     }
   }
 };

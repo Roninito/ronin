@@ -213,6 +213,12 @@ console.log(`Language: ${info.language}`);
 console.log(`Model path: ${info.modelPath}`);
 ```
 
+### Alternative TTS backend: agent-voice (cloned/persona voices)
+
+For cloned or in-character voices (rather than Piper's generic voices), Ronin can speak through a running [agent-voice](https://github.com/rodaddy/agent-voice) server instead. Set `speech.tts.backend` to `"agent-voice"` and configure `speech.tts.agentVoiceUrl` (default `http://127.0.0.1:7161`) and `speech.tts.agentVoiceVoice`. `local.speech.say` (and anything else that speaks through it) automatically routes to agent-voice instead of Piper when this backend is selected. Ronin only talks HTTP to an already-running `agent-voice serve` instance — it doesn't install or manage agent-voice or its OmniVoice TTS backend.
+
+A settings page at `/voice` (see `duties/voice-config.ts`) lets you switch between backends, pick a voice, and play a test phrase without editing `config.json` by hand.
+
 ---
 
 ## STT (Speech-to-Text)
@@ -391,23 +397,9 @@ export default class VoiceAssistant extends BaseAgent {
 }
 ```
 
-### Integration with Voice Messaging Agent
+### Note: `duties/voice-messaging.ts` does not use TTS/STT
 
-The built-in `voice-messaging.ts` agent can use these plugins:
-
-```typescript
-// In voice-messaging agent
-private async relayMessage(message: QueuedMessage): Promise<void> {
-  const announcement = `Message from ${message.from}: ${message.content}`;
-  
-  // Use Piper TTS instead of console log
-  if (this.api.piper) {
-    await this.api.piper.speakAndPlay(announcement);
-  } else {
-    console.log(`🔊 ${announcement}`);
-  }
-}
-```
+Despite the name, `duties/voice-messaging.ts` has no working integration with the Piper/STT plugins described in this document — its "voice" refers to natural-language *command parsing* (e.g. "send X a message: ...") relayed over the Realm/mesh network, not audio. Its TTS/STT hooks are commented-out browser-API stubs (`SpeechSynthesisUtterance`/`webkitSpeechRecognition`) that have never been wired to `plugins/piper-tts.ts` or `plugins/stt.ts`. If you want a duty that actually speaks, follow `duties/announcer.ts`'s pattern instead — it checks `this.api.plugins.has("piper")` and calls `this.api.plugins.call("piper", "speakAndPlay", text)` for real.
 
 ---
 

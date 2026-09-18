@@ -47,7 +47,11 @@ export async function interactiveCommand(options: InteractiveOptions = {}): Prom
     if (error instanceof AlreadyRunningError) {
       console.error(`❌ Ronin is already running (PID ${error.pid}).`);
       console.error("   Use 'ronin status' to check it, or 'ronin stop' first.");
-      process.exit(1);
+      // Exit 0, not 1 — see the matching comment in start.ts's runNinjaMode().
+      // "Already running" isn't a failure, and the macOS LaunchAgent's
+      // KeepAlive.SuccessfulExit: false would otherwise treat this refusal
+      // as a crash and immediately relaunch it, in a loop.
+      process.exit(0);
     }
     const err = error as { code?: string; message?: string };
     const message = err?.message || String(error);

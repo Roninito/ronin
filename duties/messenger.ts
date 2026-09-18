@@ -11,6 +11,7 @@ import type { DutyAPI } from "../src/types/index.js";
 import type { ChainContext, ChainMessage } from "../src/chain/types.js";
 import type { Middleware } from "../src/middleware/MiddlewareStack.js";
 import { MiddlewareStack } from "../src/middleware/MiddlewareStack.js";
+import { dirname } from "path";
 import {
   getRoninContext,
   buildSystemPrompt,
@@ -96,13 +97,186 @@ function buildCondensedToolContext(api: DutyAPI): string {
     .slice(0, 8);
 
   const lines: string[] = ["AVAILABLE TOOLS (CONDENSED):"];
+  // Lead with the routing rules — small models hit the most common mistake (calling
+  // skills.run for things that aren't skills) before they even read the rest. See
+  // Telegram failures on 2026-09-17 where qwen3:1.7b picked skills.run for "show me
+  // the contents of the state of ronin file" and the AI selection came back empty.
+  lines.push(
+    "- ROUTING RULES (read these FIRST):"
+  );
+  lines.push(
+    "- 'show/read/cat <file>' / 'list files in <dir>' / 'find file <name>' → call local.file.read or local.file.list DIRECTLY. Do NOT call skills.run."
+  );
+  lines.push(
+    "- 'search/run a skill for X' / 'weather' / 'mermaid' / 'note-taking' → call skills.run with query=<topic>."
+  );
+  lines.push(
+    "- 'search memory / past conversations / context' → call local.memory.search(query)."
+  );
+  lines.push(
+    "- 'query the database / list contracts / list tasks' → call local.db.query with a single SELECT."
+  );
   if (priority.length > 0) lines.push(`- Core: ${priority.join(", ")}`);
   if (plugin.length > 0) lines.push(`- Plugin-derived: ${plugin.join(", ")}`);
   if (mcp.length > 0) {
     lines.push(`- MCP (enabled): ${mcp.join(", ")}`);
     lines.push("- MCP naming convention: mcp_<server>_<tool>");
   }
+  // Built-in tools look like skills to callers but aren't — make the routing explicit so a
+  // user asking "use the filesystem skill" doesn't get a `skills.run` "No skills found"
+  // failure for a request that should have gone straight to a local.* tool. This is the
+  // exact failure that hit Telegram on 2026-09-17 (see analytics-tools-stats-skills-run-*).
+  lines.push(
+    "- For filesystem / file read / file list requests, use local.file.read / local.file.list DIRECTLY — do NOT call skills.run with \"filesystem\" (no skill by that name exists; built-in tools are always-visible and don't go through skills.run)."
+  );
   lines.push("- If unsure which tool to call, do tool discovery first via local.memory.search (matches refdoc-*/tool-* notes) and then call the discovered tool.");
+  return lines.join("\n");
+}
+
+/**
+ * Build a vault-aware block for the messenger system prompt. Surfaces the active
+ * vault root + the exact `obsidian-<vault_id>-<relative_path>` keys that are
+ * already indexed in `memory/notes/` so the model can:
+ *   1. Resolve a user's reference to "state of ronin" / "my notes" / "the docs"
+ *      straight to the right file by name, without a global search first.
+ *   2. Pick the right tool: `local.memory.search` for already-indexed notes
+ *      (metadata-only, fast), `obsidian_readNote` for full body of a known
+ *      file, `local.file.read` only for non-vault files (config, source).
+ *
+ * Before this, a Telegram request like "show me the contents of the state of
+ * ronin file" had the model calling `local.shell.safe` to wander the cwd and
+ * `skills.run` to fish for a skill — both of which are wrong for the active
+ * vault. The fix is to give the model the answer up front: the vault lives at
+ * `<vaultRoot>`, the file `STATE_OF_RONIN.md` is at `<vaultRoot>/STATE_OF_RONIN.md`,
+ * and a metadata-indexed note with key `obsidian-<id>-STATE_OF_RONIN.md` is in
+ * memory for fast lookup.
+ *
+ * Exported for unit testing — the messenger itself never uses this directly
+ * outside buildMessengerSystemPrompt.
+ */
+export async function buildVaultContext(api: DutyAPI): Promise<string> {
+  const lines: string[] = ["VAULT (where to look for user notes & project docs):"];
+
+  try {
+    const memoryVaultPath = api.config.get<string | undefined>("memory.vaultPath");
+    if (memoryVaultPath) {
+      // memory.vaultPath points at <vaultRoot>/memory, so the vault itself is
+      // its parent. The user asked for the vault to be the "where is everything"
+      // location, so we explicitly hand the model both numbers.
+      const vaultRoot = dirname(memoryVaultPath);
+      lines.push(`- Active memory root: ${memoryVaultPath}`);
+      lines.push(`- Active vault root:   ${vaultRoot}`);
+      lines.push("- Files in the vault (e.g. STATE_OF_RONIN.md, README, project notes) live under the vault root, NOT under memory/.");
+    } else {
+      lines.push("- memory.vaultPath is not configured — vault awareness disabled until it's set in ~/.ronin/config.json.");
+    }
+
+    // Live vault config from the obsidian plugin — shows which vaults are
+    // configured (id, path, allowedFolders) so the model knows what's indexed
+    // vs. what's ignored.
+    if (api.plugins?.has?.("obsidian")) {
+      try {
+        const cfg = api.config.get<{ vaults?: Array<{ id: string; path: string; enabled?: boolean; allowedFolders?: string[] }> }>("obsidian");
+        const configured = (cfg?.vaults ?? []).map((v) => ({
+          id: v.id,
+          path: v.path,
+          enabled: v.enabled ?? true,
+          allowedFolders: v.allowedFolders ?? [],
+        }));
+        const liveVaults = (await api.plugins.call("obsidian", "getVaults", configured)) as Array<{ id: string; path: string; allowedFolders: string[] }>;
+        if (liveVaults.length === 0) {
+          lines.push("- No Obsidian vaults configured.");
+        } else {
+          lines.push("- Configured vaults (id, path, allowed folders):");
+          for (const v of liveVaults) {
+            lines.push(`  - ${v.id}: ${v.path} (${v.allowedFolders.join(", ") || "no folder whitelist"})`);
+          }
+        }
+      } catch (err) {
+        // Plugin call failed (e.g. obsidian plugin not loaded in test mode);
+        // skip rather than poison the prompt.
+        console.warn("[messenger] Failed to load vault list:", err);
+      }
+    }
+
+    // Pre-compute the indexed vault note keys so the model can target them by
+    // exact key. We do a cheap in-memory scan of memory/notes/ for `obsidian-*`
+    // filenames and surface the first ~25 — enough to see the available
+    // surfaces (e.g. `obsidian-ronin-ai-data-STATE_OF_RONIN.md`) without
+    // flooding the prompt. For each top-priority note we also surface the
+    // absolute file_path (read from the JSON fence in the note itself) so the
+    // model can do a one-shot `local.file.read({ path })` instead of having
+    // to search the memory index first — that's the path the user took today
+    // when they asked "what does the Welcome file in the vault say" and the
+    // model wandered (search returned 0 hits for the slug, then tried
+    // skills.run twice, then finally local.file.read).
+    if (memoryVaultPath) {
+      try {
+        const notesDir = `${memoryVaultPath}/notes`;
+        const notes = (await api.files.list(notesDir)) as string[];
+        const indexed = notes
+          .map((p) => p.split("/").pop() ?? p)
+          .filter((name) => name.startsWith("obsidian-") && name.endsWith(".md"))
+          .map((name) => name.replace(/\.md$/, ""));
+        // Sort to surface STATE_OF_RONIN.md and other high-value notes first.
+        const priority = (k: string): number => {
+          if (/state[-_]of[-_]ronin/i.test(k)) return 0;
+          if (/(^|[-_])(welcome|readme|index)([-_]|$)/i.test(k)) return 1;
+          return 10;
+        };
+        indexed.sort((a, b) => priority(a) - priority(b) || a.localeCompare(b));
+        const sample = indexed.slice(0, 25);
+
+        if (sample.length > 0) {
+          lines.push(`- Indexed vault notes in memory (top ${sample.length} of ${indexed.length}):`);
+          for (const k of sample) {
+            // For each top-priority note, read its JSON fence to get the
+            // absolute file_path. Errors are swallowed per-note so one
+            // malformed note doesn't blank the whole block.
+            let absolutePath = "";
+            let title = "";
+            try {
+              const md = await api.files.read(`${notesDir}/${k}.md`);
+              const jsonMatch = md.match(/```json\n([\s\S]*?)\n```/);
+              if (jsonMatch) {
+                const meta = JSON.parse(jsonMatch[1] ?? "{}") as { file_path?: string; title?: string };
+                absolutePath = meta.file_path ?? "";
+                title = meta.title ?? "";
+              }
+            } catch {
+              // skip — fall back to key-only entry below
+            }
+            if (absolutePath) {
+              const display = title ? `${title}` : k;
+              lines.push(`  - ${display} → local.memory.search("${k}") OR local.file.read({ path: "${absolutePath}" })`);
+            } else {
+              lines.push(`  - ${k} → local.memory.search("${k}")`);
+            }
+          }
+          if (indexed.length > sample.length) {
+            lines.push(`  - (+${indexed.length - sample.length} more — search "obsidian-" to enumerate)`);
+          }
+        } else {
+          lines.push("- No indexed vault notes yet. The obsidian-vault-indexer duty runs daily at 2 AM; until then, use obsidian_readNote for live vault reads.");
+        }
+      } catch (err) {
+        // Notes dir may not exist yet (fresh vault, mid-migration). Skip.
+        console.warn("[messenger] Failed to scan indexed vault notes:", err);
+      }
+    }
+
+    lines.push("");
+    lines.push("ROUTING RULES FOR VAULT FILES:");
+    lines.push("- For a vault file you can identify by name (e.g. 'Welcome.md', 'STATE_OF_RONIN.md') → check the 'Indexed vault notes' list below first. Each entry shows the absolute file_path so you can call local.file.read({ path: '<abs>' }) directly, no search required.");
+    lines.push("- If you don't know the file's name or want to enumerate → call local.memory.search('obsidian-<vault_id>-') and read the indexed metadata. For the full body, then call obsidian_readNote with the absolute file_path.");
+    lines.push("- 'list files in vault' / 'what's in my notes' → call obsidian_listNotes({ vaultPath, allowedFolders }) or local.memory.search('obsidian-') to enumerate.");
+    lines.push("- For files OUTSIDE the vault (config, source code, anything not under the vault root) → use local.file.read({ path: '<absolute>' }). DO NOT guess the path — confirm via local.memory.search('<filename>') first if you don't know where it lives.");
+    lines.push("- NEVER call skills.run with 'read' / 'file' / 'filesystem' / 'show me a file' — the built-in tool guard rejects those (you'll see 'This looks like a built-in tool request, not a skill'). Go straight to local.file.read or obsidian_readNote instead.");
+    lines.push("- NEVER call local.shell.safe to `cat` or `ls` files you could read with local.file.read or obsidian_readNote — the safe-shell allowlist will reject the call anyway.");
+  } catch (err) {
+    lines.push(`(failed to build vault context: ${err instanceof Error ? err.message : String(err)})`);
+  }
+
   return lines.join("\n");
 }
 
@@ -147,6 +321,7 @@ async function buildMessengerSystemPrompt(
   const context = await getRoninContext(api);
   const condensedToolContext = buildCondensedToolContext(api);
   const skillContext = await buildSkillContext(api);
+  const vaultContext = await buildVaultContext(api);
 
   const basePrompt = buildSystemPrompt(context, {
     includeArchitecture: isFirstMessage,
@@ -198,7 +373,13 @@ Remember: Tools are means to an end. After getting results, ALWAYS respond to th
 
   const toolContextSection = condensedToolContext ? `\n\n${condensedToolContext}` : "";
   const skillContextSection = skillContext ? `\n\n${skillContext}` : "";
-  return basePrompt + sarInstructions + "\n\n" + MESSENGER_IDENTITY_AND_INTERFACE + toolContextSection + skillContextSection;
+  // Vault context goes between the identity block and the tool list — the
+  // model needs to see "where is the vault" before it picks a tool, otherwise
+  // it falls back to local.shell.safe or skills.run by default. Keep this
+  // ahead of the tool routing rules so vault files route to local.memory.search
+  // / obsidian_readNote before the model tries anything else.
+  const vaultSection = vaultContext ? `\n\n${vaultContext}` : "";
+  return basePrompt + sarInstructions + "\n\n" + MESSENGER_IDENTITY_AND_INTERFACE + vaultSection + toolContextSection + skillContextSection;
 }
 
 /**

@@ -2,9 +2,9 @@
  * Skills plugin: discover, explore, and use AgentSkills (skill.md + scripts)
  * Requires setAPI(api) to be called by createAPI so methods can access files, shell, config, events.
  */
-import { join } from "path";
+import { dirname, join } from "path";
 import { homedir } from "os";
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import type { Plugin } from "../src/plugins/base.js";
 import type { DutyAPI } from "../src/types/api.js";
 import type {
@@ -36,6 +36,30 @@ function getSkillsDirs(): string[] {
   const dirs: string[] = [];
   if (existsSync(userDir)) dirs.push(userDir);
   if (existsSync(projectDir) && projectDir !== userDir) dirs.push(projectDir);
+
+  // Also scan skill dirs that live inside the configured Obsidian vault.
+  // memory.vaultPath points at <vault>/<memory-subdir>; the vault itself is its parent.
+  // A user's vault can host skills under any sibling dir ending in /skills/ (the
+  // common convention is "copilot/skills/", but we don't hard-code it — the messenger
+  // previously failed to discover obsidian-cli etc. because vault-resident skills
+  // were invisible to this walk. See skills.run failures on 2026-09-17.
+  try {
+    const vaultPath = apiRef.config.get<string | undefined>("memory.vaultPath");
+    if (typeof vaultPath === "string" && vaultPath.length > 0) {
+      const vaultRoot = dirname(vaultPath);
+      if (existsSync(vaultRoot)) {
+        for (const entry of readdirSync(vaultRoot, { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue;
+          const candidate = join(vaultRoot, entry.name, "skills");
+          if (candidate === userDir || candidate === projectDir) continue;
+          if (existsSync(candidate)) dirs.push(candidate);
+        }
+      }
+    }
+  } catch {
+    // vault scan is best-effort — never block skill discovery on a missing/misconfigured vault
+  }
+
   return dirs;
 }
 

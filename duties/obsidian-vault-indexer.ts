@@ -77,11 +77,13 @@ export default class ObsidianVaultIndexerAgent extends BaseDuty {
         return result;
       }
 
-      const obsidian = await this.api.plugins?.call?.("obsidian", "listNotes", [
+      const obsidian = await this.api.plugins?.call?.(
+        "obsidian",
+        "listNotes",
         vaultConfig.path,
         vaultConfig.allowedFolders,
-        true,
-      ]);
+        true
+      );
 
       const notePaths = Array.isArray(obsidian) ? obsidian : [];
 
@@ -92,9 +94,11 @@ export default class ObsidianVaultIndexerAgent extends BaseDuty {
       // Process each note
       for (const filePath of notePaths) {
         try {
-          const note = (await this.api.plugins?.call?.("obsidian", "readNote", [
-            filePath,
-          ])) as ObsidianNote | null | undefined;
+          const note = (await this.api.plugins?.call?.(
+            "obsidian",
+            "readNote",
+            filePath
+          )) as ObsidianNote | null | undefined;
 
           if (!note) {
             result.errors++;

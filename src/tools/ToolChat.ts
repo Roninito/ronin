@@ -196,18 +196,6 @@ export async function executeTool(
 }
 
 /**
- * Execute a workflow
- */
-export async function runWorkflow(
-  api: DutyAPI,
-  workflowName: string,
-  args: Record<string, any>,
-  context?: Partial<ToolContext>
-): Promise<any> {
-  return api.tools.executeWorkflow(workflowName, args, context);
-}
-
-/**
  * Quick research helper
  */
 export async function quickResearch(

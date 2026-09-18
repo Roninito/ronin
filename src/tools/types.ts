@@ -115,21 +115,6 @@ export interface ValidationResult {
   estimatedCost?: number;
 }
 
-export interface WorkflowDefinition {
-  name: string;
-  description: string;
-  steps: WorkflowStep[];
-  variables?: Record<string, any>;
-}
-
-export interface WorkflowStep {
-  id: string;
-  tool: string;
-  input: Record<string, any>;
-  output?: string;
-  condition?: string;
-}
-
 // OpenAI-compatible function schema for Ollama
 export interface OpenAIFunctionSchema {
   type: 'function';

@@ -6,7 +6,6 @@
 
 // Core components
 export { ToolRouter } from "./ToolRouter.js";
-export { WorkflowEngine } from "./WorkflowEngine.js";
 export { initializeTools, getToolsAPI } from "../api/tools.js";
 
 // Adapters
@@ -29,8 +28,6 @@ export type {
   ToolPolicy,
   ToolPolicyRule,
   ValidationResult,
-  WorkflowDefinition,
-  WorkflowStep,
   JSONSchema,
   OpenAIFunctionSchema,
   CloudFeature,

@@ -222,34 +222,6 @@ Content Creation Guidelines:
   }
 
   /**
-   * Execute a specific workflow
-   */
-  async runWorkflow(
-    workflowName: string,
-    args: Record<string, any>,
-    conversationId: string = "default"
-  ): Promise<any> {
-    console.log(`[tool-orchestrator] Running workflow: ${workflowName}`);
-    
-    const startTime = Date.now();
-    
-    const result = await this.api.tools.executeWorkflow(
-      workflowName,
-      args,
-      { conversationId }
-    );
-
-    const duration = Date.now() - startTime;
-    
-    console.log(`[tool-orchestrator] Workflow completed in ${duration}ms`);
-    
-    return {
-      ...result,
-      duration,
-    };
-  }
-
-  /**
    * Get tool usage statistics
    */
   async getStats(): Promise<{
@@ -308,26 +280,18 @@ Content Creation Guidelines:
       const body = (req.payload ?? {}) as {
         query?: string;
         conversationId?: string;
-        workflow?: unknown;
-        args?: Record<string, unknown>;
       };
-      const { query, conversationId, workflow } = body;
+      const { query, conversationId } = body;
 
-      if (!query && !workflow) {
+      if (!query) {
         return {
           contentType: "application/json",
-          body: JSON.stringify({ error: "Query or workflow required" }),
+          body: JSON.stringify({ error: "Query required" }),
           status: 400,
         } as any;
       }
 
-      let result;
-      if (workflow) {
-        result = await this.runWorkflow(workflow as string, body.args || {}, conversationId);
-      } else {
-        // The guard above already ensures `query` is set whenever `workflow` isn't.
-        result = await this.handleQuery(query!, conversationId);
-      }
+      const result = await this.handleQuery(query, conversationId);
 
       return { success: true, ...result } as any;
     } catch (error) {

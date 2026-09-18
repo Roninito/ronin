@@ -6,23 +6,20 @@
 
 import type { DutyAPI } from "../types/index.js";
 import { ToolRouter } from "../tools/ToolRouter.js";
-import { WorkflowEngine } from "../tools/WorkflowEngine.js";
 import { registerLocalTools } from "../tools/providers/LocalTools.js";
 import { MCPClientManager } from "../mcp/MCPClientManager.js";
 import { getConfigService } from "../config/ConfigService.js";
-import type { 
-  ToolDefinition, 
-  ToolCall, 
-  ToolContext, 
+import type {
+  ToolDefinition,
+  ToolCall,
+  ToolContext,
   ToolResult,
   ToolPolicy,
-  WorkflowDefinition,
   OpenAIFunctionSchema,
 } from "../tools/types.js";
 
 // Singleton instances
 let toolRouter: ToolRouter | null = null;
-let workflowEngine: WorkflowEngine | null = null;
 let mcpManager: MCPClientManager | null = null;
 
 /**
@@ -38,9 +35,6 @@ export async function initializeTools(api: DutyAPI): Promise<void> {
 
   // Create router
   toolRouter = new ToolRouter(api);
-
-  // Create workflow engine
-  workflowEngine = new WorkflowEngine(toolRouter);
 
   // Register local tools
   registerLocalTools(api, (tool) => toolRouter!.register(tool));
@@ -122,42 +116,6 @@ export function getToolsAPI(api: DutyAPI) {
     },
 
     /**
-     * Register a workflow
-     */
-    registerWorkflow(workflow: WorkflowDefinition): void {
-      workflowEngine!.registerWorkflow(workflow);
-    },
-
-    /**
-     * Execute a workflow
-     */
-    async executeWorkflow(name: string, args: Record<string, any>, context?: Partial<ToolContext>): Promise<any> {
-      const fullContext: ToolContext = {
-        conversationId: context?.conversationId || 'default',
-        userId: context?.userId,
-        originalQuery: context?.originalQuery,
-        timestamp: Date.now(),
-        metadata: context?.metadata,
-      };
-
-      return workflowEngine!.executeWorkflow(name, args, fullContext);
-    },
-
-    /**
-     * Get workflow definition
-     */
-    getWorkflow(name: string): WorkflowDefinition | undefined {
-      return workflowEngine!.getWorkflow(name);
-    },
-
-    /**
-     * List all workflows
-     */
-    listWorkflows(): WorkflowDefinition[] {
-      return workflowEngine!.listWorkflows();
-    },
-
-    /**
      * Set tool policy
      */
     setPolicy(policy: ToolPolicy): void {
@@ -181,8 +139,7 @@ export function getToolsAPI(api: DutyAPI) {
 }
 
 // Export types
-export type { ToolDefinition, ToolCall, ToolResult, ToolContext, WorkflowDefinition } from "../tools/types.js";
+export type { ToolDefinition, ToolCall, ToolResult, ToolContext } from "../tools/types.js";
 export { ToolRouter } from "../tools/ToolRouter.js";
-export { WorkflowEngine } from "../tools/WorkflowEngine.js";
 export { CloudAdapter } from "../tools/adapters/CloudAdapter.js";
 export { OpenAIAdapter } from "../tools/adapters/OpenAIAdapter.js";

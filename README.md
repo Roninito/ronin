@@ -209,12 +209,15 @@ See [docs/PLUGINS.md](./docs/PLUGINS.md) for plugin development guide.
 
 ## Function Calling
 
-Duties can use AI function calling to interact with plugins:
+Duties can use AI function calling to interact with plugins. `callTools`'s
+tool list is exactly what you pass — nothing is added automatically (a
+previous version silently injected every plugin tool into every call
+regardless of what you passed; that's fixed — see `ARCHITECTURE.md` §7.1):
 
 ```typescript
 const { toolCalls } = await this.api.ai.callTools(
   "Check git status",
-  [] // Plugin tools automatically included
+  this.api.tools.getSchemas().filter(t => t.function.name.startsWith("git_"))
 );
 ```
 
@@ -303,17 +306,19 @@ cost-aware tool orchestration, separate from the main model router (see
 - **Cloud adapters** (`src/tools/adapters/`): Anthropic, Gemini, OpenAI, and
   an Ollama-cloud adapter, selected when a workflow needs to escalate beyond
   local tools.
-- **6 pre-built workflows** (`src/tools/workflows/examples.ts`):
-  research-and-visualize, code-review, create-documentation, analyze-data,
-  investigate-bug, create-content.
 - **Cost tracking**: built-in cost management and policy enforcement.
 - **Offline Mode**: works 100% offline with local tools.
 
-> **Naming collision, not a typo:** this `WorkflowDefinition`/`WorkflowEngine`
-> pipeline is a different, older concept from the markdown `workflows/*.md`
-> Workflow SOPs described above and in `ARCHITECTURE.md` §2. Same word, two
-> unrelated systems — see the disclaimer in `ARCHITECTURE.md` §2 for the full
-> story.
+> **`WorkflowEngine` (`src/tools/WorkflowEngine.ts`) is currently dead code,
+> not a feature.** It ships 6 example pipelines
+> (`src/tools/workflows/examples.ts`: research-and-visualize, code-review,
+> create-documentation, analyze-data, investigate-bug, create-content), but
+> nothing in the codebase ever calls `registerWorkflow()` with them —
+> `executeWorkflow()` would fail on any of these names today. It's also a
+> third, unrelated "workflow" concept on top of the naming collision already
+> documented in `ARCHITECTURE.md` §2 (markdown `workflows/*.md` SOPs vs. this
+> engine). This is flagged as a concrete cleanup candidate, not described as
+> working — see `ARCHITECTURE.md` for the current state of that discussion.
 
 ```typescript
 import { toolChat } from "../src/tools/ToolChat.js";

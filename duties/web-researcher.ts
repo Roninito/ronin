@@ -272,15 +272,6 @@ export default class WebResearcherAgent extends BaseDuty {
       if (memoryResult.success) {
         console.log("[web-researcher] Found memories:", memoryResult.data);
       }
-
-      // Example: Execute a workflow
-      const workflowResult = await this.api.tools.executeWorkflow(
-        "research-and-visualize",
-        { topic: "AI agents" },
-        { conversationId: "demo" }
-      );
-
-      console.log("[web-researcher] Workflow completed:", workflowResult.success);
     } catch (error) {
       console.error("[web-researcher] Tool usage demo failed:", error);
     }

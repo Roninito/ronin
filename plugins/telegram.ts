@@ -72,7 +72,14 @@ function escapeTelegramHtml(text: string): string {
  * Exported for unit testing.
  */
 export function resolveChatId(chatId?: string | number): string | number {
-  if (chatId !== undefined && chatId !== null && chatId !== "") return chatId;
+  if (chatId === undefined || chatId === null) {
+    // fall through to defaults
+  } else if (typeof chatId === "string") {
+    const trimmed = chatId.trim();
+    if (trimmed) return trimmed;
+  } else {
+    return chatId;
+  }
   try {
     const cfg = getConfigService().getTelegram();
     if (cfg?.chatId) return cfg.chatId;

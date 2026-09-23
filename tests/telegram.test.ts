@@ -51,6 +51,19 @@ describe("Telegram Plugin", () => {
     it("throws when no chatId is available", () => {
       expect(() => resolveChatId()).toThrow("No Telegram chatId provided");
       expect(() => resolveChatId("")).toThrow("No Telegram chatId provided");
+      expect(() => resolveChatId("   ")).toThrow("No Telegram chatId provided");
+    });
+
+    it("falls back to config default when chatId is empty or whitespace", async () => {
+      process.env.TELEGRAM_CHAT_ID = "env-default";
+      const cfg = getConfigService();
+      await cfg.load();
+      await cfg.set("telegram.chatId", "1659406380");
+      expect(resolveChatId("")).toBe("1659406380");
+      expect(resolveChatId("   ")).toBe("1659406380");
+      expect(resolveChatId(undefined)).toBe("1659406380");
+      // Explicit value still wins
+      expect(resolveChatId("explicit")).toBe("explicit");
     });
 
     it("falls back to TELEGRAM_CHAT_ID env", () => {

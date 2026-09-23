@@ -300,6 +300,14 @@ const telegramPlugin: Plugin = {
 
       const effectiveChatId = resolveChatId(chatId);
 
+      if (process.env.RONIN_VERBOSE_TOOLS) {
+        console.log(
+          `[telegram] sendMessage resolved chatId=${JSON.stringify(
+            chatId
+          )} effectiveChatId=${JSON.stringify(effectiveChatId)}`
+        );
+      }
+
       // When using HTML parse_mode, escape angle brackets that aren't valid tags
       // (e.g. <noreply@example.com>) so Telegram doesn't try to parse them as entities
       const outText =
@@ -382,6 +390,14 @@ const telegramPlugin: Plugin = {
       }
 
       const effectiveChatId = resolveChatId(chatId);
+
+      if (process.env.RONIN_VERBOSE_TOOLS) {
+        console.log(
+          `[telegram] sendPhoto resolved chatId=${JSON.stringify(
+            chatId
+          )} effectiveChatId=${JSON.stringify(effectiveChatId)}`
+        );
+      }
 
       try {
         // grammy's api takes a URL/file_id string or an InputFile wrapper — never a raw

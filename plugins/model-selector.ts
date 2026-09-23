@@ -134,7 +134,8 @@ class ModelSelectorPlugin {
     const userPath = getUserRegistryPath();
     const userOverrides = loadRegistryFromFile(userPath);
     if (userOverrides && (userOverrides as any).__fullOverride === true) {
-      this.registryCache = userOverrides as ModelRegistry;
+      const merged = applyConfigModelOverrides(userOverrides as ModelRegistry);
+      this.registryCache = merged;
       this.cacheTime = now;
       return this.registryCache;
     }

@@ -12,11 +12,12 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { existsSync, mkdirSync, rmSync } from "fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { modelSelector } from "../plugins/model-selector.js";
 import type { ModelConfig } from "../src/types/model.js";
 import {
   clearTestModelRegistryEnv,
+  createTestModelRegistry,
   setupTestModelConfig,
   setupTestModelRegistry,
 } from "./helpers/modelRegistry.js";
@@ -78,6 +79,25 @@ describe("Model Selector Plugin", () => {
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
       expect(models.some((m) => m.nametag === "claude-haiku")).toBe(true);
+    });
+
+    it("should let config default override a full-override registry default", async () => {
+      // Simulate a daemon that once saved a full registry with a different default.
+      const roninDir = join(TEST_HOME, ".ronin");
+      const userPath = join(roninDir, "ai-models.json");
+      const fullRegistry = {
+        ...createTestModelRegistry(),
+        default: "glm-5.2:cloud",
+        __fullOverride: true,
+      };
+      writeFileSync(userPath, JSON.stringify(fullRegistry, null, 2));
+      await setupTestModelConfig(TEST_HOME, "kimi-k2.5");
+      modelSelector.clearCache();
+
+      const registry = await modelSelector.loadRegistry();
+      expect(registry.default).toBe("kimi-k2.5");
+      const models = await modelSelector.listModels();
+      expect(models.find((m) => m.nametag === "kimi-k2.5")?.isDefault).toBe(true);
     });
   });
 

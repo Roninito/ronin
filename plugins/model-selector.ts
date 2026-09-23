@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
+import { getConfigService } from "../src/config/ConfigService.js";
 import type {
   ModelConfig,
   ModelRegistry,
@@ -52,6 +53,65 @@ function mergeRegistries(defaults: ModelRegistry, overrides: ModelRegistry | nul
   };
 }
 
+/**
+ * Build a minimal ModelConfig entry for a configured model nametag that does not
+ * yet exist in the selector registry. This keeps config.json's ai.models slots
+ * authoritative even when they name a model the registry has never seen.
+ */
+function syntheticModelConfig(nametag: string): ModelConfig {
+  const providerHint = nametag.includes(":") ? (nametag.split(":")[0] ?? "ollama") : "ollama";
+  return {
+    provider: providerHint,
+    modelId: nametag,
+    nametag,
+    displayName: nametag,
+    description: `Configured default from config.json (synthetic registry entry)`,
+    tags: [],
+    isDefault: false,
+    limits: {
+      costPerMTok: 0,
+      costPerOTok: 0,
+      maxDailySpend: 0,
+      maxMonthlySpend: 0,
+      maxConcurrent: 5,
+      maxTokensPerRequest: 32768,
+      rateLimit: { requestsPerMinute: 60, tokensPerMinute: 200000 },
+    },
+    config: { temperature: 0.7 },
+  };
+}
+
+/**
+ * Apply config.json ai.models.* slots as overrides to a loaded registry.
+ * Config is authoritative for the default/fast/smart/embedding slots.
+ */
+function applyConfigModelOverrides(registry: ModelRegistry): ModelRegistry {
+  try {
+    const config = getConfigService().getAI();
+    const slots = config.models;
+    if (!slots) return registry;
+
+    const configuredDefault = slots.default;
+    if (configuredDefault) {
+      registry.default = configuredDefault as string;
+      if (!registry.models[configuredDefault]) {
+        registry.models[configuredDefault] = syntheticModelConfig(configuredDefault);
+      }
+    }
+
+    // Ensure fast/smart/embedding slots are addressable by their configured names.
+    for (const slot of ["fast", "smart", "embedding"] as const) {
+      const nametag = slots[slot];
+      if (nametag && !registry.models[nametag]) {
+        registry.models[nametag] = syntheticModelConfig(nametag);
+      }
+    }
+  } catch {
+    // Config service may not be initialized in tests or read-only contexts.
+  }
+  return registry;
+}
+
 class ModelSelectorPlugin {
   private registryCache: ModelRegistry | null = null;
   private cacheTime: number = 0;
@@ -83,12 +143,13 @@ class ModelSelectorPlugin {
       if (!userOverrides) {
         throw new Error(`Failed to load model registry from ${repoPath} or ${userPath}`);
       }
-      this.registryCache = userOverrides;
+      const merged = applyConfigModelOverrides(userOverrides);
+      this.registryCache = merged;
       this.cacheTime = now;
-      return userOverrides;
+      return merged;
     }
 
-    const merged = mergeRegistries(repoDefaults, userOverrides);
+    const merged = applyConfigModelOverrides(mergeRegistries(repoDefaults, userOverrides));
     this.registryCache = merged;
     this.cacheTime = now;
     return merged;
@@ -197,7 +258,8 @@ class ModelSelectorPlugin {
   }
 
   /**
-   * Set the default model
+   * Set the default model. Persists the choice to the model registry and also
+   * updates config.json's ai.models.default so config remains authoritative.
    */
   async setDefaultModel(nametag: string): Promise<void> {
     const registry = await this.loadRegistry();
@@ -209,6 +271,15 @@ class ModelSelectorPlugin {
       model.isDefault = key === nametag;
     }
     await this.saveRegistry(registry);
+
+    // Keep config.json in sync so the config default is authoritative.
+    try {
+      const cfg = getConfigService();
+      await cfg.set("ai.models.default", nametag);
+    } catch {
+      // Config service may not be available; registry default is still updated.
+    }
+
     // Clear cache to ensure fresh load on next access
     this.registryCache = null;
   }

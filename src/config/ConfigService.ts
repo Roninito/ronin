@@ -19,7 +19,9 @@ export class ConfigService {
   private envOverrides: Set<string> = new Set();
 
   constructor() {
-    this.configPath = join(homedir(), ".ronin", "config.json");
+    this.configPath = process.env.RONIN_CONFIG_PATH
+      ? process.env.RONIN_CONFIG_PATH
+      : join(homedir(), ".ronin", "config.json");
     this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy
   }
 

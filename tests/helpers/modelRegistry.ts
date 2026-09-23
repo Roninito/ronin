@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { ModelRegistry } from "../../src/types/model.js";
+import { getConfigService, resetConfigService } from "../../src/config/ConfigService.js";
 
 export function createTestModelRegistry(): ModelRegistry {
   return {
@@ -147,6 +148,30 @@ export function setupTestModelRegistry(testRoot: string): string {
   return registryPath;
 }
 
+/**
+ * Point the singleton ConfigService at a temp config file and seed it with a
+ * matching ai.models.default. Call before modelSelector.clearCache().
+ */
+export async function setupTestModelConfig(
+  testRoot: string,
+  defaultModel: string = "claude-haiku"
+): Promise<string> {
+  const roninDir = join(testRoot, ".ronin");
+  const configPath = join(roninDir, "config.json");
+  mkdirSync(roninDir, { recursive: true });
+  writeFileSync(
+    configPath,
+    JSON.stringify({ ai: { models: { default: defaultModel } } }, null, 2)
+  );
+  delete process.env.RONIN_CONFIG_PATH;
+  resetConfigService();
+  process.env.RONIN_CONFIG_PATH = configPath;
+  await getConfigService().load();
+  return configPath;
+}
+
 export function clearTestModelRegistryEnv(): void {
   delete process.env.RONIN_AI_MODELS_PATH;
+  delete process.env.RONIN_CONFIG_PATH;
+  resetConfigService();
 }

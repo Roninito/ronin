@@ -15,18 +15,23 @@ import { join } from "path";
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { modelSelector } from "../plugins/model-selector.js";
 import type { ModelConfig } from "../src/types/model.js";
-import { clearTestModelRegistryEnv, setupTestModelRegistry } from "./helpers/modelRegistry.js";
+import {
+  clearTestModelRegistryEnv,
+  setupTestModelConfig,
+  setupTestModelRegistry,
+} from "./helpers/modelRegistry.js";
 
 const TEST_HOME = join(process.cwd(), ".test-ronin");
 
 describe("Model Selector Plugin", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up test directory
     if (existsSync(TEST_HOME)) {
       rmSync(TEST_HOME, { recursive: true });
     }
     mkdirSync(TEST_HOME, { recursive: true });
     setupTestModelRegistry(TEST_HOME);
+    await setupTestModelConfig(TEST_HOME, "claude-haiku");
     modelSelector.clearCache();
   });
 

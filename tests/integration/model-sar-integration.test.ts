@@ -16,7 +16,11 @@ import { MiddlewareStack } from "../../src/middleware/MiddlewareStack.js";
 import { modelResolution } from "../../src/middleware/modelResolution.js";
 import type { ChainContext } from "../../src/chain/types.js";
 import { modelSelector } from "../../plugins/model-selector.js";
-import { clearTestModelRegistryEnv, setupTestModelRegistry } from "../helpers/modelRegistry.js";
+import {
+  clearTestModelRegistryEnv,
+  setupTestModelConfig,
+  setupTestModelRegistry,
+} from "../helpers/modelRegistry.js";
 
 // Mock executor for testing
 class MockExecutor {
@@ -28,12 +32,13 @@ class MockExecutor {
 const TEST_HOME = join(process.cwd(), ".test-ronin-integration");
 
 describe("Model Selection + SAR Integration", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     if (existsSync(TEST_HOME)) {
       rmSync(TEST_HOME, { recursive: true });
     }
     mkdirSync(TEST_HOME, { recursive: true });
     setupTestModelRegistry(TEST_HOME);
+    await setupTestModelConfig(TEST_HOME, "claude-haiku");
     modelSelector.clearCache();
   });
 
@@ -145,7 +150,7 @@ describe("Model Selection + SAR Integration", () => {
         messages: [],
         modelNametag: "claude-haiku",
         budget: {
-          max: 10000, // Exceeds claude-haiku's maxTokensPerRequest (4096)
+          max: 100000, // Exceeds every model in the test registry, including the synthetic config default
           current: 0,
           reservedForResponse: 1000,
         },
@@ -280,7 +285,8 @@ describe("Model Selection + SAR Integration", () => {
       };
 
       await stack.run(ctx);
-      expect(ctx.modelNametag).toBe("gpt-4o");
+      // Falls back to the configured default, which has a much higher token limit.
+      expect(ctx.modelNametag).toBe("granite3.2-16k");
     });
   });
 

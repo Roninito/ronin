@@ -1,5 +1,6 @@
 import type { Plugin } from "../src/plugins/base.js";
 import { Bot, Context, GrammyError, InputFile } from "grammy";
+import { getConfigService } from "../src/config/ConfigService.js";
 
 interface TelegramUpdate {
   update_id: number;
@@ -66,11 +67,83 @@ function escapeTelegramHtml(text: string): string {
 }
 
 /**
+ * Best-effort default chat ID for send operations.
+ * Falls back through: explicit argument > config.telegram.chatId > TELEGRAM_CHAT_ID env.
+ * Exported for unit testing.
+ */
+export function resolveChatId(chatId?: string | number): string | number {
+  if (chatId !== undefined && chatId !== null && chatId !== "") return chatId;
+  try {
+    const cfg = getConfigService().getTelegram();
+    if (cfg?.chatId) return cfg.chatId;
+  } catch {
+    // Config service may not be initialized in some tests/read-only contexts.
+  }
+  const envChatId = process.env.TELEGRAM_CHAT_ID;
+  if (envChatId) return envChatId;
+  throw new Error(
+    "No Telegram chatId provided and no default configured. " +
+      "Set telegram.chatId in config or pass chatId explicitly."
+  );
+}
+
+/**
  * Telegram plugin for interacting with Telegram Bot API
  */
 const telegramPlugin: Plugin = {
   name: "telegram",
   description: "Telegram Bot API integration for sending messages, polling updates, and managing bots",
+  toolMetadata: {
+    sendMessage: {
+      description:
+        "Send a text message to a Telegram chat or channel. If chatId is omitted, the configured default (telegram.chatId) is used.",
+      parameters: {
+        type: "object",
+        properties: {
+          botId: { type: "string", description: "Bot ID returned by telegram.initBot" },
+          chatId: {
+            type: "string",
+            description: "Chat/channel ID or username. Optional if a default is configured.",
+          },
+          text: { type: "string", description: "Message text" },
+          parseMode: {
+            type: "string",
+            enum: ["HTML", "Markdown", "MarkdownV2"],
+            description: "Message format mode",
+          },
+        },
+        required: ["botId", "text"],
+      },
+    },
+    sendPhoto: {
+      description:
+        "Send a photo to a Telegram chat or channel. If chatId is omitted, the configured default (telegram.chatId) is used.",
+      parameters: {
+        type: "object",
+        properties: {
+          botId: { type: "string", description: "Bot ID returned by telegram.initBot" },
+          chatId: {
+            type: "string",
+            description: "Chat/channel ID or username. Optional if a default is configured.",
+          },
+          photo: { type: "string", description: "Photo URL, file path, or Base64 data" },
+          caption: { type: "string", description: "Optional caption" },
+        },
+        required: ["botId", "photo"],
+      },
+    },
+    initBot: {
+      description: "Initialize a Telegram bot with a token from @BotFather.",
+      parameters: {
+        type: "object",
+        properties: {
+          token: { type: "string", description: "Telegram bot token" },
+          webhookUrl: { type: "string", description: "Optional webhook URL (otherwise polling)" },
+        },
+        required: ["token"],
+      },
+    },
+  },
   methods: {
     /**
      * Initialize a Telegram bot with a token
@@ -205,7 +278,7 @@ const telegramPlugin: Plugin = {
      */
     sendMessage: async (
       botId: string,
-      chatId: string | number,
+      chatId: string | number | undefined,
       text: string,
       options?: { parseMode?: "HTML" | "Markdown" | "MarkdownV2" }
     ): Promise<void> => {
@@ -218,13 +291,15 @@ const telegramPlugin: Plugin = {
         throw new Error("Message text is required");
       }
 
+      const effectiveChatId = resolveChatId(chatId);
+
       // When using HTML parse_mode, escape angle brackets that aren't valid tags
       // (e.g. <noreply@example.com>) so Telegram doesn't try to parse them as entities
       const outText =
         options?.parseMode === "HTML" ? escapeTelegramHtml(text) : text;
 
       // Rate limiting: ensure we don't send messages too quickly to the same chat
-      const chatKey = `${botId}:${chatId}`;
+      const chatKey = `${botId}:${effectiveChatId}`;
       const now = Date.now();
       const lastTime = lastMessageTime.get(chatKey) || 0;
       const timeSinceLastMessage = now - lastTime;
@@ -235,7 +310,7 @@ const telegramPlugin: Plugin = {
       }
 
       try {
-        await instance.bot.api.sendMessage(chatId, outText, {
+        await instance.bot.api.sendMessage(effectiveChatId, outText, {
           parse_mode: options?.parseMode,
         });
         lastMessageTime.set(chatKey, Date.now());
@@ -250,7 +325,7 @@ const telegramPlugin: Plugin = {
           
           // Retry the request
           try {
-            await instance.bot.api.sendMessage(chatId, outText, {
+            await instance.bot.api.sendMessage(effectiveChatId, outText, {
               parse_mode: options?.parseMode,
             });
             lastMessageTime.set(chatKey, Date.now());
@@ -263,17 +338,17 @@ const telegramPlugin: Plugin = {
         // Provide helpful error messages for common issues
         if (errorMsg.includes("chat not found")) {
           throw new Error(
-            `Failed to send message: Chat not found (${chatId}). ` +
+            `Failed to send message: Chat not found (${effectiveChatId}). ` +
             `Make sure the bot is added to the chat/channel and the chat ID is correct. ` +
             `For channels, add the bot as an administrator.`
           );
         } else if (errorMsg.includes("bot was kicked")) {
           throw new Error(
-            `Failed to send message: Bot was kicked from the chat (${chatId}).`
+            `Failed to send message: Bot was kicked from the chat (${effectiveChatId}).`
           );
         } else if (errorMsg.includes("bot was blocked")) {
           throw new Error(
-            `Failed to send message: Bot was blocked by the user (${chatId}).`
+            `Failed to send message: Bot was blocked by the user (${effectiveChatId}).`
           );
         }
         
@@ -290,7 +365,7 @@ const telegramPlugin: Plugin = {
      */
     sendPhoto: async (
       botId: string,
-      chatId: string | number,
+      chatId: string | number | undefined,
       photo: string | Buffer,
       caption?: string
     ): Promise<void> => {
@@ -299,10 +374,12 @@ const telegramPlugin: Plugin = {
         throw new Error(`Bot not initialized: ${botId}`);
       }
 
+      const effectiveChatId = resolveChatId(chatId);
+
       try {
         // grammy's api takes a URL/file_id string or an InputFile wrapper — never a raw
         // Buffer — so a Buffer caller has to be wrapped before it can be uploaded.
-        await instance.bot.api.sendPhoto(chatId, Buffer.isBuffer(photo) ? new InputFile(photo) : photo, {
+        await instance.bot.api.sendPhoto(effectiveChatId, Buffer.isBuffer(photo) ? new InputFile(photo) : photo, {
           caption,
         });
       } catch (error) {

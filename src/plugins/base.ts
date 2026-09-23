@@ -9,7 +9,7 @@ export interface PluginMethodMeta {
   description: string;
   parameters?: {
     type: "object";
-    properties: Record<string, { type: string; description?: string }>;
+    properties: Record<string, { type: string; description?: string; enum?: string[] }>;
     required?: string[];
   };
 }

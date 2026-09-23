@@ -43,8 +43,30 @@ export class ToolRouter {
     if (dotted !== name && this.tools.has(dotted)) return dotted;
     const aliased = TOOL_ALIASES[name] || TOOL_ALIASES[dotted];
     if (aliased && this.tools.has(aliased)) return aliased;
+
+    // Spurious `local_` prefix fallback: some models prefix plugin tools with
+    // `local_` because local tools use `local.*` names. Strip it and retry.
+    const withoutLocalPrefix = name.startsWith("local_") ? name.slice(6) : undefined;
+    if (withoutLocalPrefix) {
+      if (this.tools.has(withoutLocalPrefix)) return withoutLocalPrefix;
+      const withoutLocalPrefixDotted = withoutLocalPrefix.includes("_")
+        ? withoutLocalPrefix.replace(/_/g, ".")
+        : withoutLocalPrefix;
+      if (
+        withoutLocalPrefixDotted !== withoutLocalPrefix &&
+        this.tools.has(withoutLocalPrefixDotted)
+      ) {
+        return withoutLocalPrefixDotted;
+      }
+    }
+
     const suffixes = [`.${name}`];
     if (dotted !== name) suffixes.push(`.${dotted}`);
+    if (withoutLocalPrefix && withoutLocalPrefix !== name) suffixes.push(`.${withoutLocalPrefix}`);
+    if (withoutLocalPrefix && withoutLocalPrefix.includes("_")) {
+      const withoutLocalPrefixDotted = withoutLocalPrefix.replace(/_/g, ".");
+      suffixes.push(`.${withoutLocalPrefixDotted}`);
+    }
     for (const registered of this.tools.keys()) {
       if (suffixes.some((suffix) => registered.endsWith(suffix))) return registered;
     }
@@ -121,7 +143,11 @@ export class ToolRouter {
     const tool = resolvedName ? this.tools.get(resolvedName) : undefined;
 
     if (!tool) {
-      const error = `Tool '${call.name}' not found`;
+      let error = `Tool '${call.name}' not found`;
+      const suggestion = this.findSuggestion(call.name);
+      if (suggestion) {
+        error += `. Did you mean '${suggestion}'?`;
+      }
       console.error(`[ToolRouter] ${error}`);
       return this.createErrorResult(call, error);
     }
@@ -176,7 +202,8 @@ export class ToolRouter {
 
       // Execute if not cached
       if (!result) {
-        console.log(`[ToolRouter] Executing ${effectiveCall.name}`);
+        if (process.env.RONIN_VERBOSE_TOOLS) console.log(`[ToolRouter] Executing ${effectiveCall.name} args=${JSON.stringify(effectiveCall.arguments)}`);
+        else console.log(`[ToolRouter] Executing ${effectiveCall.name}`);
         const handlerResult = await tool.handler(effectiveCall.arguments, context);
         
         result = {
@@ -457,6 +484,28 @@ export class ToolRouter {
         callId: call.id,
       },
     };
+  }
+
+  /**
+   * Best-effort "did you mean" suggestion for an unrecognized tool name.
+   */
+  private findSuggestion(name: string): string | undefined {
+    // If stripping a spurious local_ prefix lands on a real tool, suggest it.
+    const candidates: string[] = [];
+    if (name.startsWith("local_")) {
+      const stripped = name.slice(6);
+      candidates.push(stripped);
+      if (stripped.includes("_")) candidates.push(stripped.replace(/_/g, "."));
+    }
+    // Suffix match (e.g. "speech_say" → "local.speech.say").
+    const dotted = name.includes("_") ? name.replace(/_/g, ".") : name;
+    candidates.push(name, dotted);
+    for (const registered of this.tools.keys()) {
+      if (candidates.some((c) => registered.endsWith(`.${c}`) || registered === c)) {
+        return registered;
+      }
+    }
+    return undefined;
   }
 
   /**

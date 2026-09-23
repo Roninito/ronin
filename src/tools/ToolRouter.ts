@@ -38,8 +38,13 @@ export class ToolRouter {
 
   /** Resolve model-reported name (e.g. "say") to registered tool name (e.g. "local.speech.say"). */
   private resolveToolName(name: string): string | undefined {
+    // Normalization: treat hyphens, underscores, and dots as equivalent separators.
+    // This fixes plugin names like "model-selector_listModels" which would otherwise
+    // become "local.model.selector.listModels" and miss the real tool.
+    const normalize = (s: string) => s.replace(/[-_.]/g, ".");
+
     if (this.tools.has(name)) return name;
-    const dotted = name.includes("_") ? name.replace(/_/g, ".") : name;
+    const dotted = normalize(name);
     if (dotted !== name && this.tools.has(dotted)) return dotted;
     const aliased = TOOL_ALIASES[name] || TOOL_ALIASES[dotted];
     if (aliased && this.tools.has(aliased)) return aliased;
@@ -49,9 +54,7 @@ export class ToolRouter {
     const withoutLocalPrefix = name.startsWith("local_") ? name.slice(6) : undefined;
     if (withoutLocalPrefix) {
       if (this.tools.has(withoutLocalPrefix)) return withoutLocalPrefix;
-      const withoutLocalPrefixDotted = withoutLocalPrefix.includes("_")
-        ? withoutLocalPrefix.replace(/_/g, ".")
-        : withoutLocalPrefix;
+      const withoutLocalPrefixDotted = normalize(withoutLocalPrefix);
       if (
         withoutLocalPrefixDotted !== withoutLocalPrefix &&
         this.tools.has(withoutLocalPrefixDotted)
@@ -63,12 +66,16 @@ export class ToolRouter {
     const suffixes = [`.${name}`];
     if (dotted !== name) suffixes.push(`.${dotted}`);
     if (withoutLocalPrefix && withoutLocalPrefix !== name) suffixes.push(`.${withoutLocalPrefix}`);
-    if (withoutLocalPrefix && withoutLocalPrefix.includes("_")) {
-      const withoutLocalPrefixDotted = withoutLocalPrefix.replace(/_/g, ".");
+    if (withoutLocalPrefix) {
+      const withoutLocalPrefixDotted = normalize(withoutLocalPrefix);
       suffixes.push(`.${withoutLocalPrefixDotted}`);
     }
     for (const registered of this.tools.keys()) {
-      if (suffixes.some((suffix) => registered.endsWith(suffix))) return registered;
+      const normalizedRegistered = normalize(registered);
+      if (suffixes.some((suffix) => normalizedRegistered.endsWith(suffix))) return registered;
+      // Also try matching the whole normalized name against normalized registered names.
+      if (normalizedRegistered === dotted) return registered;
+      if (withoutLocalPrefix && normalizedRegistered === normalize(withoutLocalPrefix)) return registered;
     }
     return undefined;
   }
@@ -490,18 +497,21 @@ export class ToolRouter {
    * Best-effort "did you mean" suggestion for an unrecognized tool name.
    */
   private findSuggestion(name: string): string | undefined {
+    // Treat hyphens, underscores, and dots as equivalent separators.
+    const normalize = (s: string) => s.replace(/[-_.]/g, ".");
+
     // If stripping a spurious local_ prefix lands on a real tool, suggest it.
     const candidates: string[] = [];
     if (name.startsWith("local_")) {
       const stripped = name.slice(6);
-      candidates.push(stripped);
-      if (stripped.includes("_")) candidates.push(stripped.replace(/_/g, "."));
+      candidates.push(stripped, normalize(stripped));
     }
     // Suffix match (e.g. "speech_say" → "local.speech.say").
-    const dotted = name.includes("_") ? name.replace(/_/g, ".") : name;
+    const dotted = normalize(name);
     candidates.push(name, dotted);
     for (const registered of this.tools.keys()) {
-      if (candidates.some((c) => registered.endsWith(`.${c}`) || registered === c)) {
+      const normalizedRegistered = normalize(registered);
+      if (candidates.some((c) => normalizedRegistered.endsWith(`.${c}`) || normalizedRegistered === c)) {
         return registered;
       }
     }

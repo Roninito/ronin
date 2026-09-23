@@ -66,6 +66,13 @@ describe("ToolRouter.resolveToolName aliases", () => {
       provider: "plugin:email",
       handler: async () => ({ success: true, data: [] }),
     });
+    router.register({
+      name: "model-selector_listModels",
+      description: "List models",
+      parameters: { type: "object", properties: {} },
+      provider: "plugin:model-selector",
+      handler: async () => ({ success: true, data: [] }),
+    });
   });
 
   it("resolves exact registered names", async () => {
@@ -90,6 +97,18 @@ describe("ToolRouter.resolveToolName aliases", () => {
     const result = await router.execute({ id: "t4", name: "local_speech_say", arguments: {} }, { conversationId: "c1" });
     expect(result.success).toBe(true);
     expect(result.metadata.toolName).toBe("local.speech.say");
+  });
+
+  it("resolves hyphenated plugin names like model-selector_listModels", async () => {
+    const result = await router.execute({ id: "t6", name: "model-selector_listModels", arguments: {} }, { conversationId: "c1" });
+    expect(result.success).toBe(true);
+    expect(result.metadata.toolName).toBe("model-selector_listModels");
+  });
+
+  it("resolves hyphenated plugin names with spurious local_ prefix", async () => {
+    const result = await router.execute({ id: "t7", name: "local_model-selector_listModels", arguments: {} }, { conversationId: "c1" });
+    expect(result.success).toBe(true);
+    expect(result.metadata.toolName).toBe("model-selector_listModels");
   });
 
   it("reports failure clearly for genuinely unknown tools", async () => {

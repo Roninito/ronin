@@ -40,6 +40,16 @@ import { setLogLevel, LogLevel } from "../utils/logger.js";
 import { fileURLToPath } from "url";
 import { getArg, getCommandHelp, parseGlobalOptions, stripFlags } from "./shared.js";
 
+// Ensure MCP-spawned binaries (npx, etc.) resolve regardless of launcher env.
+// LaunchAgents/GUI contexts often carry a minimal PATH; without this the MCP
+// filesystem/brave-search servers fail with "Executable not found: npx".
+{
+  const extra = ["/opt/homebrew/bin", "/usr/local/bin", `${process.env.HOME}/.bun/bin`];
+  const cur = (process.env.PATH ?? "").split(":").filter(Boolean);
+  for (const dir of extra) if (!cur.includes(dir)) cur.push(dir);
+  process.env.PATH = cur.join(":");
+}
+
 // Commands that require being in the ronin directory
 const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "restart", "run", "interactive", "i", "create", "client"]);
 

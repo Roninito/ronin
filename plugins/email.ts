@@ -336,6 +336,128 @@ const resolveEmailSettings = async (input: EmailAccountInput): Promise<EmailAcco
 const emailPlugin: Plugin = {
   name: "email",
   description: "Email management plugin with IMAP/SMTP support for multiple accounts",
+  toolMetadata: {
+    listAccounts: {
+      description: "List all configured email accounts (without sensitive credentials).",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+    getInbox: {
+      description: "Fetch recent emails from an account's INBOX. Use named flat arguments, never a nested {args:[...]} wrapper.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account (from listAccounts)" },
+          limit: { type: "number", description: "Maximum emails to return (default 50)" },
+          offset: { type: "number", description: "Skip this many recent emails" },
+        },
+        required: ["accountId"],
+      },
+    },
+    getEmail: {
+      description: "Fetch a single email by its ID/UID. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          messageId: { type: "string", description: "Message UID to fetch" },
+        },
+        required: ["accountId", "messageId"],
+      },
+    },
+    searchEmails: {
+      description: "Search emails in a folder by subject/body/from. Use named flat arguments, never a nested {args:[...]} wrapper.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          query: { type: "string", description: "Search term to match in subject, body, or sender" },
+          limit: { type: "number", description: "Maximum results (default 50)" },
+          folder: { type: "string", description: "Folder to search, e.g. INBOX (default INBOX)" },
+        },
+        required: ["accountId", "query"],
+      },
+    },
+    sendEmail: {
+      description: "Send a new email from an account. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          to: { type: "string", description: "Recipient email address (or comma-separated addresses)" },
+          subject: { type: "string", description: "Email subject" },
+          body: { type: "string", description: "Plain-text body" },
+          html: { type: "boolean", description: "Treat body as HTML" },
+          cc: { type: "string", description: "CC addresses, comma-separated" },
+          bcc: { type: "string", description: "BCC addresses, comma-separated" },
+          replyTo: { type: "string", description: "Reply-To address" },
+        },
+        required: ["accountId", "to", "subject", "body"],
+      },
+    },
+    replyToEmail: {
+      description: "Reply to an existing email. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          messageId: { type: "string", description: "Message UID to reply to" },
+          body: { type: "string", description: "Reply body" },
+          html: { type: "boolean", description: "Treat body as HTML" },
+          replyAll: { type: "boolean", description: "Reply to all original recipients" },
+          quote: { type: "boolean", description: "Quote original message in reply" },
+        },
+        required: ["accountId", "messageId", "body"],
+      },
+    },
+    deleteEmail: {
+      description: "Delete or move an email to trash. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          messageId: { type: "string", description: "Message UID to delete" },
+          permanent: { type: "boolean", description: "Permanently delete instead of moving to trash" },
+        },
+        required: ["accountId", "messageId"],
+      },
+    },
+    markRead: {
+      description: "Mark an email as read. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          messageId: { type: "string", description: "Message UID to mark read" },
+        },
+        required: ["accountId", "messageId"],
+      },
+    },
+    markUnread: {
+      description: "Mark an email as unread. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+          messageId: { type: "string", description: "Message UID to mark unread" },
+        },
+        required: ["accountId", "messageId"],
+      },
+    },
+    listFolders: {
+      description: "List mailboxes/folders for an account. Use named flat arguments.",
+      parameters: {
+        type: "object",
+        properties: {
+          accountId: { type: "string", description: "ID of the configured email account" },
+        },
+        required: ["accountId"],
+      },
+    },
+  },
   methods: {
     /**
      * Add a new email account

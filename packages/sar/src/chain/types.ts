@@ -27,6 +27,25 @@ export interface OntologyState {
 /**
  * Chain execution context. Executor is not serialized when persisting.
  */
+export interface SARReportRecord {
+  /** Duty that produced this trace. */
+  dutyName: string;
+  /** ISO timestamp when the Report phase was finalized. */
+  timestamp: string;
+  /** Total execution time so far in milliseconds. */
+  durationMs: number;
+  /** Human-readable summary of what was done. */
+  summary: string;
+  /** Final assistant content generated during Act, if any. */
+  finalContent?: string;
+  /** Tool calls performed during Act, if any. */
+  toolCalls?: { name: string; success: boolean; result?: unknown; error?: string }[];
+  /** Memory key written, if memory was available. */
+  memoryKey?: string;
+  /** Event emitted, if event bus was available. */
+  eventEmitted?: { type: string; ok: boolean; error?: string };
+}
+
 export interface ChainContext extends ExecutorContext {
   messages: ChainMessage[];
   ontology?: OntologyState;
@@ -44,4 +63,6 @@ export interface ChainContext extends ExecutorContext {
   _ontologyInjected?: boolean;
   /** Internal: phase completed, trigger prune in phaseReset middleware. */
   phaseCompleted?: boolean;
+  /** Report-phase artifact: always produced by the runner envelope. */
+  report?: SARReportRecord;
 }

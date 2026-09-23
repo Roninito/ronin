@@ -6,7 +6,7 @@
  * (the duty's name/description, plus the live user message for chat-driven
  * runs), keyword-matches it against workflows/*.md (src/workflow/discovery.ts
  * — same shape as skill discovery), and on a confident match unshifts one
- * system message containing that workflow's body before Analyze runs. No
+ * system message containing that workflow's body before Act runs. No
  * match — no-op, same "never break the chain" contract as
  * createArtifactInjectMiddleware, which this mirrors.
  *

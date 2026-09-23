@@ -22,6 +22,7 @@ import {
   createExecutionTrackingMiddleware,
   createModelResolutionMiddleware,
   createWorkflowContextMiddleware,
+  createReportMiddleware,
 } from "../middleware/index.js";
 import { modelSelector } from "../../plugins/model-selector.js";
 import { RouteGuard } from "../../plugins/cloudflare/src/RouteGuard.js";
@@ -166,16 +167,19 @@ export class DutyRegistry {
   }
 
   /**
-   * Execute a duty manually with SAR envelope
-   * 
-   * Every duty execution is wrapped in a SAR chain with:
-   * - Logging middleware (for observability)
-   * - Token guard (budget enforcement)
-   * - Execution tracking (metrics)
-   * - Smart trim (context management)
-   * 
-   * This ensures all duties have consistent governance without requiring
-   * each duty to implement SAR explicitly.
+   * Execute a duty manually with the SAR envelope.
+   *
+   * Sense → Act → Report
+   *
+   * - Sense: build ChainContext (messages + metadata) and run prep middleware.
+   * - Act: pass the prepared context into the duty's execute() method and let
+   *   it do its work (reasoning, tool calls, skill use, etc.).
+   * - Report: document the run, log it, optionally persist to memory, and emit
+   *   a `duty.reported` event. This phase is output-only and always produces a
+   *   non-empty `ctx.report` artifact.
+   *
+   * Duties that already have their own SAR middleware (via use()/createChain())
+   * manage their own loop and skip the runner-applied envelope.
    */
   async executeDuty(dutyName: string): Promise<void> {
     const duty = this.duties.get(dutyName);
@@ -185,86 +189,89 @@ export class DutyRegistry {
 
     const startTime = Date.now();
     const dutyInstance = duty.instance;
-    
+
     // Check if duty already uses SAR (has middleware attached)
     const hasSAR = (dutyInstance as any).middleware && (dutyInstance as any).executor;
-    
+
     if (hasSAR) {
-      // Duty already has SAR - execute directly
+      // Duty already has SAR - execute directly; it is responsible for its own Report.
       logger.info("Duty has SAR middleware, executing directly", { duty: dutyName });
       await dutyInstance.execute();
-    } else {
-      // Wrap in SAR envelope
-      try {
-        const config = getConfigService();
-        const aiConfig = config.getAI();
-        
-        // Create executor with duty's API
-        const executor = new Executor((dutyInstance as any).api);
-        
-        // Build middleware stack (lightweight SAR envelope)
-        const stack = new MiddlewareStack<ChainContext>();
-        
-        // Add logging for observability
-        stack.use(createChainLoggingMiddleware({ level: "info" }));
-        
-        // Add model resolution using model-selector plugin
-        stack.use(createModelResolutionMiddleware(modelSelector as any));
-        
-        // Add context trimming (keep last 50 messages)
-        stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
-        
-        // Add token budget (default 12000, configurable via duty.maxTokens)
-        const maxTokens = (dutyInstance as any).maxTokens ?? 12000;
-        stack.use(createTokenGuardMiddleware({ maxTokens }));
+      return;
+    }
 
-        // Pull in a matching workflows/*.md guidance doc, if any (no-op otherwise)
-        stack.use(createWorkflowContextMiddleware());
+    // Wrap in SAR envelope
+    try {
+      // Create executor with duty's API
+      const executor = new Executor((dutyInstance as any).api);
 
-        // Add execution tracking for metrics
-        stack.use(createExecutionTrackingMiddleware());
+      // Build middleware stack (lightweight SAR envelope)
+      const stack = new MiddlewareStack<ChainContext>();
 
-        // Create chain for this duty execution
-        const chain = new Chain(executor, stack, `duty:${dutyName}`);
+      // Sense: observability, model resolution, context trimming, budget.
+      stack.use(createChainLoggingMiddleware({ level: "info" }));
+      stack.use(createModelResolutionMiddleware(modelSelector as any));
+      stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
 
-        // Initialize context with duty metadata
-        chain.withContext({
-          messages: [],
-          metadata: {
-            dutyName,
-            dutyDescription: duty.description,
-            executionType: "manual",
-            startTime,
-          },
-        } as any);
-        
-        // The SAR chain wraps the execution:
-        // SENSE: Context setup via chain.withContext
-        // ANALYZE: Model resolution and trimming
-        // RESPOND: duty.execute()
-        
-        // Run the chain to completion (executes middleware)
-        await chain.run();
-        
-        // Now execute the actual duty logic
-        await dutyInstance.execute();
-        
-        const duration = Date.now() - startTime;
-        logger.info("Duty executed via SAR envelope", {
-          duty: dutyName,
-          duration,
-          sarWrapped: true,
-          maxTokens,
-        });
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        logger.error("Duty execution failed", {
-          duty: dutyName,
-          error: error instanceof Error ? error.message : String(error),
-          duration,
-        });
-        throw error;
-      }
+      // Act budget guard (default 12000, configurable via duty.maxTokens)
+      const maxTokens = (dutyInstance as any).maxTokens ?? 12000;
+      stack.use(createTokenGuardMiddleware({ maxTokens }));
+
+      // Sense: pull in a matching workflows/*.md guidance doc, if any.
+      stack.use(createWorkflowContextMiddleware());
+
+      // Act: track tool/skill execution as the duty does work.
+      stack.use(createExecutionTrackingMiddleware());
+
+      // Report is applied after dutyInstance.execute(ctx) so it observes
+      // the full Act output; it is intentionally not part of the prep chain.
+
+      // Sense: initialize context with duty metadata.
+      const ctx: ChainContext = {
+        messages: [],
+        metadata: {
+          dutyName,
+          dutyDescription: duty.description,
+          executionType: "manual",
+          startTime,
+        },
+      };
+
+      // Create chain for this duty execution
+      const chain = new Chain(executor, stack, `duty:${dutyName}`);
+      chain.withContext(ctx);
+
+      // Sense + Act prep: run middleware to prepare the context.
+      await chain.run();
+
+      // Act: pass the prepared context into the duty so it can do its work.
+      await dutyInstance.execute(ctx);
+
+      // Report: output-only record, always non-empty. Runs after Act so it can
+      // observe messages and tool results produced by the duty.
+      const reportMiddleware = createReportMiddleware({
+        dutyName,
+        startTime,
+        api: (dutyInstance as any).api,
+      });
+      await reportMiddleware(ctx, async () => {});
+
+      const duration = Date.now() - startTime;
+      logger.info("Duty executed via SAR envelope", {
+        duty: dutyName,
+        duration,
+        sarWrapped: true,
+        maxTokens,
+        reportArtifact: !!ctx.report,
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error("Duty execution failed", {
+        duty: dutyName,
+        error: error instanceof Error ? error.message : String(error),
+        duration,
+      });
+      throw error;
     }
   }
 

@@ -19,9 +19,13 @@ export abstract class BaseDuty implements Duty {
   }
 
   /**
-   * Main execution method - must be implemented by subclasses
+   * Main execution method - must be implemented by subclasses.
+   *
+   * The optional ChainContext is provided by the SAR envelope when the duty is
+   * executed through DutyRegistry.executeDuty(). Self-managing duties may
+   * ignore it; parameterless execute() implementations remain valid.
    */
-  abstract execute(): Promise<void>;
+  abstract execute(ctx?: ChainContext): Promise<void>;
 
   /**
    * SAR: Register middleware. Lazily creates Executor and MiddlewareStack on first use.

@@ -12,3 +12,7 @@ export type { ArtifactInjectOptions } from "./artifactInject.js";
 // Ronin-specific: workflow guidance injection (depends on src/workflow)
 export { createWorkflowContextMiddleware } from "./workflowContext.js";
 export type { WorkflowContextOptions } from "./workflowContext.js";
+
+// Ronin-specific: guaranteed Report-phase artifact for the SAR envelope
+export { createReportMiddleware, finalizeReportRecord } from "./report.js";
+export type { ReportMiddlewareOptions } from "./report.js";

@@ -1,4 +1,5 @@
 import type { DutyAPI } from "./api.js";
+import type { ChainContext } from "../chain/types.js";
 
 /**
  * Declared event topology — purely declarative, no runtime effect on its own.
@@ -32,9 +33,13 @@ export interface DutyQueriesDecl {
  */
 export interface Duty {
   /**
-   * Main execution method called when duty is triggered
+   * Main execution method called when duty is triggered.
+   *
+   * When run through the SAR envelope, the runner passes the prepared
+   * ChainContext as an optional argument. Duties that manage their own SAR
+   * can safely ignore it.
    */
-  execute(): Promise<void>;
+  execute(ctx?: ChainContext): Promise<void>;
 
   /**
    * Optional: Called when a watched file changes

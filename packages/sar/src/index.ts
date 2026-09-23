@@ -30,7 +30,7 @@ export type { SARToolDefinition, SARToolResult, SARToolContext, OpenAIFunctionSc
 
 // Chain
 export { Chain } from "./chain/Chain.js";
-export type { ChainContext, ChainMessage, TokenBudget, OntologyState } from "./chain/types.js";
+export type { ChainContext, ChainMessage, TokenBudget, OntologyState, SARReportRecord } from "./chain/types.js";
 export { serialize, rehydrate, persistChain, loadChain } from "./chain/persistence.js";
 export type { SerializedChainState } from "./chain/persistence.js";
 

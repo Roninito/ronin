@@ -13,7 +13,7 @@
 Everything in Ronin is a **Duty running the SAR loop**.
 
 There is no separate "agent runtime," "plan engine," and "behavior tree" running
-in parallel. There is one execution model — **SAR** (Sense → Analyze → Respond)
+in parallel. There is one execution model — **SAR** (Sense → Act → Report)
 — and every unit of work is an instance of it. Coordination, scheduling, and
 planning are not other paradigms; they are Duties whose job happens to be
 coordinating, scheduling, or planning *other* Duties.
@@ -21,16 +21,19 @@ coordinating, scheduling, or planning *other* Duties.
 ```
             ┌──────────────────────── Duty ────────────────────────┐
             │                                                       │
-  Sensors ──►  SENSE  ──►  ANALYZE  ──►  RESPOND  ──► (effects) ────┤
-            │    ▲                                        │         │
-            │    └──────────────── loop ──────────────────┘         │
+  Sensors ──►  SENSE  ──►  ACT  ──►  REPORT  ──► (effects) ────────┤
+            │    ▲                                    │             │
+            │    └──────────────── loop ──────────────┘             │
             └───────────────────────────────────────────────────────┘
                          persona · tool allowlist · budget · memory
 ```
 
-- **Sense** — pull signal from Sensors (events, schedules, files, channel msgs).
-- **Analyze** — reason over signal + memory, using the model router. Decide.
-- **Respond** — execute Tools, emit events, write memory.
+- **Sense** — poll inputs, dequeue jobs, and build the execution context (sensor id,
+  event name, schedule tick, queue depth, job id, message window, workflow guidance).
+- **Act** — do the work: reason, decide, call the model router, execute Tools/Skills/MCP,
+  and record calls + results. `reasoning` is a sub-field of Act, never its own phase.
+- **Report** — document, log, emit, and persist what was done. This phase is output-only:
+  it never does new work. Every trace leaves a non-empty `report` artifact.
 
 **There is no built-in Duty that assigns work to other Duties.** Duties
 coordinate only by emitting and listening for events on the shared bus (§6).
@@ -66,7 +69,7 @@ files were converted to `SKILL.md` format; the `technique` CLI verb is gone.
 |---------|------------|
 | **Tool Pack** | A namespaced bundle of Tools plus the adapter code backing them. Auto-discovered. Formerly "plugin." |
 | **Duty Preset** | The markdown file that declares a Duty: persona + the Skills/Tools it may use + budget. |
-| **Workflow** | A markdown file (`workflows/<name>.md`) describing a category of work: purpose, standards/expectations, and steps. Discoverable like a Skill, but not callable — it only ever contributes read-only guidance text into a running SAR chain's context (`createWorkflowContextMiddleware`, §3). Hand-edited; never compiled or validated; the human-in-the-loop counterpart to Contract's compiled phase automation. See `docs/WORKFLOWS_PLAN.md`. Unrelated to — and not to be confused with — the older, in-memory `WorkflowDefinition`/`WorkflowEngine` in `src/tools/`, reachable via `duties/tool-orchestrator.ts` → `api.tools.executeWorkflow()`. **That engine is currently dead weight, not a working feature**: it ships 6 example pipelines (`src/tools/workflows/examples.ts`) but nothing anywhere calls `registerWorkflow()` with them, so `executeWorkflow("code-review", ...)` would fail today — the registry is always empty. Under active discussion for removal (per the "second-product"/"rule of three" tests — see the pending cleanup thread), not yet acted on. |
+| **Workflow** | A markdown file (`workflows/<name>.md`) describing a category of work: purpose, standards/expectations, and steps. Discoverable like a Skill, but not callable — it only ever contributes read-only guidance text into a running SAR chain's context (`createWorkflowContextMiddleware`, §3). Hand-edited; never compiled or validated; the human-in-the-loop counterpart to Contract's compiled phase automation. See `docs/WORKFLOWS_PLAN.md`. |
 | **Schema** | The typed I/O contracts that Tools and Duties conform to. Cross-cutting. |
 
 ---
@@ -82,38 +85,36 @@ every duty having to opt in individually.
 const executor = new Executor(api);
 const stack = new MiddlewareStack<ChainContext>();
 
+// Sense: observability, model resolution, context window, budget, workflow guidance.
 stack.use(createChainLoggingMiddleware({ level: "info" }));
 stack.use(createModelResolutionMiddleware(modelRegistry));
 stack.use(createSmartTrimMiddleware({ recentCount: 50 }));
 stack.use(createTokenGuardMiddleware({ maxTokens: 12000 }));
 stack.use(createWorkflowContextMiddleware());  // pulls in a matching workflows/*.md guidance doc, if any
+
+// Act: do the work + track tool/skill execution.
 stack.use(createExecutionTrackingMiddleware());
+await dutyInstance.execute(ctx);  // context built by Sense reaches the duty
+
+// Report: output-only record, always non-empty.
+stack.use(createReportMiddleware({ dutyName, startTime, api }));
 
 const chain = new Chain(executor, stack, `duty:${dutyName}`);
 chain.withContext({ messages: [], metadata: { dutyName, ... } });
 await chain.run();
-await dutyInstance.execute();  // Respond phase
 ```
 
 **Opt-out:** if a duty already has `this.middleware` and `this.executor`
 attached (via `use()`/`createChain()`), it manages its own SAR and skips the
 runner-applied envelope.
 
-**Known gap (pre-existing, not introduced by Workflow):** for most duties,
-the runner-applied envelope's `chain.run()` and `dutyInstance.execute()` are
-separate calls with no data threaded between them — `ctx.messages` built by
-the envelope's middleware is not passed into `execute()` unless a duty
-explicitly builds its own chain via `use()`/`createChain()` and reads from
-it (a few duties do — `messenger.ts`, `tool-calling-agent.ts`,
-`skill-maker.ts`, `refactory.ts`). `duties/chatty.ts`'s main `/chat` request
-handling is also route-driven and bypasses `executeDuty()` entirely, so
-`createWorkflowContextMiddleware` running there is a no-op in practice.
-Workflow context for live chat is therefore wired directly into
-`duties/chatty.ts`'s own message assembly (a `discoverWorkflow()` call
-against the live user message before `buildSystemPrompt()`), not through
-this envelope. `DutyRegistry.ts` also currently has a duplicate
-`executeDuty()` method definition (harmless — JS class semantics mean the
-second one silently wins) worth cleaning up in a future pass.
+**Defined handoff:** the runner-applied envelope passes the prepared
+`ChainContext` into `dutyInstance.execute(ctx)`. Duties that self-manage SAR
+may ignore the argument; those that want workflow/model-trimmed context get
+it for free. `duties/chatty.ts`'s main `/chat` request handling is
+route-driven and bypasses `executeDuty()` entirely, so its workflow context is
+wired directly into its own message assembly (`discoverWorkflow()` before
+`buildSystemPrompt()`), not through this envelope.
 
 ---
 
@@ -529,8 +530,10 @@ specifically because they were violated before:
 - `plugins/langchain.ts`, `plugins/gemini-cli.ts` → kept (real call sites)
 
 ### SAR envelope
-- `DutyRegistry.executeDuty()` wraps all duties in a SAR chain
+- `DutyRegistry.executeDuty()` wraps all duties in a SAR chain: Sense → Act → Report
 - Default budget: 12000 tokens, configurable per duty
+- Runner passes the prepared `ChainContext` into `dutyInstance.execute(ctx)`
+- Report middleware guarantees a non-empty `ctx.report` artifact
 
 ### Technique removal
 - `src/techniques/` deleted; substrate types moved to `src/types/shared.ts` and `src/database/migrations.ts`

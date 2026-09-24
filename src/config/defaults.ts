@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG: FullConfig = {
       timeout: 60000,
     },
     opencode: {
+      model: "opencode/muse-spark-1.3-contributor-free",
       timeout: 120000,
     },
     gemini: {
@@ -54,7 +55,7 @@ export const DEFAULT_CONFIG: FullConfig = {
     ollamaEmbeddingModel: "nomic-embed-text",
     models: {
       default: "granite3.2-16k",
-      fast: "granite3.2-16k",
+      fast: "opencode:muse-spark-1.3-contributor-free",
       smart: "kimi-k2.5",
       embedding: "nomic-embed-text",
     },

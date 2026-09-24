@@ -15,7 +15,7 @@ import type {
   ToolCall,
   ToolCallOptions,
 } from "../types/api.js";
-import type { AIConfig, AIProviderType, GeminiConfig, GrokConfig } from "../config/types.js";
+import type { AIConfig, AIProviderType, CLIOptions, GeminiConfig, GrokConfig } from "../config/types.js";
 import type { AIProvider } from "./providers.js";
 import { createProvider, OllamaProvider } from "./providers.js";
 import { withRetry } from "../utils/retry.js";
@@ -49,8 +49,13 @@ export class AIAPI {
     aiConfig?: AIConfig,
     geminiConfig?: GeminiConfig,
     grokConfig?: GrokConfig,
+    cliOptions?: CLIOptions,
   ) {
-    this.aiConfig = aiConfig;
+    if (aiConfig && cliOptions) {
+      this.aiConfig = { ...aiConfig, cliOptions };
+    } else {
+      this.aiConfig = aiConfig;
+    }
     this.providerMap = new Map();
 
     // Build the primary provider
@@ -95,8 +100,8 @@ export class AIAPI {
     }
 
     if (aiConfig) {
-      const providerTypes: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"];
-      for (const providerType of providerTypes) {
+    const providerTypes: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio", "opencode"];
+    for (const providerType of providerTypes) {
         if (this.providerMap.has(providerType)) continue;
         try {
           const effectiveConfig: AIConfig = {
@@ -165,7 +170,7 @@ export class AIAPI {
     const idx = raw.indexOf(":");
     if (idx <= 0) return undefined;
     const maybeProvider = raw.slice(0, idx);
-    const allowed: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"];
+    const allowed: AIProviderType[] = ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio", "opencode"];
     return (allowed as string[]).includes(maybeProvider) ? (maybeProvider as AIProviderType) : undefined;
   }
 
@@ -186,7 +191,7 @@ export class AIAPI {
     const idx = raw.indexOf(":");
     if (idx <= 0) return raw;
     const maybeProvider = raw.slice(0, idx);
-    const allowed = new Set(["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"]);
+    const allowed = new Set(["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio", "opencode"]);
     return allowed.has(maybeProvider) ? raw.slice(idx + 1) : raw;
   }
 

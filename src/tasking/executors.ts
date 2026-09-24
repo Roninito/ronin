@@ -49,7 +49,11 @@ const PLUGIN_NAME: Record<Exclude<ExecutorName, "ronin">, string> = {
  * `workspace`, but cursor-cli.ts uses `projectPath` — normalized here so
  * callers only ever deal with CodingExecutorOptions.
  */
-function buildPluginOptions(executor: Exclude<ExecutorName, "ronin">, options: CodingExecutorOptions): Record<string, unknown> {
+function buildPluginOptions(
+  executor: Exclude<ExecutorName, "ronin">,
+  options: CodingExecutorOptions,
+  config?: { cliOptions?: { opencode?: { model?: string } } }
+): Record<string, unknown> {
   const base: Record<string, unknown> = { timeout: options.timeout };
   if (executor === "cursor") {
     base.projectPath = options.workspace;
@@ -58,6 +62,9 @@ function buildPluginOptions(executor: Exclude<ExecutorName, "ronin">, options: C
   }
   if (executor === "claude" && options.sessionId) {
     base.sessionId = options.sessionId;
+  }
+  if (executor === "opencode") {
+    base.model = config?.cliOptions?.opencode?.model;
   }
   return base;
 }
@@ -144,7 +151,7 @@ export async function runCodingExecutor(
     };
   }
 
-  const pluginOptions = buildPluginOptions(executor, options);
+  const pluginOptions = buildPluginOptions(executor, options, api.config.getAll?.());
   const result = (await api.plugins.call(pluginName, "execute", instruction, pluginOptions)) as CodingExecutorResult;
   return result;
 }

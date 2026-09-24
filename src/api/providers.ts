@@ -14,6 +14,8 @@ import type {
 } from "../types/api.js";
 import type { AIConfig, AIProviderType, GeminiConfig, GrokConfig } from "../config/types.js";
 import { AnthropicProvider } from "./providers/AnthropicProvider.js";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 // ─── Provider Interface ────────────────────────────────────────────────
 
@@ -784,6 +786,107 @@ export function createGrokProvider(
   );
 }
 
+const execAsync = promisify(exec);
+
+// ─── Opencode CLI Provider ─────────────────────────────────────────────
+// Chat/reasoning backend that shells out to the installed `opencode` CLI.
+// Tool-calling is not supported yet; this provider is intended for plain
+// chat and completion use when the user has a Zen/Muse session active.
+
+export interface OpencodeProviderConfig {
+  model: string;
+  timeoutMs: number;
+  temperature?: number;
+}
+
+export class OpencodeProvider implements AIProvider {
+  readonly name = "opencode";
+  private defaultModel: string;
+  private defaultTimeoutMs: number;
+  private defaultTemperature: number;
+
+  constructor(config: OpencodeProviderConfig) {
+    this.defaultModel = config.model;
+    this.defaultTimeoutMs = config.timeoutMs;
+    this.defaultTemperature = config.temperature ?? 0.7;
+  }
+
+  private t(o?: CompletionOptions) { return o?.timeoutMs ?? this.defaultTimeoutMs; }
+
+  private buildPrompt(messages: Message[]): string {
+    return messages
+      .map((m) => {
+        const prefix = m.role === "system" ? "System:" : m.role === "user" ? "User:" : "Assistant:";
+        return `${prefix} ${m.content}`;
+      })
+      .join("\n\n");
+  }
+
+  private async runOpencode(prompt: string, model: string, options?: CompletionOptions): Promise<string> {
+    const escapedPrompt = prompt.replace(/"/g, '\\"');
+    const command = `opencode run --model ${model} "${escapedPrompt}"`;
+    try {
+      const { stdout, stderr } = await execAsync(command, {
+        timeout: this.t(options),
+        cwd: process.cwd(),
+      });
+      return stdout || stderr || "";
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const authHint = /sign in|login|authenticate|auth required|not authenticated|session expired/i.test(errorMessage)
+        ? " Opencode CLI appears to need authentication. Run `opencode login` in a terminal and retry."
+        : "";
+      throw new Error(`Opencode CLI failed: ${errorMessage}${authHint}`);
+    }
+  }
+
+  async checkModel(model?: string): Promise<boolean> {
+    try {
+      await execAsync("opencode --version", { timeout: 10000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async complete(prompt: string, options: CompletionOptions = {}): Promise<string> {
+    const model = options.model || this.defaultModel;
+    const output = await this.runOpencode(prompt, model, options);
+    return output.trim();
+  }
+
+  async chat(messages: Message[], options: Omit<ChatOptions, "messages"> = {}): Promise<Message> {
+    const model = options.model || this.defaultModel;
+    const prompt = this.buildPrompt(messages);
+    const output = await this.runOpencode(prompt, model, options);
+    return { role: "assistant", content: output.trim() };
+  }
+
+  async *stream(prompt: string, options: CompletionOptions = {}): AsyncIterable<string> {
+    // Opencode run is not streamed by default; yield the full output as one chunk.
+    const model = options.model || this.defaultModel;
+    const output = await this.runOpencode(prompt, model, options);
+    yield output;
+  }
+
+  async *streamChat(messages: Message[], options: Omit<ChatOptions, "messages"> = {}): AsyncIterable<string> {
+    const model = options.model || this.defaultModel;
+    const prompt = this.buildPrompt(messages);
+    const output = await this.runOpencode(prompt, model, options);
+    yield output;
+  }
+
+  async callTools(
+    prompt: string,
+    _tools: Tool[],
+    options: CompletionOptions = {},
+  ): Promise<{ message: Message; toolCalls: ToolCall[] }> {
+    // Tool-calling is not supported through the opencode CLI path yet.
+    const content = await this.complete(prompt, options);
+    return { message: { role: "assistant", content }, toolCalls: [] };
+  }
+}
+
 // ─── Factory ───────────────────────────────────────────────────────────
 
 export function createProvider(
@@ -848,6 +951,18 @@ export function createProvider(
         timeout,
         temp,
       );
+    case "opencode": {
+      const opencodeModel =
+        aiConfig.cliOptions?.opencode?.model ||
+        (aiConfig as any).opencodeModel ||
+        process.env.OPENCODE_MODEL ||
+        "opencode/muse-spark-1.3-contributor-free";
+      return new OpencodeProvider({
+        model: opencodeModel,
+        timeoutMs: aiConfig.cliOptions?.opencode?.timeout || 120000,
+        temperature: temp,
+      });
+    }
     default:
       throw new Error(`Unknown AI provider: ${providerType}`);
   }

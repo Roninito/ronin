@@ -3,7 +3,7 @@ import { getProviderVisual, renderProviderIconSvg, PROVIDER_LABELS } from "../sr
 
 describe("getProviderVisual", () => {
   it("returns a known visual for each real provider type", () => {
-    for (const provider of ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"]) {
+    for (const provider of ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio", "opencode"]) {
       const v = getProviderVisual(provider);
       expect(v.label).toBeTruthy();
       expect(v.color).toMatch(/^#/);
@@ -40,7 +40,7 @@ describe("renderProviderIconSvg", () => {
 
 describe("PROVIDER_LABELS", () => {
   it("has a label for every AIProviderType", () => {
-    for (const provider of ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio"] as const) {
+    for (const provider of ["ollama", "openai", "anthropic", "gemini", "grok", "lmstudio", "opencode"] as const) {
       expect(PROVIDER_LABELS[provider]).toBeTruthy();
     }
   });

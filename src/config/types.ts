@@ -8,7 +8,7 @@ export interface TelegramConfig {
   chatId: string;
 }
 
-export type AIProviderType = "ollama" | "openai" | "gemini" | "grok" | "anthropic" | "lmstudio";
+export type AIProviderType = "ollama" | "openai" | "gemini" | "grok" | "anthropic" | "lmstudio" | "opencode";
 
 // Phase 1: Unified Provider Configuration
 export interface ProviderEndpoint {
@@ -94,6 +94,8 @@ export interface AIConfig {
    * silently deleted or fleshed out, pending a decision on whether to finish or drop it.
    */
   providers?: Record<string, Record<string, unknown>>;
+  /** CLI backend options (used by high-level backend adapters like OpencodeProvider). */
+  cliOptions?: CLIOptions;
 }
 
 export interface GeminiConfig {
@@ -140,6 +142,7 @@ export interface CLIOptions {
     timeout: number;
   };
   opencode: {
+    model: string;
     timeout: number;
   };
   gemini: {
@@ -381,6 +384,7 @@ export type ConfigPath =
   | 'cliOptions.cursor'
   | 'cliOptions.cursor.timeout'
   | 'cliOptions.opencode'
+  | 'cliOptions.opencode.model'
   | 'cliOptions.opencode.timeout'
   | 'cliOptions.gemini'
   | 'cliOptions.gemini.model'

@@ -21,6 +21,7 @@ const PROVIDER_VISUALS: Record<AIProviderType, ProviderVisual> = {
   gemini: { label: "Gemini", color: "#4285F4", initial: "G" },
   grok: { label: "Grok", color: "#000000", initial: "X" },
   lmstudio: { label: "LM Studio", color: "#6366F1", initial: "L" },
+  opencode: { label: "Opencode", color: "#A855F7", initial: "OC" },
 };
 
 function fallbackVisual(provider: string): ProviderVisual {
@@ -47,4 +48,5 @@ export const PROVIDER_LABELS: Record<AIProviderType, string> = {
   gemini: "Gemini",
   grok: "Grok",
   lmstudio: "LM Studio",
+  opencode: "Opencode",
 };

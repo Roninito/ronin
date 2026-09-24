@@ -209,7 +209,8 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
     options.ollamaModel ??
     (options.useFastModelForAgents && aiConfig.models?.fast ? aiConfig.models.fast : aiConfig.ollamaModel);
   const resolvedTimeoutMs = aiConfig.ollamaTimeoutMs;
-  const aiAPI = new AIAPI(resolvedOllamaUrl, resolvedOllamaModel, resolvedTimeoutMs, aiConfig, geminiConfig, grokConfig);
+  const cliOptions = configService.getAll().cliOptions;
+  const aiAPI = new AIAPI(resolvedOllamaUrl, resolvedOllamaModel, resolvedTimeoutMs, aiConfig, geminiConfig, grokConfig, cliOptions);
 
   const eventsAPI = new EventsAPI();
 

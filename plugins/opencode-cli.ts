@@ -8,6 +8,7 @@ const execAsync = promisify(exec);
 interface OpencodeCLIOptions {
   instruction: string;
   workspace?: string;
+  model?: string;
   timeout?: number;
 }
 
@@ -19,16 +20,16 @@ interface OpencodeResult {
 
 /**
  * Opencode CLI Plugin
- * 
+ *
  * Wraps the Opencode CLI tool for AI-powered development.
- * 
+ *
  * Installation:
  *   npm install -g opencode
- *   
+ *
  *   Or download from: https://opencode.ai/docs/cli/
- * 
+ *
  * Usage:
- *   opencode generate --instruction "Create React component"
+ *   opencode run --model opencode/muse-spark-1.3-contributor-free "Create React component"
  */
 export default {
   name: "opencode-cli",
@@ -69,6 +70,7 @@ For more information: https://opencode.ai/docs/cli/
     execute: async (instruction: string, options?: OpencodeCLIOptions): Promise<OpencodeResult> => {
       const timeout = options?.timeout || 120000; // 2 minutes default
       const workspace = options?.workspace || process.cwd();
+      const model = options?.model || process.env.OPENCODE_MODEL || "opencode/muse-spark-1.3-contributor-free";
 
       // Validate workspace exists
       if (!existsSync(workspace)) {
@@ -79,43 +81,51 @@ For more information: https://opencode.ai/docs/cli/
         };
       }
 
-      // Build command
-      const cmdParts = [
-        "opencode",
-        "generate",
-        "--instruction",
-        `"${instruction.replace(/"/g, '\\"')}"`,
-      ];
-
-      if (workspace) {
-        cmdParts.push("--workspace", workspace);
-      }
-
-      const command = cmdParts.join(" ");
+      // Prefer the modern chat-oriented `opencode run` path so models like
+      // muse-spark-1.3 can be selected with --model.
+      const escapedInstruction = instruction.replace(/"/g, '\\"');
+      const command = `cd "${workspace}" && opencode run --model ${model} "${escapedInstruction}"`;
 
       try {
         console.log(`[opencode-cli] Executing: ${command}`);
-        
+
         const { stdout, stderr } = await execAsync(command, {
           timeout,
           cwd: workspace,
         });
 
         const output = stdout || stderr || "Opencode command completed";
-        
+
         return {
           success: true,
           output,
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        
+
+        // Detect the common "not authenticated" / "please log in" cases so
+        // callers can surface a helpful user message instead of a raw stderr dump.
+        const authHint = /sign in|login|authenticate|auth required|not authenticated|session expired/i.test(errorMessage)
+          ? " Opencode CLI appears to need authentication. Run `opencode login` in a terminal and retry."
+          : "";
+
         return {
           success: false,
           output: "",
-          error: errorMessage,
+          error: errorMessage + authHint,
         };
       }
+    },
+
+    /**
+     * Get available Opencode models known to work with `opencode run --model`.
+     */
+    getModels: async (): Promise<string[]> => {
+      return [
+        "opencode/muse-spark-1.3-contributor-free",
+        "opencode/muse-spark-1.3",
+        "opencode/default",
+      ];
     },
   },
 } as Plugin;

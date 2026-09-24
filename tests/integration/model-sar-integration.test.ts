@@ -285,8 +285,8 @@ describe("Model Selection + SAR Integration", () => {
       };
 
       await stack.run(ctx);
-      // Falls back to the configured default, which has a much higher token limit.
-      expect(ctx.modelNametag).toBe("granite3.2-16k");
+      // Falls back to the configured default/fast model, which has a much higher token limit.
+      expect(ctx.modelNametag).toBe("opencode:muse-spark-1.3-contributor-free");
     });
   });
 

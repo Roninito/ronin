@@ -88,6 +88,16 @@ export function resolveChatId(chatId?: string | number): string | number {
   }
   const envChatId = process.env.TELEGRAM_CHAT_ID;
   if (envChatId) return envChatId;
+  // Probe: log whether defaults are present (not values) to diagnose why fallthrough failed.
+  let cfgChatIdPresent = false;
+  try {
+    cfgChatIdPresent = !!getConfigService().getTelegram()?.chatId;
+  } catch {
+    cfgChatIdPresent = false;
+  }
+  console.log(
+    `[telegram] resolveChatId fallthrough probe: cfgChatIdPresent=${cfgChatIdPresent} envChatIdPresent=${!!envChatId}`
+  );
   throw new Error(
     "No Telegram chatId provided and no default configured. " +
       "Set telegram.chatId in config or pass chatId explicitly."

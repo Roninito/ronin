@@ -2653,6 +2653,27 @@ self.addEventListener("fetch", (event) => {
       return `That didn't work. **${failed.name}** failed: ${reason}`;
     }
 
+    // Some models/providers return empty content even after successful tool reads.
+    // For simple read/list tools, fall back to returning the raw tool result so
+    // the user gets the data instead of a generic "I couldn't generate a response."
+    const successfulRead = toolResults.find((tr) =>
+      tr.success &&
+      (tr.result != null && tr.result !== "") &&
+      /\.(read|list|get|search|status|log|diff|branch|show|info)|^mcp_filesystem_(read|list|search)|^local\.(file|db|memory|discord|obsidian)|^git_/.test(tr.name)
+    );
+    if (successfulRead) {
+      const raw = typeof successfulRead.result === "string"
+        ? successfulRead.result
+        : JSON.stringify(successfulRead.result, null, 2);
+      // Cap length so we don't flood the chat; the model can ask for more if needed.
+      const MAX_DIRECT_RESULT = 2000;
+      const display = raw.length > MAX_DIRECT_RESULT
+        ? raw.slice(0, MAX_DIRECT_RESULT) + "\n\n[truncated]"
+        : raw;
+      console.log(`[Chatty] Model returned empty response after successful ${successfulRead.name}; returning raw result`);
+      return injectMermaidLinkIntoResponse(display, toolResults);
+    }
+
     const fallback = await this.api.ai.chat(params.aiMessages, {
       model: chatModel,
       maxTokens: 2000,

@@ -1890,7 +1890,14 @@ Otherwise respond with JSON only, no other text: { "skillName": "<exact name fro
         const start = Date.now();
         try {
           const botId = await getTelegramBotId();
-          const chatId = args.chatId ?? api.config.getTelegram().chatId;
+          // Treat empty/whitespace chatId as missing so the configured default is used.
+          const explicitChatId = args.chatId?.trim();
+          const chatId = explicitChatId || api.config.getTelegram().chatId;
+          if (process.env.RONIN_VERBOSE_TOOLS) {
+            console.log(
+              `[local.telegram.sendMessage] explicitChatIdPresent=${!!explicitChatId} resolvedChatId=${JSON.stringify(chatId)}`
+            );
+          }
           if (!chatId) throw new Error("Missing chatId and no default telegram.chatId configured.");
           await api.telegram!.sendMessage(botId, chatId, args.content);
           return {

@@ -96,6 +96,12 @@ export class ToolRouter {
     }
     this.tools.set(tool.name, tool);
     if (!process.env.RONIN_QUIET) console.log(`[ToolRouter] Registered tool: ${tool.name} (${tool.provider})`);
+    // Temporary probe: log handler origin for any telegram-named tool.
+    if (tool.name.includes("telegram")) {
+      console.log(
+        `[ToolRouter] TELEGRAM_PROBE registered '${tool.name}' provider=${tool.provider} handler=${tool.handler.name || "anonymous"}`
+      );
+    }
   }
 
   /**

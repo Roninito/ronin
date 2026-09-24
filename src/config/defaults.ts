@@ -115,8 +115,16 @@ export const DEFAULT_CONFIG: FullConfig = {
     externalDutyDir: join(homedir(), ".ronin", "duties"),
     userPluginDir: join(homedir(), ".ronin", "plugins"),
     safeShellCommands: [
-      "ls", "cat", "head", "tail", "echo", "pwd",
-      "git", "find", "grep", "wc", "curl", "bun", "osascript",
+      // Filesystem read/listing
+      "ls", "cat", "head", "tail", "echo", "pwd", "cd",
+      "find", "grep", "wc", "sort", "uniq", "diff",
+      // Date/time / system info
+      "date", "cal", "time", "uptime", "whoami", "uname", "sw_vers", "sysctl",
+      // Development / version control / package managers
+      "git", "curl", "bun", "node", "npm", "npx", "pnpm", "yarn",
+      // macOS / scripting helpers
+      "osascript", "open", "pbcopy", "pbpaste",
+      // Ronin-specific utilities
       "agent-browser",
     ],
     skillsDir: join(homedir(), ".ronin", "skills"),

@@ -837,7 +837,7 @@ export default class ConfigEditorAgent extends BaseDuty {
         httpIdleTimeout: 60,
         externalAgentDir: join(homedir(), '.ronin', 'agents'),
         userPluginDir: join(homedir(), '.ronin', 'plugins'),
-        safeShellCommands: ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'git', 'find', 'grep', 'wc', 'curl', 'bun', 'osascript']
+        safeShellCommands: ['ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'cd', 'find', 'grep', 'wc', 'sort', 'uniq', 'diff', 'date', 'cal', 'time', 'uptime', 'whoami', 'uname', 'sw_vers', 'sysctl', 'git', 'curl', 'bun', 'node', 'npm', 'npx', 'pnpm', 'yarn', 'osascript', 'open', 'pbcopy', 'pbpaste']
       },
       blogBoy: {
         aiTimeoutMs: 300000

@@ -234,6 +234,7 @@ export async function createAPI(options: APIOptions = {}): Promise<DutyAPI> {
 
   const wrappedAi: DutyAPI["ai"] = {
     checkModel: (model?: string) => aiAPI.checkModel(model),
+    supportsToolCalling: (model?: string) => aiAPI.supportsToolCalling(model),
     analyzeImage: (imagePath: string, prompt: string, options?: { model?: string }) =>
       aiAPI.analyzeImage(imagePath, prompt, options),
 

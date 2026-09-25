@@ -244,6 +244,17 @@ export class AIAPI {
     return provider.checkModel(resolved ?? model);
   }
 
+  /**
+   * Whether the backend selected for this model natively supports function/tool calling.
+   * Non-tool backends (e.g. Opencode CLI) can still use tools via a ReAct parsing loop,
+   * but they cannot receive OpenAI-style function schemas.
+   */
+  supportsToolCalling(modelOrTier?: string): boolean {
+    const resolved = this.resolveModel(modelOrTier);
+    const provider = this.getProviderForModel(modelOrTier, resolved);
+    return provider.supportsToolCalling ?? true;
+  }
+
   async complete(prompt: string, options: CompletionOptions = {}): Promise<string> {
     const resolved = { ...options, model: this.resolveModel(options.model) };
     const primary = this.getProviderForModel(options.model, resolved.model);

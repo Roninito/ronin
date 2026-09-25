@@ -13,6 +13,8 @@ import type {
 
 export interface AIProvider {
   readonly name: string;
+  /** Whether this backend can natively invoke Ronin tools via function calling. */
+  readonly supportsToolCalling?: boolean;
   complete(prompt: string, options?: CompletionOptions): Promise<string>;
   chat(messages: Message[], options?: Omit<ChatOptions, "messages">): Promise<Message>;
   stream(prompt: string, options?: CompletionOptions): AsyncIterable<string>;

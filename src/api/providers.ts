@@ -21,6 +21,8 @@ import { promisify } from "util";
 
 export interface AIProvider {
   readonly name: string;
+  /** Whether this backend can natively invoke Ronin tools via function calling. */
+  readonly supportsToolCalling?: boolean;
   complete(prompt: string, options?: CompletionOptions): Promise<string>;
   chat(messages: Message[], options?: Omit<ChatOptions, "messages">): Promise<Message>;
   stream(prompt: string, options?: CompletionOptions): AsyncIterable<string>;
@@ -68,6 +70,7 @@ function isRemoteOllamaUrl(url: string): boolean {
 
 export class OllamaProvider implements AIProvider {
   readonly name = "ollama";
+  readonly supportsToolCalling = true;
   private baseUrl: string;
   private defaultModel: string;
   private defaultTimeoutMs: number;
@@ -421,6 +424,7 @@ export class OllamaProvider implements AIProvider {
 
 export class OpenAICompatibleProvider implements AIProvider {
   readonly name: string;
+  readonly supportsToolCalling = true;
   private apiKey: string;
   private baseUrl: string;
   private defaultModel: string;
@@ -606,6 +610,7 @@ export class OpenAICompatibleProvider implements AIProvider {
 
 export class GeminiProvider implements AIProvider {
   readonly name = "gemini";
+  readonly supportsToolCalling = true;
   private apiKey: string;
   private defaultModel: string;
   private apiVersion: string;
@@ -801,6 +806,7 @@ export interface OpencodeProviderConfig {
 
 export class OpencodeProvider implements AIProvider {
   readonly name = "opencode";
+  readonly supportsToolCalling = false;
   private defaultModel: string;
   private defaultTimeoutMs: number;
   private defaultTemperature: number;

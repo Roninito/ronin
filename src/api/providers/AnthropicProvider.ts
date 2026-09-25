@@ -10,6 +10,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1";
 
 export class AnthropicProvider extends BaseProvider implements AIProvider {
   readonly name = "anthropic";
+  readonly supportsToolCalling = true;
   private model: string;
   private static readonly DEFAULT_MODEL = "claude-3-5-sonnet-latest";
   private static readonly LEGACY_MODEL_MAP: Record<string, string> = {

@@ -130,6 +130,8 @@ export interface DutyAPI {
       options?: CompletionOptions
     ): Promise<{ message: Message; toolCalls: ToolCall[] }>;
     /** Check whether a model is available/reachable via its provider. */
+    /** Whether the selected backend can natively invoke Ronin tools. */
+    supportsToolCalling(model?: string): boolean;
     checkModel(model?: string): Promise<boolean>;
     /** Analyze an image with a vision-capable model (Ollama only for now). */
     analyzeImage(imagePath: string, prompt: string, options?: { model?: string }): Promise<string>;

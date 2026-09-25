@@ -20,6 +20,7 @@ import { loadToolContext, expandToolContextForCategory } from "../src/tools/tool
 import { getOrCreateRouteToken, hasValidRouteToken, isLocalRequest } from "../plugins/cloudflare/src/routeToken.js";
 import { renderProviderIconSvg, getProviderVisual } from "../src/utils/providerIcons.js";
 import { ArtifactStore } from "../src/artifacts/store.js";
+import { parseReActToolCalls } from "../src/utils/reactTools.js";
 import { registerArtifactRoutes, registerArtifactAssetRoute } from "../src/artifacts/tools.js";
 import { runArtifactMigrations } from "../src/artifacts/migrations.js";
 import { getArtifactAssetsDir, sanitizeAssetFilename, resolveStoredAssetPath } from "../src/artifacts/storage.js";
@@ -2528,6 +2529,20 @@ self.addEventListener("fetch", (event) => {
       return fallback.content || "I couldn't generate a response.";
     }
 
+    // If the selected chat backend cannot natively call tools (e.g. Opencode CLI),
+    // use a ReAct-style planning loop: ask the model which tools it needs, run
+    // them locally through ToolRouter, then ask it to synthesize an answer.
+    const backendSupportsTools = this.api.ai.supportsToolCalling?.(chatModel) ?? true;
+    if (!backendSupportsTools) {
+      return this.generateHybridReActReply({
+        systemPrompt: systemPromptWithToolIndex,
+        aiMessages: params.aiMessages,
+        userMessage: params.userMessage,
+        chatModel,
+        toolCallingModel,
+      });
+    }
+
     for (let iteration = 0; iteration < this.maxToolIterations; iteration++) {
       const prompt = buildToolPrompt({
         systemPrompt: systemPromptWithToolIndex,
@@ -2680,6 +2695,164 @@ self.addEventListener("fetch", (event) => {
       temperature: 0.7,
     });
     return fallback.content || "I couldn't generate a response.";
+  }
+
+  /**
+   * ReAct-style loop for backends that do not support native function calling
+   * (e.g. Opencode CLI). The backend plans which tools to use; Ronin executes
+   * them through ToolRouter; then the backend synthesizes the final answer.
+   */
+  private async generateHybridReActReply(params: {
+    systemPrompt: string;
+    aiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    userMessage: string;
+    chatModel: string;
+    toolCallingModel: string;
+  }): Promise<string> {
+    const toolContext = await loadToolContext(this.api);
+    const toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }> = [];
+
+    // Planning prompt: ask the model to pick tools using a strict textual format.
+    const planPrompt = this.buildReActPlanPrompt({
+      systemPrompt: params.systemPrompt,
+      aiMessages: params.aiMessages,
+      userMessage: params.userMessage,
+      tools: toolContext.schemas as unknown as Tool[],
+    });
+
+    const planResponse = await this.api.ai.chat(
+      [{ role: "user", content: planPrompt }],
+      { model: params.chatModel, maxTokens: 2000, temperature: 0.5 }
+    );
+
+    const plannedCalls = parseReActToolCalls(planResponse.content || "");
+    console.log(`[Chatty] ReAct planned ${plannedCalls.length} tool call(s)`);
+
+    // Execute planned tools locally.
+    let ranAny = false;
+    for (const call of plannedCalls.slice(0, this.maxToolsPerIteration)) {
+      ranAny = true;
+      try {
+        const execution = await this.api.tools.execute(call.name, call.arguments || {}, {
+          conversationId: `chatty-${Date.now()}`,
+          originalQuery: params.userMessage,
+          metadata: { dutyName: "chatty" },
+        });
+        toolResults.push({
+          name: call.name,
+          success: execution.success,
+          result: execution.data,
+          error: execution.error,
+        });
+        if (call.name === "local.tools.load_category" && execution.success) {
+          const category = String((call.arguments as { category?: unknown } | undefined)?.category ?? "").trim();
+          if (category) expandToolContextForCategory(toolContext, category);
+        }
+      } catch (error) {
+        toolResults.push({
+          name: call.name,
+          success: false,
+          result: null,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // If no tools were planned, just return the model's direct response.
+    if (!ranAny) {
+      return planResponse.content || "I couldn't generate a response.";
+    }
+
+    // Synthesis prompt: ask the model to answer the user based on tool results.
+    const synthesisPrompt = this.buildReActSynthesisPrompt({
+      systemPrompt: params.systemPrompt,
+      aiMessages: params.aiMessages,
+      userMessage: params.userMessage,
+      toolResults,
+    });
+
+    const final = await this.api.ai.chat(
+      [{ role: "user", content: synthesisPrompt }],
+      { model: params.chatModel, maxTokens: 2000, temperature: 0.7 }
+    );
+
+    return final.content?.trim() || this.formatRawToolResult(toolResults);
+  }
+
+  private buildReActPlanPrompt(params: {
+    systemPrompt: string;
+    aiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    userMessage: string;
+    tools: Tool[];
+  }): string {
+    const toolList = params.tools
+      .map((t) => `- ${t.function.name}: ${t.function.description}`)
+      .join("\n");
+    return `${params.systemPrompt}
+
+You are acting as a planner for a tool-using assistant. The user asked:
+"""
+${params.userMessage}
+"""
+
+Available tools:
+${toolList}
+
+To use a tool, output exactly one line per tool call in this format:
+TOOL: tool_name {"param":"value"}
+
+If no tool is needed, output NONE and then a brief direct answer.
+
+Plan:`;
+  }
+
+  private buildReActSynthesisPrompt(params: {
+    systemPrompt: string;
+    aiMessages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    userMessage: string;
+    toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }>;
+  }): string {
+    const results = params.toolResults
+      .map((tr) => {
+        const resultText = tr.success
+          ? (typeof tr.result === "string" ? tr.result : JSON.stringify(tr.result, null, 2))
+          : `Error: ${tr.error || "failed"}`;
+        return `[${tr.name}]\n${resultText}`;
+      })
+      .join("\n\n");
+    return `${params.systemPrompt}
+
+The user asked:
+"""
+${params.userMessage}
+"""
+
+Here are the results from the tools you requested:
+${results}
+
+Provide a concise final answer to the user. If a tool failed, explain what happened.`;
+  }
+
+  private formatRawToolResult(toolResults: Array<{ name: string; success: boolean; result: unknown; error?: string }>): string {
+    const successfulRead = toolResults.find((tr) =>
+      tr.success &&
+      (tr.result != null && tr.result !== "") &&
+      /\.(read|list|get|search|status|log|diff|branch|show|info)|^mcp_filesystem_(read|list|search)|^local\.(file|db|memory|discord|obsidian)|^git_/.test(tr.name)
+    );
+    if (successfulRead) {
+      const raw = typeof successfulRead.result === "string"
+        ? successfulRead.result
+        : JSON.stringify(successfulRead.result, null, 2);
+      const MAX_DIRECT_RESULT = 2000;
+      return raw.length > MAX_DIRECT_RESULT
+        ? raw.slice(0, MAX_DIRECT_RESULT) + "\n\n[truncated]"
+        : raw;
+    }
+    const failed = toolResults.find((tr) => !tr.success || tr.error);
+    if (failed) {
+      return `That didn't work. **${failed.name}** failed: ${failed.error || "Unknown error"}`;
+    }
+    return "I couldn't generate a response.";
   }
 
   /**

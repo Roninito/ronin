@@ -86,6 +86,7 @@ export class ConfigService {
     if (stt) {
       if (stt.backend && process.env.STT_BACKEND === undefined) process.env.STT_BACKEND = stt.backend;
       if (stt.deepgramApiKey && process.env.DEEPGRAM_API_KEY === undefined) process.env.DEEPGRAM_API_KEY = stt.deepgramApiKey;
+      if (stt.elevenlabsApiKey && process.env.ELEVENLABS_API_KEY === undefined) process.env.ELEVENLABS_API_KEY = stt.elevenlabsApiKey;
       if (stt.whisperModelPath && process.env.WHISPER_MODEL_PATH === undefined) process.env.WHISPER_MODEL_PATH = stt.whisperModelPath;
       if (stt.whisperBinary && process.env.WHISPER_BINARY === undefined) process.env.WHISPER_BINARY = stt.whisperBinary;
     }
@@ -95,6 +96,9 @@ export class ConfigService {
       if (tts.piperBinary && process.env.PIPER_BINARY === undefined) process.env.PIPER_BINARY = tts.piperBinary;
       if (tts.agentVoiceUrl && process.env.AGENT_VOICE_URL === undefined) process.env.AGENT_VOICE_URL = tts.agentVoiceUrl;
       if (tts.agentVoiceVoice && process.env.AGENT_VOICE_VOICE === undefined) process.env.AGENT_VOICE_VOICE = tts.agentVoiceVoice;
+      if (tts.elevenlabsApiKey && process.env.ELEVENLABS_API_KEY === undefined) process.env.ELEVENLABS_API_KEY = tts.elevenlabsApiKey;
+      if (tts.elevenlabsVoiceId && process.env.ELEVENLABS_VOICE_ID === undefined) process.env.ELEVENLABS_VOICE_ID = tts.elevenlabsVoiceId;
+      if (tts.elevenlabsModelId && process.env.ELEVENLABS_MODEL_ID === undefined) process.env.ELEVENLABS_MODEL_ID = tts.elevenlabsModelId;
     }
   }
 

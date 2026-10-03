@@ -946,9 +946,28 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
       try {
         await runSpeechQueued(async () => {
           const ttsConfig = api.config.getAll?.()?.speech?.tts;
-          if (ttsConfig?.backend === "agent-voice" && api.plugins.has("agent-voice")) {
+          const backend = ttsConfig?.backend ?? "piper";
+          // An explicitly chosen backend is honored — it never silently falls
+          // through to piper. Only piper itself (the default) keeps the
+          // historical macOS `say` last resort.
+          if (backend === "elevenlabs") {
+            if (!api.plugins.has("elevenlabs")) {
+              throw new Error('TTS backend is "elevenlabs" but the elevenlabs plugin is not loaded.');
+            }
+            await api.plugins.call("elevenlabs", "speakAndPlay", args.text, {
+              voiceId: ttsConfig.elevenlabsVoiceId || undefined,
+              modelId: ttsConfig.elevenlabsModelId || undefined,
+            });
+            return;
+          }
+          if (backend === "agent-voice") {
+            if (!api.plugins.has("agent-voice")) {
+              throw new Error('TTS backend is "agent-voice" but the agent-voice plugin is not loaded.');
+            }
             await api.plugins.call("agent-voice", "speak", args.text, { voice: ttsConfig.agentVoiceVoice });
-          } else if (api.plugins.has("piper")) {
+            return;
+          }
+          if (api.plugins.has("piper")) {
             await api.plugins.call("piper", "speakAndPlay", args.text);
           } else {
             // Fallback: macOS say command

@@ -15,6 +15,7 @@ Ronin provides comprehensive speech capabilities through two powerful plugins: *
   - [macOS Native Setup](#macos-native-setup)
   - [Whisper.cpp Setup](#whispercpp-setup)
   - [Deepgram Setup](#deepgram-setup)
+  - [ElevenLabs Setup (Scribe STT)](#elevenlabs-setup-scribe-stt)
   - [Usage Examples](#stt-usage)
 - [Agent Integration](#agent-integration)
 - [Configuration Reference](#configuration-reference)
@@ -219,6 +220,19 @@ For cloned or in-character voices (rather than Piper's generic voices), Ronin ca
 
 A settings page at `/voice` (see `duties/voice-config.ts`) lets you switch between backends, pick a voice, and play a test phrase without editing `config.json` by hand.
 
+### Alternative TTS backend: ElevenLabs (cloud voices)
+
+For high-quality cloud voices, Ronin can speak through [ElevenLabs](https://elevenlabs.io) instead. Set `speech.tts.backend` to `"elevenlabs"` and configure `speech.tts.elevenlabsApiKey` plus `speech.tts.elevenlabsVoiceId` (default `21m00Tcm4TlvDq8ikWAM`, Rachel — list yours via `GET https://api.elevenlabs.io/v1/voices`). `local.speech.say` (and anything else that speaks through it, including the dispatcher console's voiced replies) routes to the `elevenlabs` plugin (`speak`/`speakAndPlay`/`listVoices` in `plugins/elevenlabs.ts`), which POSTs to `/v1/text-to-speech/{voice_id}` and plays the returned mp3 through the same `afplay`/`paplay`/PowerShell path Piper uses.
+
+An explicitly chosen TTS backend is honored: if you select `elevenlabs` (or `agent-voice`) and its plugin/key is missing, `local.speech.say` fails with a clear message instead of silently falling back to Piper. Only Piper itself (the default) keeps the historical macOS `say` last resort.
+
+```bash
+export ELEVENLABS_API_KEY="your-api-key-here"
+export ELEVENLABS_VOICE_ID="21m00Tcm4TlvDq8ikWAM"  # optional, this is the default
+```
+
+Get your API key from [elevenlabs.io](https://elevenlabs.io). The `/voice` page lists your account's voices once a key is saved, and its test-phrase button exercises the exact `local.speech.say` path chat/duties use.
+
 ---
 
 ## STT (Speech-to-Text)
@@ -232,6 +246,7 @@ The STT plugin provides flexible speech recognition with multiple backends to su
 | **Apple** | macOS only | 🔒 Local | ⭐⭐⭐⭐⭐ | Easy |
 | **Whisper** | All | 🔒 Local | ⭐⭐⭐⭐ | Medium |
 | **Deepgram** | All | ☁️ Cloud | ⭐⭐⭐⭐⭐ | Easy |
+| **ElevenLabs** | All | ☁️ Cloud | ⭐⭐⭐⭐⭐ | Easy |
 
 ### macOS Native Setup
 
@@ -305,6 +320,21 @@ export DEEPGRAM_API_KEY="your-api-key-here"
 
 Get your API key from [Deepgram Console](https://console.deepgram.com).
 
+### ElevenLabs Setup (Scribe STT)
+
+Cloud-based STT via ElevenLabs Scribe v2. Requires an API key (the same key as ElevenLabs TTS).
+
+#### Configuration
+
+```bash
+export STT_BACKEND=elevenlabs
+export ELEVENLABS_API_KEY="your-api-key-here"
+```
+
+Or set `speech.stt.backend` to `"elevenlabs"` and `speech.stt.elevenlabsApiKey` in `~/.ronin/config.json` (or on the `/voice` page — one shared key covers both STT and TTS).
+
+Get your API key from [elevenlabs.io](https://elevenlabs.io).
+
 ### STT Usage
 
 #### Transcribe Audio File
@@ -325,7 +355,7 @@ const result = await this.api.stt.transcribe("/path/to/recording.wav", {
 });
 ```
 
-#### Record and Transcribe (macOS only)
+#### Record and Transcribe (microphone)
 
 ```typescript
 // Record 5 seconds from microphone and transcribe
@@ -338,9 +368,10 @@ console.log(`Recording saved at: ${audioPath}`);
 await this.api.files.delete(audioPath);
 ```
 
-**Note:** Requires `sox` to be installed:
+Recording is ffmpeg-first (avfoundation on macOS, pulse/ALSA on Linux, dshow on Windows) with a `sox` fallback:
 ```bash
-brew install sox
+brew install ffmpeg
+# sox also works as a fallback: brew install sox
 ```
 
 #### List Available Backends
@@ -348,7 +379,7 @@ brew install sox
 ```typescript
 const backends = await this.api.stt.listBackends();
 console.log("Available STT backends:", backends);
-// Output: ["apple (macOS native)", "whisper (local)", "deepgram (cloud)"]
+// Output: ["apple (macOS native)", "whisper (local)", "deepgram (cloud)", "elevenlabs (cloud)"]
 ```
 
 ---
@@ -420,10 +451,19 @@ Despite the name, `duties/voice-messaging.ts` has no working integration with th
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `STT_BACKEND` | No | Auto-detect | Backend: `apple`, `whisper`, `deepgram` |
+| `STT_BACKEND` | No | Auto-detect | Backend: `apple`, `whisper`, `deepgram`, `elevenlabs` |
 | `WHISPER_MODEL_PATH` | For Whisper | - | Path to Whisper model |
 | `WHISPER_BINARY` | No | `whisper-cli` | Path to whisper executable |
 | `DEEPGRAM_API_KEY` | For Deepgram | - | Deepgram API key |
+| `ELEVENLABS_API_KEY` | For ElevenLabs | - | ElevenLabs API key (shared with TTS) |
+
+#### ElevenLabs TTS
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ELEVENLABS_API_KEY` | Yes | - | ElevenLabs API key (shared with STT) |
+| `ELEVENLABS_VOICE_ID` | No | Rachel (`21m00Tcm4TlvDq8ikWAM`) | voice_id to speak with |
+| `ELEVENLABS_MODEL_ID` | No | `eleven_multilingual_v2` | TTS model_id |
 
 ### Ronin Configuration
 
@@ -431,12 +471,17 @@ Add to your `~/.ronin/config.json`:
 
 ```json
 {
-  "piper": {
-    "modelPath": "/Users/you/.local/share/piper/en_US-lessac-medium.onnx"
-  },
-  "stt": {
-    "backend": "whisper",
-    "whisperModelPath": "/Users/you/whisper.cpp/models/ggml-base.en.bin"
+  "speech": {
+    "stt": {
+      "backend": "elevenlabs",
+      "elevenlabsApiKey": "your-api-key-here"
+    },
+    "tts": {
+      "backend": "elevenlabs",
+      "elevenlabsApiKey": "your-api-key-here",
+      "elevenlabsVoiceId": "21m00Tcm4TlvDq8ikWAM",
+      "elevenlabsModelId": "eleven_multilingual_v2"
+    }
   }
 }
 ```
@@ -485,7 +530,7 @@ paplay /usr/share/sounds/freedesktop/stereo/complete.oga
 #### "No STT backend available"
 
 - On macOS: Set `STT_BACKEND=apple` and create the Shortcuts workflow
-- On other platforms: Install Whisper.cpp or set Deepgram API key
+- On other platforms: Install Whisper.cpp or set Deepgram/ElevenLabs API key
 
 #### Whisper "Model not found"
 
@@ -496,21 +541,28 @@ ls -la $WHISPER_MODEL_PATH
 # Should show: ggml-base.en.bin or similar
 ```
 
-#### "Recording failed" on macOS
+#### "Recording failed" / "Could not record audio"
 
 ```bash
-# Install sox for microphone recording
-brew install sox
+# Install ffmpeg for microphone recording (preferred; sox is the fallback)
+brew install ffmpeg
 
 # Grant microphone permissions to Terminal/iTerm
-# System Preferences > Security & Privacy > Microphone
+# System Settings > Privacy & Security > Microphone
 ```
+
+Note which binary macOS prompts for: with ffmpeg-first recording the prompt names the terminal running Ronin. If recording works in one terminal but not another, check that terminal's Microphone permission.
 
 #### Apple STT not working
 
 - Ensure Shortcuts app has permission to run AppleScript
 - Check that the "Transcribe Audio" shortcut exists and works manually
 - Try running the shortcut directly in Shortcuts app first
+
+#### ElevenLabs "invalid API key (401)"
+
+- Verify the key: `curl -s -H "xi-api-key: $ELEVENLABS_API_KEY" https://api.elevenlabs.io/v1/user | head -c 200`
+- If you set the key in config or on the `/voice` page, restart Ronin so `ConfigService` pushes it into `process.env` (env vars set in the shell keep precedence).
 
 ### General Issues
 

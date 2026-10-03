@@ -2,7 +2,7 @@ import type { Plugin } from "../src/plugins/base.js";
 import type { EventsAPI } from "../src/api/events.js";
 import { spawn } from "child_process";
 import { writeFile, readFile, unlink } from "fs/promises";
-import { join } from "path";
+import { join, basename } from "path";
 import { tmpdir } from "os";
 
 let eventsAPI: EventsAPI | null = null;
@@ -12,16 +12,17 @@ let eventsAPI: EventsAPI | null = null;
  *
  * Cross-platform STT with multiple backends:
  * - macOS: Built-in speech recognition via Shortcuts/AppleScript
- * - All platforms: Whisper (local) or Deepgram (cloud)
+ * - All platforms: Whisper (local), Deepgram (cloud), or ElevenLabs (cloud, Scribe)
  *
  * Listens for event "transcribe.text": when any agent emits it, the plugin
  * records (or transcribes the given file) and emits "stt.transcribed" with { text }.
  *
  * Environment Variables:
- * - STT_BACKEND: "whisper", "deepgram", or "apple" (auto-detected on macOS)
+ * - STT_BACKEND: "whisper", "deepgram", "elevenlabs", or "apple" (auto-detected on macOS)
  * - WHISPER_MODEL_PATH: Path to whisper.cpp model (for whisper backend)
  * - WHISPER_BINARY: Path to whisper.cpp binary
  * - DEEPGRAM_API_KEY: API key for Deepgram
+ * - ELEVENLABS_API_KEY: API key for ElevenLabs (Scribe STT)
  */
 // `satisfies` (not `: Plugin`) preserves concrete per-method signatures so the
 // self-reference below (`sttPlugin.methods.transcribe`) resolves to a real,
@@ -85,54 +86,31 @@ const sttPlugin = {
           return transcribeWhisper(audioPath, options);
         case "deepgram":
           return transcribeDeepgram(audioPath, options);
+        case "elevenlabs":
+          return transcribeElevenlabs(audioPath, options);
         default:
           throw new Error(`Unknown STT backend: ${backend}`);
       }
     },
 
     /**
-     * Record audio from microphone and transcribe (macOS only via AppleScript)
+     * Record audio from the microphone and transcribe.
+     * Recording is ffmpeg-first (avfoundation/pulse/alsa/dshow input per platform)
+     * with a sox fallback — either recorder works, neither is macOS-only.
      * @param duration Recording duration in seconds
-     * @returns Transcribed text
+     * @returns Transcribed text plus the recording path
      */
     recordAndTranscribe: async (...args: unknown[]): Promise<{ text: string; audioPath: string }> => {
       const duration = (args[0] as number) || 5;
       const options = (args[1] || {}) as { language?: string };
-      
-      if (process.platform !== "darwin") {
-        throw new Error("recordAndTranscribe is only supported on macOS. Use transcribe() with a pre-recorded file on other platforms.");
-      }
-      
-      // Record using sox or similar
+
       const audioPath = join(tmpdir(), `recording-${Date.now()}.wav`);
-      
-      // Try to use sox (brew install sox)
-      await new Promise<void>((resolve, reject) => {
-        const proc = spawn("sox", [
-          "-d",  // Default audio device
-          "-r", "16000",  // 16kHz
-          "-c", "1",  // Mono
-          "-b", "16",  // 16-bit
-          audioPath,
-          "trim", "0", String(duration)
-        ], { stdio: "ignore" });
-        
-        proc.on("close", (code) => {
-          if (code === 0) {
-            resolve();
-          } else {
-            reject(new Error(`Recording failed with code ${code}. Is sox installed? (brew install sox)`));
-          }
-        });
-        
-        proc.on("error", () => {
-          reject(new Error("Failed to run sox. Install with: brew install sox"));
-        });
-      });
-      
+
+      await recordWithFfmpegOrSox(audioPath, duration);
+
       // Transcribe the recorded audio
       const result = await sttPlugin.methods.transcribe(audioPath, options) as { text: string };
-      
+
       return { text: result.text, audioPath };
     },
 
@@ -161,7 +139,11 @@ const sttPlugin = {
       if (process.env.DEEPGRAM_API_KEY) {
         backends.push("deepgram (cloud)");
       }
-      
+
+      if (process.env.ELEVENLABS_API_KEY) {
+        backends.push("elevenlabs (cloud)");
+      }
+
       return backends;
     }
   }
@@ -180,7 +162,89 @@ function detectDefaultBackend(): string {
   if (process.env.DEEPGRAM_API_KEY) {
     return "deepgram";
   }
-  throw new Error("No STT backend available. Set WHISPER_MODEL_PATH, DEEPGRAM_API_KEY, or run on macOS.");
+  if (process.env.ELEVENLABS_API_KEY) {
+    return "elevenlabs";
+  }
+  throw new Error("No STT backend available. Set WHISPER_MODEL_PATH, DEEPGRAM_API_KEY, ELEVENLABS_API_KEY, or run on macOS.");
+}
+
+/**
+ * Candidate ffmpeg input arg prefixes per platform, tried in order.
+ * See https://ffmpeg.org/ffmpeg-devices.html
+ */
+function ffmpegInputCandidates(): string[][] {
+  if (process.platform === "darwin") {
+    return [["-f", "avfoundation", "-i", ":0"]];
+  }
+  if (process.platform === "win32") {
+    return [["-f", "dshow", "-i", "audio=default"]];
+  }
+  // Linux and everything else: pulseaudio first, ALSA fallback.
+  return [
+    ["-f", "pulse", "-i", "default"],
+    ["-f", "alsa", "-i", "default"],
+  ];
+}
+
+function spawnCapture(cmd: string, args: string[]): Promise<{ code: number | null; stderr: string; spawnError?: Error }> {
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    proc.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+    proc.on("close", (code) => resolve({ code, stderr }));
+    proc.on("error", (err) => resolve({ code: null, stderr, spawnError: err }));
+  });
+}
+
+/**
+ * Record `duration` seconds of 16kHz mono audio to `outputPath`.
+ * ffmpeg first (its input-device coverage is the cross-platform story), sox
+ * fallback (the historical recorder). Throws one clear error when neither
+ * is usable — never a bare ENOENT stack trace.
+ */
+async function recordWithFfmpegOrSox(outputPath: string, duration: number): Promise<void> {
+  const failures: string[] = [];
+
+  for (const inputArgs of ffmpegInputCandidates()) {
+    const result = await spawnCapture("ffmpeg", [
+      "-y",
+      "-loglevel", "error",
+      ...inputArgs,
+      "-t", String(duration),
+      "-ar", "16000",
+      "-ac", "1",
+      outputPath,
+    ]);
+    if (result.code === 0) return;
+    if (result.spawnError && (result.spawnError as NodeJS.ErrnoException).code === "ENOENT") {
+      failures.push("ffmpeg is not installed");
+      break; // No point trying other inputs when the binary itself is missing.
+    }
+    failures.push(`ffmpeg (${inputArgs.join(" ")}) failed: ${result.stderr.trim() || `exit code ${result.code}`}`);
+  }
+
+  // sox fallback (macOS/Linux): `sox -d` records from the default device.
+  if (process.platform !== "win32") {
+    const sox = await spawnCapture("sox", [
+      "-d",
+      "-r", "16000",
+      "-c", "1",
+      "-b", "16",
+      outputPath,
+      "trim", "0", String(duration),
+    ]);
+    if (sox.code === 0) return;
+    if (!(sox.spawnError && (sox.spawnError as NodeJS.ErrnoException).code === "ENOENT")) {
+      failures.push(`sox failed: ${sox.stderr.trim() || `exit code ${sox.code}`}`);
+    }
+  }
+
+  throw new Error(
+    `Could not record audio (${failures.join("; ") || "no recorder available"}). ` +
+      `Install ffmpeg (brew install ffmpeg) for microphone recording.`,
+  );
 }
 
 /**
@@ -320,11 +384,59 @@ async function transcribeDeepgram(
 
   const data = await response.json();
   const transcript = data.results?.channels[0]?.alternatives[0];
-  
+
   return {
     text: transcript?.transcript || "",
     confidence: transcript?.confidence || 0,
   };
+}
+
+/**
+ * Transcribe using ElevenLabs Scribe (cloud).
+ * See https://elevenlabs.io/docs/api-reference/speech-to-text/convert
+ */
+async function transcribeElevenlabs(
+  audioPath: string,
+  options: { language?: string }
+): Promise<{ text: string; confidence?: number }> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "ELEVENLABS_API_KEY not set. Set it (or speech.stt.elevenlabsApiKey in config / the /voice page) to use ElevenLabs STT."
+    );
+  }
+
+  const audioBuffer = await readFile(audioPath);
+
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array(audioBuffer)]), basename(audioPath) || "audio.wav");
+  form.append("model_id", "scribe_v2");
+  if (options.language) {
+    form.append("language_code", options.language);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+      method: "POST",
+      headers: { "xi-api-key": apiKey },
+      body: form,
+    });
+  } catch (err) {
+    throw new Error(`ElevenLabs STT request failed: ${err instanceof Error ? err.message : String(err)}. Check network connectivity.`);
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("ElevenLabs: invalid API key (401). Check ELEVENLABS_API_KEY.");
+    }
+    const error = await response.text().catch(() => "");
+    throw new Error(`ElevenLabs STT error (${response.status})${error ? `: ${error.slice(0, 300)}` : ""}`);
+  }
+
+  const data = (await response.json()) as { text?: string };
+  return { text: data.text ?? "" };
 }
 
 export default sttPlugin;

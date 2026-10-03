@@ -413,10 +413,10 @@ export default class ConfigEditorAgent extends BaseDuty {
           fields: {
             backend: {
               type: 'select',
-              options: ['apple', 'whisper', 'deepgram'],
+              options: ['apple', 'whisper', 'deepgram', 'elevenlabs'],
               default: 'whisper',
               description: 'STT Backend',
-              helpText: 'Speech recognition provider. Apple (macOS only), Whisper (local, cross-platform), or Deepgram (cloud)'
+              helpText: 'Speech recognition provider. Apple (macOS only), Whisper (local, cross-platform), Deepgram (cloud), or ElevenLabs Scribe (cloud)'
             },
             whisperModelPath: {
               type: 'path',
@@ -437,6 +437,13 @@ export default class ConfigEditorAgent extends BaseDuty {
               description: 'Deepgram API Key',
               helpText: 'API key for Deepgram cloud STT. Get from https://console.deepgram.com',
               sensitive: true
+            },
+            elevenlabsApiKey: {
+              type: 'string',
+              default: '',
+              description: 'ElevenLabs API Key',
+              helpText: 'API key for ElevenLabs cloud STT (Scribe). Shared with TTS — setting it here or under TTS sets ELEVENLABS_API_KEY. Get from https://elevenlabs.io',
+              sensitive: true
             }
           }
         },
@@ -452,10 +459,10 @@ export default class ConfigEditorAgent extends BaseDuty {
             },
             backend: {
               type: 'select',
-              options: ['piper', 'agent-voice'],
+              options: ['piper', 'agent-voice', 'elevenlabs'],
               default: 'piper',
               description: 'TTS Backend',
-              helpText: 'Piper (local, generic voices) or agent-voice (cloned/persona voices via a running agent-voice server, see https://github.com/rodaddy/agent-voice)'
+              helpText: 'Piper (local, generic voices), agent-voice (cloned/persona voices via a running agent-voice server, see https://github.com/rodaddy/agent-voice), or ElevenLabs (cloud voices)'
             },
             agentVoiceUrl: {
               type: 'string',
@@ -498,6 +505,66 @@ export default class ConfigEditorAgent extends BaseDuty {
               step: 0.1,
               description: 'Speech Speed',
               helpText: 'Speech speed multiplier (0.5 = fast, 2.0 = slow, 1.0 = normal)'
+            },
+            elevenlabsApiKey: {
+              type: 'string',
+              default: '',
+              description: 'ElevenLabs API Key',
+              helpText: 'API key for ElevenLabs cloud TTS. Shared with STT — setting it here or under STT sets ELEVENLABS_API_KEY. Get from https://elevenlabs.io',
+              sensitive: true
+            },
+            elevenlabsVoiceId: {
+              type: 'string',
+              default: '21m00Tcm4TlvDq8ikWAM',
+              description: 'ElevenLabs Voice ID',
+              helpText: 'voice_id to speak with (list yours via GET /v1/voices, or pick one on the /voice page). Default is Rachel.'
+            },
+            elevenlabsModelId: {
+              type: 'string',
+              default: 'eleven_multilingual_v2',
+              description: 'ElevenLabs Model ID',
+              helpText: 'TTS model_id, e.g. eleven_multilingual_v2'
+            }
+          }
+        }
+      }
+    },
+    dispatcher: {
+      type: 'nested',
+      description: 'Dispatcher Duties',
+      helpText: 'Scheduled fleet-dispatcher duties and their guardrails',
+      fields: {
+        crew: {
+          type: 'nested',
+          description: 'Crew Dispatcher Settings',
+          fields: {
+            enabled: {
+              type: 'boolean',
+              default: true,
+              description: 'Enabled',
+              helpText: 'Master switch for the hourly crew-dispatcher sweep (RONIN_CREW_DISPATCHER_DISABLED=true also kills it)'
+            },
+            maxWakesPerRun: {
+              type: 'number',
+              default: 3,
+              min: 0,
+              max: 20,
+              description: 'Max Wakes Per Run',
+              helpText: 'Cap on crew wake calls per hourly sweep'
+            },
+            cooldownMinutes: {
+              type: 'number',
+              default: 60,
+              min: 0,
+              max: 1440,
+              description: 'Wake Cooldown (minutes)',
+              helpText: 'Per-agent wake cooldown — the same agent is never woken twice inside this window'
+            },
+            dryRun: {
+              type: 'boolean',
+              default: false,
+              description: 'Dry Run',
+              helpText: 'When true, the dispatcher reasons and logs but never calls crew wake'
             }
           }
         }
@@ -875,7 +942,8 @@ export default class ConfigEditorAgent extends BaseDuty {
           backend: 'whisper',
           whisperModelPath: '',
           whisperBinary: 'whisper-cli',
-          deepgramApiKey: ''
+          deepgramApiKey: '',
+          elevenlabsApiKey: ''
         },
         tts: {
           enabled: true,
@@ -885,7 +953,18 @@ export default class ConfigEditorAgent extends BaseDuty {
           piperModelPath: '',
           piperBinary: 'piper',
           speakerId: 0,
-          lengthScale: 1.0
+          lengthScale: 1.0,
+          elevenlabsApiKey: '',
+          elevenlabsVoiceId: '21m00Tcm4TlvDq8ikWAM',
+          elevenlabsModelId: 'eleven_multilingual_v2'
+        }
+      },
+      dispatcher: {
+        crew: {
+          enabled: true,
+          maxWakesPerRun: 3,
+          cooldownMinutes: 60,
+          dryRun: false
         }
       }
     };
@@ -1667,7 +1746,7 @@ export default class ConfigEditorAgent extends BaseDuty {
     const SKILL_PROVIDER_OPTIONS = ['skills.sh', 'playbooks.com'];
     let dragDashNavIndex = -1;
     let currentTab = 'form';
-    const sectionOrder = ['configVersion','defaultCLI','defaultAppsDirectory','apps','cliOptions','ai','gemini','grok','braveSearch','system','eventMonitor','telegram','discord','realm','desktop','mcp','blogBoy','configEditor','rssToTelegram','pluginDir','geminiModel','speech'];
+    const sectionOrder = ['configVersion','defaultCLI','defaultAppsDirectory','apps','cliOptions','ai','gemini','grok','braveSearch','system','eventMonitor','telegram','discord','realm','desktop','mcp','blogBoy','configEditor','rssToTelegram','pluginDir','geminiModel','speech','dispatcher'];
 
     function getByPath(obj, path) {
       const parts = path.split('.');

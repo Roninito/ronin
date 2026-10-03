@@ -206,6 +206,7 @@ export const DEFAULT_CONFIG: FullConfig = {
       whisperModelPath: "",
       whisperBinary: "whisper-cli",
       deepgramApiKey: "",
+      elevenlabsApiKey: "",
     },
     tts: {
       backend: "piper",
@@ -213,6 +214,18 @@ export const DEFAULT_CONFIG: FullConfig = {
       piperBinary: "piper",
       agentVoiceUrl: "http://127.0.0.1:7161",
       agentVoiceVoice: "",
+      elevenlabsApiKey: "",
+      elevenlabsVoiceId: "21m00Tcm4TlvDq8ikWAM",
+      elevenlabsModelId: "eleven_multilingual_v2",
+    },
+  },
+
+  dispatcher: {
+    crew: {
+      enabled: true,
+      maxWakesPerRun: 3,
+      cooldownMinutes: 60,
+      dryRun: false,
     },
   },
 
@@ -301,6 +314,7 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "realm.localPort": "REALM_LOCAL_PORT",
   "speech.stt.backend": "STT_BACKEND",
   "speech.stt.deepgramApiKey": "DEEPGRAM_API_KEY",
+  "speech.stt.elevenlabsApiKey": "ELEVENLABS_API_KEY",
   "speech.stt.whisperModelPath": "WHISPER_MODEL_PATH",
   "speech.stt.whisperBinary": "WHISPER_BINARY",
   "speech.tts.backend": "TTS_BACKEND",
@@ -308,6 +322,9 @@ export const ENV_MAPPINGS: Record<string, string> = {
   "speech.tts.piperBinary": "PIPER_BINARY",
   "speech.tts.agentVoiceUrl": "AGENT_VOICE_URL",
   "speech.tts.agentVoiceVoice": "AGENT_VOICE_VOICE",
+  "speech.tts.elevenlabsApiKey": "ELEVENLABS_API_KEY",
+  "speech.tts.elevenlabsVoiceId": "ELEVENLABS_VOICE_ID",
+  "speech.tts.elevenlabsModelId": "ELEVENLABS_MODEL_ID",
   "mngr.baseUrl": "MNGR_BASE_URL",
   "mngr.registrationSecret": "MNGR_REGISTRATION_SECRET",
   "mngr.inboundToken": "RONIN_INBOUND_TOKEN",

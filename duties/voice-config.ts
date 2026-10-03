@@ -7,9 +7,10 @@ const DEFAULT_TEST_PHRASE = "This is how Ronin sounds with the current voice set
  * Voice Config Duty
  *
  * Provides a small settings page at /voice for choosing and testing Ronin's
- * speech backends — STT (apple/whisper/deepgram) and TTS (piper, or
+ * speech backends — STT (apple/whisper/deepgram/elevenlabs) and TTS (piper,
  * agent-voice for cloned/persona voices via a running agent-voice server,
- * see https://github.com/rodaddy/agent-voice). Writes through api.config.set
+ * see https://github.com/rodaddy/agent-voice, or elevenlabs cloud voices).
+ * Writes through api.config.set
  * (persisted to ~/.ronin/config.json, same mechanism duties/config-editor.ts
  * uses) and speaks a test phrase via the existing local.speech.say tool so
  * "test this voice" always exercises the exact code path chat/duties use.
@@ -39,11 +40,17 @@ export default class VoiceConfigDuty extends BaseDuty {
   private currentSpeechConfig() {
     const speech = this.api.config.getAll().speech;
     return {
-      stt: { backend: speech.stt.backend },
+      stt: {
+        backend: speech.stt.backend,
+        elevenlabsApiKeySet: Boolean(speech.stt.elevenlabsApiKey || speech.tts.elevenlabsApiKey),
+      },
       tts: {
         backend: speech.tts.backend,
         agentVoiceUrl: speech.tts.agentVoiceUrl,
         agentVoiceVoice: speech.tts.agentVoiceVoice,
+        elevenlabsApiKeySet: Boolean(speech.tts.elevenlabsApiKey || speech.stt.elevenlabsApiKey),
+        elevenlabsVoiceId: speech.tts.elevenlabsVoiceId,
+        elevenlabsModelId: speech.tts.elevenlabsModelId,
       },
     };
   }
@@ -73,6 +80,18 @@ export default class VoiceConfigDuty extends BaseDuty {
       if (typeof body.agentVoiceVoice === "string") {
         await this.api.config.set("speech.tts.agentVoiceVoice", body.agentVoiceVoice);
       }
+      if (typeof body.elevenlabsApiKey === "string" && body.elevenlabsApiKey) {
+        // One shared ElevenLabs key: mirror to both backends so STT and TTS
+        // each work no matter which one is selected.
+        await this.api.config.set("speech.stt.elevenlabsApiKey", body.elevenlabsApiKey);
+        await this.api.config.set("speech.tts.elevenlabsApiKey", body.elevenlabsApiKey);
+      }
+      if (typeof body.elevenlabsVoiceId === "string" && body.elevenlabsVoiceId) {
+        await this.api.config.set("speech.tts.elevenlabsVoiceId", body.elevenlabsVoiceId);
+      }
+      if (typeof body.elevenlabsModelId === "string" && body.elevenlabsModelId) {
+        await this.api.config.set("speech.tts.elevenlabsModelId", body.elevenlabsModelId);
+      }
 
       return Response.json({ success: true, config: this.currentSpeechConfig() });
     }
@@ -80,7 +99,27 @@ export default class VoiceConfigDuty extends BaseDuty {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  private async handleVoices(): Promise<Response> {
+  private async handleVoices(req: Request): Promise<Response> {
+    let want = this.api.config.getAll().speech.tts.backend;
+    try {
+      const param = new URL(req.url).searchParams.get("for");
+      if (param === "elevenlabs" || param === "agent-voice") want = param;
+    } catch {
+      // Relative URL in tests — fall through to the configured backend.
+    }
+
+    if (want === "elevenlabs") {
+      if (!this.api.plugins.has("elevenlabs")) {
+        return Response.json({ voices: [] });
+      }
+      try {
+        const voices = (await this.api.plugins.call("elevenlabs", "listVoices")) as Array<{ id: string; name: string }>;
+        return Response.json({ voices });
+      } catch {
+        return Response.json({ voices: [] });
+      }
+    }
+
     if (!this.api.plugins.has("agent-voice")) {
       return Response.json({ voices: [] });
     }
@@ -129,7 +168,7 @@ const PAGE_HTML = `<!DOCTYPE html>
   fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; background: #fff; }
   legend { font-weight: 600; padding: 0 6px; }
   label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #444; }
-  select, input[type=text] { width: 100%; padding: 6px 8px; font-size: 1em; box-sizing: border-box; }
+  select, input[type=text], input[type=password] { width: 100%; padding: 6px 8px; font-size: 1em; box-sizing: border-box; }
   button { padding: 8px 16px; margin-top: 12px; margin-right: 8px; cursor: pointer; }
   #status { margin-top: 10px; font-size: 0.9em; }
   .hint { color: #888; font-size: 0.85em; }
@@ -145,6 +184,7 @@ const PAGE_HTML = `<!DOCTYPE html>
     <option value="apple">Apple (Shortcuts dictation)</option>
     <option value="whisper">Whisper (local, whisper.cpp)</option>
     <option value="deepgram">Deepgram (cloud)</option>
+    <option value="elevenlabs">ElevenLabs (cloud, Scribe)</option>
   </select>
 </fieldset>
 
@@ -154,6 +194,7 @@ const PAGE_HTML = `<!DOCTYPE html>
   <select id="ttsBackend">
     <option value="piper">Piper (local, generic voices)</option>
     <option value="agent-voice">agent-voice (cloned/persona voices)</option>
+    <option value="elevenlabs">ElevenLabs (cloud voices)</option>
   </select>
 
   <div id="agentVoiceFields" style="display:none">
@@ -162,6 +203,17 @@ const PAGE_HTML = `<!DOCTYPE html>
     <label for="agentVoiceVoice">Voice</label>
     <select id="agentVoiceVoice"></select>
     <p class="hint">Voices are listed from the agent-voice server's voices directory, if reachable on this machine.</p>
+  </div>
+
+  <div id="elevenlabsFields" style="display:none">
+    <label for="elevenlabsApiKey">ElevenLabs API Key</label>
+    <input type="password" id="elevenlabsApiKey" placeholder="sk_..." autocomplete="off">
+    <p class="hint" id="elevenlabsKeyHint">One shared key for ElevenLabs STT and TTS. Leave blank to keep the saved key.</p>
+    <label for="elevenlabsVoiceId">Voice</label>
+    <select id="elevenlabsVoiceId"></select>
+    <label for="elevenlabsModelId">Model ID</label>
+    <input type="text" id="elevenlabsModelId" placeholder="eleven_multilingual_v2">
+    <p class="hint">Voices are listed from your ElevenLabs account when a key is saved.</p>
   </div>
 </fieldset>
 
@@ -175,12 +227,49 @@ const PAGE_HTML = `<!DOCTYPE html>
   const agentVoiceFields = document.getElementById('agentVoiceFields');
   const agentVoiceUrl = document.getElementById('agentVoiceUrl');
   const agentVoiceVoice = document.getElementById('agentVoiceVoice');
+  const elevenlabsFields = document.getElementById('elevenlabsFields');
+  const elevenlabsApiKey = document.getElementById('elevenlabsApiKey');
+  const elevenlabsKeyHint = document.getElementById('elevenlabsKeyHint');
+  const elevenlabsVoiceId = document.getElementById('elevenlabsVoiceId');
+  const elevenlabsModelId = document.getElementById('elevenlabsModelId');
   const status = document.getElementById('status');
 
   function updateVisibility() {
     agentVoiceFields.style.display = ttsBackend.value === 'agent-voice' ? 'block' : 'none';
+    elevenlabsFields.style.display =
+      (ttsBackend.value === 'elevenlabs' || sttBackend.value === 'elevenlabs') ? 'block' : 'none';
   }
-  ttsBackend.addEventListener('change', updateVisibility);
+  ttsBackend.addEventListener('change', () => { updateVisibility(); loadVoices(); });
+  sttBackend.addEventListener('change', updateVisibility);
+
+  async function loadVoices(savedAgentVoice, savedElevenVoiceId) {
+    const backend = ttsBackend.value === 'elevenlabs' ? 'elevenlabs' : 'agent-voice';
+    try {
+      const voicesRes = await fetch('/api/voice/voices?for=' + backend);
+      const { voices } = await voicesRes.json();
+      if (backend === 'elevenlabs') {
+        elevenlabsVoiceId.innerHTML = voices.length
+          ? voices.map(v => \`<option value="\${v.id}">\${v.name} (\${v.id.slice(0, 8)}…)</option>\`).join('')
+          : '<option value="">(no voices found — save a key first)</option>';
+        if (savedElevenVoiceId) {
+          if (![...elevenlabsVoiceId.options].some(o => o.value === savedElevenVoiceId)) {
+            const opt = document.createElement('option');
+            opt.value = savedElevenVoiceId;
+            opt.textContent = savedElevenVoiceId + ' (saved)';
+            elevenlabsVoiceId.appendChild(opt);
+          }
+          elevenlabsVoiceId.value = savedElevenVoiceId;
+        }
+      } else {
+        agentVoiceVoice.innerHTML = voices.length
+          ? voices.map(v => \`<option value="\${v}">\${v}</option>\`).join('')
+          : '<option value="">(no voices found)</option>';
+        if (voices.includes(savedAgentVoice)) agentVoiceVoice.value = savedAgentVoice;
+      }
+    } catch {
+      // Voice listing is best-effort; saving still works.
+    }
+  }
 
   async function loadConfig() {
     const res = await fetch('/api/voice/config');
@@ -188,14 +277,10 @@ const PAGE_HTML = `<!DOCTYPE html>
     sttBackend.value = cfg.stt.backend;
     ttsBackend.value = cfg.tts.backend;
     agentVoiceUrl.value = cfg.tts.agentVoiceUrl || '';
+    elevenlabsModelId.value = cfg.tts.elevenlabsModelId || '';
+    if (cfg.tts.elevenlabsApiKeySet) elevenlabsKeyHint.textContent = 'A key is saved. Enter a new one to replace it, or leave blank to keep it.';
     updateVisibility();
-
-    const voicesRes = await fetch('/api/voice/voices');
-    const { voices } = await voicesRes.json();
-    agentVoiceVoice.innerHTML = voices.length
-      ? voices.map(v => \`<option value="\${v}">\${v}</option>\`).join('')
-      : '<option value="">(no voices found)</option>';
-    if (voices.includes(cfg.tts.agentVoiceVoice)) agentVoiceVoice.value = cfg.tts.agentVoiceVoice;
+    loadVoices(cfg.tts.agentVoiceVoice, cfg.tts.elevenlabsVoiceId);
   }
 
   document.getElementById('saveButton').addEventListener('click', async () => {
@@ -208,10 +293,17 @@ const PAGE_HTML = `<!DOCTYPE html>
         ttsBackend: ttsBackend.value,
         agentVoiceUrl: agentVoiceUrl.value,
         agentVoiceVoice: agentVoiceVoice.value,
+        elevenlabsApiKey: elevenlabsApiKey.value,
+        elevenlabsVoiceId: elevenlabsVoiceId.value,
+        elevenlabsModelId: elevenlabsModelId.value,
       }),
     });
     const data = await res.json();
     status.textContent = data.success ? 'Saved.' : ('Error: ' + (data.error || 'unknown'));
+    if (data.success) {
+      elevenlabsApiKey.value = '';
+      loadConfig();
+    }
   });
 
   document.getElementById('testButton').addEventListener('click', async () => {

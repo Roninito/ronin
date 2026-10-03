@@ -250,21 +250,44 @@ export interface MCPConfig {
 }
 
 export interface STTConfig {
-  backend: "apple" | "whisper" | "deepgram";
+  backend: "apple" | "whisper" | "deepgram" | "elevenlabs";
   whisperModelPath: string;
   whisperBinary: string;
   deepgramApiKey: string;
+  /** ElevenLabs API key for cloud STT (Scribe). Either this or tts.elevenlabsApiKey sets ELEVENLABS_API_KEY. */
+  elevenlabsApiKey: string;
 }
 
 export interface TTSConfig {
   /** Which engine local.speech.say (and duties calling piper directly) should use. */
-  backend: "piper" | "agent-voice";
+  backend: "piper" | "agent-voice" | "elevenlabs";
   piperModelPath: string;
   piperBinary: string;
   /** Base URL of a running `agent-voice serve` instance (https://github.com/rodaddy/agent-voice). */
   agentVoiceUrl: string;
   /** Name of the voice directory (under agent-voice's voices/) to speak with. */
   agentVoiceVoice: string;
+  /** ElevenLabs API key for cloud TTS. Either this or stt.elevenlabsApiKey sets ELEVENLABS_API_KEY. */
+  elevenlabsApiKey: string;
+  /** ElevenLabs voice_id to speak with (see GET /v1/voices; default is Rachel). */
+  elevenlabsVoiceId: string;
+  /** ElevenLabs TTS model_id (e.g. eleven_multilingual_v2). */
+  elevenlabsModelId: string;
+}
+
+export interface DispatcherCrewConfig {
+  /** Master switch for the crew-dispatcher duty (in addition to the RONIN_CREW_DISPATCHER_DISABLED env kill-switch). */
+  enabled: boolean;
+  /** Max crew wake calls per hourly run. */
+  maxWakesPerRun: number;
+  /** Per-agent wake cooldown in minutes. */
+  cooldownMinutes: number;
+  /** When true, reason and log but never call crew wake. */
+  dryRun: boolean;
+}
+
+export interface DispatcherConfig {
+  crew: DispatcherCrewConfig;
 }
 
 export interface SpeechConfig {
@@ -341,6 +364,7 @@ export interface FullConfig {
   desktop: DesktopConfig;
   mcp: MCPConfig;
   speech: SpeechConfig;
+  dispatcher: DispatcherConfig;
   notifications: NotificationsConfig;
   mesh: MeshNetworkConfig;
   obsidian?: ObsidianConfig;
@@ -522,4 +546,26 @@ export type ConfigPath =
   | 'envoy.baseUrl'
   | 'envoy.apiKey'
   | 'pluginDir'
-  | 'geminiModel';
+  | 'geminiModel'
+  | 'speech'
+  | 'speech.stt'
+  | 'speech.stt.backend'
+  | 'speech.stt.whisperModelPath'
+  | 'speech.stt.whisperBinary'
+  | 'speech.stt.deepgramApiKey'
+  | 'speech.stt.elevenlabsApiKey'
+  | 'speech.tts'
+  | 'speech.tts.backend'
+  | 'speech.tts.piperModelPath'
+  | 'speech.tts.piperBinary'
+  | 'speech.tts.agentVoiceUrl'
+  | 'speech.tts.agentVoiceVoice'
+  | 'speech.tts.elevenlabsApiKey'
+  | 'speech.tts.elevenlabsVoiceId'
+  | 'speech.tts.elevenlabsModelId'
+  | 'dispatcher'
+  | 'dispatcher.crew'
+  | 'dispatcher.crew.enabled'
+  | 'dispatcher.crew.maxWakesPerRun'
+  | 'dispatcher.crew.cooldownMinutes'
+  | 'dispatcher.crew.dryRun';

@@ -3,7 +3,8 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /**
  * Rule Manager Agent
@@ -281,17 +282,20 @@ export default class RuleManagerAgent extends BaseDuty {
     try {
       const content = await this.readRulebook();
       
-      const html = `<!DOCTYPE html>
+      const accent = getKiosaAccentForPath("/rules");
+    const accentHex = kiosaTheme.colors.accent;
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Security Rules</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body {
       padding: 0;
@@ -302,148 +306,145 @@ export default class RuleManagerAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
     }
 
     .toolbar {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
-      margin-bottom: ${hankoTheme.spacing.lg};
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
+      gap: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
     }
 
     .btn-primary {
-      background: ${hankoTheme.colors.accent};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.accent};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
     }
-    .btn-primary:hover { background: ${hankoTheme.colors.accentHover}; border-color: ${hankoTheme.colors.borderHover}; }
+    .btn-primary:hover { background: ${kiosaTheme.colors.accentHover}; border-color: ${kiosaTheme.colors.borderHover}; }
 
     .btn-secondary {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
     }
-    .btn-secondary:hover { background: ${hankoTheme.colors.accent}; color: ${hankoTheme.colors.textPrimary}; }
+    .btn-secondary:hover { background: ${kiosaTheme.colors.accent}; color: ${kiosaTheme.colors.textPrimary}; }
 
     .btn-danger {
-      background: ${hankoTheme.colors.error}30;
-      border: 1px solid ${hankoTheme.colors.error};
-      color: ${hankoTheme.colors.error};
+      background: ${kiosaTheme.colors.error}30;
+      border: 1px solid ${kiosaTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
     }
-    .btn-danger:hover { background: ${hankoTheme.colors.error}50; color: ${hankoTheme.colors.textPrimary}; }
+    .btn-danger:hover { background: ${kiosaTheme.colors.error}50; color: ${kiosaTheme.colors.textPrimary}; }
 
     .editor-container {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
       overflow: hidden;
-      margin-bottom: ${hankoTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .editor-header {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
 
     .editor-header h2 {
       font-size: 0.9375rem;
       font-weight: 300;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .status {
       font-size: 0.75rem;
-      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
     }
-    .status.saved { background: ${hankoTheme.colors.success}30; color: ${hankoTheme.colors.success}; }
-    .status.unsaved { background: ${hankoTheme.colors.warning}30; color: ${hankoTheme.colors.warning}; }
+    .status.saved { background: ${kiosaTheme.colors.success}30; color: ${kiosaTheme.colors.success}; }
+    .status.unsaved { background: ${kiosaTheme.colors.warning}30; color: ${kiosaTheme.colors.warning}; }
 
     textarea {
       width: 100%;
       min-height: 480px;
-      padding: ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
+      padding: ${kiosaTheme.spacing.lg};
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textPrimary};
       border: none;
-      font-family: ${hankoTheme.fonts.mono};
+      font-family: ${kiosaTheme.fonts.mono};
       font-size: 0.8125rem;
       line-height: 1.6;
       resize: vertical;
       outline: none;
     }
-    textarea:focus { background: ${hankoTheme.colors.background}; }
+    textarea:focus { background: ${kiosaTheme.colors.background}; }
 
     .preview {
-      padding: ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.background};
-      border-top: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.lg};
+      background: ${kiosaTheme.colors.background};
+      border-top: 1px solid ${kiosaTheme.colors.border};
       max-height: 400px;
       overflow-y: auto;
     }
 
     .preview-content {
-      font-family: ${hankoTheme.fonts.mono};
+      font-family: ${kiosaTheme.fonts.mono};
       white-space: pre-wrap;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
-    .preview-content h3 { color: ${hankoTheme.colors.link}; margin: ${hankoTheme.spacing.md} 0 ${hankoTheme.spacing.sm} 0; font-size: 1rem; }
-    .preview-content strong { color: ${hankoTheme.colors.link}; }
-    .preview-content code { background: ${hankoTheme.colors.backgroundSecondary}; padding: 2px 6px; border-radius: ${hankoTheme.borderRadius.sm}; font-size: 0.75rem; }
+    .preview-content h3 { color: ${kiosaTheme.colors.link}; margin: ${kiosaTheme.spacing.md} 0 ${kiosaTheme.spacing.sm} 0; font-size: 1rem; }
+    .preview-content strong { color: ${kiosaTheme.colors.link}; }
+    .preview-content code { background: ${kiosaTheme.colors.backgroundSecondary}; padding: 2px 6px; border-radius: ${kiosaTheme.borderRadius.sm}; font-size: 0.75rem; }
 
     .info-box {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      padding: ${hankoTheme.spacing.lg};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      padding: ${kiosaTheme.spacing.lg};
+      border-radius: ${kiosaTheme.borderRadius.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
-    .info-box h3 { color: ${hankoTheme.colors.link}; margin-bottom: ${hankoTheme.spacing.sm}; font-size: 0.9375rem; }
-    .info-box ul { margin-left: ${hankoTheme.spacing.lg}; color: ${hankoTheme.colors.textSecondary}; }
-    .info-box li { margin-bottom: ${hankoTheme.spacing.xs}; }
+    .info-box h3 { color: ${kiosaTheme.colors.link}; margin-bottom: ${kiosaTheme.spacing.sm}; font-size: 0.9375rem; }
+    .info-box ul { margin-left: ${kiosaTheme.spacing.lg}; color: ${kiosaTheme.colors.textSecondary}; }
+    .info-box li { margin-bottom: ${kiosaTheme.spacing.xs}; }
 
     .success-message {
-      background: ${hankoTheme.colors.success}20;
-      border: 1px solid ${hankoTheme.colors.success}50;
-      color: ${hankoTheme.colors.success};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.success}20;
+      border: 1px solid ${kiosaTheme.colors.success}50;
+      color: ${kiosaTheme.colors.success};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      margin-bottom: ${kiosaTheme.spacing.lg};
       display: none;
     }
     .success-message.show { display: block; }
 
-    .tabs { display: flex; gap: ${hankoTheme.spacing.xs}; margin-bottom: ${hankoTheme.spacing.lg}; }
+    .tabs { display: flex; gap: ${kiosaTheme.spacing.xs}; margin-bottom: ${kiosaTheme.spacing.lg}; }
 
     .tab {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${hankoTheme.borderRadius.md} ${hankoTheme.borderRadius.md} 0 0;
+      border-radius: ${kiosaTheme.borderRadius.md} ${kiosaTheme.borderRadius.md} 0 0;
       font-size: 0.8125rem;
     }
-    .tab.active { background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; border-bottom-color: transparent; }
+    .tab.active { background: ${kiosaTheme.colors.backgroundTertiary}; color: ${kiosaTheme.colors.textPrimary}; border-bottom-color: transparent; }
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>🔐 Ronin Security Rules</h1>
-    <div class="header-meta">Manage security rules for AI and agent behaviors</div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "RULES", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

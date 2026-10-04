@@ -1,4 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import type { DutyAPI } from "@ronin/types/index.js";
+import type { ToolContext, ToolDefinition } from "../src/tools/types.js";
+import { registerLocalTools } from "../src/tools/providers/LocalTools.js";
 import elevenlabsPlugin from "../plugins/elevenlabs.js";
 import sttPlugin from "../plugins/stt.js";
 
@@ -70,5 +76,46 @@ describe("stt elevenlabs backend", () => {
 
   it("still rejects unknown backends", async () => {
     await expect(sttPlugin.methods.transcribe!("/tmp/x.wav", { backend: "nope" })).rejects.toThrow("Unknown STT backend");
+  });
+});
+
+describe("local.speech.say elevenlabs backend", () => {
+  const dummyContext: ToolContext = { conversationId: "test", timestamp: Date.now() };
+
+  it("passes the config-saved apiKey through to the plugin", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "ronin-say-"));
+    try {
+      const calls: Array<{ plugin: string; method: string; args: unknown[] }> = [];
+      const tools = new Map<string, ToolDefinition>();
+      const api = {
+        config: {
+          getSystem: () => ({ dataDir }),
+          getAll: () => ({
+            speech: {
+              tts: { backend: "elevenlabs", elevenlabsApiKey: "cfg-key-123" },
+            },
+          }),
+          getNotifications: () => ({ preferredChat: "auto" }),
+        },
+        plugins: {
+          has: (name: string) => name === "elevenlabs",
+          call: async (plugin: string, method: string, ...args: unknown[]) => {
+            calls.push({ plugin, method, args });
+            return { audioPath: "/tmp/say-test.mp3" };
+          },
+        },
+        ai: {},
+      } as unknown as DutyAPI;
+      registerLocalTools(api, (tool: ToolDefinition) => tools.set(tool.name, tool));
+
+      const result = await tools.get("local.speech.say")!.handler({ text: "hi" }, dummyContext);
+      expect(result.success).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].plugin).toBe("elevenlabs");
+      expect(calls[0].method).toBe("speakAndPlay");
+      expect((calls[0].args[1] as Record<string, unknown>).apiKey).toBe("cfg-key-123");
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 });

@@ -2,7 +2,8 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 const execAsync = promisify(exec);
 
@@ -90,6 +91,8 @@ export default class ServedAgent extends BaseDuty {
     const servers = await this.discoverServers();
     const lastUpdated = new Date().toISOString();
     
+    const accent = getKiosaAccentForPath("/served");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -97,10 +100,11 @@ export default class ServedAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Servers - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body {
       margin: 0;
@@ -115,25 +119,25 @@ export default class ServedAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .servers-container {
       display: grid;
-      gap: ${hankoTheme.spacing.md};
-      margin-top: ${hankoTheme.spacing.lg};
+      gap: ${kiosaTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.lg};
     }
 
     .server-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
       transition: all 0.2s;
     }
 
     .server-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${kiosaTheme.colors.borderHover};
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -141,32 +145,32 @@ export default class ServedAgent extends BaseDuty {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .server-port {
       font-size: 1.25rem;
       font-weight: 600;
-      color: ${hankoTheme.colors.accent};
+      color: ${kiosaTheme.colors.accent};
       font-family: 'Courier New', monospace;
     }
 
     .server-protocol {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
       text-transform: uppercase;
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .server-info {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${hankoTheme.spacing.sm};
-      margin-top: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
+      margin-top: ${kiosaTheme.spacing.sm};
     }
 
     .info-item {
@@ -176,47 +180,47 @@ export default class ServedAgent extends BaseDuty {
 
     .info-label {
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       margin-bottom: 2px;
     }
 
     .info-value {
       font-weight: 500;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
       font-family: 'Courier New', monospace;
     }
 
     .empty-state {
       text-align: center;
-      padding: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.xl};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .refresh-button {
-      margin-top: ${hankoTheme.spacing.md};
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.accent};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      margin-top: ${kiosaTheme.spacing.md};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.accent};
+      color: ${kiosaTheme.colors.textPrimary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.8125rem;
       transition: all 0.2s;
     }
 
     .refresh-button:hover {
-      background: ${hankoTheme.colors.accentHover};
-      border-color: ${hankoTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.accentHover};
+      border-color: ${kiosaTheme.colors.borderHover};
     }
 
     .stats {
       display: flex;
-      gap: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      gap: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
     }
 
     .stat-item {
@@ -227,22 +231,17 @@ export default class ServedAgent extends BaseDuty {
     .stat-value {
       font-size: 1.5rem;
       font-weight: 600;
-      color: ${hankoTheme.colors.accent};
+      color: ${kiosaTheme.colors.accent};
     }
 
     .stat-label {
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>Servers</h1>
-    <div class="header-meta">
-      <span>Updated ${new Date(lastUpdated).toLocaleTimeString()}</span>
-    </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SERVED", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

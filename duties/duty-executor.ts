@@ -27,7 +27,8 @@ import { existsSync } from "fs";
 import { proposeDuty, DutyProposeError, DutyProposalStorage } from "../src/duty/index.js";
 import { validateDutyCode, toKebabCase } from "../src/duty/duty-authoring.js";
 import { resolveExternalDutyDir } from "../src/cli/commands/config.js";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -182,6 +183,8 @@ export default class DutyExecutorAgent extends BaseDuty {
         </div>
       </div>`).join("\n") || `<div class="empty-state">No pending proposals.</div>`;
 
+    const accent = getKiosaAccentForPath("/duties/review");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,70 +192,71 @@ export default class DutyExecutorAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Duties - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .section-title {
       font-size: 0.9375rem;
       font-weight: 500;
-      margin: ${hankoTheme.spacing.lg} 0 ${hankoTheme.spacing.sm};
-      color: ${hankoTheme.colors.textPrimary};
+      margin: ${kiosaTheme.spacing.lg} 0 ${kiosaTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .duty-row {
-      padding: ${hankoTheme.spacing.md};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: ${hankoTheme.spacing.sm};
-      background: ${hankoTheme.colors.backgroundSecondary};
+      padding: ${kiosaTheme.spacing.md};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      margin-bottom: ${kiosaTheme.spacing.sm};
+      background: ${kiosaTheme.colors.backgroundSecondary};
     }
 
-    .duty-row-main { margin-bottom: ${hankoTheme.spacing.xs}; }
-    .duty-row-detail { font-size: 0.8125rem; color: ${hankoTheme.colors.textSecondary}; }
+    .duty-row-main { margin-bottom: ${kiosaTheme.spacing.xs}; }
+    .duty-row-detail { font-size: 0.8125rem; color: ${kiosaTheme.colors.textSecondary}; }
 
     .empty-state {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
       font-size: 0.8125rem;
-      padding: ${hankoTheme.spacing.md} 0;
+      padding: ${kiosaTheme.spacing.md} 0;
     }
 
     .proposal-card {
-      margin-bottom: ${hankoTheme.spacing.sm};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
+      margin-bottom: ${kiosaTheme.spacing.sm};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
     }
     .proposal-card-preview {
       font-size: 0.8125rem;
       line-height: 1.6;
-      color: ${hankoTheme.colors.textPrimary};
-      margin-bottom: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
     .proposal-card-code-details {
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
     .proposal-card-code-details summary {
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
     }
     .proposal-card-code {
-      margin-top: ${hankoTheme.spacing.xs};
-      padding: ${hankoTheme.spacing.sm};
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      margin-top: ${kiosaTheme.spacing.xs};
+      padding: ${kiosaTheme.spacing.sm};
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
       font-size: 0.75rem;
       line-height: 1.5;
@@ -261,30 +265,25 @@ export default class DutyExecutorAgent extends BaseDuty {
       max-height: 360px;
       overflow-y: auto;
     }
-    .proposal-card-actions { display: flex; gap: ${hankoTheme.spacing.sm}; }
+    .proposal-card-actions { display: flex; gap: ${kiosaTheme.spacing.sm}; }
     .proposal-card-actions button {
       flex: 1;
-      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
       background: transparent;
       cursor: pointer;
       font-size: 0.75rem;
       font-weight: 500;
     }
-    .proposal-card-allow { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success} !important; }
-    .proposal-card-refuse { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error} !important; }
+    .proposal-card-allow { color: ${kiosaTheme.colors.success}; border-color: ${kiosaTheme.colors.success} !important; }
+    .proposal-card-refuse { color: ${kiosaTheme.colors.error}; border-color: ${kiosaTheme.colors.error} !important; }
     .proposal-card-actions button:disabled { opacity: 0.5; cursor: default; }
-    .proposal-card-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; }
+    .proposal-card-status { font-size: 0.75rem; color: ${kiosaTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>🛠️ Duties</h1>
-    <div class="header-meta">
-      <span>Live duties + AI-drafted proposals awaiting approval</span>
-    </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DUTIES", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

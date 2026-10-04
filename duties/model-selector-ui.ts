@@ -6,7 +6,8 @@
 
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 export default class ModelSelectorUIAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -27,6 +28,8 @@ export default class ModelSelectorUIAgent extends BaseDuty {
   }
 
   private async handleModels(): Promise<Response> {
+    const accent = getKiosaAccentForPath("/models");
+    const accentHex = kiosaTheme.colors.accent;
     return new Response(`
 <!DOCTYPE html>
 <html>
@@ -34,151 +37,157 @@ export default class ModelSelectorUIAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Model Selector - Ronin</title>
+  ${getKiosaHeadHTML(accent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
-    body {
-      min-height: 100vh;
-      margin: 0;
-      padding: 0;
-    }
+    body { margin: 0; min-height: 100vh; }
 
     .page-content {
-      max-width: 900px;
+      max-width: 1060px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: 22px;
     }
 
     .page-intro {
-      margin-bottom: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.95rem;
-      line-height: 1.6;
+      margin-bottom: 22px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 12px;
+      line-height: 1.65;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .models {
       display: grid;
-      gap: ${hankoTheme.spacing.lg};
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
 
     .model-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 12px;
+      transition: border-color 150ms ease, background 150ms ease;
       cursor: default;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .model-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      transform: translateY(-4px);
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+      background: color-mix(in srgb, ${accentHex} 6%, transparent);
     }
 
     .model-card h3 {
-      margin: 0 0 ${hankoTheme.spacing.sm} 0;
-      font-size: 1.05rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      color: ${hankoTheme.colors.textPrimary};
+      margin: 0 0 6px 0;
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .model-provider {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${accentHex};
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: ${hankoTheme.spacing.md};
+      letter-spacing: 0.12em;
+      margin-bottom: 10px;
     }
 
     .model-description {
-      font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
-      margin-bottom: ${hankoTheme.spacing.md};
-      line-height: 1.5;
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin-bottom: 10px;
+      line-height: 1.6;
     }
 
     .model-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: ${hankoTheme.spacing.sm};
-      margin-bottom: ${hankoTheme.spacing.md};
+      gap: 5px;
+      margin-bottom: 12px;
     }
 
     .tag {
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.link};
-      padding: 3px 8px;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-size: 0.7rem;
-      font-family: ${hankoTheme.fonts.mono};
-      letter-spacing: 0.02em;
-      border: 1px solid rgba(132, 204, 22, 0.2);
+      background: transparent;
+      color: ${accentHex};
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 9px;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid color-mix(in srgb, ${accentHex} 40%, transparent);
     }
 
     .btn {
       width: 100%;
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 8px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: ${hankoTheme.fonts.primary};
-      font-weight: 400;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      letter-spacing: -0.005em;
+      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
     }
 
     .btn:hover:not(:disabled) {
-      background: ${hankoTheme.colors.link};
-      color: ${hankoTheme.colors.background};
-      border-color: ${hankoTheme.colors.link};
-      transform: translateY(-2px);
+      background: ${accentHex};
+      color: ${kiosaTheme.colors.background};
+      border-color: ${accentHex};
     }
 
     .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      background: color-mix(in srgb, ${accentHex} 15%, transparent);
+      border-color: ${accentHex};
+      color: ${accentHex};
+      opacity: 1;
+      cursor: default;
     }
 
     .action-links {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.xl};
+      gap: 10px;
+      margin-bottom: 22px;
       align-items: center;
     }
 
     .action-links a {
-      color: ${hankoTheme.colors.link};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: none;
-      font-size: 0.875rem;
-      transition: color 0.2s;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
+      border-bottom: 1px solid transparent;
+      transition: border-color 150ms ease, color 150ms ease;
       display: flex;
       align-items: center;
-      gap: ${hankoTheme.spacing.sm};
+      gap: 6px;
     }
 
     .action-links a:hover {
-      color: ${hankoTheme.colors.linkHover};
+      color: ${accentHex};
+      border-bottom-color: ${accentHex};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>AI Model Selector</h1>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "MODELS / SELECT DEFAULT", accent, chips: [], tabs: [{ label: "SELECT", href: "/models", active: true }, { label: "MANAGE", href: "/models/manage" }] })}
 
   <div class="page-content">
     <div class="action-links">
-      <a href="/models/manage">⚙️ Manage Models</a>
+      <a href="/models/manage">▶ MANAGE MODELS</a>
     </div>
 
     <div class="page-intro">
@@ -186,8 +195,9 @@ export default class ModelSelectorUIAgent extends BaseDuty {
     </div>
 
     <div class="models" id="models-container">
-      <p style="color: ${hankoTheme.colors.textTertiary}; grid-column: 1/-1;">Loading models...</p>
+      <p style="color: ${kiosaTheme.colors.textTertiary}; grid-column: 1/-1; font-family:${kiosaTheme.fonts.mono};font-size:11px;">Loading models...</p>
     </div>
+    ${getKiosaFooterHTML("RONIN · MODELS", "MODEL SELECTION · V0.1")}
   </div>
 
   <script>
@@ -196,14 +206,14 @@ export default class ModelSelectorUIAgent extends BaseDuty {
         const response = await fetch('/models/api/list');
         const data = await response.json();
         if (!data.success && !Array.isArray(data)) {
-          document.getElementById('models-container').innerHTML = '<p style="color: ${hankoTheme.colors.error}; grid-column: 1/-1;">Failed to load models</p>';
+          document.getElementById('models-container').innerHTML = '<p style="color: ${kiosaTheme.colors.error}; grid-column: 1/-1; font-family:${kiosaTheme.fonts.mono};font-size:11px;">Failed to load models</p>';
           return;
         }
         const models = Array.isArray(data) ? data : data.models || [];
         const defaultResp = await fetch('/models/api/default');
         const defaultData = await defaultResp.json();
         const defaultModel = defaultData.model?.nametag;
-        
+
         const html = models.map(m => \`
           <div class="model-card">
             <h3>\${m.displayName || m.nametag}</h3>
@@ -215,13 +225,13 @@ export default class ModelSelectorUIAgent extends BaseDuty {
               </div>
             \` : ''}
             <button class="btn" \${m.nametag === defaultModel ? 'disabled' : ''} onclick="setDefault('\${m.nametag}')">
-              \${m.nametag === defaultModel ? '✓ Default Model' : 'Set as Default'}
+              \${m.nametag === defaultModel ? 'DEFAULT MODEL' : 'SET AS DEFAULT'}
             </button>
           </div>
         \`).join('');
         document.getElementById('models-container').innerHTML = html;
       } catch (e) {
-        document.getElementById('models-container').innerHTML = '<p style="color: ${hankoTheme.colors.error}; grid-column: 1/-1;">Error: ' + e.message + '</p>';
+        document.getElementById('models-container').innerHTML = '<p style="color: ${kiosaTheme.colors.error}; grid-column: 1/-1; font-family:${kiosaTheme.fonts.mono};font-size:11px;">Error: ' + e.message + '</p>';
       }
     }
 

@@ -1,6 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { hankoTheme, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 import { CrewClient } from "../src/dispatcher/crew.js";
 import { WAKE_TOOL, NEEDS_HUMAN_TOOL, buildAskPrompt } from "../src/dispatcher/tools.js";
 
@@ -187,7 +188,8 @@ export default class DispatcherConsoleDuty extends BaseDuty {
   }
 
   private pageHtml(): string {
-    const t = hankoTheme;
+    const accent = getKiosaAccentForPath("/dispatcher");
+    const accentHex = kiosaTheme.colors.accent;
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -195,34 +197,39 @@ export default class DispatcherConsoleDuty extends BaseDuty {
 <title>Dispatcher Console</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  ${getHeaderBarCSS(t)}
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; color: ${t.colors.textPrimary}; background: ${t.colors.background}; }
+  
+  ${getKiosaHeadHTML(accent)}
+  ${getAdobeCleanFontFaceCSS()}
+  ${getThemeCSS(kiosaTheme)}
+  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+  ${getKiosaTopbarCSS()}
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; color: ${kiosaTheme.colors.textPrimary}; background: ${kiosaTheme.colors.background}; }
   .page-content { max-width: 860px; margin: 0 auto; padding: 20px; }
   .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .project { border: 1px solid ${t.colors.border}; border-radius: 6px; padding: 12px 14px; background: ${t.colors.backgroundSecondary}; }
+  .project { border: 1px solid ${kiosaTheme.colors.border}; border-radius: 6px; padding: 12px 14px; background: ${kiosaTheme.colors.backgroundSecondary}; }
   .project h3 { margin: 0 0 6px; font-size: 1em; }
-  .project .paused { color: ${t.colors.warning}; font-weight: 600; }
+  .project .paused { color: ${kiosaTheme.colors.warning}; font-weight: 600; }
   .project dl { margin: 0; font-size: 0.88em; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
-  .project dt { color: ${t.colors.textSecondary}; }
+  .project dt { color: ${kiosaTheme.colors.textSecondary}; }
   .project dd { margin: 0; }
   .agents { font-size: 0.85em; margin-top: 6px; }
   .agents li { margin: 1px 0; }
-  #status-error { color: ${t.colors.error}; margin-bottom: 16px; }
+  #status-error { color: ${kiosaTheme.colors.error}; margin-bottom: 16px; }
   .ask-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  #ask-input { flex: 1; padding: 8px 10px; font-size: 1em; border: 1px solid ${t.colors.border}; border-radius: 6px; background: ${t.colors.backgroundSecondary}; color: ${t.colors.textPrimary}; }
-  button { padding: 8px 14px; cursor: pointer; border: 1px solid ${t.colors.border}; border-radius: 6px; background: ${t.colors.backgroundSecondary}; color: ${t.colors.textPrimary}; font-size: 0.95em; }
+  #ask-input { flex: 1; padding: 8px 10px; font-size: 1em; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 6px; background: ${kiosaTheme.colors.backgroundSecondary}; color: ${kiosaTheme.colors.textPrimary}; }
+  button { padding: 8px 14px; cursor: pointer; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 6px; background: ${kiosaTheme.colors.backgroundSecondary}; color: ${kiosaTheme.colors.textPrimary}; font-size: 0.95em; }
   button:disabled { opacity: 0.5; cursor: default; }
-  #mic-button.recording { border-color: ${t.colors.error}; color: ${t.colors.error}; }
-  #speak-toggle.active { border-color: ${t.colors.accent}; }
-  #reply { white-space: pre-wrap; border: 1px solid ${t.colors.border}; border-radius: 6px; padding: 12px 14px; margin-top: 12px; background: ${t.colors.backgroundSecondary}; min-height: 60px; }
-  #proposals { margin-top: 8px; font-size: 0.88em; color: ${t.colors.textSecondary}; }
-  .hint { color: ${t.colors.textSecondary}; font-size: 0.85em; }
+  #mic-button.recording { border-color: ${kiosaTheme.colors.error}; color: ${kiosaTheme.colors.error}; }
+  #speak-toggle.active { border-color: ${kiosaTheme.colors.accent}; }
+  #reply { white-space: pre-wrap; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 6px; padding: 12px 14px; margin-top: 12px; background: ${kiosaTheme.colors.backgroundSecondary}; min-height: 60px; }
+  #proposals { margin-top: 8px; font-size: 0.88em; color: ${kiosaTheme.colors.textSecondary}; }
+  .hint { color: ${kiosaTheme.colors.textSecondary}; font-size: 0.85em; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
-<div class="header">${getHeaderHomeIconHTML()}<h1>Dispatcher Console</h1><div class="header-meta"><span id="health-line">loading…</span></div></div>
+${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DISPATCHER", accent, chips: [], tabs: [] })}
 <div class="page-content">
   <div id="status-error"></div>
   <div class="projects" id="projects"></div>

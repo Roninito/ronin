@@ -4,7 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, kiosaTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 import { getProviderVisual, renderProviderIconSvg, PROVIDER_LABELS } from "../src/utils/providerIcons.js";
 
 /**
@@ -1099,112 +1100,128 @@ export default class ConfigEditorAgent extends BaseDuty {
     const passwordHint = this.password === "roninpass"
       ? `<strong>Default:</strong> "roninpass"<br>Change via CONFIG_EDITOR_PASSWORD env var`
       : `<strong>Password:</strong> configured in environment or config`;
+    const loginAccent = getKiosaAccentForPath("/config");
+    const loginAccentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Config Editor - Login</title>
+  ${getKiosaHeadHTML(loginAccent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
     body {
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
-      font-family: ${hankoTheme.fonts.primary};
+      margin: 0;
     }
 
     .login-container {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 2.5rem;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 28px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 300;
-      margin-bottom: 0.5rem;
+    .login-container h1 {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
       text-align: center;
+      letter-spacing: 0.04em;
     }
 
     .subtitle {
       text-align: center;
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.875rem;
-      margin-bottom: 2rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
     }
 
     .form-group {
-      margin-bottom: 1.5rem;
+      margin-bottom: 16px;
     }
 
     label {
       display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: 6px;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     input[type="password"] {
       width: 100%;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.75rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-family: inherit;
-      font-size: 0.875rem;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      padding: 10px;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
       box-sizing: border-box;
     }
 
     input[type="password"]:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.accent};
+      border-color: ${loginAccentHex};
+      box-shadow: 0 0 8px color-mix(in srgb, ${loginAccentHex} 25%, transparent);
     }
 
     button {
       width: 100%;
-      background: ${hankoTheme.colors.accent};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.75rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: color-mix(in srgb, ${loginAccentHex} 15%, transparent);
+      border: 1px solid ${loginAccentHex};
+      color: ${loginAccentHex};
+      padding: 10px;
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
+      transition: background 150ms ease, color 150ms ease;
     }
 
     button:hover {
-      background: ${hankoTheme.colors.accentHover};
+      background: ${loginAccentHex};
+      color: ${kiosaTheme.colors.background};
     }
 
     .info {
-      margin-top: 1.5rem;
-      padding: 0.75rem;
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      margin-top: 18px;
+      padding: 10px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-radius: 2px;
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
       text-align: center;
+      font-family: ${kiosaTheme.fonts.mono};
+      line-height: 1.5;
     }
 
     .error {
-      background: rgba(220, 53, 69, 0.1);
-      border: 1px solid rgba(220, 53, 69, 0.3);
-      color: #dc3545;
-      padding: 0.75rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 10%, transparent);
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 35%, transparent);
+      color: ${kiosaTheme.colors.error};
+      padding: 10px;
+      border-radius: 2px;
+      margin-bottom: 14px;
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
       display: none;
     }
 
@@ -1215,19 +1232,19 @@ export default class ConfigEditorAgent extends BaseDuty {
 </head>
 <body>
   <div class="login-container">
-    <h1>🔒 Config Editor</h1>
+    <h1>CONFIG EDITOR</h1>
     <p class="subtitle">Enter password to edit configuration</p>
-    
+
     <div class="error" id="error"></div>
-    
+
     <form id="loginForm">
       <div class="form-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required autofocus>
       </div>
-      <button type="submit">Login</button>
+      <button type="submit">LOGIN</button>
     </form>
-    
+
     <div class="info">
       ${passwordHint}
     </div>
@@ -1282,66 +1299,65 @@ export default class ConfigEditorAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Config Editor</title>
+  ${getKiosaHeadHTML(getKiosaAccentForPath("/config"))}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
-    body {
-      margin: 0;
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
-      font-family: ${hankoTheme.fonts.primary};
-    }
+    body { margin: 0; }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 1rem;
+      padding: 14px;
     }
 
     .config-layout {
       display: grid;
       grid-template-columns: 230px minmax(0, 1fr);
-      gap: 0.85rem;
+      gap: 10px;
       align-items: start;
     }
 
     .category-nav {
       position: sticky;
       top: 70px;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 0.65rem;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 10px;
       max-height: calc(100vh - 90px);
       overflow-y: auto;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .category-nav-title {
-      margin: 0 0 0.55rem;
-      font-size: 0.7rem;
+      margin: 0 0 8px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: ${hankoTheme.colors.textTertiary};
+      letter-spacing: 0.14em;
+      color: ${kiosaTheme.colors.textTertiary};
       font-weight: 600;
     }
 
     .category-link {
       display: block;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: none;
-      font-size: 0.78rem;
-      padding: 0.4rem 0.5rem;
-      border-radius: 5px;
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: 2px;
       border: 1px solid transparent;
-      margin-bottom: 0.2rem;
+      margin-bottom: 3px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .category-link:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
-      border-color: ${hankoTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.border};
     }
 
     .editor-main {
@@ -1353,104 +1369,92 @@ export default class ConfigEditorAgent extends BaseDuty {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.3rem;
-      min-height: 30px;
-      padding: 0.35rem 0.8rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      border: 1px solid #7c3aed;
-      background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
-      color: #f7f3ff;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      gap: 6px;
+      min-height: 26px;
+      padding: 3px 10px;
+      border-radius: 2px;
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      font-size: 0.8125rem;
+      font-size: 10px;
       font-weight: 600;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
       text-decoration: none;
-      transition: background 0.18s ease, border-color 0.18s ease;
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
     }
 
     .btn:hover {
-      border-color: #9f67ff;
-      background: linear-gradient(180deg, #9d6dff 0%, #8950ff 100%);
-    }
-
-    .btn-secondary {
-      border-color: ${hankoTheme.colors.border};
-      background: linear-gradient(180deg, #171717 0%, #101010 100%);
-      color: ${hankoTheme.colors.textSecondary};
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    }
-
-    .btn-secondary:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
-      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .btn-save {
-      border-color: #84cc16;
-      background: linear-gradient(180deg, #a3e635 0%, #84cc16 100%);
-      color: #061100;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 12px rgba(132, 204, 22, 0.28);
+      border-color: ${kiosaTheme.colors.accent};
+      background: color-mix(in srgb, ${kiosaTheme.colors.accent} 15%, transparent);
+      color: ${kiosaTheme.colors.accent};
     }
 
     .btn-save:hover {
-      border-color: #bef264;
-      background: linear-gradient(180deg, #bef264 0%, #9bd92a 100%);
-      color: #051000;
+      background: ${kiosaTheme.colors.accent};
+      color: ${kiosaTheme.colors.background};
     }
 
     .tabs {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      padding-bottom: 0.55rem;
+      gap: 6px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      padding-bottom: 8px;
       flex-wrap: wrap;
     }
 
     .tab {
-      min-height: 30px;
-      padding: 0.35rem 0.8rem;
-      background: linear-gradient(180deg, #171717 0%, #101010 100%);
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      color: ${hankoTheme.colors.textSecondary};
+      min-height: 26px;
+      padding: 3px 10px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 2px;
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      font-size: 0.8125rem;
+      font-size: 10px;
       font-weight: 600;
-      letter-spacing: 0.01em;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      transition: background 0.18s ease, border-color 0.18s ease;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
     }
 
     .tab:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
-      background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .tab.active {
-      color: #f7f3ff;
-      border-color: #7c3aed;
-      background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      color: ${kiosaTheme.colors.accent};
+      border-color: ${kiosaTheme.colors.accent};
+      background: color-mix(in srgb, ${kiosaTheme.colors.accent} 10%, transparent);
     }
 
     .editor-container {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 0.85rem;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 10px;
     }
 
     .section {
-      margin-bottom: 0.75rem;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 0.65rem 0.85rem;
-      background: ${hankoTheme.colors.background};
+      margin-bottom: 10px;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 10px 12px;
+      background: ${kiosaTheme.colors.background};
       scroll-margin-top: 86px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .section-header {
@@ -1458,43 +1462,49 @@ export default class ConfigEditorAgent extends BaseDuty {
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
     .section-title {
-      font-size: 1.125rem;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       margin: 0;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .reset-section-btn, .reset-all-btn {
-      font-size: 0.75rem;
-      padding: 0.35rem 0.6rem;
+      font-size: 10px;
+      padding: 3px 8px;
       background: transparent;
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: 2px;
       cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .reset-section-btn:hover, .reset-all-btn:hover {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .subsection {
-      margin-left: 0.5rem;
-      margin-top: 0.75rem;
-      padding-left: 1rem;
-      border-left: 2px solid ${hankoTheme.colors.border};
+      margin-left: 8px;
+      margin-top: 10px;
+      padding-left: 12px;
+      border-left: 2px solid ${kiosaTheme.colors.border};
     }
 
     .array-item {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
+      gap: 8px;
+      margin-bottom: 6px;
       align-items: center;
     }
 
@@ -1504,8 +1514,8 @@ export default class ConfigEditorAgent extends BaseDuty {
 
     .keyValue-item {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
+      gap: 8px;
+      margin-bottom: 6px;
       align-items: center;
     }
 
@@ -1513,101 +1523,110 @@ export default class ConfigEditorAgent extends BaseDuty {
     .keyValue-item input:last-child { flex: 1; }
 
     .form-group {
-      margin-bottom: 0.75rem;
+      margin-bottom: 10px;
     }
 
     label {
       display: block;
-      margin-bottom: 0.5rem;
-      font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: 6px;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
-    input[type="text"], input[type="number"], select {
+    input[type="text"], input[type="number"], input[type="password"], select {
       width: 100%;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.625rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-family: inherit;
-      font-size: 0.875rem;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      padding: 8px;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
       box-sizing: border-box;
     }
 
     input:focus, select:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.accent};
+      border-color: ${kiosaTheme.colors.accent};
+      box-shadow: 0 0 8px color-mix(in srgb, ${kiosaTheme.colors.accent} 25%, transparent);
     }
 
     select.select-large {
       height: auto;
-      padding: 0.25rem;
+      padding: 3px;
     }
     select.select-large option, select.select-large optgroup {
-      padding: 0.4rem 0.5rem;
+      padding: 4px 6px;
     }
 
     .provider-icon-row {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
+      gap: 8px;
+      margin-bottom: 12px;
       flex-wrap: wrap;
     }
     .provider-icon-chip {
       display: flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.3rem 0.6rem;
-      border-radius: 999px;
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      font-size: 0.72rem;
-      color: ${hankoTheme.colors.textSecondary};
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 2px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
     .provider-icon-chip.active-provider {
-      border-color: ${hankoTheme.colors.accent}99;
-      color: ${hankoTheme.colors.textPrimary};
-      background: ${hankoTheme.colors.accent}22;
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.accent} 50%, transparent);
+      color: ${kiosaTheme.colors.accent};
+      background: color-mix(in srgb, ${kiosaTheme.colors.accent} 10%, transparent);
     }
 
     .help-text {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
-      margin-top: 0.25rem;
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-top: 4px;
+      font-family: ${kiosaTheme.fonts.mono};
+      line-height: 1.5;
     }
 
     .validation-error {
-      background: rgba(220, 53, 69, 0.1);
-      border: 1px solid rgba(220, 53, 69, 0.3);
-      color: #dc3545;
-      padding: 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 10%, transparent);
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 35%, transparent);
+      color: ${kiosaTheme.colors.error};
+      padding: 10px;
+      border-radius: 2px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .validation-success {
-      background: rgba(40, 167, 69, 0.1);
-      border: 1px solid rgba(40, 167, 69, 0.3);
-      color: #28a745;
-      padding: 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 10%, transparent);
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 35%, transparent);
+      color: ${kiosaTheme.colors.success};
+      padding: 10px;
+      border-radius: 2px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     textarea {
       width: 100%;
       min-height: 300px;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.75rem;
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-family: 'Agave', monospace;
-      font-size: 0.875rem;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      padding: 10px;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
       resize: vertical;
       box-sizing: border-box;
     }
@@ -1619,16 +1638,7 @@ export default class ConfigEditorAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>⚙️ Config Editor</h1>
-    <div class="header-actions">
-      <button class="btn btn-secondary reset-all-btn" onclick="resetAll()">Reset all to default</button>
-      <button class="btn btn-save" onclick="saveConfig()">⌁ Save Changes</button>
-      <button class="btn btn-secondary" onclick="showBackups()">≣ Backups</button>
-      <button class="btn btn-secondary" onclick="logout()">Logout</button>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CONFIG / SYSTEM SETTINGS", accent: getKiosaAccentForPath("/config"), rightMeta: "AUTHENTICATED" })}
   <div class="container">
     <div class="config-layout">
       <aside class="category-nav">
@@ -1698,6 +1708,7 @@ export default class ConfigEditorAgent extends BaseDuty {
         </div>
       </div>
     </div>
+    ${getKiosaFooterHTML("RONIN · CONFIG EDITOR", "SYSTEM SETTINGS · AUTHENTICATED")}
   </div>
 
   <script>

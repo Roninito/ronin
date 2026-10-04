@@ -4,7 +4,8 @@ import { runArtifactMigrations } from "../src/artifacts/migrations.js";
 import { ArtifactStore, calculateCompletion } from "../src/artifacts/store.js";
 import { registerArtifactAssetRoute, registerArtifactRoutes, registerArtifactTools } from "../src/artifacts/tools.js";
 import { writeArtifactNote } from "../src/artifacts/memoryNote.js";
-import { getAdobeCleanFontFaceCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getThemeCSS } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /**
  * Artifact Manager
@@ -147,6 +148,8 @@ export default class ArtifactManagerAgent extends BaseDuty {
       })
       .join("");
 
+    const accent = getKiosaAccentForPath("/artifacts");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -154,9 +157,11 @@ export default class ArtifactManagerAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Artifacts</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
     body { margin: 0; }
     .page { max-width: 900px; margin: 0 auto; padding: 1rem; }
     table { width: 100%; border-collapse: collapse; }
@@ -165,7 +170,7 @@ export default class ArtifactManagerAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">${getHeaderHomeIconHTML()}<h1>Artifacts</h1></div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ARTIFACTS", accent, chips: [], tabs: [] })}
   <div class="page">
     <table>
       <thead><tr><th>Name</th><th>Type</th><th>State</th><th>Progress</th><th>Updated</th></tr></thead>

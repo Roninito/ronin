@@ -1,6 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 interface SavedUrl {
   id: string;
@@ -342,16 +343,20 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
         `SELECT * FROM discord_urls ORDER BY created_at DESC LIMIT 200`
       );
 
-      const html = `<!DOCTYPE html>
+      const accent = getKiosaAccentForPath("/discord-urls");
+    const accentHex = kiosaTheme.colors.accent;
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord URLs - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body {
       min-height: 100vh;
@@ -362,13 +367,13 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .header-meta .status {
       display: inline-flex;
       align-items: center;
-      gap: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
     }
 
     .status-dot {
@@ -378,19 +383,19 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
       background: ${this.isConnected ? '#22c55e' : '#ef4444'};
     }
     
-    .url-list { display: flex; flex-direction: column; gap: ${hankoTheme.spacing.md}; }
+    .url-list { display: flex; flex-direction: column; gap: ${kiosaTheme.spacing.md}; }
     
     .url-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
     }
     
-    .url-card:hover { border-color: ${hankoTheme.colors.borderHover}; }
+    .url-card:hover { border-color: ${kiosaTheme.colors.borderHover}; }
     
     .url-link {
-      color: ${hankoTheme.colors.accent};
+      color: ${kiosaTheme.colors.accent};
       text-decoration: none;
       word-break: break-all;
     }
@@ -399,26 +404,17 @@ export default class DiscordUrlAggregatorAgent extends BaseDuty {
     
     .url-meta {
       display: flex;
-      gap: ${hankoTheme.spacing.lg};
-      margin-top: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.lg};
+      margin-top: ${kiosaTheme.spacing.sm};
       font-size: 0.85rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
     
-    .empty { text-align: center; padding: ${hankoTheme.spacing.xl}; color: ${hankoTheme.colors.textSecondary}; }
+    .empty { text-align: center; padding: ${kiosaTheme.spacing.xl}; color: ${kiosaTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>🔗 Discord URLs</h1>
-    <div class="header-meta">
-      <span>${urls.length} collected</span>
-      <span class="status">
-        <span class="status-dot"></span>
-        ${this.isConnected ? 'Connected' : 'Disconnected'}
-      </span>
-    </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DISCORD URLS", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

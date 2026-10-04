@@ -3,10 +3,13 @@ import type { DutyAPI } from "../src/types/index.js";
 import type { Tool } from "../src/types/api.js";
 import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 import {
   getRoninContext,
   buildSystemPrompt,
+  isVoiceChat,
+  VOICE_BREVITY_SECTION,
   buildToolPrompt,
   windowMessages,
   invalidateChatSummary,
@@ -543,8 +546,8 @@ export default class ChattyAgent extends BaseDuty {
       start_url: "/chat",
       scope: "/chat",
       display: "standalone",
-      background_color: hankoTheme.colors.background,
-      theme_color: hankoTheme.colors.background,
+      background_color: kiosaTheme.colors.background,
+      theme_color: kiosaTheme.colors.background,
       icons: [
         { src: "/chat/icon.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any" },
         { src: "/chat/icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any" },
@@ -586,7 +589,7 @@ self.addEventListener("fetch", (event) => {
   private async handleIcon(req: Request): Promise<Response> {
     if (req.method !== "GET") return new Response("Method not allowed", { status: 405 });
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="${hankoTheme.colors.background}"/>
+  <rect width="512" height="512" rx="96" fill="${kiosaTheme.colors.background}"/>
   <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="280">🥷</text>
 </svg>`;
     return new Response(svg, { headers: { "Content-Type": "image/svg+xml" } });
@@ -659,6 +662,8 @@ self.addEventListener("fetch", (event) => {
     const activeProviderLabel = getProviderVisual(activeProvider).label;
     const activeModelName = this.localModel;
 
+    const accent = getKiosaAccentForPath("/chat");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -667,214 +672,267 @@ self.addEventListener("fetch", (event) => {
   <title>Ronin Chat</title>
   <link rel="manifest" href="/chat/manifest.json">
   <link rel="icon" href="/chat/icon.svg" type="image/svg+xml">
-  <meta name="theme-color" content="${hankoTheme.colors.background}">
+  <meta name="theme-color" content="${kiosaTheme.colors.background}">
+  ${getKiosaHeadHTML(accent)}
+  ${getAdobeCleanFontFaceCSS()}
+  ${getThemeCSS(kiosaTheme)}
+  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+  ${getKiosaTopbarCSS()}
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
-
     body {
       height: 100vh;
       display: flex;
       flex-direction: column;
-      font-size: 0.8125rem;
+      font-size: 13px;
       overflow: hidden;
     }
-
-    .header { flex-shrink: 0; }
 
     .main-container {
       flex: 1;
       display: flex;
       overflow: hidden;
     }
-    
+
     .sidebar {
-      width: 280px;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${hankoTheme.colors.border};
+      width: 260px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      padding: ${kiosaTheme.spacing.md};
     }
-    
+
     .sidebar-header {
-      padding: ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: 0 0 ${kiosaTheme.spacing.sm};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      display: block;
     }
-    
+
     .new-chat-button {
       width: 100%;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.8125rem;
+      padding: ${kiosaTheme.spacing.sm};
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 150ms ease, border-color 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
-    
+
     .new-chat-button:hover {
-      background: ${hankoTheme.colors.accent};
-      border-color: ${hankoTheme.colors.borderHover};
+      background: ${accentHex};
+      border-color: ${accentHex};
+      color: ${kiosaTheme.colors.background};
     }
-    
+
+    .model-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: ${kiosaTheme.spacing.sm};
+      font-size: 9px;
+      color: ${kiosaTheme.colors.textTertiary};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+    .model-indicator svg { flex-shrink: 0; }
+    .model-indicator .model-indicator-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: normal;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
+    }
+
     .chat-list {
       flex: 1;
       overflow-y: auto;
-      padding: ${hankoTheme.spacing.sm};
+      margin-top: ${kiosaTheme.spacing.sm};
+      display: block;
+      padding: 0;
     }
-    
+
+    .chat-tabs-empty {
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+
     .chat-item {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.xs};
-      border-radius: ${hankoTheme.borderRadius.md};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      padding: 0.4rem 0.6rem;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      max-width: none;
+      gap: 0.4rem;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 150ms ease, border-color 150ms ease;
       display: flex;
       justify-content: space-between;
       align-items: center;
       position: relative;
     }
-    
-    .chat-item:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-    }
-    
+
     .chat-item.active {
-      background: ${hankoTheme.colors.accent};
-      border: 1px solid ${hankoTheme.colors.borderHover};
+      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      border-color: ${accentHex};
     }
-    
+
+    .chat-item:hover {
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 70%, transparent);
+    }
+
     .chat-item-content {
       flex: 1;
       min-width: 0;
     }
-    
+
     .chat-item-title {
-      font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textPrimary};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textPrimary};
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: 0.125rem;
+      margin-bottom: 0;
     }
-    
-    .chat-item-time {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
-    }
-    
+
+    .chat-item-time { display: none; }
+
     .chat-item-delete {
-      opacity: 0;
-      padding: 0.25rem;
+      opacity: 1;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border-radius: 2px;
       background: transparent;
       border: none;
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
       cursor: pointer;
-      font-size: 0.75rem;
-      transition: all 0.2s;
+      font-size: 10px;
+      transition: color 150ms ease;
     }
-    
-    .chat-item:hover .chat-item-delete {
-      opacity: 1;
-    }
-    
+
     .chat-item-delete:hover {
-      color: ${hankoTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
     }
-    
-    .empty-state {
-      padding: ${hankoTheme.spacing.lg};
-      text-align: center;
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.75rem;
-    }
-    
+
     .chat-container {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: ${hankoTheme.colors.background};
+      background: ${kiosaTheme.colors.background};
       overflow: hidden;
     }
-    
+
     #chat-history {
       flex: 1;
       overflow-y: auto;
-      padding: ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.background};
-    }
-    
-    .message {
-      margin-bottom: 1rem;
+      padding: ${kiosaTheme.spacing.lg};
+      background: ${kiosaTheme.colors.background};
       display: flex;
-      gap: 0.75rem;
+      flex-direction: column;
+      justify-content: space-between;
     }
-    
+
+    .hero-state {
+      margin: auto;
+      text-align: center;
+    }
+    .hero-title {
+      font-size: clamp(3rem, 8vw, 5rem);
+      font-weight: 700;
+      letter-spacing: 0.2em;
+    }
+    .hero-subtitle {
+      margin-top: ${kiosaTheme.spacing.sm};
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: ${kiosaTheme.colors.textSecondary};
+    }
+    .hero-console {
+      margin: ${kiosaTheme.spacing.md} auto 0;
+      display: inline-flex;
+      padding: 0.2rem 0.7rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .message {
+      margin-bottom: ${kiosaTheme.spacing.md};
+      display: flex;
+      gap: ${kiosaTheme.spacing.md};
+    }
+
     .message.user { flex-direction: row-reverse; }
-    
+
     .message-content {
-      max-width: 70%;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      max-width: 86%;
+      padding: 0;
+      border-radius: 0;
       word-wrap: break-word;
-      font-size: 0.8125rem; /* 13px - smaller */
+      font-size: 13px;
       line-height: 1.5;
+      background: transparent;
+      border: none;
     }
-    
-    .message.user .message-content {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-bottom-right-radius: ${hankoTheme.borderRadius.sm};
-    }
-    
-    .message.assistant .message-content {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-bottom-left-radius: ${hankoTheme.borderRadius.sm};
-    }
-    
+
     .proposal-card {
-      margin-top: ${hankoTheme.spacing.sm};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
+      margin-top: ${kiosaTheme.spacing.sm};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      max-width: 86%;
     }
 
     .proposal-card-preview {
-      font-size: 0.8125rem;
+      font-size: 13px;
       line-height: 1.6;
-      color: ${hankoTheme.colors.textPrimary};
-      margin-bottom: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .proposal-card-code-details {
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .proposal-card-code-details summary {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .proposal-card-code {
-      margin-top: ${hankoTheme.spacing.xs};
-      padding: ${hankoTheme.spacing.sm};
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.75rem;
+      margin-top: ${kiosaTheme.spacing.xs};
+      padding: ${kiosaTheme.spacing.sm};
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
       line-height: 1.5;
       overflow-x: auto;
       white-space: pre;
@@ -884,28 +942,31 @@ self.addEventListener("fetch", (event) => {
 
     .proposal-card-actions {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
     }
 
     .proposal-card-actions button {
       flex: 1;
-      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
       background: transparent;
       cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 500;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .proposal-card-allow {
-      color: ${hankoTheme.colors.success};
-      border-color: ${hankoTheme.colors.success} !important;
+      color: ${kiosaTheme.colors.success};
+      border-color: ${kiosaTheme.colors.success};
     }
 
     .proposal-card-refuse {
-      color: ${hankoTheme.colors.error};
-      border-color: ${hankoTheme.colors.error} !important;
+      color: ${kiosaTheme.colors.error};
+      border-color: ${kiosaTheme.colors.error};
     }
 
     .proposal-card-actions button:disabled {
@@ -914,183 +975,213 @@ self.addEventListener("fetch", (event) => {
     }
 
     .proposal-card-status {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .message-content h1,
     .message-content h2,
     .message-content h3 {
-      margin-top: ${hankoTheme.spacing.sm};
-      margin-bottom: ${hankoTheme.spacing.sm};
-      font-weight: 300;
+      margin-top: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
+      font-weight: 700;
     }
-    
-    .message-content h1 { font-size: 1.25rem; /* Smaller */ }
-    .message-content h2 { font-size: 1.125rem; /* Smaller */ }
-    .message-content h3 { font-size: 1rem; /* Smaller */ }
-    
+
+    .message-content h1 { font-size: 16px; }
+    .message-content h2 { font-size: 15px; }
+    .message-content h3 { font-size: 14px; }
+
     .message-content p {
-      margin: ${hankoTheme.spacing.sm} 0;
+      margin: ${kiosaTheme.spacing.sm} 0;
       line-height: 1.6;
-      font-size: 0.8125rem; /* 13px */
+      font-size: 13px;
     }
-    
+
     .message-content ul,
     .message-content ol {
-      margin: ${hankoTheme.spacing.sm} 0;
-      padding-left: ${hankoTheme.spacing.lg};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      padding-left: ${kiosaTheme.spacing.lg};
     }
-    
+
     .message-content li {
-      margin: ${hankoTheme.spacing.xs} 0;
-      font-size: 0.8125rem; /* 13px */
+      margin: ${kiosaTheme.spacing.xs} 0;
+      font-size: 13px;
     }
-    
+
     .message-content code {
-      background: ${hankoTheme.colors.backgroundTertiary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem; /* 12px - smaller */
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
-    
-    .message.user .message-content code {
-      background: rgba(255, 255, 255, 0.1);
-    }
-    
+
     .message-content pre {
-      background: #161b22 !important;
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       overflow-x: auto;
-      margin: ${hankoTheme.spacing.sm} 0;
-      border: 1px solid ${hankoTheme.colors.border};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      border: 1px solid ${kiosaTheme.colors.border};
     }
-    
-    .message.user .message-content pre {
-      background: rgba(255, 255, 255, 0.05) !important;
-      border-color: ${hankoTheme.colors.border};
-    }
-    
+
     .message-content pre code {
-      background: none !important;
+      background: none;
       padding: 0;
-      font-size: 0.75rem; /* 12px */
+      font-size: 11px;
       color: inherit;
     }
-    
+
     .message-content blockquote {
-      border-left: 2px solid ${hankoTheme.colors.borderHover};
-      padding-left: ${hankoTheme.spacing.md};
-      margin: ${hankoTheme.spacing.sm} 0;
-      color: ${hankoTheme.colors.textSecondary};
+      border-left: 2px solid ${kiosaTheme.colors.border};
+      padding-left: ${kiosaTheme.spacing.md};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      color: ${kiosaTheme.colors.textSecondary};
       font-style: italic;
     }
-    
+
     .message-content strong {
-      font-weight: 500;
+      font-weight: 700;
     }
-    
-    .message-content em {
-      font-style: italic;
-    }
-    
+
     .message-content a {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${accentHex};
       text-decoration: none;
     }
-    
+
     .message-content a:hover {
-      color: ${hankoTheme.colors.textPrimary};
       text-decoration: underline;
     }
-    
-    .message.user .message-content a {
-      color: ${hankoTheme.colors.textPrimary};
-    }
-    
+
     .input-area {
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-top: 1px solid ${hankoTheme.colors.border};
+      justify-content: center;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-top: 1px solid ${kiosaTheme.colors.border};
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
       flex-shrink: 0;
     }
-    
+
     #message-input {
-      flex: 1;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.8125rem; /* 13px - smaller */
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
-      outline: none;
-      transition: all 0.3s;
+      flex: 0 1 780px;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-size: 12px;
+      padding: 0.8rem 0.9rem;
+      min-height: 2.6rem;
+      max-height: 12rem;
+      resize: none;
+      overflow-y: auto;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
-    
+
     #message-input:focus {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundSecondary};
+      outline: none;
+      border-color: ${accentHex};
     }
-    
+
     #message-input::placeholder {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
-    
-    #send-button {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.8125rem; /* 13px - smaller */
+
+    #send-button, #mic-button {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      padding: 0.8rem 1rem;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
-    
-    #send-button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.accent};
-      border-color: ${hankoTheme.colors.borderHover};
+
+    #send-button:hover:not(:disabled), #mic-button:hover:not(:disabled) {
+      background: color-mix(in srgb, ${accentHex} 16%, transparent);
+      border-color: ${accentHex};
+      color: ${kiosaTheme.colors.textPrimary};
     }
-    
+
     #send-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
-    
+
+    #mic-button.recording {
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 25%, transparent);
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.error} 60%, transparent);
+      color: #fff;
+      animation: mic-pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes mic-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+
+    #files-panel-toggle, #speak-toggle {
+      background: transparent;
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      padding: 0.3rem 0.6rem;
+      font-size: 10px;
+      cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    #files-panel-toggle {
+      margin-left: auto;
+    }
+
+    #files-panel-toggle.active, #speak-toggle.active {
+      border-color: ${accentHex};
+      color: ${kiosaTheme.colors.textPrimary};
+      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+    }
+
     #drop-zone {
-      padding: ${hankoTheme.spacing.md};
-      border: 2px dashed ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
+      border: 2px dashed ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
       text-align: center;
-      color: ${hankoTheme.colors.textTertiary};
-      margin-bottom: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-bottom: ${kiosaTheme.spacing.sm};
       display: none;
-      font-size: 0.75rem; /* 12px */
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
-    
+
     #drop-zone.drag-over {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundSecondary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundSecondary};
     }
-    
+
     .loading {
       display: inline-block;
       width: 10px;
       height: 10px;
-      border: 2px solid ${hankoTheme.colors.border};
-      border-top-color: ${hankoTheme.colors.textPrimary};
+      border: 2px solid ${kiosaTheme.colors.border};
+      border-top-color: ${accentHex};
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
-    
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    
+
     .loading-overlay {
       position: absolute;
       top: 0;
@@ -1104,224 +1195,11 @@ self.addEventListener("fetch", (event) => {
       z-index: 1000;
     }
 
-    /* Fresh-chat visual override */
-    .main-container {
-      background: radial-gradient(circle at top left, ${hankoTheme.colors.accent}2e, transparent 28%), ${hankoTheme.colors.background};
-    }
-    .sidebar {
-      width: 260px;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-right: 1px solid rgba(255,255,255,0.08);
-      align-items: stretch;
-      padding: ${hankoTheme.spacing.md};
-    }
-    .sidebar-header {
-      padding: 0 0 ${hankoTheme.spacing.sm};
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      display: block;
-    }
-    .new-chat-button {
-      width: 100%;
-      padding: 0.5rem 0.7rem;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid ${hankoTheme.colors.border};
-      background: ${hankoTheme.colors.accent}1a;
-      color: ${hankoTheme.colors.textPrimary};
-      transition: background 150ms ease, border-color 150ms ease;
-    }
-    .model-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: ${hankoTheme.spacing.sm};
-      font-size: 0.68rem;
-      color: ${hankoTheme.colors.textTertiary};
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .model-indicator svg { flex-shrink: 0; }
-    .model-indicator .model-indicator-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      text-transform: none;
-      letter-spacing: normal;
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.72rem;
-    }
-    .chat-container {
-      background: ${hankoTheme.colors.background};
-    }
-    .chat-topbar { display: none; }
-    .chat-list {
-      margin-top: ${hankoTheme.spacing.sm};
-      display: block;
-      overflow-y: auto;
-      padding: 0;
-    }
-    .chat-tabs-empty {
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .chat-item {
-      margin-bottom: ${hankoTheme.spacing.xs};
-      padding: 0.4rem 0.6rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      max-width: none;
-      gap: 0.4rem;
-      transition: background 150ms ease, border-color 150ms ease;
-    }
-    .chat-item.active {
-      background: ${hankoTheme.colors.accent}22;
-      border-color: ${hankoTheme.colors.accent};
-      box-shadow: 0 0 0 1px ${hankoTheme.colors.accent}55;
-    }
-    .chat-item:hover {
-      background: ${hankoTheme.colors.accent}18;
-      border-color: ${hankoTheme.colors.accentHover};
-    }
-    .chat-item-title {
-      font-size: 0.7rem;
-      margin-bottom: 0;
-    }
-    .chat-item-time { display: none; }
-    .chat-item-delete {
-      opacity: 1;
-      width: 16px;
-      height: 16px;
-      padding: 0;
-      border-radius: 999px;
-    }
-    #chat-history {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .hero-state {
-      margin: auto;
-      text-align: center;
-    }
-    .hero-title {
-      font-size: clamp(3rem, 8vw, 5rem);
-      font-weight: 200;
-      letter-spacing: 0.2em;
-    }
-    .hero-subtitle {
-      margin-top: ${hankoTheme.spacing.sm};
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
-      color: ${hankoTheme.colors.textSecondary};
-    }
-    .hero-console {
-      margin: ${hankoTheme.spacing.md} auto 0;
-      display: inline-flex;
-      padding: 0.2rem 0.7rem;
-      border: 1px solid rgba(255,255,255,0.12);
-      color: ${hankoTheme.colors.textTertiary};
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-    .message.user .message-content,
-    .message.assistant .message-content {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      padding: 0;
-      max-width: 86%;
-    }
-    .input-area {
-      justify-content: center;
-      background: transparent;
-      border-top: none;
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg} ${hankoTheme.spacing.lg};
-    }
-    #message-input {
-      flex: 0 1 780px;
-      background: rgba(10,10,12,0.95);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-size: 0.78rem;
-      padding: 0.8rem 0.9rem;
-      min-height: 2.6rem;
-      max-height: 12rem;
-      resize: none;
-      overflow-y: auto;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-    #send-button {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.02);
-      color: ${hankoTheme.colors.textSecondary};
-      padding: 0.8rem 1rem;
-    }
-    #send-button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.accent}29;
-      border-color: ${hankoTheme.colors.accent}99;
-      color: ${hankoTheme.colors.textPrimary};
-    }
-    #mic-button {
-      font-size: 0.9rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.02);
-      color: ${hankoTheme.colors.textSecondary};
-      padding: 0.8rem 0.9rem;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    #mic-button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.accent}29;
-      border-color: ${hankoTheme.colors.accent}99;
-      color: ${hankoTheme.colors.textPrimary};
-    }
-    #mic-button.recording {
-      background: rgba(220,50,50,0.25);
-      border-color: rgba(220,50,50,0.6);
-      color: #fff;
-      animation: mic-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes mic-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.55; }
-    }
-    #files-panel-toggle, #speak-toggle {
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.15);
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      padding: 0.3rem 0.6rem;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    #files-panel-toggle {
-      margin-left: auto;
-    }
-    #files-panel-toggle.active, #speak-toggle.active {
-      border-color: ${hankoTheme.colors.accent}99;
-      color: ${hankoTheme.colors.textPrimary};
-      background: ${hankoTheme.colors.accent}22;
-    }
     .artifact-panel {
       width: 420px;
       flex-shrink: 0;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-left: 1px solid ${hankoTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-left: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -1331,61 +1209,68 @@ self.addEventListener("fetch", (event) => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: ${hankoTheme.colors.textPrimary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      font-size: 11px;
+      font-weight: 700;
+      color: ${kiosaTheme.colors.textPrimary};
       flex-shrink: 0;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
     .artifact-panel-header-actions { display: flex; gap: 6px; }
     .artifact-panel-header-actions button {
       background: transparent;
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       padding: 4px 8px;
-      font-size: 0.72rem;
+      font-size: 10px;
       cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
     .artifact-panel-header-actions button.active {
-      border-color: ${hankoTheme.colors.accent}99;
-      color: ${hankoTheme.colors.textPrimary};
-      background: ${hankoTheme.colors.accent}22;
+      border-color: ${accentHex};
+      color: ${kiosaTheme.colors.textPrimary};
+      background: color-mix(in srgb, ${accentHex} 13%, transparent);
     }
     .artifact-tabs {
       display: flex;
       gap: 4px;
       overflow-x: auto;
       padding: 6px 8px;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
       flex-shrink: 0;
     }
     .artifact-tabs:empty { display: none; }
     .artifact-tab {
       padding: 4px 10px;
-      font-size: 0.72rem;
-      border-radius: 999px;
+      font-size: 10px;
+      border-radius: ${kiosaTheme.borderRadius.sm};
       white-space: nowrap;
       cursor: pointer;
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textSecondary};
-      border: 1px solid transparent;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      font-family: ${kiosaTheme.fonts.mono};
     }
     .artifact-tab.active {
-      background: ${hankoTheme.colors.accent}22;
-      color: ${hankoTheme.colors.textPrimary};
-      border-color: ${hankoTheme.colors.accent}66;
+      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+      border-color: ${accentHex};
     }
     .artifact-file-toolbar {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 6px 10px;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
       flex-shrink: 0;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     .artifact-file-toolbar:empty { display: none; }
     .artifact-file-toolbar .filename {
@@ -1393,54 +1278,59 @@ self.addEventListener("fetch", (event) => {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-family: ${hankoTheme.fonts.mono};
+      font-family: ${kiosaTheme.fonts.mono};
     }
     .artifact-file-toolbar button {
       background: transparent;
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       padding: 3px 8px;
       cursor: pointer;
-      font-size: 0.72rem;
+      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
-    .artifact-file-toolbar button:hover { background: ${hankoTheme.colors.accent}22; }
+    .artifact-file-toolbar button:hover {
+      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      border-color: ${accentHex};
+    }
     .artifact-content { flex: 1; overflow: auto; padding: 10px; }
     .artifact-content pre {
       margin: 0;
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.78rem;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
       white-space: pre-wrap;
       word-break: break-word;
     }
-    .artifact-content img { max-width: 100%; border-radius: ${hankoTheme.borderRadius.sm}; }
+    .artifact-content img { max-width: 100%; border-radius: ${kiosaTheme.borderRadius.sm}; }
     .artifact-empty {
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.8rem;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 11px;
       padding: 24px 16px;
       text-align: center;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     .artifact-library-list { display: flex; flex-direction: column; gap: 6px; }
     .artifact-library-item {
       padding: 8px 10px;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       cursor: pointer;
-      font-size: 0.78rem;
+      font-size: 11px;
+      transition: background 150ms ease, border-color 150ms ease;
     }
-    .artifact-library-item:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
-    .artifact-library-item .name { font-weight: 600; color: ${hankoTheme.colors.textPrimary}; }
-    .artifact-library-item .meta { color: ${hankoTheme.colors.textTertiary}; font-size: 0.68rem; margin-top: 2px; }
+    .artifact-library-item:hover {
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${accentHex};
+    }
+    .artifact-library-item .name { font-weight: 700; color: ${kiosaTheme.colors.textPrimary}; letter-spacing: 0.06em; text-transform: uppercase; }
+    .artifact-library-item .meta { color: ${kiosaTheme.colors.textTertiary}; font-size: 9px; margin-top: 2px; font-family: ${kiosaTheme.fonts.mono}; }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>💬 Ronin Chat</h1>
-    <div class="header-meta">Chat with AI that understands your Ronin setup</div>
-    <button id="files-panel-toggle" title="Files from this chat">📁 Files</button>
-    <button id="speak-toggle" title="Read Ronin's replies aloud on this Mac's speakers">🔇 Speak replies</button>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CHAT / SECURE LINK", accent, chips: [`<b>${activeProviderLabel.toUpperCase()}</b> ${escapeHtmlServer(activeModelName)}`], rightMeta: `${this.chatCount} MESSAGES` })}
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-header">
@@ -2341,7 +2231,10 @@ self.addEventListener("fetch", (event) => {
         includeArchitecture: isFirstMessage,
         includeRouteList: true,
         artifactsHint: context.hasArtifacts,
-        sections: workflowSections,
+        sections: [
+          ...(isVoiceChat(chatId) ? [VOICE_BREVITY_SECTION] : []),
+          ...workflowSections,
+        ],
       });
 
       // Log context for debugging

@@ -52,5 +52,9 @@ export async function runCommand(options: RunOptions): Promise<void> {
     logger.error("Error executing duty", { duty: options.dutyName, error });
     process.exit(1);
   }
+  // Plugins (Discord/Telegram/MCP children, sockets) can hold the event loop
+  // open indefinitely — without this, `run` lingers forever after success
+  // instead of returning. The error path above already exits explicitly.
+  process.exit(0);
 }
 

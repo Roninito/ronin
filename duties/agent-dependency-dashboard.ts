@@ -11,7 +11,8 @@
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.ts";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 export default class AgentDependencyDashboard extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -207,20 +208,20 @@ export default class AgentDependencyDashboard extends BaseDuty {
   <title>Agent & Plugin Dependencies</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
     ${getAdobeCleanFontFaceCSS()}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getKiosaTopbarCSS()}
 
     body {
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .header {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.xl};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.xl};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -233,27 +234,27 @@ export default class AgentDependencyDashboard extends BaseDuty {
       font-size: 1.5rem;
       font-weight: 600;
       margin: 0;
-      color: ${hankoTheme.colors.link};
+      color: ${kiosaTheme.colors.link};
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
     }
 
     .tabs {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
-      margin-bottom: ${hankoTheme.spacing.lg};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      gap: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.lg};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
 
     .tab {
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
       background: transparent;
       border: none;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
       border-bottom: 2px solid transparent;
       font-size: 0.95rem;
@@ -261,12 +262,12 @@ export default class AgentDependencyDashboard extends BaseDuty {
     }
 
     .tab.active {
-      color: ${hankoTheme.colors.link};
-      border-bottom-color: ${hankoTheme.colors.link};
+      color: ${kiosaTheme.colors.link};
+      border-bottom-color: ${kiosaTheme.colors.link};
     }
 
     .tab:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .section {
@@ -280,171 +281,171 @@ export default class AgentDependencyDashboard extends BaseDuty {
     table {
       width: 100%;
       border-collapse: collapse;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
       overflow: hidden;
     }
 
     th {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.md};
       text-align: left;
       font-weight: 600;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
       font-size: 0.9rem;
     }
 
     td {
-      padding: ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
+      padding: ${kiosaTheme.spacing.md};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     tr:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.xl};
+      gap: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
+      padding: ${kiosaTheme.spacing.lg};
       text-align: center;
       transition: all 0.2s;
     }
 
     .stat-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .stat-value {
       font-size: 2rem;
       font-weight: 700;
-      color: ${hankoTheme.colors.link};
-      margin: ${hankoTheme.spacing.sm} 0;
+      color: ${kiosaTheme.colors.link};
+      margin: ${kiosaTheme.spacing.sm} 0;
     }
 
     .stat-label {
       font-size: 0.9rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .status-enabled {
-      color: ${hankoTheme.colors.success};
+      color: ${kiosaTheme.colors.success};
     }
 
     .status-disabled {
-      color: ${hankoTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
     }
 
     .refresh-btn {
-      background: ${hankoTheme.colors.link};
-      color: ${hankoTheme.colors.background};
+      background: ${kiosaTheme.colors.link};
+      color: ${kiosaTheme.colors.background};
       border: none;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.9rem;
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
       font-weight: 500;
       transition: all 0.2s;
     }
 
     .refresh-btn:hover {
-      background: ${hankoTheme.colors.linkHover};
+      background: ${kiosaTheme.colors.linkHover};
       transform: translateY(-1px);
     }
 
     #graph-container {
       width: 100%;
       height: 600px;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      background: ${hankoTheme.colors.background};
-      margin: ${hankoTheme.spacing.lg} 0;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
+      background: ${kiosaTheme.colors.background};
+      margin: ${kiosaTheme.spacing.lg} 0;
     }
 
     .graph-node {
-      stroke: ${hankoTheme.colors.accent};
+      stroke: ${kiosaTheme.colors.accent};
       stroke-width: 2px;
       cursor: move;
     }
 
     .graph-node:hover {
-      stroke: ${hankoTheme.colors.link};
+      stroke: ${kiosaTheme.colors.link};
       stroke-width: 3px;
     }
 
     .graph-link {
-      stroke: ${hankoTheme.colors.accent};
+      stroke: ${kiosaTheme.colors.accent};
       stroke-width: 2px;
       stroke-opacity: 0.6;
     }
 
     .graph-label {
       font-size: 11px;
-      fill: ${hankoTheme.colors.textSecondary};
+      fill: ${kiosaTheme.colors.textSecondary};
       pointer-events: none;
       text-anchor: start;
     }
 
     .graph-tooltip {
       position: absolute;
-      padding: ${hankoTheme.spacing.sm};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.link};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.sm};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.link};
+      border-radius: ${kiosaTheme.borderRadius.md};
       font-size: 0.85rem;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
       pointer-events: none;
       z-index: 1000;
       max-width: 250px;
     }
 
     .debug-section {
-      margin-top: ${hankoTheme.spacing.xl};
-      padding-top: ${hankoTheme.spacing.md};
-      border-top: 1px solid ${hankoTheme.colors.border};
+      margin-top: ${kiosaTheme.spacing.xl};
+      padding-top: ${kiosaTheme.spacing.md};
+      border-top: 1px solid ${kiosaTheme.colors.border};
     }
 
     .debug-toggle {
-      background: ${hankoTheme.colors.accent};
-      color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border};
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.accent};
+      color: ${kiosaTheme.colors.textPrimary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.85rem;
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
       transition: all 0.2s;
     }
 
     .debug-toggle:hover {
-      background: ${hankoTheme.colors.accentHover};
-      border-color: ${hankoTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.accentHover};
+      border-color: ${kiosaTheme.colors.borderHover};
     }
 
     .debug-content {
       display: none;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
+      padding: ${kiosaTheme.spacing.md};
       overflow: auto;
       max-height: 400px;
       font-size: 0.85rem;
-      color: ${hankoTheme.colors.link};
-      font-family: ${hankoTheme.fonts.mono};
+      color: ${kiosaTheme.colors.link};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .debug-content.show {
@@ -453,13 +454,7 @@ export default class AgentDependencyDashboard extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>🔗 Agent & Plugin Dependencies</h1>
-    <div style="font-size: 0.9rem; color: #a0a0a0;">
-      Last updated: <span id="lastUpdated">loading...</span>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "AGENT & PLUGIN DEPENDENCIES", accent, chips: [], tabs: [] })}
 
   <div class="container">
     <div class="tabs">

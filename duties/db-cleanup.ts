@@ -1,11 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import {
-  getAdobeCleanFontFaceCSS,
-  getHeaderBarCSS,
-  getHeaderHomeIconHTML,
-  getThemeCSS,
-} from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /**
  * Memory Cleanup Agent
@@ -62,6 +58,8 @@ export default class DbCleanupAgent extends BaseDuty {
   }
 
   private async handleCleanupUI(): Promise<Response> {
+    const accent = getKiosaAccentForPath("/cleanup");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -69,9 +67,11 @@ export default class DbCleanupAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ronin Cleanup</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
     body { margin: 0; }
     .page { max-width: 900px; margin: 0 auto; padding: 1rem; }
     .card { border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #1f1f1f; }
@@ -82,7 +82,7 @@ export default class DbCleanupAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">${getHeaderHomeIconHTML()}<h1>🧹 Ronin Cleanup</h1></div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CLEANUP", accent, chips: [], tabs: [] })}
   <div class="page">
     <div class="card">
       <h3>Current DB Stats</h3>

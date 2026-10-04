@@ -47,7 +47,7 @@ export interface RoninTheme {
   };
 }
 
-export type ThemeVariant = "ronin" | "dram" | "hanko";
+export type ThemeVariant = "ronin" | "dram" | "hanko" | "kiosa";
 
 /**
  * Default Ronin theme matching the dark aesthetic used across agents
@@ -96,6 +96,119 @@ export const roninTheme: RoninTheme = {
 /**
  * DRAM visual tokens extracted from DRAM-main renderer CSS variables/base styles.
  */
+/**
+ * Kiosa UI visual tokens — extracted from kiosa-ui style spec.
+ * Near-black canvas, hairline panels, one neon accent per view.
+ */
+export const kiosaVisualTokens = {
+  colors: {
+    bg: "#05070a",
+    panel: "rgba(12,18,22,.72)",
+    hairline: "rgba(255,255,255,.09)",
+    text: "#e8f4f6",
+    dim: "#7d8f94",
+    faint: "#46565b",
+    accents: {
+      cyan: "#00e5ff",
+      lime: "#b8e62e",
+      amber: "#ff9f1c",
+      magenta: "#ff3ea5",
+      teal: "#2ee6c8",
+      violet: "#9d6bff",
+    },
+  },
+  fonts: {
+    display: `"Oswald", "Arial Narrow", sans-serif`,
+    mono: `"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace`,
+  },
+  spacing: {
+    xs: "4px",
+    sm: "8px",
+    md: "12px",
+    lg: "16px",
+    xl: "24px",
+  },
+  radius: {
+    sm: "2px",
+    md: "3px",
+  },
+} as const;
+
+export type KiosaAccentName = keyof typeof kiosaVisualTokens.colors.accents;
+
+/**
+ * Map each known route to its kiosa accent. One accent per view.
+ * Unknown routes fall back to cyan.
+ */
+export function getKiosaAccentForPath(path: string): KiosaAccentName {
+  const normalized = path.replace(/\/$/, "");
+  const map: Record<string, KiosaAccentName> = {
+    "/": "cyan",
+    "/routes": "cyan",
+    "/status": "cyan",
+    "/chat": "cyan",
+    "/todo": "lime",
+    "/schedule": "amber",
+    "/skills": "amber",
+    "/analytics": "magenta",
+    "/models": "magenta",
+    "/models/manage": "violet",
+    "/config": "teal",
+    "/dashboard/dependencies": "teal",
+    "/portfolio": "violet",
+    "/portfolio/agents": "violet",
+    "/portfolio/trades": "violet",
+    "/portfolio/tasks": "violet",
+    "/portfolio/assets": "violet",
+    "/portfolio/settings": "violet",
+  };
+  return map[normalized] ?? "cyan";
+}
+
+/**
+ * Kiosa-compatible theme mapped to RoninTheme for drop-in usage.
+ */
+export const kiosaTheme: RoninTheme = {
+  colors: {
+    background: kiosaVisualTokens.colors.bg,
+    backgroundSecondary: kiosaVisualTokens.colors.panel,
+    backgroundTertiary: "rgba(255,255,255,0.04)",
+    textPrimary: kiosaVisualTokens.colors.text,
+    textSecondary: kiosaVisualTokens.colors.dim,
+    textTertiary: kiosaVisualTokens.colors.faint,
+    border: kiosaVisualTokens.colors.hairline,
+    borderHover: "rgba(255,255,255,0.18)",
+    accent: kiosaVisualTokens.colors.accents.cyan,
+    accentHover: "rgba(0,229,255,0.25)",
+    link: kiosaVisualTokens.colors.accents.cyan,
+    linkHover: kiosaVisualTokens.colors.accents.cyan,
+    success: kiosaVisualTokens.colors.accents.teal,
+    error: kiosaVisualTokens.colors.accents.magenta,
+    warning: kiosaVisualTokens.colors.accents.amber,
+  },
+  fonts: {
+    primary: kiosaVisualTokens.fonts.display,
+    mono: kiosaVisualTokens.fonts.mono,
+  },
+  spacing: {
+    xs: kiosaVisualTokens.spacing.xs,
+    sm: kiosaVisualTokens.spacing.sm,
+    md: kiosaVisualTokens.spacing.md,
+    lg: kiosaVisualTokens.spacing.lg,
+    xl: kiosaVisualTokens.spacing.xl,
+  },
+  borderRadius: {
+    sm: kiosaVisualTokens.radius.sm,
+    md: kiosaVisualTokens.radius.md,
+    lg: kiosaVisualTokens.radius.md,
+  },
+  shadows: {
+    sm: "none",
+    md: "none",
+    lg: "none",
+  },
+};
+
 export const dramVisualTokens = {
   colors: {
     bgDeep: "#030304",
@@ -229,6 +342,7 @@ export const hankoTheme: RoninTheme = {
 export function getThemeVariant(variant: ThemeVariant = "hanko"): RoninTheme {
   if (variant === "dram") return dramTheme;
   if (variant === "ronin") return roninTheme;
+  if (variant === "kiosa") return kiosaTheme;
   return hankoTheme;
 }
 
@@ -330,8 +444,17 @@ export function getAdobeCleanFontFaceCSS(): string {
 /**
  * Generate base CSS styles using the theme
  */
+export function getKiosaFontLinkCSS(): string {
+  return `
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Oswald:wght@500;700&display=swap" rel="stylesheet" />
+`.trim();
+}
+
+
 export function getThemeCSS(theme: RoninTheme = hankoTheme): string {
   const isHanko = theme === hankoTheme;
+  const isKiosa = theme === kiosaTheme;
   const legacyHeadingFont = `'Adobe Clean UI', 'Adobe Clean', 'Agave', sans-serif`;
   return `
 * {
@@ -340,22 +463,51 @@ export function getThemeCSS(theme: RoninTheme = hankoTheme): string {
   box-sizing: border-box;
 }
 
+${isKiosa ? `
+:root {
+  --kiosa-accent: ${kiosaVisualTokens.colors.accents.cyan};
+  font-variant-numeric: tabular-nums;
+  -moz-font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
+}
+` : ""}
+
 body {
   font-family: ${theme.fonts.primary};
   background: ${theme.colors.background};
   color: ${theme.colors.textPrimary};
   line-height: 1.6;
-  font-size: 0.875rem; /* 14px base - smaller than default */
+  font-size: ${isKiosa ? "13px" : "0.875rem /* 14px */"};
   ${isHanko ? "animation: hankoEnter 320ms ease-out;" : ""}
+  ${isKiosa ? `
+  background-image:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+  min-height: 100vh;
+  ` : ""}
 }
 
 ${isHanko ? `@keyframes hankoEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }` : ""}
 
+${isKiosa ? `
+/* Kiosa scanline + vignette overlay */
+.kiosa-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+}
+` : ""}
+
 h1, h2, h3, h4, h5, h6 {
-  font-family: ${isHanko ? theme.fonts.primary : legacyHeadingFont};
-  font-weight: ${isHanko ? 700 : 300};
-  letter-spacing: ${isHanko ? "0.04em" : "-0.02em"};
-  text-transform: ${isHanko ? "uppercase" : "none"};
+  font-family: ${isHanko || isKiosa ? theme.fonts.primary : legacyHeadingFont};
+  font-weight: ${isHanko ? 700 : isKiosa ? 700 : 300};
+  letter-spacing: ${isHanko ? "0.04em" : isKiosa ? "0.04em" : "-0.02em"};
+  text-transform: ${isHanko || isKiosa ? "uppercase" : "none"};
   color: ${theme.colors.textPrimary};
 }
 
@@ -364,56 +516,59 @@ h1, h2, h3, h4, h5, h6 {
 .panel-title,
 .route-title,
 .category-title {
-  font-family: ${isHanko ? theme.fonts.primary : legacyHeadingFont};
+  font-family: ${isHanko || isKiosa ? theme.fonts.primary : legacyHeadingFont};
 }
 
 ${isHanko ? `.prose, .measure { font-family: ${theme.fonts.serif}; line-height: 1.65; max-width: 62ch; }` : ""}
 
 b, strong {
   font-family: ${theme.fonts.mono};
-  font-weight: 700;
+  font-weight: ${isKiosa ? 600 : 700};
 }
 
-h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); }
-h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
-h3 { font-size: clamp(1.25rem, 2.5vw, 1.5rem); }
+h1 { font-size: ${isKiosa ? "clamp(2rem, 5vw, 3.25rem)" : "clamp(1.75rem, 4vw, 2.5rem)"}; }
+h2 { font-size: ${isKiosa ? "clamp(1.5rem, 3.5vw, 2.25rem)" : "clamp(1.5rem, 3vw, 2rem)"}; }
+h3 { font-size: ${isKiosa ? "clamp(1.1rem, 2.5vw, 1.5rem)" : "clamp(1.25rem, 2.5vw, 1.5rem)"}; }
 
 code, pre {
   font-family: ${theme.fonts.mono};
-  font-size: 0.8125rem; /* 13px */
+  font-size: ${isKiosa ? "12px" : "0.8125rem /* 13px */"};
 }
 
 a {
   color: ${theme.colors.link};
   text-decoration: none;
   ${isHanko ? `border-bottom: 1px solid ${theme.colors.accent}88;` : ""}
-  transition: ${isHanko ? "border-color 150ms ease" : "color 0.2s"};
+  transition: ${isHanko || isKiosa ? "border-color 150ms ease, color 150ms ease" : "color 0.2s"};
 }
 
 a:hover {
-  ${isHanko ? `border-bottom-color: ${theme.colors.link};` : `color: ${theme.colors.linkHover};`}
+  ${isHanko || isKiosa ? `border-bottom-color: ${theme.colors.link}; color: ${theme.colors.linkHover};` : `color: ${theme.colors.linkHover};`}
 }
 
 ${isHanko ? `::selection { background: #7A2A1A; color: ${theme.colors.textPrimary}; }` : ""}
+${isKiosa ? `::selection { background: rgba(0,229,255,.25); color: ${theme.colors.textPrimary}; }` : ""}
 
 ${isHanko ? `:focus-visible { outline: 1.5px solid ${theme.colors.accentHover}; outline-offset: 2px; }` : ""}
+${isKiosa ? `:focus-visible { outline: 1.5px solid ${theme.colors.accent}; outline-offset: 2px; }` : ""}
 
 button {
   font-family: ${theme.fonts.primary};
-  font-size: 0.875rem;
+  font-size: ${isKiosa ? "11px" : "0.875rem"};
   padding: ${theme.spacing.sm} ${theme.spacing.md};
   background: ${theme.colors.backgroundSecondary};
   border: 1px solid ${theme.colors.border};
   color: ${theme.colors.textSecondary};
   border-radius: ${theme.borderRadius.md};
   cursor: pointer;
-  transition: ${isHanko ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
+  transition: ${isHanko || isKiosa ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
+  ${isKiosa ? "letter-spacing: 0.1em; text-transform: uppercase;" : ""}
 }
 
 button:hover:not(:disabled) {
-  background: ${isHanko ? theme.colors.accent : theme.colors.backgroundTertiary};
+  background: ${isHanko || isKiosa ? theme.colors.accent : theme.colors.backgroundTertiary};
   border-color: ${theme.colors.borderHover};
-  color: ${isHanko ? theme.colors.background : theme.colors.textPrimary};
+  color: ${isHanko || isKiosa ? theme.colors.background : theme.colors.textPrimary};
 }
 
 .ronin-btn {
@@ -508,15 +663,67 @@ input::placeholder, textarea::placeholder {
   border: 1px solid ${theme.colors.border};
   border-radius: ${theme.borderRadius.md};
   padding: ${theme.spacing.lg};
-  transition: ${isHanko ? "border-color 150ms ease, background 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
+  transition: ${isHanko || isKiosa ? "border-color 150ms ease, background 150ms ease" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"};
   ${isHanko ? "animation: hankoEnter 260ms ease-out backwards;" : ""}
+  ${isKiosa ? "font-family: " + theme.fonts.mono + ";" : ""}
 }
 
 .card:hover {
   border-color: ${theme.colors.borderHover};
   background: ${theme.colors.backgroundTertiary};
-  ${isHanko ? "" : "transform: translateY(-2px);"}
+  ${isHanko || isKiosa ? "" : "transform: translateY(-2px);"}
 }
+
+${isKiosa ? `
+.kiosa-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: ${theme.fonts.mono};
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid ${theme.colors.border};
+  border-radius: 2px;
+  color: ${theme.colors.textSecondary};
+  background: ${theme.colors.backgroundSecondary};
+}
+.kiosa-chip b, .kiosa-chip strong {
+  color: ${theme.colors.textPrimary};
+  font-weight: 600;
+}
+.kiosa-chip--accent {
+  border-color: color-mix(in srgb, var(--kiosa-accent, ${theme.colors.accent}) 40%, transparent);
+  color: var(--kiosa-accent, ${theme.colors.accent});
+  background: color-mix(in srgb, var(--kiosa-accent, ${theme.colors.accent}) 7%, transparent);
+}
+
+.kiosa-panel {
+  background: ${theme.colors.backgroundSecondary};
+  border: 1px solid ${theme.colors.border};
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-family: ${theme.fonts.mono};
+}
+.kiosa-panel__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: ${theme.colors.textSecondary};
+  margin-bottom: 6px;
+}
+.kiosa-panel__label::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--kiosa-accent, ${theme.colors.accent});
+  flex-shrink: 0;
+}
+` : ""}
 `;
 }
 
@@ -717,10 +924,11 @@ export function getSharedUIPrimitivesCSS(
   theme: RoninTheme = hankoTheme,
   options: SharedUIPrimitivesOptions = {},
 ): string {
-  const variant = options.variant ?? (theme === dramTheme ? "dram" : theme === roninTheme ? "ronin" : "hanko");
+  const variant = options.variant ?? (theme === dramTheme ? "dram" : theme === kiosaTheme ? "kiosa" : theme === roninTheme ? "ronin" : "hanko");
   const dram = variant === "dram";
+  const kiosa = variant === "kiosa";
   const hanko = variant === "hanko";
-  const accent = dram ? dramVisualTokens.colors.accent : theme.colors.link;
+  const accent = dram ? dramVisualTokens.colors.accent : kiosa ? "var(--kiosa-accent, " + theme.colors.accent + ")" : theme.colors.link;
   const accentGlow = dram ? dramVisualTokens.colors.accentGlow : theme.colors.accentHover;
   const panelBg = dram ? dramVisualTokens.colors.bgSurface : theme.colors.backgroundSecondary;
   const panelHoverBg = dram ? dramVisualTokens.colors.bgElevated : theme.colors.backgroundTertiary;
@@ -728,6 +936,7 @@ export function getSharedUIPrimitivesCSS(
   const panelBorderHover = dram ? dramVisualTokens.colors.bgHover : theme.colors.borderHover;
   const badgeBg = dram ? dramVisualTokens.colors.bgElevated : theme.colors.backgroundTertiary;
   const badgeText = dram ? dramVisualTokens.colors.textSecondary : theme.colors.textSecondary;
+  const monoFont = kiosa ? theme.fonts.mono : theme.fonts.primary;
 
   return `
 .ui-btn {
@@ -735,35 +944,38 @@ export function getSharedUIPrimitivesCSS(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: ${theme.spacing.sm};
-  padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border: 1px solid ${panelBorder};
-  border-radius: ${theme.borderRadius.md};
-  background: ${panelBg};
+  gap: ${kiosa ? "6px" : theme.spacing.sm};
+  padding: ${kiosa ? "3px 8px" : `${theme.spacing.sm} ${theme.spacing.md}`};
+  border: 1px solid ${kiosa ? theme.colors.border : panelBorder};
+  border-radius: ${kiosa ? "2px" : theme.borderRadius.md};
+  background: ${kiosa ? theme.colors.backgroundSecondary : panelBg};
   color: ${theme.colors.textSecondary};
-  font-family: ${theme.fonts.primary};
-  font-size: 0.8125rem;
+  font-family: ${monoFont};
+  font-size: ${kiosa ? "10px" : "0.8125rem"};
+  letter-spacing: ${kiosa ? "0.1em" : "normal"};
+  text-transform: ${kiosa ? "uppercase" : "none"};
   line-height: 1.2;
   cursor: pointer;
-  transition: ${hanko ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.2s ease"};
+  transition: ${hanko || kiosa ? "background 150ms ease, color 150ms ease, border-color 150ms ease" : "all 0.2s ease"};
 }
 .ui-btn:hover:not(:disabled) {
-  background: ${hanko ? theme.colors.accent : panelHoverBg};
+  background: ${hanko || kiosa ? theme.colors.accent : panelHoverBg};
   border-color: ${panelBorderHover};
-  color: ${hanko ? theme.colors.background : theme.colors.textPrimary};
+  color: ${hanko || kiosa ? theme.colors.background : theme.colors.textPrimary};
 }
 .ui-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .ui-btn--primary {
-  background: ${dram ? `${accent}22` : theme.colors.accent};
+  background: ${dram ? `${accent}22` : kiosa ? `color-mix(in srgb, ${accent} 15%, transparent)` : theme.colors.accent};
   border-color: ${accent};
-  color: ${theme.colors.textPrimary};
+  color: ${kiosa ? accent : theme.colors.textPrimary};
 }
 .ui-btn--primary:hover:not(:disabled) {
   background: ${accentGlow};
   border-color: ${accent};
+  color: ${kiosa ? accent : theme.colors.background};
 }
 .ui-btn--ghost {
   background: transparent;
@@ -772,9 +984,10 @@ export function getSharedUIPrimitivesCSS(
 .ui-panel, .ui-card {
   background: ${panelBg};
   border: 1px solid ${panelBorder};
-  border-radius: ${theme.borderRadius.md};
+  border-radius: ${kiosa ? "3px" : theme.borderRadius.md};
   padding: ${theme.spacing.md};
   ${hanko ? "animation: hankoEnter 260ms ease-out backwards;" : ""}
+  ${kiosa ? "font-family: " + theme.fonts.mono + ";" : ""}
 }
 .ui-panel--interactive:hover, .ui-card--interactive:hover {
   background: ${panelHoverBg};
@@ -872,10 +1085,10 @@ input.ui-input,
 textarea.ui-input,
 select.ui-input {
   width: 100%;
-  font-family: ${theme.fonts.primary};
-  font-size: 0.8125rem;
+  font-family: ${monoFont};
+  font-size: ${kiosa ? "12px" : "0.8125rem"};
   padding: ${theme.spacing.sm} ${theme.spacing.md};
-  border-radius: ${theme.borderRadius.md};
+  border-radius: ${kiosa ? "2px" : theme.borderRadius.md};
   border: 1px solid ${panelBorder};
   background: ${panelBg};
   color: ${theme.colors.textPrimary};
@@ -887,7 +1100,7 @@ textarea.ui-input:focus,
 select.ui-input:focus {
   outline: none;
   border-color: ${accent};
-  box-shadow: 0 0 0 1px ${accentGlow};
+  box-shadow: ${kiosa ? "0 0 8px" : "0 0 0 1px"} ${accentGlow};
 }
 
 input.ui-switch {

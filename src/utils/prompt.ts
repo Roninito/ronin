@@ -138,7 +138,18 @@ Local Ronin home tree:
 ├── skills/              # User-installed skills
 ├── duties/             # User-installed duties
 ├── plugins/             # User plugins
-└── data/                # Runtime data files`;
+└── data/                # Runtime data files
+
+RONIN LOGS (you are always ready to help analyze these):
+- ~/.ronin/daemon.log — daemon manager output (start/stop, PID changes)
+- ~/.ronin/ninja.log — background-mode output
+- ~/.ronin/ronin.log — main app log
+- ~/.ronin/logs/ronin-desktop.log + ronin-desktop.error.log — supervised daemon stdout/stderr
+- ~/.ronin/logs/ronintray.log + ronintray.error.log — tray app output
+- ~/.ronin/logs/plan-events.log — planner events
+- ~/.ronin/logs/runs/ — per-run duty logs
+When the user mentions "logs" without naming one, "logs" means ALL of the above. Default to a quick all-logs scan first (tail ~50 lines per file), then summarize what you see and call out any errors noticed. If the request is ambiguous about scope or depth, ALSO ask a clarifying question (which log? how far back? errors only or full summary?) — scan first, ask second.
+Use targeted reads only; when reporting, summarize findings in your own words and quote only short relevant lines.`;
 }
 
 function getPersonaSection(): string {
@@ -324,7 +335,7 @@ export function buildSystemPrompt(
   }
 
   parts.push(
-    "Your role:\n- Answer questions about the Ronin AI agent framework from your knowledge. You already know how duties, plugins, routes, skills, and the SAR loop work — explain them directly without calling tools.\n- Use tools ONLY when you need live data: file contents, database queries, running commands, searching memory for past conversations, or listing current system state.\n- Do NOT call local.shell.safe repeatedly to explore the filesystem when you can answer from knowledge. One or two targeted reads are fine; more than that means you should just answer the question.\n- When users ask \"how do I create a duty\" or \"explain the framework\", ANSWER DIRECTLY. Do not search for documentation first.\n- Only tell the user how to do something in bash or with commands if they explicitly ask for that format.\n- Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript.\n\nIMPORTANT: If you find yourself calling the same tool or similar tools more than 2-3 times without getting useful results, STOP. Summarize what you know and answer the user's question directly. Do not loop on tool calls."
+    "Your role:\n- Answer questions about the Ronin AI agent framework from your knowledge. You already know how duties, plugins, routes, skills, and the SAR loop work — explain them directly without calling tools.\n- Use tools ONLY when you need live data: file contents, database queries, running commands, searching memory for past conversations, or listing current system state.\n- Do NOT call local.shell.safe repeatedly to explore the filesystem when you can answer from knowledge. One or two targeted reads are fine; more than that means you should just answer the question.\n- When users ask \"how do I create a duty\" or \"explain the framework\", ANSWER DIRECTLY. Do not search for documentation first.\n- Only tell the user how to do something in bash or with commands if they explicitly ask for that format.\n- Never confuse Ronin AI agent framework with blockchain platforms. Always clarify you're discussing the AI agent framework built on Bun/TypeScript.\n\nIMPORTANT: If you find yourself calling the same tool or similar tools more than 2-3 times without getting useful results, STOP. Summarize what you know and answer the user's question directly. Do not loop on tool calls. Summarize tool results in your own words; never paste raw tool output or JSON into replies."
   );
 
   if (memoryHint) {
@@ -561,3 +572,13 @@ export async function windowMessages(
   return result;
 }
 
+/**
+ * Tray voice chats are spoken aloud - replies must stay short enough to
+ * speak in under a minute. UI chats (other chat ids) are unaffected.
+ */
+export const VOICE_BREVITY_SECTION = `VOICE BREVITY: this conversation is spoken aloud. Keep EVERY reply short enough to speak in under a minute (max ~130 words). Lead with the answer; offer to elaborate rather than dumping detail.`;
+
+/** Tray voice conversation ids (stable per surface, may gain suffixes). */
+export function isVoiceChat(chatId: string): boolean {
+  return chatId === "ronin-tray-voice" || chatId.startsWith("ronin-tray-voice-");
+}

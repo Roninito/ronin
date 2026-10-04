@@ -1,7 +1,8 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import type { Tool } from "../src/types/api.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 import { runTaskingExecutorMigrations } from "../src/tasking/migrations.js";
 import { resolveExecutor, isCodingExecutor, runCodingExecutor, type ExecutorName } from "../src/tasking/executors.js";
 import { provisionWorktree, releaseWorktree } from "../src/tasking/worktree.js";
@@ -2543,18 +2544,21 @@ Execute the task using the available tools and emit events as needed. Provide a 
       [boardId]
     );
 
+    const accent = getKiosaAccentForPath("/todo");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${this.escapeHtml(board.name)} - Kanban</title>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+  ${getKiosaHeadHTML(accent)}
+  ${getAdobeCleanFontFaceCSS()}
+  ${getThemeCSS(kiosaTheme)}
+  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+  ${getKiosaTopbarCSS()}
 
+  <style>
     * {
       margin: 0;
       padding: 0;
@@ -2562,108 +2566,116 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     body {
-      font-family: ${hankoTheme.fonts.primary};
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textPrimary};
       min-height: 100vh;
       overflow-x: auto;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+      font-size: 13px;
     }
 
     .back-link {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: none;
-      font-size: 0.875rem;
+      font-size: 12px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .back-link:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .board-description {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.875rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 12px;
       margin-top: 0.25rem;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .add-card-btn {
-      background: ${hankoTheme.colors.accent};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.5rem 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${accentHex};
+      border: 1px solid ${accentHex};
+      color: ${kiosaTheme.colors.background};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .add-card-btn:hover {
-      background: ${hankoTheme.colors.accentHover};
+      background: ${kiosaTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.textPrimary};
     }
 
     .workspace-toolbar {
       display: grid;
-      gap: 0.75rem;
-      padding: 1rem 2rem 0;
+      gap: ${kiosaTheme.spacing.md};
+      padding: ${kiosaTheme.spacing.lg} ${kiosaTheme.spacing.xl} 0;
     }
 
     .toolbar-row {
       display: flex;
-      gap: 0.5rem;
+      gap: ${kiosaTheme.spacing.sm};
       flex-wrap: wrap;
       align-items: center;
     }
 
     .toolbar-row input,
     .toolbar-row select {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.8rem;
-      padding: 0.45rem 0.55rem;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      font-size: 12px;
+      padding: ${kiosaTheme.spacing.sm};
       min-width: 130px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .toolbar-chip {
-      border: 1px solid ${hankoTheme.colors.border};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.75rem;
-      padding: 0.35rem 0.55rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      font-size: 10px;
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
       cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .toolbar-chip:hover {
-      color: ${hankoTheme.colors.textPrimary};
-      border-color: ${hankoTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .metrics-row {
       display: flex;
-      gap: 0.5rem;
+      gap: ${kiosaTheme.spacing.sm};
       flex-wrap: wrap;
     }
 
     .metric-pill {
-      font-size: 0.72rem;
-      color: ${hankoTheme.colors.textSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      padding: 0.2rem 0.5rem;
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .ops-panel {
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      padding: 0.75rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      padding: ${kiosaTheme.spacing.md};
     }
 
     .ops-panel.hidden {
@@ -2672,33 +2684,37 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .ops-tabs {
       display: flex;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
+      gap: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .ops-tab {
-      font-size: 0.75rem;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 0.25rem 0.5rem;
+      font-size: 10px;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
       background: transparent;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .ops-tab.active {
-      color: ${hankoTheme.colors.textPrimary};
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.background};
+      color: ${accentHex};
+      border-color: ${accentHex};
+      background: ${kiosaTheme.colors.background};
     }
 
     .ops-tab-content {
       display: none;
       max-height: 200px;
       overflow: auto;
-      font-size: 0.75rem;
-      border-top: 1px solid ${hankoTheme.colors.border};
-      padding-top: 0.5rem;
+      font-size: 11px;
+      border-top: 1px solid ${kiosaTheme.colors.border};
+      padding-top: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .ops-tab-content.active {
@@ -2707,14 +2723,14 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .ops-list {
       display: grid;
-      gap: 0.4rem;
+      gap: ${kiosaTheme.spacing.sm};
     }
 
     .ops-list-item {
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      background: ${hankoTheme.colors.background};
-      padding: 0.35rem 0.45rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      background: ${kiosaTheme.colors.background};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
       white-space: pre-wrap;
       word-break: break-word;
     }
@@ -2722,27 +2738,27 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .rules-editor {
       width: 100%;
       min-height: 90px;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.45rem;
-      font-family: 'Agave', monospace;
-      font-size: 0.72rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textPrimary};
+      padding: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
 
     .board {
       display: flex;
-      gap: 1rem;
-      padding: 1.5rem 2rem;
+      gap: ${kiosaTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg} ${kiosaTheme.spacing.xl};
       min-height: calc(100vh - 80px);
       align-items: flex-start;
     }
 
     .column {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
       min-width: 300px;
       max-width: 300px;
       display: flex;
@@ -2751,49 +2767,53 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .column-header {
-      padding: 1rem;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.lg};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
     .column-title {
-      font-weight: 500;
-      font-size: 0.875rem;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .column-count {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      padding: 0.125rem 0.5rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .column-content {
-      padding: 0.75rem;
+      padding: ${kiosaTheme.spacing.md};
       overflow-y: auto;
       flex: 1;
       min-height: 100px;
     }
 
     .column-content.drag-over {
-      background: ${hankoTheme.colors.backgroundTertiary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .card {
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: 0.75rem;
-      margin-bottom: 0.5rem;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.sm};
       cursor: grab;
-      transition: all 0.2s;
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .card.dragging {
@@ -2802,29 +2822,28 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .card.focused {
-      border-color: ${hankoTheme.colors.borderHover};
-      box-shadow: 0 0 0 1px ${hankoTheme.colors.borderHover};
+      border-color: ${accentHex};
     }
 
     .card-title {
-      font-size: 0.875rem;
-      margin-bottom: 0.5rem;
+      font-size: 12px;
+      margin-bottom: ${kiosaTheme.spacing.sm};
       line-height: 1.4;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: ${kiosaTheme.spacing.sm};
     }
 
     .task-line-icon {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.7rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
       letter-spacing: -0.08em;
     }
 
     .card-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: ${kiosaTheme.spacing.sm};
       align-items: center;
     }
 
@@ -2834,64 +2853,70 @@ Execute the task using the available tools and emit events as needed. Provide a 
       border-radius: 50%;
     }
 
-    .priority-low { background: #28a745; }
-    .priority-medium { background: #f59e0b; }
-    .priority-high { background: #dc3545; }
+    .priority-low { background: ${kiosaTheme.colors.success}; }
+    .priority-medium { background: ${kiosaTheme.colors.warning}; }
+    .priority-high { background: ${kiosaTheme.colors.error}; }
 
     .labels {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem;
+      gap: ${kiosaTheme.spacing.xs};
     }
 
     .label {
-      font-size: 0.6875rem;
+      font-size: 10px;
       padding: 0.125rem 0.375rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      background: ${hankoTheme.colors.accent};
-      color: ${hankoTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .due-date {
-      font-size: 0.75rem;
+      font-size: 10px;
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: ${kiosaTheme.spacing.xs};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
-    .due-future { color: #28a745; }
-    .due-today { color: #f59e0b; }
-    .due-overdue { color: #dc3545; }
+    .due-future { color: ${kiosaTheme.colors.success}; }
+    .due-today { color: ${kiosaTheme.colors.warning}; }
+    .due-overdue { color: ${kiosaTheme.colors.error}; }
 
     .dependency-indicator {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.warning};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.warning};
     }
 
     .card-badges {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem;
-      margin-bottom: 0.5rem;
+      gap: ${kiosaTheme.spacing.xs};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .badge {
-      font-size: 0.625rem;
-      font-weight: 600;
+      font-size: 9px;
+      font-weight: 700;
       padding: 0.125rem 0.375rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       text-transform: uppercase;
-      letter-spacing: 0.025em;
+      letter-spacing: 0.04em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .badge-build {
-      background: #28a745;
-      color: white;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 20%, transparent);
+      color: ${kiosaTheme.colors.success};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 40%, transparent);
     }
 
     .badge-auto {
-      background: #fd7e14;
-      color: white;
+      background: color-mix(in srgb, ${kiosaTheme.colors.warning} 20%, transparent);
+      color: ${kiosaTheme.colors.warning};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.warning} 40%, transparent);
     }
 
     .badge-cli {
@@ -2899,47 +2924,55 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .badge-qwen {
-      background: #dc3545;
-      color: white;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 20%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
     }
 
     .badge-cursor {
-      background: #007bff;
-      color: white;
+      background: color-mix(in srgb, ${accentHex} 20%, transparent);
+      color: ${accentHex};
+      border: 1px solid color-mix(in srgb, ${accentHex} 40%, transparent);
     }
 
     .badge-opencode {
-      background: #6f42c1;
-      color: white;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 20%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
     }
 
     .badge-gemini {
-      background: #20c997;
-      color: white;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 20%, transparent);
+      color: ${kiosaTheme.colors.success};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 40%, transparent);
     }
 
     .badge-app {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textSecondary};
-      font-family: 'Agave', monospace;
-      font-size: 0.625rem;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 9px;
     }
 
     .add-card-column-btn {
       width: 100%;
-      padding: 0.5rem;
+      padding: ${kiosaTheme.spacing.sm};
       background: transparent;
-      border: 1px dashed ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      border: 1px dashed ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
-      font-size: 0.875rem;
-      margin-top: 0.5rem;
+      font-size: 11px;
+      margin-top: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .add-card-column-btn:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     /* Modal Styles */
@@ -2954,7 +2987,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
       z-index: 1000;
       justify-content: center;
       align-items: center;
-      padding: 2rem;
+      padding: ${kiosaTheme.spacing.xl};
     }
 
     .modal.active {
@@ -2962,10 +2995,10 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .modal-content {
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: 1.5rem;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
       max-width: 600px;
       width: 100%;
       max-height: 90vh;
@@ -2973,36 +3006,41 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .modal-header {
-      margin-bottom: 1rem;
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .modal-header h2 {
-      font-size: 1.25rem;
-      font-weight: 400;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .form-group {
-      margin-bottom: 0.75rem;
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      margin-bottom: 0.25rem;
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .form-group input,
     .form-group textarea,
     .form-group select {
       width: 100%;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      padding: 0.5rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      padding: ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.md};
       font-family: inherit;
-      font-size: 0.75rem;
+      font-size: 12px;
     }
 
     .form-group textarea {
@@ -3011,25 +3049,28 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .markdown-preview-container {
-      margin-top: 0.5rem;
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
+      margin-top: ${kiosaTheme.spacing.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
     }
 
     .preview-label {
       display: block;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
-      color: ${hankoTheme.colors.textSecondary};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      background: ${hankoTheme.colors.background};
-      border-radius: ${hankoTheme.borderRadius.md} ${hankoTheme.borderRadius.md} 0 0;
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.background};
+      border-radius: ${kiosaTheme.borderRadius.md} ${kiosaTheme.borderRadius.md} 0 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .markdown-preview {
-      padding: 0.75rem;
-      font-size: 0.75rem;
+      padding: ${kiosaTheme.spacing.md};
+      font-size: 12px;
       line-height: 1.5;
       max-height: 200px;
       overflow-y: auto;
@@ -3039,42 +3080,44 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .markdown-preview h2,
     .markdown-preview h3,
     .markdown-preview h4 {
-      margin-top: 0.5rem;
-      margin-bottom: 0.25rem;
+      margin-top: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.xs};
       font-weight: 600;
     }
 
-    .markdown-preview h1 { font-size: 1rem; }
-    .markdown-preview h2 { font-size: 0.9rem; }
-    .markdown-preview h3 { font-size: 0.8rem; }
+    .markdown-preview h1 { font-size: 14px; }
+    .markdown-preview h2 { font-size: 13px; }
+    .markdown-preview h3 { font-size: 12px; }
 
     .markdown-preview p {
-      margin-bottom: 0.5rem;
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .markdown-preview ul,
     .markdown-preview ol {
-      margin-left: 1rem;
-      margin-bottom: 0.5rem;
+      margin-left: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
 
     .markdown-preview li {
-      margin-bottom: 0.25rem;
+      margin-bottom: ${kiosaTheme.spacing.xs};
     }
 
     .markdown-preview code {
-      background: ${hankoTheme.colors.background};
+      background: ${kiosaTheme.colors.backgroundTertiary};
       padding: 0.1rem 0.25rem;
-      border-radius: 3px;
-      font-family: monospace;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
 
     .markdown-preview pre {
-      background: ${hankoTheme.colors.background};
-      padding: 0.5rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.md};
       overflow-x: auto;
-      margin: 0.5rem 0;
+      margin: ${kiosaTheme.spacing.sm} 0;
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .markdown-preview pre code {
@@ -3083,14 +3126,14 @@ Execute the task using the available tools and emit events as needed. Provide a 
     }
 
     .markdown-preview blockquote {
-      border-left: 3px solid ${hankoTheme.colors.border};
-      padding-left: 0.75rem;
-      margin: 0.5rem 0;
-      color: ${hankoTheme.colors.textSecondary};
+      border-left: 2px solid ${kiosaTheme.colors.border};
+      padding-left: ${kiosaTheme.spacing.md};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .markdown-preview a {
-      color: ${hankoTheme.colors.accent};
+      color: ${accentHex};
       text-decoration: none;
     }
 
@@ -3101,51 +3144,51 @@ Execute the task using the available tools and emit events as needed. Provide a 
     .markdown-preview table {
       width: 100%;
       border-collapse: collapse;
-      margin: 0.5rem 0;
-      font-size: 0.7rem;
+      margin: ${kiosaTheme.spacing.sm} 0;
+      font-size: 11px;
     }
 
     .markdown-preview th,
     .markdown-preview td {
-      border: 1px solid ${hankoTheme.colors.border};
-      padding: 0.25rem 0.5rem;
+      border: 1px solid ${kiosaTheme.colors.border};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
       text-align: left;
     }
 
     .markdown-preview th {
-      background: ${hankoTheme.colors.background};
+      background: ${kiosaTheme.colors.background};
     }
 
     .form-group input:focus,
     .form-group textarea:focus,
     .form-group select:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${accentHex};
     }
 
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      gap: ${kiosaTheme.spacing.md};
     }
 
     .checkbox-group {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: ${kiosaTheme.spacing.sm};
       max-height: 150px;
       overflow-y: auto;
-      padding: 0.5rem;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.sm};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
     }
 
     .checkbox-item {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
+      gap: ${kiosaTheme.spacing.sm};
+      font-size: 12px;
     }
 
     .checkbox-item input[type="checkbox"] {
@@ -3154,46 +3197,36 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
     .form-actions {
       display: flex;
-      gap: 1rem;
+      gap: ${kiosaTheme.spacing.md};
       justify-content: flex-end;
-      margin-top: 1.5rem;
+      margin-top: ${kiosaTheme.spacing.lg};
     }
 
     .btn-secondary {
       background: transparent;
-      color: ${hankoTheme.colors.textSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .btn-secondary:hover {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .btn-danger {
-      background: rgba(220, 53, 69, 0.1);
-      color: #dc3545;
-      border: 1px solid rgba(220, 53, 69, 0.3);
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 10%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 30%, transparent);
     }
 
     .btn-danger:hover {
-      background: rgba(220, 53, 69, 0.2);
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 20%, transparent);
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <div class="header-left">
-      <div>
-        <h1>${this.escapeHtml(board.name)}</h1>
-        ${board.description ? `<div class="board-description">${this.escapeHtml(board.description)}</div>` : ''}
-      </div>
-    </div>
-    <div class="header-actions">
-      <button class="add-card-btn" onclick="openCreateModal()">+ Add Task</button>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "TASKING / KANBAN", accent, chips: [`<b>BOARD</b> ${this.escapeHtml(board.name.toUpperCase())}`, `<b>${columnsWithCards.length}</b> COLUMNS`], rightMeta: board.description || "TASK BOARD" })}
+
 
   <div class="workspace-toolbar">
     <div class="toolbar-row">
@@ -3932,6 +3965,7 @@ Execute the task using the available tools and emit events as needed. Provide a 
 
   <!-- Load marked.js for markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  ${getKiosaFooterHTML("RONIN · TASKING", `BOARD · ${this.escapeHtml(board.name.toUpperCase())}`)}
 </body>
 </html>`;
 

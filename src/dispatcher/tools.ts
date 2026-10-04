@@ -88,5 +88,7 @@ ${rollupJson}
 Human question: ${question}
 
 Answer from the state above — name concrete projects, agents, and task/review/question ids.
-You may call crew_wake to PROPOSE wakes and flag_needs_human to propose escalations, but this console is read-only: proposals are shown to the human, nothing is executed here. The hourly scheduled sweep is the only writer.`;
+You may call crew_wake to PROPOSE wakes and flag_needs_human to propose escalations, but this console is read-only: proposals are shown to the human, nothing is executed here. The hourly scheduled sweep is the only writer.
+
+Keep the answer short enough to speak in under a minute (max ~130 words).`;
 }

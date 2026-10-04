@@ -955,6 +955,7 @@ export function registerLocalTools(api: DutyAPI, register: (tool: ToolDefinition
               throw new Error('TTS backend is "elevenlabs" but the elevenlabs plugin is not loaded.');
             }
             await api.plugins.call("elevenlabs", "speakAndPlay", args.text, {
+              apiKey: ttsConfig.elevenlabsApiKey || undefined,
               voiceId: ttsConfig.elevenlabsVoiceId || undefined,
               modelId: ttsConfig.elevenlabsModelId || undefined,
             });

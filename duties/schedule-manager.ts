@@ -13,7 +13,8 @@ import {
   type CronParts,
 } from "../src/utils/cron.js";
 import { resolve, basename } from "path";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /**
  * Schedule Manager Duty
@@ -934,11 +935,13 @@ Respond with a JSON object containing:
     const dutiesWithSchedules = duties.filter((a) => a.schedule).map((a) => a.name);
     const allDuties = duties.map((a) => ({ name: a.name, hasSchedule: !!a.schedule }));
 
+    const accent = getKiosaAccentForPath("/schedule");
+    const accentHex = kiosaTheme.colors.accent;
     const scriptContent = this.buildScheduleScript(
       dutiesWithSchedules,
       allDuties,
       getCommonSchedules(),
-      hankoTheme.colors.textSecondary
+      kiosaTheme.colors.textSecondary
     );
 
     const html = `<!DOCTYPE html>
@@ -947,48 +950,53 @@ Respond with a JSON object containing:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Schedule Manager - Ronin</title>
+  ${getKiosaHeadHTML(accent)}
+  ${getAdobeCleanFontFaceCSS()}
+  ${getThemeCSS(kiosaTheme)}
+  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+  ${getKiosaTopbarCSS()}
+
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
-    
     body {
       padding: 0;
       margin: 0;
+      font-size: 13px;
     }
 
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .tabs {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      gap: ${kiosaTheme.spacing.sm};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .tab {
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
       background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      font-size: 0.875rem;
-      transition: all 0.2s;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
+      transition: color 150ms ease, border-color 150ms ease;
     }
 
     .tab:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .tab.active {
-      color: ${hankoTheme.colors.link};
-      border-bottom-color: ${hankoTheme.colors.link};
+      color: ${accentHex};
+      border-bottom-color: ${accentHex};
     }
 
     .tab-content {
@@ -1002,135 +1010,168 @@ Respond with a JSON object containing:
     .duty-list {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: ${kiosaTheme.spacing.md};
     }
+
     .duty-card {
-      background: white;
-      border-radius: 0.5rem;
-      padding: 1rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      border-left: 4px solid var(--theme-color, #22d3ee);
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      transition: border-color 150ms ease, background 150ms ease;
     }
+
     .duty-card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
+
     .duty-card h3 {
-      margin: 0 0 0.5rem 0;
-      font-size: 1.125rem;
-      color: #1f2937;
+      margin: 0 0 ${kiosaTheme.spacing.sm} 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: ${kiosaTheme.colors.textPrimary};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
+
     .duty-card .schedule {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      background: #f3f4f6;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      margin-bottom: 0.5rem;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
+      color: ${kiosaTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
+      display: inline-block;
     }
+
     .duty-card .description {
-      color: #6b7280;
-      font-size: 0.875rem;
-      margin-bottom: 0.5rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 12px;
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
+
     .duty-card .next-runs {
-      font-size: 0.8125rem;
-      color: #9ca3af;
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
+
     .duty-card .next-runs ul {
-      margin: 0.25rem 0 0 1rem;
+      margin: ${kiosaTheme.spacing.xs} 0 0 ${kiosaTheme.spacing.lg};
       padding: 0;
     }
 
     .agent-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.lg};
-      transition: all 0.3s;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .agent-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .agent-card h3 {
-      margin: 0 0 ${hankoTheme.spacing.sm} 0;
-      color: ${hankoTheme.colors.link};
+      margin: 0 0 ${kiosaTheme.spacing.sm} 0;
+      color: ${accentHex};
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .agent-card .schedule {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
-      margin: ${hankoTheme.spacing.sm} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      display: inline-block;
     }
 
     .agent-card .description {
-      color: ${hankoTheme.colors.textSecondary};
-      margin: ${hankoTheme.spacing.sm} 0;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      font-size: 12px;
     }
 
     .agent-card .next-runs {
-      margin-top: ${hankoTheme.spacing.md};
-      font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textTertiary};
+      margin-top: ${kiosaTheme.spacing.md};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .agent-card .next-runs ul {
-      margin: ${hankoTheme.spacing.xs} 0 0 0;
-      padding-left: ${hankoTheme.spacing.lg};
+      margin: ${kiosaTheme.spacing.xs} 0 0 0;
+      padding-left: ${kiosaTheme.spacing.lg};
     }
 
     .builder-mode-selector {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      gap: ${kiosaTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .mode-button {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${hankoTheme.borderRadius.md};
-      transition: all 0.2s;
+      border-radius: ${kiosaTheme.borderRadius.md};
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .mode-button:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border-color: ${hankoTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
     }
 
     .mode-button.active {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border-color: ${hankoTheme.colors.link};
-      color: ${hankoTheme.colors.link};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${accentHex};
+      color: ${accentHex};
     }
 
     .builder-section {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .builder-section h3 {
-      margin: 0 0 ${hankoTheme.spacing.md} 0;
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 1rem;
+      margin: 0 0 ${kiosaTheme.spacing.md} 0;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .form-group {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${hankoTheme.spacing.xs};
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.8125rem;
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .form-group select,
@@ -1141,8 +1182,8 @@ Respond with a JSON object containing:
     .table-editor {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .table-field {
@@ -1151,117 +1192,136 @@ Respond with a JSON object containing:
     }
 
     .table-field label {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
-      margin-bottom: ${hankoTheme.spacing.xs};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .table-field input {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.875rem;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
     }
 
     .preview-section {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .preview-section h3 {
-      margin: 0 0 ${hankoTheme.spacing.md} 0;
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 1rem;
+      margin: 0 0 ${kiosaTheme.spacing.md} 0;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .cron-expression {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 1rem;
-      background: ${hankoTheme.colors.background};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      margin: ${hankoTheme.spacing.sm} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 13px;
+      background: ${kiosaTheme.colors.background};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      margin: ${kiosaTheme.spacing.sm} 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .copy-button {
-      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
-      font-size: 0.75rem;
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm};
+      font-size: 10px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      transition: all 0.2s;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .copy-button:hover {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${accentHex};
+      border-color: ${accentHex};
+      color: ${kiosaTheme.colors.background};
     }
 
     .description-text {
-      color: ${hankoTheme.colors.textSecondary};
-      margin: ${hankoTheme.spacing.sm} 0;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin: ${kiosaTheme.spacing.sm} 0;
+      font-size: 12px;
     }
 
     .next-runs-list {
       list-style: none;
       padding: 0;
-      margin: ${hankoTheme.spacing.sm} 0 0 0;
+      margin: ${kiosaTheme.spacing.sm} 0 0 0;
     }
 
     .next-runs-list li {
-      padding: ${hankoTheme.spacing.xs} 0;
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.8125rem;
+      padding: ${kiosaTheme.spacing.xs} 0;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .code-snippet {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.8125rem;
-      background: ${hankoTheme.colors.background};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      margin: ${hankoTheme.spacing.sm} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
+      background: ${kiosaTheme.colors.background};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      margin: ${kiosaTheme.spacing.sm} 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .apply-section {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
 
     .apply-section h3 {
-      margin: 0 0 ${hankoTheme.spacing.md} 0;
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 1rem;
+      margin: 0 0 ${kiosaTheme.spacing.md} 0;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .apply-button {
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.link};
-      border: none;
-      color: ${hankoTheme.colors.background};
-      font-weight: 500;
+      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
+      background: ${accentHex};
+      border: 1px solid ${accentHex};
+      color: ${kiosaTheme.colors.background};
+      font-weight: 700;
       cursor: pointer;
-      border-radius: ${hankoTheme.borderRadius.md};
-      transition: all 0.2s;
-      margin-top: ${hankoTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      transition: background 150ms ease, border-color 150ms ease;
+      margin-top: ${kiosaTheme.spacing.md};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .apply-button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.linkHover};
+      background: ${kiosaTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.textPrimary};
     }
 
     .apply-button:disabled {
@@ -1270,65 +1330,69 @@ Respond with a JSON object containing:
     }
 
     .error-message {
-      color: ${hankoTheme.colors.error};
-      font-size: 0.8125rem;
-      margin-top: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.error};
+      font-size: 11px;
+      margin-top: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .success-message {
-      color: ${hankoTheme.colors.success};
-      font-size: 0.8125rem;
-      margin-top: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.success};
+      font-size: 11px;
+      margin-top: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .template-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
 
     .template-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .template-card:hover {
-      border-color: ${hankoTheme.colors.link};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${accentHex};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .template-card h4 {
-      margin: 0 0 ${hankoTheme.spacing.xs} 0;
-      color: ${hankoTheme.colors.link};
-      font-size: 0.875rem;
+      margin: 0 0 ${kiosaTheme.spacing.xs} 0;
+      color: ${accentHex};
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .template-card .cron {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
-      margin: ${hankoTheme.spacing.xs} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin: ${kiosaTheme.spacing.xs} 0;
     }
 
     .template-card .desc {
-      font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textTertiary};
     }
 
     .ai-prompt-section {
-      margin-top: ${hankoTheme.spacing.md};
-      padding-top: ${hankoTheme.spacing.md};
-      border-top: 1px solid ${hankoTheme.colors.border};
+      margin-top: ${kiosaTheme.spacing.md};
+      padding-top: ${kiosaTheme.spacing.md};
+      border-top: 1px solid ${kiosaTheme.colors.border};
     }
 
     .ai-prompt-input {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
-      margin-top: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
+      margin-top: ${kiosaTheme.spacing.sm};
     }
 
     .ai-prompt-input input {
@@ -1336,17 +1400,21 @@ Respond with a JSON object containing:
     }
 
     .ai-prompt-button {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.link};
-      border: none;
-      color: ${hankoTheme.colors.background};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${accentHex};
+      border: 1px solid ${accentHex};
+      color: ${kiosaTheme.colors.background};
       cursor: pointer;
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-size: 0.8125rem;
+      border-radius: ${kiosaTheme.borderRadius.md};
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .ai-prompt-button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.linkHover};
+      background: ${kiosaTheme.colors.textPrimary};
+      border-color: ${kiosaTheme.colors.textPrimary};
     }
 
     .ai-prompt-button:disabled {
@@ -1355,75 +1423,74 @@ Respond with a JSON object containing:
     }
 
     .ai-result {
-      margin-top: ${hankoTheme.spacing.sm};
-      padding: ${hankoTheme.spacing.sm};
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-size: 0.8125rem;
+      margin-top: ${kiosaTheme.spacing.sm};
+      padding: ${kiosaTheme.spacing.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .ai-result.success {
-      background: rgba(40, 167, 69, 0.1);
-      color: ${hankoTheme.colors.success};
-      border: 1px solid ${hankoTheme.colors.success};
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 10%, transparent);
+      color: ${kiosaTheme.colors.success};
+      border: 1px solid ${kiosaTheme.colors.success};
     }
 
     .ai-result.error {
-      background: rgba(220, 53, 69, 0.1);
-      color: ${hankoTheme.colors.error};
-      border: 1px solid ${hankoTheme.colors.error};
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 10%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid ${kiosaTheme.colors.error};
     }
 
     .tools-list {
       display: grid;
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
 
     .tool-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
     }
 
     .tool-card h4 {
-      margin: 0 0 ${hankoTheme.spacing.xs} 0;
-      color: ${hankoTheme.colors.link};
-      font-size: 0.875rem;
+      margin: 0 0 ${kiosaTheme.spacing.xs} 0;
+      color: ${accentHex};
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .tool-card .tool-name {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
-      margin-bottom: ${hankoTheme.spacing.xs};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin-bottom: ${kiosaTheme.spacing.xs};
     }
 
     .tool-card .tool-description {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.8125rem;
-      margin-bottom: ${hankoTheme.spacing.xs};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      margin-bottom: ${kiosaTheme.spacing.xs};
     }
 
     .tool-card .tool-meta {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .schedule-error {
-      color: ${hankoTheme.colors.error};
-      font-size: 0.8125rem;
-      margin-top: ${hankoTheme.spacing.xs};
+      color: ${kiosaTheme.colors.error};
+      font-size: 11px;
+      margin-top: ${kiosaTheme.spacing.xs};
+      font-family: ${kiosaTheme.fonts.mono};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>🕐 Schedule Manager</h1>
-    <div class="header-meta">
-      <span>Manage cron schedules</span>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SCHEDULE / MANAGER", accent, chips: [`<b>${dutiesWithSchedules.length}</b> SCHEDULED`], tabs: [{ label: "Overview", href: "#overview", active: true }, { label: "Builder", href: "#builder" }, { label: "Templates", href: "#templates" }, { label: "Tools", href: "#tools" }] })}
 
   <div class="page-content">
     <div class="tabs">
@@ -1499,8 +1566,8 @@ Respond with a JSON object containing:
             <input type="text" id="table-weekday" value="*" />
           </div>
         </div>
-        <p style="font-size: 0.75rem; color: ${hankoTheme.colors.textTertiary}; margin-top: ${hankoTheme.spacing.md};">
-          💡 Tips: Use * for "every", */N for "every N units", or a number for specific value. Weekday: 0=Sun, 1=Mon, ..., 6=Sat
+        <p style="font-size: 11px; color: ${kiosaTheme.colors.textTertiary}; margin-top: ${kiosaTheme.spacing.md}; font-family: ${kiosaTheme.fonts.mono};">
+          TIPS: USE * FOR "EVERY", */N FOR "EVERY N UNITS", OR A NUMBER. WEEKDAY: 0=SUN, 1=MON, ..., 6=SAT
         </p>
       </div>
 
@@ -1513,7 +1580,7 @@ Respond with a JSON object containing:
         </div>
         <div class="description-text" id="description">At the start of every 6 hours</div>
         <div id="next-runs-container">
-          <strong style="font-size: 0.8125rem; color: ${hankoTheme.colors.textSecondary};">Next runs:</strong>
+          <strong style="font-size: 11px; color: ${kiosaTheme.colors.textSecondary}; letter-spacing: 0.1em; text-transform: uppercase; font-family: ${kiosaTheme.fonts.mono};">Next runs:</strong>
           <ul class="next-runs-list" id="next-runs"></ul>
         </div>
         <div id="validation-error" class="error-message" style="display: none;"></div>
@@ -1552,6 +1619,8 @@ Respond with a JSON object containing:
         <p>Loading tools...</p>
       </div>
     </div>
+
+    ${getKiosaFooterHTML("RONIN · SCHEDULE MANAGER", "READY · V0.1")}
   </div>
 
   <script>${scriptContent}

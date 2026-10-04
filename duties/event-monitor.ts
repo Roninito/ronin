@@ -4,7 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 interface EventRecord {
   id: string;
@@ -325,6 +326,8 @@ export default class EventMonitorAgent extends BaseDuty {
    * Handle timeline UI request
    */
   private async handleTimelineUI(req: Request): Promise<Response> {
+    const accent = getKiosaAccentForPath("/timeline");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -332,10 +335,11 @@ export default class EventMonitorAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Event Timeline - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     .container {
       max-width: 1400px;
@@ -351,7 +355,7 @@ export default class EventMonitorAgent extends BaseDuty {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
 
@@ -360,9 +364,9 @@ export default class EventMonitorAgent extends BaseDuty {
     }
 
     .filters {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
       padding: 1.5rem;
       margin-bottom: 2rem;
     }
@@ -378,7 +382,7 @@ export default class EventMonitorAgent extends BaseDuty {
       font-size: 0.875rem;
       font-weight: 500;
       margin-bottom: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .checkbox-group {
@@ -388,9 +392,9 @@ export default class EventMonitorAgent extends BaseDuty {
       max-height: 150px;
       overflow-y: auto;
       padding: 0.5rem;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
     }
 
     .checkbox-item {
@@ -413,36 +417,36 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .search-box input {
       flex: 1;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
       padding: 0.5rem 0.75rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       font-family: inherit;
     }
 
     .btn {
-      background: ${hankoTheme.colors.accent};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.accent};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
       padding: 0.5rem 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       font-size: 0.875rem;
     }
 
     .btn:hover {
-      background: ${hankoTheme.colors.accentHover};
+      background: ${kiosaTheme.colors.accentHover};
     }
 
     .btn-secondary {
       background: transparent;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .btn-secondary:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .stats {
@@ -450,7 +454,7 @@ export default class EventMonitorAgent extends BaseDuty {
       gap: 1rem;
       margin-bottom: 1.5rem;
       font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .stat-item {
@@ -475,15 +479,15 @@ export default class EventMonitorAgent extends BaseDuty {
     }
 
     .event {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
       padding: 1rem;
       transition: all 0.2s;
     }
 
     .event:hover {
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${kiosaTheme.colors.borderHover};
     }
 
     .event-new {
@@ -511,19 +515,19 @@ export default class EventMonitorAgent extends BaseDuty {
     .event-timestamp {
       font-family: 'Agave', monospace;
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
 
     .event-type {
       font-weight: 600;
       font-size: 0.875rem;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .event-source {
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
       padding: 0.125rem 0.375rem;
       border-radius: 3px;
     }
@@ -540,12 +544,12 @@ export default class EventMonitorAgent extends BaseDuty {
     .event-payload {
       margin-top: 0.5rem;
       padding: 0.75rem;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-family: 'Agave', monospace;
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       white-space: pre-wrap;
       word-break: break-all;
       max-height: 150px;
@@ -558,13 +562,13 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .payload-toggle {
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.accent};
+      color: ${kiosaTheme.colors.accent};
       cursor: pointer;
       margin-top: 0.5rem;
     }
 
     .payload-toggle:hover {
-      color: ${hankoTheme.colors.accentHover};
+      color: ${kiosaTheme.colors.accentHover};
     }
 
     .pagination {
@@ -574,21 +578,21 @@ export default class EventMonitorAgent extends BaseDuty {
       gap: 1rem;
       margin-top: 2rem;
       padding-top: 1rem;
-      border-top: 1px solid ${hankoTheme.colors.border};
+      border-top: 1px solid ${kiosaTheme.colors.border};
     }
 
     .pagination button {
       background: transparent;
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
       padding: 0.5rem 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
     }
 
     .pagination button:hover:not(:disabled) {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .pagination button:disabled {
@@ -598,13 +602,13 @@ export default class EventMonitorAgent extends BaseDuty {
 
     .page-info {
       font-size: 0.875rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .loading {
       text-align: center;
       padding: 2rem;
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
 
     .error {
@@ -612,20 +616,13 @@ export default class EventMonitorAgent extends BaseDuty {
       border: 1px solid rgba(220, 53, 69, 0.3);
       color: #dc3545;
       padding: 1rem;
-      border-radius: ${hankoTheme.borderRadius.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
       margin-bottom: 1rem;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>📊 Event Timeline</h1>
-    <div class="header-meta">
-      <div class="auto-refresh active" id="autoRefreshIndicator">
-        <span>🔄</span>
-        <span>Auto-refresh: ON (30s)</span>
-      </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "TIMELINE", accent, chips: [], tabs: [] })}
     </div>
   </div>
   <div class="container">

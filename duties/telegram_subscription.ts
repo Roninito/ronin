@@ -1,6 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { getThemeCSS, getHeaderBarCSS, getSharedUIPrimitivesCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 export interface SendTelegramMessagePayload {
   text: string;
@@ -147,11 +148,15 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
 
     const cfg = await this.getConfig();
     const saved = new URL(req.url).searchParams.get("saved") === "1";
+    const accent = getKiosaAccentForPath("/telegram-subscription");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Telegram Subscription Config</title>
       <style>
-        ${getThemeCSS()}
-        ${getHeaderBarCSS()}
-        ${getSharedUIPrimitivesCSS()}
+        ${getKiosaHeadHTML(accent)}
+    ${getAdobeCleanFontFaceCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
         body { padding: 0; }
         .page { max-width: 720px; margin: 0 auto; padding: 1.25rem; }
         label { display: block; font-size: 12px; margin: 12px 0 6px; }
@@ -160,7 +165,7 @@ export default class TelegramSubscriptionAgent extends BaseDuty {
         .check input { width: auto; }
         .ok { padding: 8px; border-radius: 4px; margin-bottom: 10px; }
       </style></head><body>
-      <div class="header">${getHeaderHomeIconHTML()}<h1>Telegram Subscription</h1></div>
+      ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "TELEGRAM", accent, chips: [], tabs: [] })}
       <div class="page"><div class="ui-panel">
         ${saved ? '<div class="ok ui-badge ui-badge--success">Saved.</div>' : ""}
         <form method="POST" action="/telegram-subscription">

@@ -8,7 +8,8 @@ import { join } from "path";
 import { networkInterfaces } from "os";
 import { existsSync, rmSync } from "fs";
 import { spawn, spawnSync } from "child_process";
-import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG, hankoTheme } from "../utils/theme.js";
+import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG, getSharedUIPrimitivesCSS, hankoTheme, kiosaTheme, kiosaVisualTokens } from "../utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaPanelHTML, getKiosaChipHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML, type KiosaAccentName } from "../utils/kiosa.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
 import { Executor } from "../executor/Executor.js";
@@ -1078,51 +1079,59 @@ export class DutyRegistry {
       </tr>
     `).join("");
 
+    const accent = getKiosaAccentForPath("/skills");
+    const accentHex = kiosaTheme.colors.accent;
     return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ronin Skills</title>
+  ${getKiosaHeadHTML(accent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
-    body { margin:0; background:${hankoTheme.colors.background}; color:${hankoTheme.colors.textPrimary}; font-family:${hankoTheme.fonts.primary}; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-    .card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.lg}; padding: .85rem; margin-bottom: .75rem; }
-    .toolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
-    .toolbar input { background:${hankoTheme.colors.background}; color:${hankoTheme.colors.textPrimary}; border:1px solid ${hankoTheme.colors.border}; padding:.45rem .55rem; border-radius:4px; min-width:280px; }
-    .btn { background:${hankoTheme.colors.backgroundTertiary}; color:${hankoTheme.colors.textPrimary}; border:1px solid ${hankoTheme.colors.border}; padding:.45rem .65rem; border-radius:4px; cursor:pointer; transition: background 150ms ease, border-color 150ms ease; }
-    .btn:hover { background:${hankoTheme.colors.accent}; border-color:${hankoTheme.colors.accent}; }
-    .btn-secondary { background:${hankoTheme.colors.backgroundSecondary}; }
-    .btn-danger { background:${hankoTheme.colors.error}33; border-color:${hankoTheme.colors.error}; }
-    table { width:100%; border-collapse: collapse; font-size:.86rem; }
-    th, td { text-align:left; border-bottom:1px solid ${hankoTheme.colors.border}; padding:.55rem .45rem; vertical-align:top; }
-    th { color: ${hankoTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing:.06em; font-size:.72rem; }
-    .muted { color: ${hankoTheme.colors.textSecondary}; font-size:.78rem; }
-    .status { margin-top:.5rem; font-size:.78rem; color:${hankoTheme.colors.success}; min-height:1.1rem; }
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
+    body { margin:0; }
+    .kiosa-wrap { max-width: 1200px; margin: 0 auto; padding: 14px; }
+    .kiosa-card { background: ${kiosaTheme.colors.backgroundSecondary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 10px; margin-bottom: 10px; font-family: ${kiosaTheme.fonts.mono}; }
+    .kiosa-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .kiosa-toolbar input { background:${kiosaTheme.colors.background}; color:${kiosaTheme.colors.textPrimary}; border:1px solid ${kiosaTheme.colors.border}; padding:6px 8px; border-radius:2px; min-width:260px; font-family: ${kiosaTheme.fonts.mono}; font-size: 11px; }
+    .kiosa-toolbar input:focus { outline:none; border-color:${accentHex}; box-shadow:0 0 8px color-mix(in srgb, ${accentHex} 25%, transparent); }
+    .kiosa-btn { background:${kiosaTheme.colors.backgroundSecondary}; color:${kiosaTheme.colors.textSecondary}; border:1px solid ${kiosaTheme.colors.border}; padding:4px 8px; border-radius:2px; cursor:pointer; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; font-family:${kiosaTheme.fonts.mono}; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+    .kiosa-btn:hover { background:${kiosaTheme.colors.backgroundTertiary}; border-color:${kiosaTheme.colors.borderHover}; color:${kiosaTheme.colors.textPrimary}; }
+    .kiosa-btn-accent { border-color:${accentHex}; color:${accentHex}; background: color-mix(in srgb, ${accentHex} 10%, transparent); }
+    .kiosa-btn-accent:hover { background:${accentHex}; color:${kiosaTheme.colors.background}; }
+    .kiosa-btn-danger { border-color:${kiosaTheme.colors.error}; color:${kiosaTheme.colors.error}; }
+    .kiosa-btn-danger:hover { background: color-mix(in srgb, ${kiosaTheme.colors.error} 15%, transparent); }
+    table { width:100%; border-collapse: collapse; font-size:11px; font-family: ${kiosaTheme.fonts.mono}; }
+    th, td { text-align:left; border-bottom:1px dashed ${kiosaTheme.colors.border}; padding:8px; vertical-align:top; }
+    th { color: ${kiosaTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing:.14em; font-size:10px; }
+    .muted { color: ${kiosaTheme.colors.textSecondary}; font-size:11px; }
+    .status { margin-top:6px; font-size:11px; color:${kiosaTheme.colors.success}; min-height:1.2rem; font-family: ${kiosaTheme.fonts.mono}; }
   </style>
 </head>
 <body>
-  <div class="header">${getHeaderHomeIconHTML()}<h1>Skills</h1><div class="header-meta"><span>${skills.length} local skills</span><span>Port ${port}</span></div></div>
-  <div class="container">
-    <div class="card">
-      <div class="toolbar">
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SKILLS / LOCAL REGISTRY", accent, chips: [`LOCAL ${skills.length}`, `PORT ${port}`] })}
+  <div class="kiosa-wrap">
+    <div class="kiosa-card">
+      <div class="kiosa-toolbar">
         <input id="repoInput" type="text" placeholder="Git repo URL or skills.sh:owner/repo/skill" />
         <input id="nameInput" type="text" placeholder="Optional local name" />
-        <button class="btn" onclick="installSkill()">Install</button>
-        <button class="btn btn-secondary" onclick="refreshSkills()">Refresh</button>
+        <button class="kiosa-btn kiosa-btn-accent" onclick="installSkill()">INSTALL</button>
+        <button class="kiosa-btn" onclick="refreshSkills()">REFRESH</button>
       </div>
       <div class="status" id="statusText"></div>
       <div class="muted">Uses Ronin CLI skill commands for list/install/update/remove.</div>
     </div>
-    <div class="card">
+    <div class="kiosa-card">
       <table>
         <thead><tr><th>Name</th><th>Description</th><th>Manage</th></tr></thead>
         <tbody id="skillsTbody">${rows || `<tr><td colspan="3" class="muted">No local skills found.</td></tr>`}</tbody>
       </table>
     </div>
+    ${getKiosaFooterHTML("RONIN · SKILLS", "LOCAL REGISTRY · V0.1")}
   </div>
   <script>
     const statusEl = document.getElementById('statusText');
@@ -1141,13 +1150,13 @@ export class DutyRegistry {
         tbody.innerHTML = '<tr><td colspan="3" class="muted">No local skills found.</td></tr>';
         return;
       }
-      tbody.innerHTML = list.map((s) => \`
+        tbody.innerHTML = list.map((s) => \`
         <tr>
           <td>\${esc(s.name)}</td>
           <td>\${esc(s.description || '(no description)')}</td>
-          <td style="display:flex;gap:.35rem;">
-            <button class="btn btn-secondary" onclick="updateSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">Update</button>
-            <button class="btn btn-danger" onclick="removeSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">Remove</button>
+          <td style="display:flex;gap:6px;">
+            <button class="kiosa-btn" onclick="updateSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">UPDATE</button>
+            <button class="kiosa-btn kiosa-btn-danger" onclick="removeSkill('\${String(s.name || '').replace(/'/g, "\\\\'")}')">REMOVE</button>
           </td>
         </tr>\`).join('');
     }
@@ -1209,92 +1218,83 @@ export class DutyRegistry {
     const onboardingComplete = await this.isOnboardingComplete();
     const homeFeedItems = this.getHomeFeedItems();
 
+    const accent = getKiosaAccentForPath("/");
+    const accentHex = kiosaTheme.colors.accent;
     return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ronin Dashboard</title>
+  ${getKiosaHeadHTML(accent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
-    body { margin: 0; background: ${hankoTheme.colors.background}; color: ${hankoTheme.colors.textPrimary}; font-family: ${hankoTheme.fonts.primary}; }
-    .shell { max-width: 1320px; margin: 0 auto; padding: 1rem; display: grid; grid-template-columns: 220px minmax(0,1fr); gap: .75rem; }
-    .dashboard-nav { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: 6px; padding: .65rem; position: sticky; top: 8px; margin-top: 11px; z-index: 1100; height: fit-content; }
-    .dashboard-nav h2 { margin: 0 0 .55rem; font-size: .7rem; color: ${hankoTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing: .1em; }
-    .dashboard-nav a { display:block; color:${hankoTheme.colors.textSecondary}; text-decoration:none; font-size:.74rem; font-weight:700; padding:.42rem .5rem; border-radius:4px; border:1px solid transparent; margin-bottom:.2rem; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
-    .dashboard-nav a:hover { background: ${hankoTheme.colors.accent}1a; border-color: ${hankoTheme.colors.accent}59; color:${hankoTheme.colors.textPrimary}; }
-    .page { min-width: 0; }
-    .loading-screen { position: fixed; inset: 0; background: radial-gradient(circle at 50% 35%, ${hankoTheme.colors.accent}22, transparent 45%), ${hankoTheme.colors.background}; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; transition: opacity .45s ease; }
-    .loading-screen.hidden { opacity: 0; pointer-events: none; }
-    .spinner { width: 28px; height: 28px; background: ${hankoTheme.colors.accent}; transform: rotate(45deg); animation: diamondSpin 1.1s ease-in-out infinite; }
-    .loading-title { font-size: 0.9rem; letter-spacing: .16em; text-transform: uppercase; color: ${hankoTheme.colors.textPrimary}; }
-    @keyframes diamondSpin { 0%, 100% { transform: rotate(45deg) scale(1); opacity: 1; } 50% { transform: rotate(45deg) scale(0.82); opacity: 0.6; } }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .35rem; margin: .75rem 0; }
-    .card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; padding: .8rem; }
-    .label { color: ${hankoTheme.colors.textSecondary}; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
-    .value { font-size: 1.35rem; margin-top: .3rem; }
-    .content { display: grid; grid-template-columns: 2fr 1fr; gap: .35rem; }
-    .home-feed { margin-top: .55rem; }
-    .home-feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: .35rem; }
-    .home-feed-card { background: ${hankoTheme.colors.backgroundSecondary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; padding: .8rem; min-height: 120px; overflow: hidden; }
-    .home-feed-meta { display:flex; gap:.45rem; align-items:center; margin-bottom:.5rem; color: ${hankoTheme.colors.textSecondary}; font-size:.7rem; text-transform: uppercase; letter-spacing:.07em; }
-    .panel-title { margin: 0 0 .45rem; font-size: .9rem; }
-    .panel-actions a { color: ${hankoTheme.colors.link}; text-decoration: none; font-size: .8rem; margin-right: .8rem; }
-    .loading-subtitle { color: ${hankoTheme.colors.textSecondary}; font-size: .78rem; max-width: 460px; text-align: center; line-height: 1.35; min-height: 2rem; }
-    .onboarding-banner { border: 1px solid ${hankoTheme.colors.warning}73; background: ${hankoTheme.colors.warning}17; color: ${hankoTheme.colors.warning}; padding: .65rem .8rem; margin-bottom: .55rem; font-size: .84rem; }
-    .onboarding-banner a { color: ${hankoTheme.colors.warning}; text-decoration: underline; font-weight: 700; }
-    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ${hankoTheme.fonts.mono}; font-size: .74rem; color: ${hankoTheme.colors.textSecondary}; }
-    @media (max-width: 980px){ .shell{grid-template-columns:1fr;} .dashboard-nav{position:static;} .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .content{grid-template-columns:1fr;} }
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
+    body { margin: 0; }
+    .kiosa-nav { background: ${kiosaTheme.colors.backgroundSecondary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 10px; position: sticky; top: 8px; height: fit-content; }
+    .kiosa-nav h3 { margin: 0 0 8px; font-family: ${kiosaTheme.fonts.mono}; font-size: 10px; color: ${kiosaTheme.colors.textSecondary}; letter-spacing: .14em; }
+    .kiosa-nav a { display:block; font-family:${kiosaTheme.fonts.mono}; color:${kiosaTheme.colors.textSecondary}; text-decoration:none; font-size:11px; padding:6px 8px; border-radius:2px; border:1px solid transparent; margin-bottom:3px; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
+    .kiosa-nav a:hover { background: color-mix(in srgb, ${accentHex} 10%, transparent); border-color: color-mix(in srgb, ${accentHex} 35%, transparent); color:${kiosaTheme.colors.textPrimary}; }
+    .kiosa-page { min-width: 0; }
+    .kiosa-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
+    .kiosa-value { font-size: 1.45rem; margin-top: 4px; font-family: ${kiosaTheme.fonts.mono}; }
+    .kiosa-onboarding { border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.warning} 45%, transparent); background: color-mix(in srgb, ${kiosaTheme.colors.warning} 9%, transparent); color: ${kiosaTheme.colors.warning}; padding: 10px 12px; margin-bottom: 10px; font-size: 12px; font-family: ${kiosaTheme.fonts.mono}; }
+    .kiosa-onboarding a { color: ${kiosaTheme.colors.warning}; text-decoration: underline; }
+    .kiosa-feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 8px; }
+    .kiosa-feed-card { background: ${kiosaTheme.colors.backgroundSecondary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 10px; min-height: 120px; overflow: hidden; font-family: ${kiosaTheme.fonts.mono}; }
+    .kiosa-feed-meta { display:flex; gap:8px; align-items:center; margin-bottom:6px; color: ${kiosaTheme.colors.textSecondary}; font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ${kiosaTheme.fonts.mono}; font-size: 11px; color: ${kiosaTheme.colors.textSecondary}; }
+    @media (max-width: 980px){ .kiosa-shell{grid-template-columns:1fr;} .kiosa-nav{position:static;} .kiosa-grid4{grid-template-columns:repeat(2,minmax(0,1fr));} }
   </style>
 </head>
 <body>
-  <div id="loadingScreen" class="loading-screen"><div class="spinner"></div><div class="loading-title">Initializing Ronin Dashboard</div><div id="loadingSubtitle" class="loading-subtitle">Checking required dependencies...</div></div>
-  <div class="header">${getHeaderHomeIconHTML()}<h1>DASH</h1><div class="header-meta"><span>Runtime overview</span></div></div>
-  <div class="shell">
-    <aside class="dashboard-nav">
-      <h2>DASH</h2>
+  <div id="loadingScreen" class="kiosa-panel" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border-radius:0;background:${kiosaTheme.colors.background};">
+    <div style="width:24px;height:24px;background:${accentHex};transform:rotate(45deg);box-shadow:0 0 14px ${accentHex};animation:diamondSpin 1.1s ease-in-out infinite;"></div>
+    <div style="font-family:${kiosaTheme.fonts.primary};font-size:12px;letter-spacing:.16em;text-transform:uppercase;">Initializing Ronin Dashboard</div>
+    <div id="loadingSubtitle" style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};max-width:460px;text-align:center;">Checking required dependencies...</div>
+  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DASH / RUNTIME OVERVIEW", accent, chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `UPTIME ${uptime}s`, `PID ${process.pid}`] })}
+  <div class="kiosa-wrap kiosa-shell" style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:10px;padding-top:14px;">
+    <aside class="kiosa-nav">
+      <h3>DASH</h3>
       ${dashboardNavRoutes.map((route) => `<a href="${route}">${this.escapeHtml(formatDashNavRoute(route))}</a>`).join("")}
     </aside>
-    <div class="page">
-    ${!onboardingComplete ? `<div class="onboarding-banner">Onboarding is not complete. Please finish setup at <a href="/onboarding">/onboarding</a> to unlock all features.</div>` : ""}
-    <div class="grid">
-      <div class="card"><div class="label">Duties</div><div class="value">${status.totalDuties}</div></div>
-      <div class="card"><div class="label">Scheduled</div><div class="value">${status.scheduledDuties}</div></div>
-      <div class="card"><div class="label">Uptime (s)</div><div class="value">${uptime}</div></div>
-      <div class="card"><div class="label">PID</div><div class="value">${process.pid}</div></div>
+    <div class="kiosa-page">
+    ${!onboardingComplete ? `<div class="kiosa-onboarding">Onboarding is not complete. Finish setup at <a href="/onboarding">/onboarding</a> to unlock all features.</div>` : ""}
+    <div class="kiosa-grid4">
+      ${getKiosaPanelHTML("01 / DUTIES", `<div class="kiosa-value">${status.totalDuties}</div>`)}
+      ${getKiosaPanelHTML("02 / SCHEDULED", `<div class="kiosa-value">${status.scheduledDuties}</div>`)}
+      ${getKiosaPanelHTML("03 / UPTIME", `<div class="kiosa-value">${uptime}</div>`)}
+      ${getKiosaPanelHTML("04 / PID", `<div class="kiosa-value">${process.pid}</div>`)}
     </div>
-    <div class="content">
-      <div class="card">
-        <h2 class="panel-title">Recent Logs</h2>
-        <pre>${this.escapeHtml(logPreview)}</pre>
-      </div>
-      <div class="card">
-        <h2 class="panel-title">Basic Analytics</h2>
-        <div class="label">System Routes</div><div class="value">${systemRoutes}</div>
-        <div class="label" style="margin-top:.55rem">HTTP Routes</div><div class="value">${httpRoutes}</div>
-        <div class="label" style="margin-top:.55rem">Webhook Routes</div><div class="value">${webhookRoutes}</div>
-        <div class="panel-actions" style="margin-top: .9rem;">
-          <a href="/routes">Open Routes</a>
-          <a href="/status">Status</a>
-          <a href="/analytics">Analytics</a>
+    <div class="kiosa-grid">
+      ${getKiosaPanelHTML("05 / RECENT LOGS", `<pre>${this.escapeHtml(logPreview)}</pre>`)}
+      ${getKiosaPanelHTML("06 / BASIC ANALYTICS", `
+        <div style="display:grid;gap:8px;">
+          <div>${getKiosaChipHTML(`SYSTEM ROUTES <b>${systemRoutes}</b>`)}</div>
+          <div>${getKiosaChipHTML(`HTTP ROUTES <b>${httpRoutes}</b>`)}</div>
+          <div>${getKiosaChipHTML(`WEBHOOK ROUTES <b>${webhookRoutes}</b>`)}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="ui-btn" href="/routes">Open Routes</a>
+            <a class="ui-btn" href="/status">Status</a>
+            <a class="ui-btn ui-btn--primary" href="/analytics">Analytics</a>
+          </div>
         </div>
-      </div>
+      `)}
     </div>
-    <div class="home-feed card">
-      <h2 class="panel-title">Duty Feed</h2>
-      ${homeFeedItems.length > 0 ? `
-      <div class="home-feed-grid">
+    ${getKiosaPanelHTML("07 / DUTY FEED", homeFeedItems.length > 0 ? `
+      <div class="kiosa-feed-grid">
         ${homeFeedItems.map((item) => `
-        <div class="home-feed-card">
-          <div class="home-feed-meta"><span>${this.escapeHtml(item.duty)}</span><span>${new Date(item.updatedAt).toLocaleTimeString()}</span></div>
+        <div class="kiosa-feed-card">
+          <div class="kiosa-feed-meta"><span>${this.escapeHtml(item.duty)}</span><span>${new Date(item.updatedAt).toLocaleTimeString()}</span></div>
           ${item.html}
         </div>`).join("")}
-      </div>` : `<div class="label">No duty feed items yet. Emit <code>home-feed</code> events to populate this section.</div>`}
-    </div>
+      </div>` : `<div style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};">No duty feed items yet. Emit <code>home-feed</code> events to populate this section.</div>`)}
     </div>
   </div>
+  ${getKiosaFooterHTML("RONIN · DASHBOARD", "RUNTIME OVERVIEW · V0.1")}
   <script>
     const subtitle = document.getElementById('loadingSubtitle');
     const loadingEl = document.getElementById('loadingScreen');
@@ -1324,7 +1324,7 @@ export class DutyRegistry {
         if (subtitle) subtitle.textContent = 'Dependency check failed; continuing startup.';
       } finally {
         window.setTimeout(() => {
-          if (loadingEl) loadingEl.classList.add('hidden');
+          if (loadingEl) loadingEl.style.display = 'none';
         }, 900);
       }
     }
@@ -1577,6 +1577,8 @@ export class DutyRegistry {
       routesByCategory[category]!.sort((a, b) => a.path.localeCompare(b.path));
     }
 
+    const routeAccent = getKiosaAccentForPath("/routes");
+    const routeAccentHex = kiosaTheme.colors.accent;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1585,147 +1587,92 @@ export class DutyRegistry {
   <title>Ronin - Available Routes</title>
   <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
+  ${getKiosaHeadHTML(routeAccent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
-
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 2rem;
-    }
-
-    .content {
-      padding: 0;
-    }
-    
-    .category {
-      margin-bottom: 4rem;
-    }
-    
-    .category-title {
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.4);
-      margin-bottom: 1.5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    
-    .category-title::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.1);
-    }
-    
-    .routes-grid {
-      margin-top: 0.5rem;
-    }
-
-    .routes-grid .grid-stack-item-content {
-      inset: 0.5rem;
-    }
-    
-    .route-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 1.5rem;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
+    body { margin: 0; }
+    .kiosa-route-card {
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      padding: 14px;
       text-decoration: none;
       color: inherit;
       display: block;
-      position: relative;
-      overflow: hidden;
+      font-family: ${kiosaTheme.fonts.mono};
+      transition: border-color 150ms ease, background 150ms ease;
     }
-    
-    .route-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    
-    .route-card:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.04);
-      transform: translateY(-2px);
+    .kiosa-route-card:hover {
+      border-color: color-mix(in srgb, ${routeAccentHex} 40%, transparent);
+      background: color-mix(in srgb, ${routeAccentHex} 6%, transparent);
       text-decoration: none;
     }
-    
-    .route-card:hover::before {
-      opacity: 1;
-    }
-    
-    .route-header {
+    .kiosa-route-header {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
+      gap: 8px;
+      margin-bottom: 10px;
     }
-    
-    .route-icon {
-      font-size: 1.25rem;
-      opacity: 0.8;
+    .kiosa-route-icon {
+      font-size: 14px;
+      color: ${kiosaTheme.colors.textSecondary};
     }
-    
-    .route-title {
-      font-size: 1.1rem;
-      font-weight: 500;
-      color: #ffffff;
-      letter-spacing: -0.01em;
+    .kiosa-route-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: ${kiosaTheme.colors.textPrimary};
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    
-    .route-path {
-      font-family: 'Agave', monospace;
-      font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.5);
-      background: rgba(255, 255, 255, 0.05);
-      padding: 0.375rem 0.625rem;
-      border-radius: 2px;
+    .kiosa-route-path {
       display: inline-block;
-      margin-bottom: 0.75rem;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 10px;
+      color: ${routeAccentHex};
+      letter-spacing: 0.1em;
+      padding: 3px 8px;
+      border: 1px solid color-mix(in srgb, ${routeAccentHex} 35%, transparent);
+      border-radius: 2px;
+      margin-bottom: 10px;
+      background: color-mix(in srgb, ${routeAccentHex} 7%, transparent);
     }
-    
-    .route-description {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 0.875rem;
-      line-height: 1.6;
-      font-weight: 300;
+    .kiosa-route-description {
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      line-height: 1.65;
     }
-    
+    .kiosa-category {
+      margin-bottom: 28px;
+    }
+    .kiosa-category-title {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 18px;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+      color: ${kiosaTheme.colors.textPrimary};
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .kiosa-category-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: ${kiosaTheme.colors.border};
+    }
+    .routes-grid .grid-stack-item-content {
+      inset: 6px;
+    }
     .empty-category {
+      font-family: ${kiosaTheme.fonts.mono};
       text-align: center;
-      padding: 3rem;
-      color: rgba(255, 255, 255, 0.3);
-      font-style: italic;
+      padding: 24px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
     }
-    
-    .footer {
-      text-align: center;
-      padding: 3rem 0 0;
-      color: rgba(255, 255, 255, 0.3);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 0.75rem;
-      font-weight: 300;
-      letter-spacing: 0.05em;
-    }
-    
     @media (max-width: 768px) {
-      .container {
-        padding: 2rem 1.5rem;
-      }
-
       .routes-grid {
         grid-template-columns: 1fr;
       }
@@ -1733,35 +1680,26 @@ export class DutyRegistry {
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>⚡ Ronin</h1>
-    <div class="header-meta">
-      <span>${status.totalDuties} Duties</span>
-      <span>${status.scheduledDuties} Scheduled</span>
-      <span>${status.webhookDuties} Webhooks</span>
-      <span>Port ${port}</span>
-    </div>
-  </div>
-  <div class="container">
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ROUTES / NETWORK MAP", accent: routeAccent, chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `WEBHOOKS ${status.webhookDuties}`, `PORT ${port}`] })}
+  <div class="kiosa-wrap">
     <div class="content">
       ${Object.entries(routesByCategory).map(([category, categoryRoutes]) => `
-        <div class="category">
-          <h2 class="category-title">
-            <span>${category === "Web UI" ? "🌐" : category === "API" ? "🔌" : category === "Webhooks" ? "🔗" : "⚡"}</span>
+        <div class="kiosa-category">
+          <h2 class="kiosa-category-title">
+            <span>${category === "Web UI" ? "▤" : category === "API" ? "▦" : category === "Webhooks" ? "▧" : "▍"}</span>
             ${category}
           </h2>
           ${categoryRoutes.length > 0 ? `
             <div class="routes-grid grid-stack">
               ${categoryRoutes.map(route => `
                 <div class="grid-stack-item" gs-w="4" gs-h="2">
-                  <a href="${route.path}" class="route-card grid-stack-item-content">
-                    <div class="route-header">
-                      <span class="route-icon">${route.icon}</span>
-                      <span class="route-title">${route.title}</span>
+                  <a href="${route.path}" class="kiosa-route-card grid-stack-item-content">
+                    <div class="kiosa-route-header">
+                      <span class="kiosa-route-icon">${route.icon}</span>
+                      <span class="kiosa-route-title">${route.title}</span>
                     </div>
-                    <div class="route-path">${route.path}</div>
-                    <div class="route-description">${route.description}</div>
+                    <div class="kiosa-route-path">${route.path}</div>
+                    <div class="kiosa-route-description">${route.description}</div>
                   </a>
                 </div>
               `).join("")}
@@ -1772,10 +1710,7 @@ export class DutyRegistry {
         </div>
       `).join("")}
     </div>
-    
-    <div class="footer">
-      <p>Ronin Duty Engine • Running on port ${port}</p>
-    </div>
+    ${getKiosaFooterHTML(`RONIN · ROUTES · PORT ${port}`, "NETWORK MAP · V0.1")}
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -1808,6 +1743,9 @@ export class DutyRegistry {
       webhook?: string;
     }>;
   }): string {
+    const accent = getKiosaAccentForPath("/status");
+    const accentHex = kiosaTheme.colors.accent;
+
     const formatUptime = (seconds: number): string => {
       const days = Math.floor(seconds / 86400);
       const hours = Math.floor((seconds % 86400) / 3600);
@@ -1826,12 +1764,14 @@ export class DutyRegistry {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Status</title>
+  ${getKiosaHeadHTML(accent)}
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
     
     * {
       margin: 0;
@@ -1839,250 +1779,258 @@ export class DutyRegistry {
       box-sizing: border-box;
     }
 
-    .container {
+    body { font-family: ${kiosaTheme.fonts.mono}; }
+
+    .kiosa-container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 2rem;
+      padding: 22px;
     }
 
-    .status-badge {
-      display: inline-block;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    .status-badge.running {
-      background: rgba(76, 175, 80, 0.15);
-      border-color: rgba(76, 175, 80, 0.3);
-      color: #4caf50;
-    }
-    
-    .content {
-      padding: 0;
-    }
-    
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-bottom: 3rem;
-    }
-    
-    .stat-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: 1.5rem;
-      text-align: center;
-      transition: all 0.3s;
-    }
-    
-    .stat-card:hover {
-      background: rgba(255, 255, 255, 0.04);
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-    
-    .stat-value {
-      font-size: 2.5rem;
-      font-weight: 300;
-      color: #ffffff;
-      margin-bottom: 0.5rem;
-      font-family: 'Agave', monospace;
-    }
-    
-    .stat-label {
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 0.75rem;
-      text-transform: uppercase;
+    .kiosa-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      padding: 3px 8px;
+      border-radius: 2px;
+      font-size: 10px;
       letter-spacing: 0.1em;
-      font-weight: 500;
-    }
-    
-    .section {
-      margin-bottom: 3rem;
-    }
-    
-    .section-title {
-      font-size: 0.875rem;
-      color: rgba(255, 255, 255, 0.4);
-      margin-bottom: 1.5rem;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
-      font-weight: 500;
+      color: ${kiosaTheme.colors.textSecondary};
+    }
+
+    .kiosa-status-badge.running {
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent);
+      color: ${kiosaTheme.colors.success};
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 10%, transparent);
+    }
+    
+    .kiosa-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    
+    .kiosa-stat-card {
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 14px;
+      text-align: left;
+      transition: border-color 150ms ease, background 150ms ease;
+    }
+    
+    .kiosa-stat-card:hover {
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: color-mix(in srgb, ${accentHex} 5%, ${kiosaTheme.colors.backgroundSecondary});
+    }
+    
+    .kiosa-stat-value {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: 4px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .kiosa-stat-label {
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+    
+    .kiosa-section {
+      margin-bottom: 22px;
+    }
+    
+    .kiosa-section-title {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 18px;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+      color: ${kiosaTheme.colors.textPrimary};
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 10px;
     }
     
-    .section-title::after {
+    .kiosa-section-title::after {
       content: '';
       flex: 1;
       height: 1px;
-      background: rgba(255, 255, 255, 0.1);
+      background: ${kiosaTheme.colors.border};
     }
     
-    .duty-list {
+    .kiosa-duty-list {
       display: grid;
-      gap: 1rem;
+      gap: 10px;
     }
     
-    .duty-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 4px;
-      padding: 1.5rem;
-      transition: all 0.3s;
+    .kiosa-duty-card {
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 14px;
+      transition: border-color 150ms ease, background 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     
-    .duty-card:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.04);
-      transform: translateY(-2px);
+    .kiosa-duty-card:hover {
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
     
-    .duty-name {
-      font-size: 1.2rem;
-      font-weight: 500;
-      color: #ffffff;
-      margin-bottom: 1rem;
-      letter-spacing: -0.01em;
+    .kiosa-duty-name {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: 10px;
     }
     
-    .duty-details {
+    .kiosa-duty-details {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin-top: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
     }
     
-    .detail-item {
+    .kiosa-detail-item {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 8px;
       flex-wrap: wrap;
     }
     
-    .detail-label {
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 0.75rem;
+    .kiosa-detail-label {
+      font-weight: 600;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+    
+    .kiosa-detail-value {
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+    
+    .kiosa-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-size: 9px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-    }
-    
-    .detail-value {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 0.875rem;
-      font-family: 'Agave', monospace;
-    }
-    
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 2px;
-      font-size: 0.7rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
       border: 1px solid;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     
-    .badge.schedule {
-      background: rgba(25, 118, 210, 0.1);
-      border-color: rgba(25, 118, 210, 0.3);
-      color: #64b5f6;
+    .kiosa-badge.schedule {
+      border-color: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.amber} 50%, transparent);
+      color: ${kiosaVisualTokens.colors.accents.amber};
+      background: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.amber} 10%, transparent);
     }
     
-    .badge.watch {
-      background: rgba(123, 31, 162, 0.1);
-      border-color: rgba(123, 31, 162, 0.3);
-      color: #ba68c8;
+    .kiosa-badge.watch {
+      border-color: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.violet} 50%, transparent);
+      color: ${kiosaVisualTokens.colors.accents.violet};
+      background: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.violet} 10%, transparent);
     }
     
-    .badge.webhook {
-      background: rgba(56, 142, 60, 0.1);
-      border-color: rgba(56, 142, 60, 0.3);
-      color: #81c784;
+    .kiosa-badge.webhook {
+      border-color: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.teal} 50%, transparent);
+      color: ${kiosaVisualTokens.colors.accents.teal};
+      background: color-mix(in srgb, ${kiosaVisualTokens.colors.accents.teal} 10%, transparent);
     }
     
-    .no-dutys {
+    .kiosa-no-dutys {
       text-align: center;
-      padding: 3rem;
-      color: rgba(255, 255, 255, 0.3);
-      font-style: italic;
+      padding: 22px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     
-    .refresh-btn {
+    .kiosa-refresh-btn {
       position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.7);
-      border-radius: 50%;
-      width: 56px;
-      height: 56px;
-      font-size: 1.5rem;
+      bottom: 22px;
+      right: 22px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: 3px;
+      width: 40px;
+      height: 40px;
+      font-size: 14px;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     
-    .refresh-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: scale(1.05) rotate(90deg);
+    .kiosa-refresh-btn:hover {
+      background: color-mix(in srgb, ${accentHex} 15%, transparent);
+      border-color: ${accentHex};
+      color: ${accentHex};
     }
     
-    .refresh-btn:disabled {
+    .kiosa-refresh-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
     
-    .info-grid {
+    .kiosa-info-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1rem;
-      margin-bottom: 3rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
     }
     
-    .info-item {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-left: 2px solid rgba(255, 255, 255, 0.2);
-      padding: 1.25rem;
-      border-radius: 4px;
+    .kiosa-info-item {
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-left: 2px solid ${accentHex};
+      padding: 12px;
+      border-radius: 3px;
     }
     
-    .info-label {
-      font-size: 0.75rem;
-      color: rgba(255, 255, 255, 0.4);
+    .kiosa-info-label {
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
+      letter-spacing: 0.14em;
+      margin-bottom: 6px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
     
-    .info-value {
+    .kiosa-info-value {
       font-size: 1.1rem;
-      color: #ffffff;
-      font-weight: 400;
-      font-family: 'Agave', monospace;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-weight: 600;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-variant-numeric: tabular-nums;
     }
     
     @media (max-width: 768px) {
-      .container {
-        padding: 2rem 1.5rem;
+      .kiosa-container {
+        padding: 14px;
       }
       
-      .stats-grid {
+      .kiosa-stats-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -2133,68 +2081,60 @@ export class DutyRegistry {
       };
       
       return React.createElement('div', null,
-        React.createElement('div', { className: 'header' },
-          React.createElement('a', { href: '/', className: 'header-home', 'aria-label': 'Home', dangerouslySetInnerHTML: { __html: homeIconSvg } }),
-          React.createElement('h1', null, 'Ronin Status'),
-          React.createElement('div', { className: 'header-meta' },
-            React.createElement('div', { 
-              className: \`status-badge \${data.running ? 'running' : ''}\`
-            }, data.running ? '🟢 Running' : '🔴 Stopped')
-          )
-        ),
-        React.createElement('div', { className: 'container' },
-          React.createElement('div', { className: 'info-grid' },
-            React.createElement('div', { className: 'info-item' },
-              React.createElement('div', { className: 'info-label' }, 'Port'),
-              React.createElement('div', { className: 'info-value' }, data.port)
+        React.createElement('div', { dangerouslySetInnerHTML: { __html: ${JSON.stringify(getKiosaTopbarHTML({ title: "RONIN", subtitle: "STATUS / RUNTIME", accent, chips: [], rightMeta: "AUTO-REFRESH 5S" }))} } }),
+        React.createElement('div', { className: 'kiosa-container' },
+          React.createElement('div', { className: 'kiosa-info-grid' },
+            React.createElement('div', { className: 'kiosa-info-item' },
+              React.createElement('div', { className: 'kiosa-info-label' }, 'Port'),
+              React.createElement('div', { className: 'kiosa-info-value' }, data.port)
             ),
-            React.createElement('div', { className: 'info-item' },
-              React.createElement('div', { className: 'info-label' }, 'Process ID'),
-              React.createElement('div', { className: 'info-value' }, data.pid)
+            React.createElement('div', { className: 'kiosa-info-item' },
+              React.createElement('div', { className: 'kiosa-info-label' }, 'Process ID'),
+              React.createElement('div', { className: 'kiosa-info-value' }, data.pid)
             ),
-            React.createElement('div', { className: 'info-item' },
-              React.createElement('div', { className: 'info-label' }, 'Uptime'),
-              React.createElement('div', { className: 'info-value' }, formatUptime(data.uptime))
+            React.createElement('div', { className: 'kiosa-info-item' },
+              React.createElement('div', { className: 'kiosa-info-label' }, 'Uptime'),
+              React.createElement('div', { className: 'kiosa-info-value' }, formatUptime(data.uptime))
             )
           ),
-          React.createElement('div', { className: 'stats-grid' },
-            React.createElement('div', { className: 'stat-card' },
-              React.createElement('div', { className: 'stat-value' }, data.totalDuties),
-              React.createElement('div', { className: 'stat-label' }, 'Total Duties')
+          React.createElement('div', { className: 'kiosa-stats-grid' },
+            React.createElement('div', { className: 'kiosa-stat-card' },
+              React.createElement('div', { className: 'kiosa-stat-value' }, data.totalDuties),
+              React.createElement('div', { className: 'kiosa-stat-label' }, 'Total Duties')
             ),
-            React.createElement('div', { className: 'stat-card' },
-              React.createElement('div', { className: 'stat-value' }, data.scheduledDuties),
-              React.createElement('div', { className: 'stat-label' }, 'Scheduled')
+            React.createElement('div', { className: 'kiosa-stat-card' },
+              React.createElement('div', { className: 'kiosa-stat-value' }, data.scheduledDuties),
+              React.createElement('div', { className: 'kiosa-stat-label' }, 'Scheduled')
             ),
-            React.createElement('div', { className: 'stat-card' },
-              React.createElement('div', { className: 'stat-value' }, data.watchedDuties),
-              React.createElement('div', { className: 'stat-label' }, 'File Watchers')
+            React.createElement('div', { className: 'kiosa-stat-card' },
+              React.createElement('div', { className: 'kiosa-stat-value' }, data.watchedDuties),
+              React.createElement('div', { className: 'kiosa-stat-label' }, 'File Watchers')
             ),
-            React.createElement('div', { className: 'stat-card' },
-              React.createElement('div', { className: 'stat-value' }, data.webhookDuties),
-              React.createElement('div', { className: 'stat-label' }, 'Webhooks')
+            React.createElement('div', { className: 'kiosa-stat-card' },
+              React.createElement('div', { className: 'kiosa-stat-value' }, data.webhookDuties),
+              React.createElement('div', { className: 'kiosa-stat-label' }, 'Webhooks')
             )
           ),
-          React.createElement('div', { className: 'section' },
-            React.createElement('h2', { className: 'section-title' }, 'Duties'),
+          React.createElement('div', { className: 'kiosa-section' },
+            React.createElement('h2', { className: 'kiosa-section-title' }, 'DUTIES'),
             data.dutys.length === 0 
-              ? React.createElement('div', { className: 'no-dutys' }, 'No dutys registered')
-              : React.createElement('div', { className: 'duty-list' },
+              ? React.createElement('div', { className: 'kiosa-no-dutys' }, 'No dutys registered')
+              : React.createElement('div', { className: 'kiosa-duty-list' },
                   data.dutys.map(duty => 
-                    React.createElement('div', { key: duty.name, className: 'duty-card' },
-                      React.createElement('div', { className: 'duty-name' }, duty.name),
-                      React.createElement('div', { className: 'duty-details' },
-                        duty.schedule && React.createElement('div', { className: 'detail-item' },
-                          React.createElement('span', { className: 'badge schedule' }, 'Schedule'),
-                          React.createElement('span', { className: 'detail-value' }, duty.schedule)
+                    React.createElement('div', { key: duty.name, className: 'kiosa-duty-card' },
+                      React.createElement('div', { className: 'kiosa-duty-name' }, duty.name),
+                      React.createElement('div', { className: 'kiosa-duty-details' },
+                        duty.schedule && React.createElement('div', { className: 'kiosa-detail-item' },
+                          React.createElement('span', { className: 'kiosa-badge schedule' }, 'Schedule'),
+                          React.createElement('span', { className: 'kiosa-detail-value' }, duty.schedule)
                         ),
-                        duty.watch && duty.watch.length > 0 && React.createElement('div', { className: 'detail-item' },
-                          React.createElement('span', { className: 'badge watch' }, 'Watching'),
-                          React.createElement('span', { className: 'detail-value' }, duty.watch.join(', '))
+                        duty.watch && duty.watch.length > 0 && React.createElement('div', { className: 'kiosa-detail-item' },
+                          React.createElement('span', { className: 'kiosa-badge watch' }, 'Watching'),
+                          React.createElement('span', { className: 'kiosa-detail-value' }, duty.watch.join(', '))
                         ),
-                        duty.webhook && React.createElement('div', { className: 'detail-item' },
-                          React.createElement('span', { className: 'badge webhook' }, 'Webhook'),
-                          React.createElement('span', { className: 'detail-value' }, duty.webhook)
+                        duty.webhook && React.createElement('div', { className: 'kiosa-detail-item' },
+                          React.createElement('span', { className: 'kiosa-badge webhook' }, 'Webhook'),
+                          React.createElement('span', { className: 'kiosa-detail-value' }, duty.webhook)
                         )
                       )
                     )
@@ -2203,11 +2143,11 @@ export class DutyRegistry {
           )
         ),
         React.createElement('button', {
-          className: 'refresh-btn',
+          className: 'kiosa-refresh-btn',
           onClick: refresh,
           disabled: loading,
           title: 'Refresh Status'
-        }, loading ? '⏳' : '🔄')
+        }, loading ? '⧗' : '↻')
       );
     }
     

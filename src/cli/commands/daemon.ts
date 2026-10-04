@@ -39,10 +39,10 @@ export async function daemonStartCommand(): Promise<void> {
   }
 
   console.log("Starting Ronin daemon...");
-  // Use the same executable and script path
+  // Use the same executable and script path (quoted: either may contain spaces)
   const scriptPath = process.argv[1];
   const execPath = process.execPath;
-  execSync(`${execPath} ${scriptPath} start --daemon`, {
+  execSync(`"${execPath}" "${scriptPath}" start --daemon`, {
     stdio: "inherit",
     cwd: process.cwd(),
   });

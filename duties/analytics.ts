@@ -13,7 +13,8 @@ import type {
   AIStreamEvent,
   AIToolCallEvent,
 } from "../src/tools/types.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /**
  * Ring buffer that keeps the last N items in memory.
@@ -746,6 +747,8 @@ export default class AnalyticsAgent extends BaseDuty {
   // ──────────────────────────────────────────────
 
   private handleDashboard(_req: Request): Response {
+    const accent = getKiosaAccentForPath("/analytics");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -753,98 +756,105 @@ export default class AnalyticsAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Analytics</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  ${getKiosaHeadHTML(accent)}
+  ${getAdobeCleanFontFaceCSS()}
+  ${getThemeCSS(kiosaTheme)}
+  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+  ${getKiosaTopbarCSS()}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
-
     body {
       min-height: 100vh;
       padding: 0;
-      font-size: 0.8125rem;
+      font-size: 13px;
     }
 
     .container {
       max-width: 1400px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     /* Overview cards */
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.xl};
+      gap: ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.xl};
     }
 
     .stat-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
-      transition: all 0.3s;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .stat-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .stat-card .label {
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.6875rem;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: ${hankoTheme.spacing.xs};
+      letter-spacing: 0.1em;
+      margin-bottom: ${kiosaTheme.spacing.sm};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .stat-card .value {
       font-size: 1.75rem;
-      font-weight: 300;
-      color: ${hankoTheme.colors.textPrimary};
+      font-weight: 700;
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .stat-card .sub {
-      font-size: 0.6875rem;
-      color: ${hankoTheme.colors.textTertiary};
-      margin-top: ${hankoTheme.spacing.xs};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-top: ${kiosaTheme.spacing.xs};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     /* Sections */
     .section {
-      margin-bottom: ${hankoTheme.spacing.xl};
+      margin-bottom: ${kiosaTheme.spacing.xl};
     }
 
     .section-title {
-      font-size: 0.9375rem;
-      font-weight: 300;
-      margin-bottom: ${hankoTheme.spacing.md};
-      padding-bottom: ${hankoTheme.spacing.sm};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: ${kiosaTheme.spacing.md};
+      padding-bottom: ${kiosaTheme.spacing.sm};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
 
     /* Charts grid */
     .charts-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.xl};
+      gap: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.xl};
     }
 
     .chart-box {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .chart-box h3 {
-      font-size: 0.8125rem;
-      font-weight: 400;
-      margin-bottom: ${hankoTheme.spacing.md};
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: ${kiosaTheme.spacing.md};
+      color: ${kiosaTheme.colors.textSecondary};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .chart-box canvas {
@@ -856,98 +866,108 @@ export default class AnalyticsAgent extends BaseDuty {
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.8125rem;
+      font-size: 12px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     th {
       text-align: left;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      color: ${hankoTheme.colors.textTertiary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textTertiary};
       font-weight: 400;
-      font-size: 0.6875rem;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
 
     td {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     tr:hover td {
-      background: ${hankoTheme.colors.backgroundTertiary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     /* Status badges */
     .badge {
       display: inline-block;
       padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.6875rem;
+      border-radius: 2px;
+      font-size: 10px;
       font-weight: 400;
+      font-family: ${kiosaTheme.fonts.mono};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     .badge-active {
-      background: rgba(40, 167, 69, 0.15);
-      color: ${hankoTheme.colors.success};
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 15%, transparent);
+      color: ${kiosaTheme.colors.success};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 40%, transparent);
     }
 
     .badge-idle {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textTertiary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .badge-error {
-      background: rgba(220, 53, 69, 0.15);
-      color: ${hankoTheme.colors.error};
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 15%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
     }
 
     /* Metrics panel */
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
 
     .metric-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
     }
 
     .metric-card .metric-label {
-      font-size: 0.6875rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.1em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .metric-card .metric-agent {
-      font-size: 0.625rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .metric-card .metric-value {
       font-size: 1.375rem;
-      font-weight: 300;
-      margin-top: ${hankoTheme.spacing.xs};
+      font-weight: 700;
+      margin-top: ${kiosaTheme.spacing.xs};
     }
 
     .empty-state {
       text-align: center;
-      padding: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.8125rem;
+      padding: ${kiosaTheme.spacing.xl};
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 12px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .error-text {
-      color: ${hankoTheme.colors.error};
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem;
+      color: ${kiosaTheme.colors.error};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
       word-break: break-all;
     }
 
@@ -958,14 +978,7 @@ export default class AnalyticsAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>Ronin Analytics</h1>
-    <div class="header-meta">
-      <span id="last-updated">Loading...</span>
-      <span>Auto-refresh: 30s</span>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ANALYTICS / DASHBOARD", accent, chips: [`<b>AUTO-REFRESH</b> 30S`] })}
 
   <div class="container">
     <!-- Overview Cards -->
@@ -1071,6 +1084,8 @@ export default class AnalyticsAgent extends BaseDuty {
       </table>
       <div id="ai-usage-empty" class="empty-state" style="display:none">No AI calls recorded yet.</div>
     </div>
+
+    ${getKiosaFooterHTML("RONIN · ANALYTICS", "ONLINE · V0.1")}
   </div>
 
   <script>

@@ -39,6 +39,7 @@ import { join, dirname } from "path";
 import { setLogLevel, LogLevel } from "../utils/logger.js";
 import { fileURLToPath } from "url";
 import { getArg, getCommandHelp, parseGlobalOptions, stripFlags } from "./shared.js";
+import { getRunningInstancePid, releaseInstanceLock, INSTANCE_PID_PATH, AlreadyRunningError } from "./instanceLock.js";
 
 // Ensure MCP-spawned binaries (npx, etc.) resolve regardless of launcher env.
 // LaunchAgents/GUI contexts often carry a minimal PATH; without this the MCP
@@ -50,28 +51,32 @@ import { getArg, getCommandHelp, parseGlobalOptions, stripFlags } from "./shared
   process.env.PATH = cur.join(":");
 }
 
-// Commands that require being in the ronin directory
+// Commands that must operate within the Ronin installation directory.
+// The CLI resolves roninProjectRoot from the script's own location, so these
+// work from any working directory — we just verify the project root is sane.
 const COMMANDS_REQUIRING_RONIN_DIR = new Set(["start", "restart", "run", "interactive", "i", "create", "client"]);
-
-// Check if we're in the ronin directory (has package.json with name "ronin")
-function isInRoninDir(): boolean {
-  const packageJsonPath = join(process.cwd(), "package.json");
-  if (!existsSync(packageJsonPath)) return false;
-
-  try {
-    const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-    return pkg.name === "ronin";
-  } catch {
-    return false;
-  }
-}
 
 function checkRoninDir(command: string | undefined, args: string[]): void {
   const daemonStartsServer = command === "daemon" && (args[0] === "start" || args[0] === "restart");
-  if ((COMMANDS_REQUIRING_RONIN_DIR.has(command ?? "") || daemonStartsServer) && !isInRoninDir()) {
-    console.error("❌ This command must be run from the Ronin installation directory");
-    console.error(`   cd ${roninProjectRoot}`);
-    console.error(`   ronin ${command} ${process.argv.slice(3).join(" ")}`);
+  if (!COMMANDS_REQUIRING_RONIN_DIR.has(command ?? "") && !daemonStartsServer) return;
+
+  const pkgPath = join(roninProjectRoot, "package.json");
+  if (!existsSync(pkgPath)) {
+    console.error("❌ Could not locate Ronin installation directory");
+    console.error(`   Expected package.json at ${pkgPath}`);
+    process.exit(1);
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    if (pkg.name !== "ronin") {
+      console.error("❌ Located directory does not contain the Ronin project");
+      console.error(`   ${pkgPath} has name "${pkg.name}", expected "ronin"`);
+      process.exit(1);
+    }
+  } catch {
+    console.error("❌ Could not read Ronin package.json");
+    console.error(`   ${pkgPath} is missing or malformed`);
     process.exit(1);
   }
 }
@@ -146,14 +151,19 @@ function isReadOnlyCommand(cmd: string | undefined, a: string[]): boolean {
 }
 
 async function main() {
+  // Check directory for commands that require it before changing cwd.
+  checkRoninDir(command, args);
+
+  // Now that we know roninProjectRoot is valid, anchor all relative paths
+  // (duties/, plugins/, contracts/, etc.) to the Ronin installation directory
+  // rather than wherever the user happened to invoke the CLI.
+  process.chdir(roninProjectRoot);
+
   // Read-only commands must never start the server and should run quietly (no plugin/duty init logs)
   if (isReadOnlyCommand(command, args)) {
     process.env.RONIN_READ_ONLY = "1";
     process.env.RONIN_QUIET = "1";
   }
-
-  // Check directory for commands that require it
-  checkRoninDir(command, args);
 
   // Initialize guidelines early
   const { initializeGuidelines } = await import("../guidelines/index.js");
@@ -260,7 +270,7 @@ async function main() {
       break;
 
     case "daemon":
-      await daemonCommand(args.slice(1));
+      await daemonCommand(args);
       break;
 
     case "create":

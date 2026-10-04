@@ -5,7 +5,8 @@ import type { TunnelConfig } from "../plugins/cloudflare/src/types.js";
 import { renderQrSvg } from "../plugins/cloudflare/src/qr.js";
 import { QuickTunnel } from "../plugins/cloudflare/src/QuickTunnel.js";
 import { getOrCreateRouteToken, isLocalRequest } from "../plugins/cloudflare/src/routeToken.js";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "@ronin/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -110,6 +111,8 @@ export default class CloudflareConnectAgent extends BaseDuty {
         <div class="connect-meta">Make sure <code>cloudflared</code> is installed (macOS: <code>brew install cloudflared</code>), then reload this page.</div>
       `;
 
+    const accent = getKiosaAccentForPath("/connect");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -117,56 +120,52 @@ export default class CloudflareConnectAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connect - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 480px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
       text-align: center;
     }
 
     .connect-url {
-      font-family: ${hankoTheme.fonts.mono};
+      font-family: ${kiosaTheme.fonts.mono};
       font-size: 0.8125rem;
-      color: ${hankoTheme.colors.link};
+      color: ${kiosaTheme.colors.link};
       word-break: break-all;
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .connect-qr {
       background: #fff;
       display: inline-block;
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: ${kiosaTheme.borderRadius.md};
     }
     .connect-qr svg { display: block; width: 260px; height: 260px; }
 
     .connect-meta {
-      margin-top: ${hankoTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.md};
       font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .empty-state {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
       font-size: 0.875rem;
-      padding: ${hankoTheme.spacing.lg} 0 ${hankoTheme.spacing.sm};
+      padding: ${kiosaTheme.spacing.lg} 0 ${kiosaTheme.spacing.sm};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>📱 Connect</h1>
-    <div class="header-meta">
-      <span>Scan to open Ronin's dashboard on your phone</span>
-    </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CONNECT", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

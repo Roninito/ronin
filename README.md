@@ -745,6 +745,20 @@ launchctl start com.ronin   # Start
 launchctl unload ~/Library/LaunchAgents/com.ronin.plist  # Remove
 ```
 
+### Disabling auto-start (without deleting the plist)
+
+The plist files are still on disk after `launchctl unload` — they're just no longer being managed by launchd. To re-enable either auto-start in the future without recreating the file:
+
+```bash
+# Re-enable the desktop-mode server (runs `ronin start --desktop` at login):
+launchctl load ~/Library/LaunchAgents/ai.ronin.desktop.plist
+
+# Re-enable the menu bar app:
+launchctl load ~/Library/LaunchAgents/com.roninito.ronintray.plist
+```
+
+To start the server manually now (without launchd managing it), just run `ronin start` in a terminal — and `ronin kill` to stop it.
+
 ### Windows (NSSM - Non-Sucking Service Manager)
 
 1. **Download and install NSSM:**

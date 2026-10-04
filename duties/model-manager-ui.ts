@@ -8,7 +8,8 @@
 import { BaseDuty } from "@ronin/duty/index.js";
 import type { DutyAPI } from "@ronin/types/index.js";
 import type { ModelRegistry, ModelConfig } from "@ronin/types/model.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { hankoTheme, kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 export default class ModelManagerUIAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -38,6 +39,8 @@ export default class ModelManagerUIAgent extends BaseDuty {
   }
 
   private async handleDashboard(): Promise<Response> {
+    const accent = getKiosaAccentForPath("/models/manage");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `
 <!DOCTYPE html>
 <html>
@@ -45,78 +48,77 @@ export default class ModelManagerUIAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Model Manager - Ronin</title>
+  ${getKiosaHeadHTML(accent)}
   <style>
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
-    body {
-      min-height: 100vh;
-      margin: 0;
-      padding: 0;
-    }
+    body { min-height: 100vh; margin: 0; }
 
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: 22px;
     }
 
     .provider-section {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      margin-bottom: 10px;
       overflow: hidden;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: border-color 150ms ease, background 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .provider-section:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: color-mix(in srgb, ${accentHex} 4%, ${kiosaTheme.colors.backgroundSecondary});
     }
 
     .provider-header {
-      background: linear-gradient(135deg, ${hankoTheme.colors.backgroundTertiary}, ${hankoTheme.colors.backgroundSecondary});
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      padding: 10px 14px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
       user-select: none;
-      transition: all 0.2s;
+      transition: background 150ms ease;
     }
 
     .provider-header:hover {
-      background: linear-gradient(135deg, ${hankoTheme.colors.backgroundTertiary}, ${hankoTheme.colors.accent});
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
     }
 
     .provider-header h2 {
-      font-size: 1.1rem;
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 16px;
       margin: 0;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      color: ${hankoTheme.colors.textPrimary};
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .provider-header .info {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-weight: 300;
+      letter-spacing: 0.12em;
+      margin-top: 3px;
     }
 
     .provider-header .toggle {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textSecondary};
-      transition: transform 0.3s;
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
     }
 
     .provider-content {
-      padding: ${hankoTheme.spacing.lg};
+      padding: 14px;
       display: none;
     }
 
@@ -126,93 +128,109 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .models-list {
       display: grid;
-      gap: ${hankoTheme.spacing.md};
+      gap: 10px;
     }
 
     .model-card {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 10px;
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .model-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.accent};
-      transform: translateY(-2px);
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+      background: color-mix(in srgb, ${accentHex} 5%, transparent);
     }
 
     .model-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: 10px;
+      gap: 8px;
     }
 
     .model-info h3 {
-      font-size: 0.95rem;
-      margin: 0 0 ${hankoTheme.spacing.xs} 0;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      color: ${hankoTheme.colors.textPrimary};
+      font-size: 12px;
+      margin: 0 0 4px 0;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .model-nametag {
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.link};
-      padding: 2px 8px;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem;
+      background: transparent;
+      color: ${accentHex};
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 9px;
       display: inline-block;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid color-mix(in srgb, ${accentHex} 35%, transparent);
     }
 
     .model-actions {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
+      gap: 6px;
+      flex-wrap: wrap;
     }
 
     .btn {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 3px 8px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.8125rem;
-      font-family: ${hankoTheme.fonts.primary};
-      font-weight: 400;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 9px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
       white-space: nowrap;
     }
 
     .btn:hover:not(:disabled) {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
-      transform: translateY(-1px);
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .btn-danger {
-      border-color: ${hankoTheme.colors.error};
-      color: ${hankoTheme.colors.error};
+      border-color: ${kiosaTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
     }
 
     .btn-danger:hover {
-      background: rgba(220, 53, 69, 0.1);
-      border-color: ${hankoTheme.colors.error};
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 15%, transparent);
+    }
+
+    .btn-primary {
+      border-color: ${accentHex};
+      color: ${accentHex};
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+    }
+
+    .btn-primary:hover {
+      background: ${accentHex};
+      color: ${kiosaTheme.colors.background};
     }
 
     .settings {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: ${hankoTheme.spacing.md};
-      margin-top: ${hankoTheme.spacing.md};
-      padding-top: ${hankoTheme.spacing.md};
-      border-top: 1px solid ${hankoTheme.colors.border};
-      font-size: 0.8125rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid ${kiosaTheme.colors.border};
+      font-size: 10px;
     }
 
     .setting {
@@ -221,17 +239,17 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .setting label {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 9px;
+      color: ${kiosaTheme.colors.textTertiary};
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: ${hankoTheme.spacing.xs};
-      font-weight: 500;
+      letter-spacing: 0.12em;
+      margin-bottom: 3px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .setting span {
-      color: ${hankoTheme.colors.textSecondary};
-      font-family: ${hankoTheme.fonts.mono};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
       line-height: 1.4;
     }
 
@@ -243,7 +261,6 @@ export default class ModelManagerUIAgent extends BaseDuty {
       right: 0;
       bottom: 0;
       background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(4px);
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -254,19 +271,19 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .modal-content {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.xl};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 20px;
       max-width: 500px;
       width: 90%;
       max-height: 85vh;
       overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .modal-header {
-      margin-bottom: ${hankoTheme.spacing.lg};
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -274,17 +291,19 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .modal-header h3 {
       margin: 0;
-      font-size: 1.1rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      color: ${hankoTheme.colors.textPrimary};
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .modal-close {
       background: none;
       border: none;
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 1.5rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 18px;
       cursor: pointer;
       padding: 0;
       width: 24px;
@@ -292,107 +311,112 @@ export default class ModelManagerUIAgent extends BaseDuty {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: color 0.2s;
+      transition: color 150ms ease;
     }
 
     .modal-close:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .form-group {
-      margin-bottom: ${hankoTheme.spacing.lg};
+      margin-bottom: 14px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${hankoTheme.spacing.sm};
-      font-weight: 400;
-      font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textPrimary};
-      letter-spacing: -0.01em;
+      margin-bottom: 5px;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
-    .form-group input {
+    .form-group input, .form-group select {
       width: 100%;
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      border-radius: ${hankoTheme.borderRadius.md};
-      font-family: ${hankoTheme.fonts.primary};
-      font-size: 0.875rem;
-      transition: all 0.3s;
+      padding: 8px;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+      box-sizing: border-box;
     }
 
-    .form-group input:focus {
+    .form-group input:focus, .form-group select:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.link};
-      background: ${hankoTheme.colors.background};
-      box-shadow: 0 0 0 2px rgba(132, 204, 22, 0.1);
+      border-color: ${accentHex};
+      box-shadow: 0 0 8px color-mix(in srgb, ${accentHex} 25%, transparent);
     }
 
     .form-group input::placeholder {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
 
     .modal-actions {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
+      gap: 10px;
       justify-content: flex-end;
-      margin-top: ${hankoTheme.spacing.lg};
-      padding-top: ${hankoTheme.spacing.lg};
-      border-top: 1px solid ${hankoTheme.colors.border};
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid ${kiosaTheme.colors.border};
     }
 
     .modal-actions .btn {
-      min-width: 100px;
+      min-width: 90px;
     }
 
     .provider-empty {
-      color: ${hankoTheme.colors.textTertiary};
-      padding: ${hankoTheme.spacing.lg};
+      color: ${kiosaTheme.colors.textTertiary};
+      padding: 20px;
       text-align: center;
-      font-size: 0.875rem;
-      font-style: italic;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     #providers-container {
-      margin-top: ${hankoTheme.spacing.lg};
+      margin-top: 14px;
     }
 
     .loading {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.875rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .tabs {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.lg};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      padding-bottom: ${hankoTheme.spacing.md};
+      gap: 8px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      padding-bottom: 10px;
     }
 
     .tab-button {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: none;
-      border: none;
-      color: ${hankoTheme.colors.textSecondary};
+      padding: 5px 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: ${kiosaTheme.colors.textSecondary};
       cursor: pointer;
-      font-size: 0.9rem;
-      font-family: ${hankoTheme.fonts.primary};
-      transition: all 0.2s;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -${hankoTheme.spacing.md};
+      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+      border-radius: 2px;
     }
 
     .tab-button.active {
-      color: ${hankoTheme.colors.link};
-      border-bottom-color: ${hankoTheme.colors.link};
+      color: ${accentHex};
+      border-color: ${accentHex};
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
     }
 
     .tab-button:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .tab-content {
@@ -405,36 +429,40 @@ export default class ModelManagerUIAgent extends BaseDuty {
 
     .provider-list {
       display: grid;
-      gap: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
     .provider-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: 14px;
+      transition: border-color 150ms ease, background 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .provider-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .provider-card h3 {
-      margin: 0 0 ${hankoTheme.spacing.md} 0;
-      font-size: 1.05rem;
-      font-weight: 400;
-      color: ${hankoTheme.colors.textPrimary};
+      margin: 0 0 10px 0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .provider-info {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.md};
-      font-size: 0.8125rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 10px;
     }
 
     .provider-info-item {
@@ -443,51 +471,48 @@ export default class ModelManagerUIAgent extends BaseDuty {
     }
 
     .provider-info-item label {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-size: 0.75rem;
-      margin-bottom: ${hankoTheme.spacing.xs};
+      letter-spacing: 0.12em;
+      font-size: 9px;
+      margin-bottom: 3px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .provider-info-item span {
-      color: ${hankoTheme.colors.textSecondary};
-      font-family: ${hankoTheme.fonts.mono};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
       word-break: break-all;
     }
 
     .provider-actions {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .add-button {
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.link};
-      color: ${hankoTheme.colors.link};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 6px 10px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border: 1px solid ${accentHex};
+      color: ${accentHex};
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.875rem;
-      font-family: ${hankoTheme.fonts.primary};
-      font-weight: 400;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background 150ms ease, color 150ms ease;
     }
 
     .add-button:hover {
-      background: ${hankoTheme.colors.link};
-      color: ${hankoTheme.colors.background};
+      background: ${accentHex};
+      color: ${kiosaTheme.colors.background};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>Model Manager</h1>
-    <div class="header-meta">
-      <a href="/models" style="color: ${hankoTheme.colors.link}; text-decoration: none;">← Back to Dashboard</a>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "MODELS / MANAGE", accent, chips: [], tabs: [{ label: "SELECT", href: "/models" }, { label: "MANAGE", href: "/models/manage", active: true }] })}
 
   <div class="page-content">
     <div class="tabs">
@@ -507,7 +532,7 @@ export default class ModelManagerUIAgent extends BaseDuty {
         <p class="loading">Loading providers...</p>
       </div>
     </div>
-
+    ${getKiosaFooterHTML("RONIN · MODEL MANAGER", "MODEL REGISTRY · V0.1")}
     </div>
 
   <div id="edit-modal" class="modal">

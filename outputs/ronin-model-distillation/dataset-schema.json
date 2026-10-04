@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ronin Manager Training Sample",
+  "description": "JSONL schema for distilling/fine-tuning a small on-device model for Ronin tool/event processing.",
+  "type": "object",
+  "required": ["conversation_id", "system", "messages", "metadata"],
+  "properties": {
+    "conversation_id": {
+      "type": "string",
+      "description": "Stable identifier for this multi-turn trace."
+    },
+    "system": {
+      "type": "string",
+      "description": "System prompt that establishes the Ronin Manager persona, tool grammar, and policy."
+    },
+    "tools": {
+      "type": "array",
+      "description": "OpenAI-compatible tool schemas available in this conversation (optional but recommended).",
+      "items": {
+        "type": "object",
+        "required": ["type", "function"],
+        "properties": {
+          "type": { "type": "string", "enum": ["function"] },
+          "function": {
+            "type": "object",
+            "required": ["name", "description", "parameters"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "parameters": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "description": "Multi-turn conversation. User/assistant/tool/tool_result roles.",
+      "items": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant", "system", "tool", "tool_result"]
+          },
+          "content": { "type": "string" },
+          "tool_calls": {
+            "type": "array",
+            "description": "Tool calls emitted by the assistant (only when role=assistant).",
+            "items": {
+              "type": "object",
+              "required": ["name", "arguments"],
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "arguments": { "type": "object" }
+              }
+            }
+          },
+          "tool_call_id": {
+            "type": "string",
+            "description": "Matches a prior assistant tool_calls[].id (only when role=tool_result)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Tool name for the result message (only when role=tool_result)."
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["source", "domain"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["synthetic", "golden", "secondbrain"]
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "tool-selection",
+            "tool-arguments",
+            "event-response",
+            "executor-routing",
+            "policy-check",
+            "memory-grounding",
+            "duty-lifecycle",
+            "mcp-tool",
+            "skill-invocation"
+          ]
+        },
+        "tool_names": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "duty_name": { "type": "string" },
+        "difficulty": {
+          "type": "string",
+          "enum": ["easy", "medium", "hard"]
+        }
+      }
+    }
+  }
+}

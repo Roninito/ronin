@@ -156,8 +156,8 @@ const elevenlabsPlugin: Plugin = {
           const proc = spawn(playCommand, playArgs, { stdio: ["ignore", "pipe", "pipe"] });
           const timeout = setTimeout(() => {
             proc.kill();
-            reject(new Error("Audio playback timed out after 30 seconds"));
-          }, 30000);
+            reject(new Error("Audio playback timed out after 60 seconds"));
+          }, 60000);
           let stderr = "";
           proc.stderr?.on("data", (data) => {
             stderr += data.toString();

@@ -32,7 +32,8 @@ import { parsePhaseBlocks } from "../src/contract/parser-v2.js";
 import { validateContractPhases } from "../src/contract/phase-compiler.js";
 import { describePhaseChain, formatContractPhasesDsl } from "../src/contract/phase-format.js";
 import type { TriggerConfig, ContractV2Definition, ContractPhase } from "../src/types/shared.js";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
 
 /** Prefix route for /api/contracts/item/<name> and /api/contracts/item/<name>/chat
  *  — a distinct sub-path from /api/contracts/proposals* so it can never collide,
@@ -403,6 +404,8 @@ export default class ContractExecutorAgent extends BaseDuty {
         </div>
       </div>`).join("\n") || `<div class="empty-state">No pending proposals.</div>`;
 
+    const accent = getKiosaAccentForPath("/contracts");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -410,127 +413,123 @@ export default class ContractExecutorAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contracts - Ronin</title>
   <style>
+    ${getKiosaHeadHTML(accent)}
     ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+    ${getThemeCSS(kiosaTheme)}
+    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
+    ${getKiosaTopbarCSS()}
 
     body { padding: 0; margin: 0; }
 
     .page-content {
       max-width: 1280px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
       display: grid;
       grid-template-columns: 340px minmax(0, 1fr);
-      gap: ${hankoTheme.spacing.lg};
+      gap: ${kiosaTheme.spacing.lg};
     }
 
     .section-title {
       font-size: 0.9375rem;
       font-weight: 500;
-      margin: 0 0 ${hankoTheme.spacing.sm};
-      color: ${hankoTheme.colors.textPrimary};
+      margin: 0 0 ${kiosaTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textPrimary};
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .section-title + .section-title { margin-top: ${hankoTheme.spacing.lg}; }
+    .section-title + .section-title { margin-top: ${kiosaTheme.spacing.lg}; }
 
     .btn-new {
       font-size: 0.75rem;
       padding: 4px 10px;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid ${hankoTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
       background: transparent;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
       cursor: pointer;
     }
-    .btn-new:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
+    .btn-new:hover { background: ${kiosaTheme.colors.backgroundTertiary}; }
 
     .contract-item {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin-bottom: ${hankoTheme.spacing.xs};
-      background: ${hankoTheme.colors.backgroundSecondary};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      background: ${kiosaTheme.colors.backgroundSecondary};
       cursor: pointer;
     }
-    .contract-item:hover { border-color: ${hankoTheme.colors.textTertiary}; }
-    .contract-item.selected { border-color: ${hankoTheme.colors.accent}; }
-    .contract-item-main { display: flex; align-items: center; gap: ${hankoTheme.spacing.sm}; margin-bottom: 2px; }
-    .contract-item-detail { font-size: 0.8125rem; color: ${hankoTheme.colors.textSecondary}; }
-    .contract-item-meta { font-size: 0.75rem; color: ${hankoTheme.colors.textTertiary}; margin-top: 2px; }
-    .contract-item-actions { margin-top: ${hankoTheme.spacing.xs}; display: flex; gap: 6px; }
-    .contract-item-actions button { font-size: 0.6875rem; padding: 2px 8px; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border}; background: transparent; color: ${hankoTheme.colors.textSecondary}; cursor: pointer; }
-    .contract-item-actions button:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
-    .contract-item-actions .btn-delete { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error}; }
+    .contract-item:hover { border-color: ${kiosaTheme.colors.textTertiary}; }
+    .contract-item.selected { border-color: ${kiosaTheme.colors.accent}; }
+    .contract-item-main { display: flex; align-items: center; gap: ${kiosaTheme.spacing.sm}; margin-bottom: 2px; }
+    .contract-item-detail { font-size: 0.8125rem; color: ${kiosaTheme.colors.textSecondary}; }
+    .contract-item-meta { font-size: 0.75rem; color: ${kiosaTheme.colors.textTertiary}; margin-top: 2px; }
+    .contract-item-actions { margin-top: ${kiosaTheme.spacing.xs}; display: flex; gap: 6px; }
+    .contract-item-actions button { font-size: 0.6875rem; padding: 2px 8px; border-radius: ${kiosaTheme.borderRadius.sm}; border: 1px solid ${kiosaTheme.colors.border}; background: transparent; color: ${kiosaTheme.colors.textSecondary}; cursor: pointer; }
+    .contract-item-actions button:hover { background: ${kiosaTheme.colors.backgroundTertiary}; }
+    .contract-item-actions .btn-delete { color: ${kiosaTheme.colors.error}; border-color: ${kiosaTheme.colors.error}; }
 
     .contract-status { font-size: 0.6875rem; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
-    .contract-status.enabled { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success}; }
-    .contract-status.disabled { color: ${hankoTheme.colors.textTertiary}; border-color: ${hankoTheme.colors.border}; }
+    .contract-status.enabled { color: ${kiosaTheme.colors.success}; border-color: ${kiosaTheme.colors.success}; }
+    .contract-status.disabled { color: ${kiosaTheme.colors.textTertiary}; border-color: ${kiosaTheme.colors.border}; }
 
-    .empty-state { color: ${hankoTheme.colors.textTertiary}; font-size: 0.8125rem; padding: ${hankoTheme.spacing.md} 0; }
+    .empty-state { color: ${kiosaTheme.colors.textTertiary}; font-size: 0.8125rem; padding: ${kiosaTheme.spacing.md} 0; }
 
     .detail-panel {
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      padding: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.lg};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      padding: ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
-    .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: ${hankoTheme.spacing.sm}; gap: ${hankoTheme.spacing.sm}; }
-    .detail-header input { flex: 1; background: transparent; border: none; color: ${hankoTheme.colors.textPrimary}; font-size: 1rem; font-weight: 500; }
-    .detail-actions { display: flex; gap: ${hankoTheme.spacing.xs}; flex-shrink: 0; }
+    .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: ${kiosaTheme.spacing.sm}; gap: ${kiosaTheme.spacing.sm}; }
+    .detail-header input { flex: 1; background: transparent; border: none; color: ${kiosaTheme.colors.textPrimary}; font-size: 1rem; font-weight: 500; }
+    .detail-actions { display: flex; gap: ${kiosaTheme.spacing.xs}; flex-shrink: 0; }
     .detail-actions button {
-      font-size: 0.75rem; padding: 5px 10px; border-radius: ${hankoTheme.borderRadius.sm};
-      border: 1px solid ${hankoTheme.colors.border}; background: transparent; color: ${hankoTheme.colors.textPrimary}; cursor: pointer;
+      font-size: 0.75rem; padding: 5px 10px; border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border}; background: transparent; color: ${kiosaTheme.colors.textPrimary}; cursor: pointer;
     }
-    .detail-actions button:hover { background: ${hankoTheme.colors.backgroundTertiary}; }
-    .detail-actions .btn-save { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success}; }
-    .detail-actions .btn-delete { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error}; }
+    .detail-actions button:hover { background: ${kiosaTheme.colors.backgroundTertiary}; }
+    .detail-actions .btn-save { color: ${kiosaTheme.colors.success}; border-color: ${kiosaTheme.colors.success}; }
+    .detail-actions .btn-delete { color: ${kiosaTheme.colors.error}; border-color: ${kiosaTheme.colors.error}; }
 
-    .field-row { margin-bottom: ${hankoTheme.spacing.sm}; }
-    .field-row label { display: block; font-size: 0.75rem; color: ${hankoTheme.colors.textTertiary}; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .field-row { margin-bottom: ${kiosaTheme.spacing.sm}; }
+    .field-row label { display: block; font-size: 0.75rem; color: ${kiosaTheme.colors.textTertiary}; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
     .field-row input[type="text"], .field-row select, .field-row textarea {
-      width: 100%; box-sizing: border-box; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary};
-      border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm}; padding: 6px 8px; font-family: inherit; font-size: 0.8125rem;
+      width: 100%; box-sizing: border-box; background: ${kiosaTheme.colors.backgroundTertiary}; color: ${kiosaTheme.colors.textPrimary};
+      border: 1px solid ${kiosaTheme.colors.border}; border-radius: ${kiosaTheme.borderRadius.sm}; padding: 6px 8px; font-family: inherit; font-size: 0.8125rem;
     }
-    .field-row textarea { min-height: 60px; font-family: ${hankoTheme.fonts.mono}; resize: vertical; }
-    .field-row-inline { display: flex; align-items: center; gap: ${hankoTheme.spacing.xs}; }
-    .field-cols { display: grid; grid-template-columns: 1fr 1fr; gap: ${hankoTheme.spacing.sm}; }
+    .field-row textarea { min-height: 60px; font-family: ${kiosaTheme.fonts.mono}; resize: vertical; }
+    .field-row-inline { display: flex; align-items: center; gap: ${kiosaTheme.spacing.xs}; }
+    .field-cols { display: grid; grid-template-columns: 1fr 1fr; gap: ${kiosaTheme.spacing.sm}; }
 
-    .save-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; margin-top: ${hankoTheme.spacing.xs}; min-height: 1.1em; }
+    .save-status { font-size: 0.75rem; color: ${kiosaTheme.colors.textSecondary}; margin-top: ${kiosaTheme.spacing.xs}; min-height: 1.1em; }
 
-    .discuss-panel { border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundSecondary}; padding: ${hankoTheme.spacing.md}; }
-    #discuss-log { max-height: 260px; overflow-y: auto; margin-bottom: ${hankoTheme.spacing.sm}; }
-    .discuss-msg { font-size: 0.8125rem; line-height: 1.5; margin-bottom: ${hankoTheme.spacing.sm}; }
-    .discuss-msg.user { color: ${hankoTheme.colors.textPrimary}; }
-    .discuss-msg.assistant { color: ${hankoTheme.colors.textSecondary}; }
-    .discuss-msg .who { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${hankoTheme.colors.textTertiary}; display: block; margin-bottom: 2px; }
+    .discuss-panel { border: 1px solid ${kiosaTheme.colors.border}; border-radius: ${kiosaTheme.borderRadius.md}; background: ${kiosaTheme.colors.backgroundSecondary}; padding: ${kiosaTheme.spacing.md}; }
+    #discuss-log { max-height: 260px; overflow-y: auto; margin-bottom: ${kiosaTheme.spacing.sm}; }
+    .discuss-msg { font-size: 0.8125rem; line-height: 1.5; margin-bottom: ${kiosaTheme.spacing.sm}; }
+    .discuss-msg.user { color: ${kiosaTheme.colors.textPrimary}; }
+    .discuss-msg.assistant { color: ${kiosaTheme.colors.textSecondary}; }
+    .discuss-msg .who { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: ${kiosaTheme.colors.textTertiary}; display: block; margin-bottom: 2px; }
     .discuss-draft-actions { margin-top: 4px; }
-    .discuss-draft-actions button { font-size: 0.75rem; padding: 3px 9px; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.success}; color: ${hankoTheme.colors.success}; background: transparent; cursor: pointer; }
-    .discuss-input-row { display: flex; gap: ${hankoTheme.spacing.sm}; }
-    .discuss-input-row textarea { flex: 1; min-height: 44px; resize: vertical; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.sm}; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm}; font-family: inherit; font-size: 0.8125rem; }
-    .discuss-input-row button { align-self: flex-end; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border}; background: ${hankoTheme.colors.backgroundTertiary}; color: ${hankoTheme.colors.textPrimary}; cursor: pointer; }
+    .discuss-draft-actions button { font-size: 0.75rem; padding: 3px 9px; border-radius: ${kiosaTheme.borderRadius.sm}; border: 1px solid ${kiosaTheme.colors.success}; color: ${kiosaTheme.colors.success}; background: transparent; cursor: pointer; }
+    .discuss-input-row { display: flex; gap: ${kiosaTheme.spacing.sm}; }
+    .discuss-input-row textarea { flex: 1; min-height: 44px; resize: vertical; background: ${kiosaTheme.colors.backgroundTertiary}; color: ${kiosaTheme.colors.textPrimary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: ${kiosaTheme.borderRadius.sm}; padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.sm}; font-family: inherit; font-size: 0.8125rem; }
+    .discuss-input-row button { align-self: flex-end; padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.md}; border-radius: ${kiosaTheme.borderRadius.sm}; border: 1px solid ${kiosaTheme.colors.border}; background: ${kiosaTheme.colors.backgroundTertiary}; color: ${kiosaTheme.colors.textPrimary}; cursor: pointer; }
 
-    .proposal-card { margin-bottom: ${hankoTheme.spacing.sm}; padding: ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundTertiary}; border: 1px solid ${hankoTheme.colors.border}; }
-    .proposal-card-preview { font-size: 0.8125rem; line-height: 1.6; color: ${hankoTheme.colors.textPrimary}; margin-bottom: ${hankoTheme.spacing.sm}; }
-    .proposal-card-actions { display: flex; gap: ${hankoTheme.spacing.sm}; }
-    .proposal-card-actions button { flex: 1; padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.md}; border-radius: ${hankoTheme.borderRadius.sm}; border: 1px solid ${hankoTheme.colors.border}; background: transparent; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
-    .proposal-card-allow { color: ${hankoTheme.colors.success}; border-color: ${hankoTheme.colors.success} !important; }
-    .proposal-card-refuse { color: ${hankoTheme.colors.error}; border-color: ${hankoTheme.colors.error} !important; }
+    .proposal-card { margin-bottom: ${kiosaTheme.spacing.sm}; padding: ${kiosaTheme.spacing.md}; border-radius: ${kiosaTheme.borderRadius.md}; background: ${kiosaTheme.colors.backgroundTertiary}; border: 1px solid ${kiosaTheme.colors.border}; }
+    .proposal-card-preview { font-size: 0.8125rem; line-height: 1.6; color: ${kiosaTheme.colors.textPrimary}; margin-bottom: ${kiosaTheme.spacing.sm}; }
+    .proposal-card-actions { display: flex; gap: ${kiosaTheme.spacing.sm}; }
+    .proposal-card-actions button { flex: 1; padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.md}; border-radius: ${kiosaTheme.borderRadius.sm}; border: 1px solid ${kiosaTheme.colors.border}; background: transparent; cursor: pointer; font-size: 0.75rem; font-weight: 500; }
+    .proposal-card-allow { color: ${kiosaTheme.colors.success}; border-color: ${kiosaTheme.colors.success} !important; }
+    .proposal-card-refuse { color: ${kiosaTheme.colors.error}; border-color: ${kiosaTheme.colors.error} !important; }
     .proposal-card-actions button:disabled { opacity: 0.5; cursor: default; }
-    .proposal-card-status { font-size: 0.75rem; color: ${hankoTheme.colors.textSecondary}; }
+    .proposal-card-status { font-size: 0.75rem; color: ${kiosaTheme.colors.textSecondary}; }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>📜 Contracts</h1>
-    <div class="header-meta">
-      <span>Event/schedule-triggered automations</span>
-    </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CONTRACTS", accent, chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">
@@ -582,11 +581,11 @@ export default class ContractExecutorAgent extends BaseDuty {
         <div class="field-row" id="f-event-row" style="display:none;">
           <label>Event type</label>
           <input type="text" id="f-event-type" placeholder="dot.separated.event.name" />
-          <div class="field-cols" style="margin-top:${hankoTheme.spacing.xs};">
+          <div class="field-cols" style="margin-top:${kiosaTheme.spacing.xs};">
             <input type="text" id="f-cond-variable" placeholder="condition variable (optional)" />
             <input type="text" id="f-cond-operator" placeholder="== != > >= < <= in contains" />
           </div>
-          <input type="text" id="f-cond-value" placeholder="condition value (optional)" style="margin-top:${hankoTheme.spacing.xs};" />
+          <input type="text" id="f-cond-value" placeholder="condition value (optional)" style="margin-top:${kiosaTheme.spacing.xs};" />
         </div>
 
         <div class="field-row field-row-inline">

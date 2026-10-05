@@ -4,10 +4,11 @@ import ChattyAgent from "../duties/chatty.js";
 
 // Verifies the /chat page's embedded <script> — which contains hand-escaped
 // template-literal JS (extractProposalCards/renderProposalCard/decideProposal,
-// added for the contract-proposal approval card) — is syntactically valid.
-// The whole page is one big TS template literal with backticks/${} escaped by
-// hand; a single missed backslash would corrupt the *entire* script silently
-// (no build step catches this — it's a string until the browser parses it).
+// added for the workflow/duty-proposal approval cards) — is syntactically
+// valid. The whole page is one big TS template literal with backticks/${}
+// escaped by hand; a single missed backslash would corrupt the *entire*
+// script silently (no build step catches this — it's a string until the
+// browser parses it).
 describe("Chatty /chat page — proposal card script is syntactically valid", () => {
   it("parses without a SyntaxError and contains the expected card functions", async () => {
     const routes = new Map<string, (req: Request) => Response | Promise<Response>>();
@@ -57,7 +58,8 @@ describe("Chatty /chat page — proposal card script is syntactically valid", ()
     expect(script).toContain("function extractProposalCards");
     expect(script).toContain("function renderProposalCard");
     expect(script).toContain("function decideProposal");
-    expect(script).toContain("contract-proposal");
+    expect(script).toContain("workflow-proposal");
+    expect(script).not.toContain("contract-proposal");
 
     // Runtime check, not just syntax: actually call extractProposalCards and
     // confirm it strips the fence and parses the {id, preview} payload — this
@@ -74,10 +76,10 @@ describe("Chatty /chat page — proposal card script is syntactically valid", ()
       "input",
       kindsMatch![0] + "\n" + fnMatch![0] + "\nreturn extractProposalCards(input);"
     );
-    const sample = 'Here you go.\n\n```contract-proposal\n{"id":"prop_1","preview":"Fires when trust.changed \\u2192 runs kata quiet.handoff"}\n```';
+    const sample = 'Here you go.\n\n```workflow-proposal\n{"id":"prop_1","preview":"Nightly inbox triage"}\n```';
     const result = runExtract(sample);
-    expect(result.cards).toEqual([{ id: "prop_1", preview: "Fires when trust.changed → runs kata quiet.handoff", kind: "contract" }]);
-    expect(result.text).not.toContain("```contract-proposal");
+    expect(result.cards).toEqual([{ id: "prop_1", preview: "Nightly inbox triage", kind: "workflow" }]);
+    expect(result.text).not.toContain("```workflow-proposal");
     expect(result.text).toContain("Here you go.");
   });
 });

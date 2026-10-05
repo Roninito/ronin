@@ -3,7 +3,8 @@ import type { DutyAPI } from "../src/types/index.js";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { ensureDefaultExternalAgentDir, ensureDefaultAgentDir } from "../src/cli/commands/config.js";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 interface BlogPost {
   id: string;
@@ -276,6 +277,9 @@ export default class BlogsAgent extends BaseDuty {
         `SELECT * FROM blog_posts WHERE published = 1 ORDER BY published_at DESC LIMIT 20`
       );
 
+    const accent = getKiosaAccentForPath("/blog");
+    const accentHex = kiosaTheme.colors.accent;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -287,11 +291,8 @@ export default class BlogsAgent extends BaseDuty {
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+  ${getKiosaStylesheetLink(accent)}
+<style>
 
     body {
       min-height: 100vh;
@@ -302,66 +303,66 @@ export default class BlogsAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
     }
 
     .posts-grid {
-      margin-top: ${hankoTheme.spacing.lg};
+      margin-top: ${kiosaTheme.spacing.lg};
     }
 
     .posts-grid .grid-stack-item-content {
-      inset: ${hankoTheme.spacing.xs};
+      inset: ${kiosaTheme.spacing.xs};
     }
 
     .post-card {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
-      margin: ${hankoTheme.spacing.xs};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.lg};
+      padding: ${kiosaTheme.spacing.lg};
+      margin: ${kiosaTheme.spacing.xs};
       transition: all 0.3s;
       cursor: pointer;
       text-decoration: none;
       display: block;
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
     
     .post-card:hover {
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
       transform: translateY(-2px);
     }
     
     .post-card h2 {
       font-size: 1.5rem;
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
     
     .post-card .excerpt {
-      color: ${hankoTheme.colors.textSecondary};
-      margin-top: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textSecondary};
+      margin-top: ${kiosaTheme.spacing.sm};
       line-height: 1.6;
     }
     
     .post-card .meta {
-      margin-top: ${hankoTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.md};
       font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
     
     .empty-state {
       text-align: center;
-      padding: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.xl};
+      color: ${kiosaTheme.colors.textSecondary};
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>Ronin Blog</h1>
-    <div class="header-meta">Exploring agents, plugins, and features</div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "BLOG / FEED", chips: [String(posts.length) + " POSTS"], tabs: [
+    { label: "Feed", href: "/blog", active: true },
+    { label: "Admin", href: "/blog/admin" },
+    { label: "Editor", href: "/blog/editor" }
+  ] })}
 
   <div class="page-content">
   <div class="posts-grid" id="posts-grid">
@@ -395,6 +396,8 @@ export default class BlogsAgent extends BaseDuty {
       }
     }
   </script>
+
+  ${getKiosaFooterHTML("RONIN · BLOG", "READY · V0.1")}
 </body>
 </html>`;
 
@@ -422,6 +425,8 @@ export default class BlogsAgent extends BaseDuty {
       }
 
     const post = posts[0]!;
+    const accent = getKiosaAccentForPath("/blog");
+    const accentHex = kiosaTheme.colors.accent;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -432,75 +437,73 @@ export default class BlogsAgent extends BaseDuty {
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+  ${getKiosaStylesheetLink(accent)}
+<style>
     
     body {
       min-height: 100vh;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
       max-width: 800px;
       margin: 0 auto;
     }
     
     .back-link {
       display: inline-block;
-      margin-bottom: ${hankoTheme.spacing.lg};
-      color: ${hankoTheme.colors.textSecondary};
+      margin-bottom: ${kiosaTheme.spacing.lg};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: none;
     }
     
     .back-link:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
     
     .post-header {
-      margin-bottom: ${hankoTheme.spacing.xl};
-      padding-bottom: ${hankoTheme.spacing.lg};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      margin-bottom: ${kiosaTheme.spacing.xl};
+      padding-bottom: ${kiosaTheme.spacing.lg};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
     
     .post-header h1 {
       font-size: 2.5rem;
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .post-meta {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       font-size: 0.875rem;
     }
     
     .post-content {
       line-height: 1.8;
-      margin-top: ${hankoTheme.spacing.xl};
+      margin-top: ${kiosaTheme.spacing.xl};
     }
     
     .post-content h1,
     .post-content h2,
     .post-content h3 {
-      margin-top: ${hankoTheme.spacing.xl};
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.xl};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .post-content p {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .post-content code {
-      background: ${hankoTheme.colors.backgroundSecondary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-size: 0.9em;
     }
     
     .post-content pre {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
       overflow-x: auto;
-      margin: ${hankoTheme.spacing.lg} 0;
+      margin: ${kiosaTheme.spacing.lg} 0;
     }
     
     .post-content pre code {
@@ -509,23 +512,29 @@ export default class BlogsAgent extends BaseDuty {
     }
     
     .post-content blockquote {
-      border-left: 3px solid ${hankoTheme.colors.border};
-      padding-left: ${hankoTheme.spacing.md};
-      margin: ${hankoTheme.spacing.lg} 0;
-      color: ${hankoTheme.colors.textSecondary};
+      border-left: 3px solid ${kiosaTheme.colors.border};
+      padding-left: ${kiosaTheme.spacing.md};
+      margin: ${kiosaTheme.spacing.lg} 0;
+      color: ${kiosaTheme.colors.textSecondary};
     }
     
     .post-content a {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: underline;
     }
     
     .post-content a:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
   </style>
 </head>
 <body>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "BLOG / POST", chips: [post.author ? "BY " + post.author.toUpperCase() : "RONIN BLOG"], tabs: [
+    { label: "Feed", href: "/blog" },
+    { label: "Admin", href: "/blog/admin" },
+    { label: "Editor", href: "/blog/editor" }
+  ] })}
+  <div class="kiosa-wrap">
   <a href="/blog" class="back-link">← Back to Blog</a>
   
   <article>
@@ -569,6 +578,8 @@ export default class BlogsAgent extends BaseDuty {
       contentDiv.textContent = content;
     }
   </script>
+
+  ${getKiosaFooterHTML("RONIN · BLOG", "READY · V0.1")}
 </body>
 </html>`;
 
@@ -714,17 +725,17 @@ export default class BlogsAgent extends BaseDuty {
         `SELECT id, title, slug, published, created_at, updated_at, published_at FROM blog_posts ORDER BY updated_at DESC LIMIT 50`
       );
 
+    const accent = getKiosaAccentForPath("/blog/admin");
+    const accentHex = kiosaTheme.colors.accent;
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog Admin - Ronin</title>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
+  ${getKiosaStylesheetLink(accent)}
+<style>
 
     body {
       min-height: 100vh;
@@ -735,53 +746,53 @@ export default class BlogsAgent extends BaseDuty {
     .page-content {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
     }
 
     .posts-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: ${hankoTheme.spacing.lg};
+      margin-top: ${kiosaTheme.spacing.lg};
     }
     
     .posts-table th,
     .posts-table td {
-      padding: ${hankoTheme.spacing.md};
+      padding: ${kiosaTheme.spacing.md};
       text-align: left;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
     
     .posts-table th {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       font-weight: 300;
       font-size: 0.875rem;
     }
     
     .posts-table td {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
     
     .status-badge {
       display: inline-block;
       padding: 0.25em 0.5em;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-size: 0.75rem;
       font-weight: 500;
     }
     
     .status-published {
-      background: ${hankoTheme.colors.success}20;
-      color: ${hankoTheme.colors.success};
+      background: ${kiosaTheme.colors.success}20;
+      color: ${kiosaTheme.colors.success};
     }
     
     .status-draft {
-      background: ${hankoTheme.colors.warning}20;
-      color: ${hankoTheme.colors.warning};
+      background: ${kiosaTheme.colors.warning}20;
+      color: ${kiosaTheme.colors.warning};
     }
     
     .action-buttons {
       display: flex;
-      gap: ${hankoTheme.spacing.sm};
+      gap: ${kiosaTheme.spacing.sm};
     }
     
     .btn-small {
@@ -790,21 +801,21 @@ export default class BlogsAgent extends BaseDuty {
     }
     
     .generate-section {
-      margin-top: ${hankoTheme.spacing.xl};
-      padding: ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
+      margin-top: ${kiosaTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.lg};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
     }
     
     .generate-section h2 {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .generate-form {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
-      margin-top: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.md};
     }
     
     .generate-form input {
@@ -813,15 +824,11 @@ export default class BlogsAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>Blog Admin</h1>
-    <div class="header-actions">
-      <a href="/blog/editor"><button>New Post</button></a>
-      <a href="/blog"><button>View Blog</button></a>
-      <button onclick="handleLogout()">Logout</button>
-    </div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "BLOG / ADMIN", chips: [String(posts.length) + " POSTS", "AUTHENTICATED"], tabs: [
+    { label: "Feed", href: "/blog" },
+    { label: "Admin", href: "/blog/admin", active: true },
+    { label: "Editor", href: "/blog/editor" }
+  ], rightMeta: "v0.1" })}
 
   <div class="page-content">
   <table class="posts-table">
@@ -860,7 +867,7 @@ export default class BlogsAgent extends BaseDuty {
   
   <div class="generate-section">
     <h2>Generate AI Article</h2>
-    <p style="color: ${hankoTheme.colors.textSecondary}; margin-bottom: ${hankoTheme.spacing.md};">
+    <p style="color: ${kiosaTheme.colors.textSecondary}; margin-bottom: ${kiosaTheme.spacing.md};">
       Let Blogs write an article about Ronin features, agents, or plugins.
     </p>
     <div class="generate-form">
@@ -1020,6 +1027,8 @@ export default class BlogsAgent extends BaseDuty {
       }
     }
   </script>
+
+  ${getKiosaFooterHTML("RONIN · BLOG", "READY · V0.1")}
 </body>
 </html>`;
 
@@ -1039,49 +1048,49 @@ export default class BlogsAgent extends BaseDuty {
    * Render login page
    */
   private renderLoginPage(): Response {
+    const accent = getKiosaAccentForPath("/blog/admin");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog Admin Login - Ronin</title>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+  ${getKiosaStylesheetLink(accent)}
+<style>
     
     body {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
     }
     
     .login-container {
       width: 100%;
       max-width: 400px;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.xl};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.xl};
     }
     
     .login-container h1 {
       text-align: center;
-      margin-bottom: ${hankoTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.lg};
     }
     
     .login-form {
       display: flex;
       flex-direction: column;
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
     
     .error-message {
-      color: ${hankoTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
       font-size: 0.875rem;
-      margin-top: ${hankoTheme.spacing.sm};
+      margin-top: ${kiosaTheme.spacing.sm};
       display: none;
     }
     
@@ -1123,6 +1132,8 @@ export default class BlogsAgent extends BaseDuty {
       }
     }
   </script>
+
+  ${getKiosaFooterHTML("RONIN · BLOG", "READY · V0.1")}
 </body>
 </html>`;
 
@@ -1570,6 +1581,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
       const postId = pathParts.length > 3 ? pathParts[3] : null;
 
       let post: BlogPost | null = null;
+      const accent = getKiosaAccentForPath("/blog/editor");
+      const accentHex = kiosaTheme.colors.accent;
       if (postId) {
         try {
           const posts = await this.api.db.query<BlogPost>(
@@ -1595,10 +1608,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
+  ${getKiosaStylesheetLink(accent)}
+<style>
     
     body {
       height: 100vh;
@@ -1608,9 +1619,9 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     }
     
     .editor-header {
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -1623,7 +1634,7 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     
     .editor-header-actions {
       display: flex;
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
     
     .editor-container {
@@ -1636,15 +1647,15 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
       flex: 1;
       display: flex;
       flex-direction: column;
-      border-right: 1px solid ${hankoTheme.colors.border};
+      border-right: 1px solid ${kiosaTheme.colors.border};
     }
     
     .editor-toolbar {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
       display: flex;
-      gap: ${hankoTheme.spacing.md};
+      gap: ${kiosaTheme.spacing.md};
     }
     
     .editor-toolbar input {
@@ -1660,8 +1671,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     .preview-panel {
       flex: 1;
       overflow-y: auto;
-      padding: ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.background};
+      padding: ${kiosaTheme.spacing.lg};
+      background: ${kiosaTheme.colors.background};
     }
     
     .preview-content {
@@ -1673,27 +1684,27 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     .preview-content h1,
     .preview-content h2,
     .preview-content h3 {
-      margin-top: ${hankoTheme.spacing.xl};
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-top: ${kiosaTheme.spacing.xl};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .preview-content p {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
     
     .preview-content code {
-      background: ${hankoTheme.colors.backgroundSecondary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
     }
     
     .preview-content pre {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
       overflow-x: auto;
-      margin: ${hankoTheme.spacing.lg} 0;
+      margin: ${kiosaTheme.spacing.lg} 0;
     }
     
     .preview-content pre code {
@@ -1702,17 +1713,22 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
     }
     
     .preview-content blockquote {
-      border-left: 3px solid ${hankoTheme.colors.border};
-      padding-left: ${hankoTheme.spacing.md};
-      margin: ${hankoTheme.spacing.lg} 0;
-      color: ${hankoTheme.colors.textSecondary};
+      border-left: 3px solid ${kiosaTheme.colors.border};
+      padding-left: ${kiosaTheme.spacing.md};
+      margin: ${kiosaTheme.spacing.lg} 0;
+      color: ${kiosaTheme.colors.textSecondary};
     }
   </style>
 </head>
 <body>
-  <div class="editor-header">
-    <h1>${post ? `Edit: ${this.escapeHtml(post.title)}` : "New Post"}</h1>
-    <div class="editor-header-actions">
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "BLOG / EDITOR", chips: [post ? "EDITING " + this.escapeHtml(post.title).toUpperCase() : "NEW POST"], tabs: [
+    { label: "Feed", href: "/blog" },
+    { label: "Admin", href: "/blog/admin" },
+    { label: "Editor", href: "/blog/editor", active: true }
+  ], rightMeta: "DRAFT" })}
+  <div class="editor-header" style="padding:10px 14px;background:${kiosaTheme.colors.backgroundSecondary};border-bottom:1px solid ${kiosaTheme.colors.border};display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+    <h1 style="font-size:1.25rem;margin:0;">${post ? `Edit: ${this.escapeHtml(post.title)}` : "New Post"}</h1>
+    <div class="editor-header-actions" style="display:flex;gap:8px;">
       <button onclick="saveDraft()">Save Draft</button>
       <button onclick="publish()">Publish</button>
       <a href="/blog/admin"><button>Back to Admin</button></a>
@@ -1850,6 +1866,8 @@ Focus on explaining the topic in the context of Ronin and how it relates to the 
       }
     }
   </script>
+
+  ${getKiosaFooterHTML("RONIN · BLOG", "READY · V0.1")}
 </body>
 </html>`;
 

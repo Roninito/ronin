@@ -3,8 +3,8 @@ import type { DutyAPI } from "../src/types/index.js";
 import type { Tool } from "../src/types/api.js";
 import { standardSAR } from "../src/chains/templates.js";
 import { ensureRoninDataDir } from "../src/utils/paths.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 import {
   getRoninContext,
   buildSystemPrompt,
@@ -14,13 +14,11 @@ import {
   windowMessages,
   invalidateChatSummary,
   injectMermaidLinkIntoResponse,
-  injectContractProposalCardIntoResponse,
   injectWorkflowProposalCardIntoResponse,
   injectDutyProposalCardIntoResponse,
 } from "../src/utils/prompt.js";
 import { discoverWorkflow } from "../src/workflow/discovery.js";
 import { loadToolContext, expandToolContextForCategory } from "../src/tools/toolDocs.js";
-import { getOrCreateRouteToken, hasValidRouteToken, isLocalRequest } from "../plugins/cloudflare/src/routeToken.js";
 import { renderProviderIconSvg, getProviderVisual } from "../src/utils/providerIcons.js";
 import { ArtifactStore } from "../src/artifacts/store.js";
 import { parseReActToolCalls } from "../src/utils/reactTools.js";
@@ -313,8 +311,6 @@ export default class ChattyAgent extends BaseDuty {
    * layer since this is a plain UI action, not a model decision.
    */
   private async handleArtifactSave(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     let body: { name?: string; filename?: string; content?: string; artifactId?: string };
@@ -383,10 +379,8 @@ export default class ChattyAgent extends BaseDuty {
     }
   }
 
-  /** Lists all real artifacts (the "library" the files panel can browse) — same data as GET /api/artifacts, but routed through this duty's own token gate. */
+  /** Lists all real artifacts (the "library" the files panel can browse) — same data as GET /api/artifacts. */
   private async handleArtifactLibrary(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     await runArtifactMigrations(this.api.db);
     const store = new ArtifactStore(this.api);
     const artifacts = await store.listAll();
@@ -395,8 +389,6 @@ export default class ChattyAgent extends BaseDuty {
 
   /** Loads one artifact's files for the panel, inlining text-ish asset content and leaving everything else as a download link. */
   private async handleArtifactLoad(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     const id = new URL(req.url).searchParams.get("id");
     if (!id) return Response.json({ success: false, error: "id is required" }, { status: 400 });
 
@@ -427,27 +419,8 @@ export default class ChattyAgent extends BaseDuty {
     return Response.json({ success: true, name: file.metadata.name, files });
   }
 
-  /**
-   * Gate for every /chat-related route once it may be reached through a
-   * Cloudflare tunnel (see duties/cloudflare-connect.ts / docs/REMOTE_ACCESS.md).
-   * Requests addressed to localhost (see routeToken.ts's isLocalRequest —
-   * checked via the Host header, since cloudflared forwards tunnel traffic
-   * over a local connection too, so socket address alone can't tell them
-   * apart) always pass; remote requests need the shared token, either as
-   * ?token= (the first hit, from the QR code) or an Authorization header
-   * (every fetch() after that, once the chat page's own JS has stored it).
-   * Returns a 401 Response if the request should be rejected, or null to proceed.
-   */
-  private requireRemoteToken(req: Request): Response | null {
-    if (isLocalRequest(req)) return null;
-    if (hasValidRouteToken(req, getOrCreateRouteToken())) return null;
-    return new Response("Unauthorized — missing or invalid token", { status: 401 });
-  }
-
   /** Transcribes a recorded audio blob (from the mic button) to text via the stt plugin. */
   private async handleTranscribe(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
     if (!this.api.plugins.has("stt")) {
       return Response.json({ error: "STT plugin not loaded" }, { status: 503 });
@@ -510,8 +483,6 @@ export default class ChattyAgent extends BaseDuty {
 
   /** Speaks text aloud through the host machine's speakers via the local.speech.say tool. */
   private async handleSpeak(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
     let text = "";
@@ -599,8 +570,6 @@ self.addEventListener("fetch", (event) => {
    * Handle chat management API (GET /api/chats, POST /api/chats)
    */
   private async handleChatsAPI(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     if (req.method === "GET") {
       const chats = await this.getChats();
       return Response.json(chats);
@@ -616,8 +585,6 @@ self.addEventListener("fetch", (event) => {
    * Handle chat by ID API (GET /api/chats/:id, DELETE /api/chats/:id, PATCH /api/chats/:id)
    */
   private async handleChatByIdAPI(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     const url = new URL(req.url);
     const path = url.pathname;
     
@@ -654,8 +621,6 @@ self.addEventListener("fetch", (event) => {
    * Serve chat UI
    */
   private async handleChatUI(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
 
     const aiConfig = this.api.config.getAI();
     const activeProvider = aiConfig.provider;
@@ -673,21 +638,24 @@ self.addEventListener("fetch", (event) => {
   <link rel="manifest" href="/chat/manifest.json">
   <link rel="icon" href="/chat/icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="${kiosaTheme.colors.background}">
-  ${getKiosaHeadHTML(accent)}
-  ${getAdobeCleanFontFaceCSS()}
-  ${getThemeCSS(kiosaTheme)}
-  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-  ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
+    :root { --composer-max: 220px; }
+
+    * { box-sizing: border-box; }
+
     body {
       height: 100vh;
       display: flex;
       flex-direction: column;
-      font-size: 13px;
+      font-size: 14px;
       overflow: hidden;
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .main-container {
@@ -696,35 +664,91 @@ self.addEventListener("fetch", (event) => {
       overflow: hidden;
     }
 
+    /* ---------- Sidebar ---------- */
     .sidebar {
-      width: 260px;
-      background: ${kiosaTheme.colors.backgroundSecondary};
+      width: 240px;
+      background: color-mix(in srgb, ${kiosaTheme.colors.backgroundSecondary} 80%, transparent);
       border-right: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
-      padding: ${kiosaTheme.spacing.md};
+      padding: 16px 12px;
+      backdrop-filter: blur(12px);
+    }
+
+    .sidebar-brand {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 13px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: 18px;
+      padding-left: 8px;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: ${kiosaTheme.borderRadius.md};
+      color: ${kiosaTheme.colors.textSecondary};
+      text-decoration: none;
+      font-size: 12px;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .sidebar-nav-item:hover,
+    .sidebar-nav-item.active {
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .sidebar-nav-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background: ${kiosaTheme.colors.border};
+      margin: 0 0 14px;
     }
 
     .sidebar-header {
-      padding: 0 0 ${kiosaTheme.spacing.sm};
-      border-bottom: 1px solid ${kiosaTheme.colors.border};
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
     .new-chat-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       width: 100%;
-      padding: ${kiosaTheme.spacing.sm};
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      border-radius: ${kiosaTheme.borderRadius.sm};
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: ${kiosaTheme.borderRadius.md};
       border: 1px solid ${kiosaTheme.colors.border};
       background: color-mix(in srgb, ${accentHex} 10%, transparent);
       color: ${kiosaTheme.colors.textPrimary};
       cursor: pointer;
-      transition: background 150ms ease, border-color 150ms ease;
-      font-family: ${kiosaTheme.fonts.mono};
+      transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .new-chat-button:hover {
@@ -733,252 +757,313 @@ self.addEventListener("fetch", (event) => {
       color: ${kiosaTheme.colors.background};
     }
 
+    .new-chat-button:active { transform: scale(0.98); }
+
     .model-indicator {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-top: ${kiosaTheme.spacing.sm};
-      font-size: 9px;
+      font-size: 10px;
       color: ${kiosaTheme.colors.textTertiary};
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.08em;
+      padding: 0 4px;
     }
-    .model-indicator svg { flex-shrink: 0; }
-    .model-indicator .model-indicator-name {
+
+    .model-indicator-name {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      text-transform: none;
-      letter-spacing: normal;
-      color: ${kiosaTheme.colors.textSecondary};
-      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .chat-list {
       flex: 1;
       overflow-y: auto;
-      margin-top: ${kiosaTheme.spacing.sm};
-      display: block;
-      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 2px;
+    }
+
+    .chat-list::-webkit-scrollbar { width: 4px; }
+    .chat-list::-webkit-scrollbar-thumb {
+      background: ${kiosaTheme.colors.border};
+      border-radius: 2px;
     }
 
     .chat-tabs-empty {
+      font-size: 11px;
       color: ${kiosaTheme.colors.textTertiary};
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      padding: 12px 8px;
       font-family: ${kiosaTheme.fonts.mono};
     }
 
     .chat-item {
-      margin-bottom: ${kiosaTheme.spacing.xs};
-      padding: 0.4rem 0.6rem;
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      background: ${kiosaTheme.colors.backgroundSecondary};
-      border: 1px solid ${kiosaTheme.colors.border};
-      max-width: none;
-      gap: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       transition: background 150ms ease, border-color 150ms ease;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
-    }
-
-    .chat-item.active {
-      background: color-mix(in srgb, ${accentHex} 13%, transparent);
-      border-color: ${accentHex};
-    }
-
-    .chat-item:hover {
-      background: color-mix(in srgb, ${accentHex} 10%, transparent);
-      border-color: color-mix(in srgb, ${accentHex} 70%, transparent);
-    }
-
-    .chat-item-content {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .chat-item-title {
-      font-size: 11px;
-      color: ${kiosaTheme.colors.textPrimary};
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      border: 1px solid transparent;
       margin-bottom: 0;
     }
 
-    .chat-item-time { display: none; }
-
-    .chat-item-delete {
-      opacity: 1;
-      width: 16px;
-      height: 16px;
-      padding: 0;
-      border-radius: 2px;
-      background: transparent;
-      border: none;
-      color: ${kiosaTheme.colors.textTertiary};
-      cursor: pointer;
-      font-size: 10px;
-      transition: color 150ms ease;
+    .chat-item:hover {
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.border};
     }
 
+    .chat-item.active {
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 30%, transparent);
+    }
+
+    .chat-item-content { flex: 1; min-width: 0; }
+
+    .chat-item-title {
+      font-size: 12px;
+      color: ${kiosaTheme.colors.textPrimary};
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 2px;
+    }
+
+    .chat-item-time {
+      font-size: 9px;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+
+    .chat-item-delete {
+      flex: 0 0 22px;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid transparent;
+      color: ${kiosaTheme.colors.textTertiary};
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      cursor: pointer;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 150ms ease, background 150ms ease, border-color 150ms ease;
+    }
+
+    .chat-item:hover .chat-item-delete { opacity: 1; }
     .chat-item-delete:hover {
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 15%, transparent);
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
       color: ${kiosaTheme.colors.error};
     }
 
+    /* ---------- Chat container ---------- */
     .chat-container {
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: ${kiosaTheme.colors.background};
-      overflow: hidden;
+      min-height: 0;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% -20%, color-mix(in srgb, ${accentHex} 8%, transparent) 0%, transparent 50%),
+        ${kiosaTheme.colors.background};
     }
 
     #chat-history {
       flex: 1;
       overflow-y: auto;
-      padding: ${kiosaTheme.spacing.lg};
-      background: ${kiosaTheme.colors.background};
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+      padding: 32px 8vw;
+      scroll-behavior: smooth;
     }
 
-    .hero-state {
-      margin: auto;
+    #chat-history::-webkit-scrollbar { width: 6px; }
+    #chat-history::-webkit-scrollbar-thumb {
+      background: ${kiosaTheme.colors.border};
+      border-radius: 3px;
+    }
+
+    /* ---------- Empty / hero state ---------- */
+    .chat-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
       text-align: center;
+      padding: 24px 0 40px;
+      animation: fadeIn 0.5s ease;
     }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .hero-title {
-      font-size: clamp(3rem, 8vw, 5rem);
-      font-weight: 700;
-      letter-spacing: 0.2em;
+      font-size: clamp(28px, 4vw, 52px);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: ${kiosaTheme.colors.textPrimary};
+      margin-bottom: 8px;
+      line-height: 1.15;
     }
+
     .hero-subtitle {
-      margin-top: ${kiosaTheme.spacing.sm};
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
+      font-size: 14px;
       color: ${kiosaTheme.colors.textSecondary};
+      margin-bottom: 36px;
     }
-    .hero-console {
-      margin: ${kiosaTheme.spacing.md} auto 0;
-      display: inline-flex;
-      padding: 0.2rem 0.7rem;
+
+    .suggestion-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 760px;
+      margin-bottom: 18px;
+    }
+
+    .suggestion-card {
+      background: ${kiosaTheme.colors.backgroundSecondary};
       border: 1px solid ${kiosaTheme.colors.border};
-      color: ${kiosaTheme.colors.textTertiary};
-      font-family: ${kiosaTheme.fonts.mono};
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 150ms ease, border-color 150ms ease, transform 100ms ease;
+      color: ${kiosaTheme.colors.textPrimary};
+      border-left: 3px solid transparent;
+    }
+
+    .suggestion-card:hover {
+      background: color-mix(in srgb, ${accentHex} 8%, ${kiosaTheme.colors.backgroundSecondary});
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+      border-left-color: ${accentHex};
+      transform: translateY(-2px);
+    }
+
+    .suggestion-card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 12px;
+      background: color-mix(in srgb, ${accentHex} 15%, transparent);
+    }
+
+    .suggestion-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .suggestion-card-desc {
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
+      line-height: 1.5;
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .quick-action-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+
+    .quick-action-pill:hover {
+      background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    /* ---------- Messages ---------- */
+    .messages-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding-bottom: 20px;
     }
 
     .message {
-      margin-bottom: ${kiosaTheme.spacing.md};
       display: flex;
-      gap: ${kiosaTheme.spacing.md};
+      gap: 12px;
+      max-width: 85%;
+      animation: fadeIn 0.35s ease;
     }
 
-    .message.user { flex-direction: row-reverse; }
-
-    .message-content {
-      max-width: 86%;
-      padding: 0;
-      border-radius: 0;
-      word-wrap: break-word;
-      font-size: 13px;
-      line-height: 1.5;
-      background: transparent;
-      border: none;
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
     }
 
-    .proposal-card {
-      margin-top: ${kiosaTheme.spacing.sm};
-      padding: ${kiosaTheme.spacing.md};
-      border-radius: ${kiosaTheme.borderRadius.md};
+    .message.assistant { align-self: flex-start; }
+
+    .message-avatar {
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
       background: ${kiosaTheme.colors.backgroundTertiary};
       border: 1px solid ${kiosaTheme.colors.border};
-      max-width: 86%;
     }
 
-    .proposal-card-preview {
-      font-size: 13px;
-      line-height: 1.6;
+    .message.user .message-avatar {
+      background: color-mix(in srgb, ${accentHex} 20%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+    }
+
+    .message-content {
+      padding: 14px 18px;
+      border-radius: ${kiosaTheme.borderRadius.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
       color: ${kiosaTheme.colors.textPrimary};
-      margin-bottom: ${kiosaTheme.spacing.sm};
+      line-height: 1.6;
+      font-size: 14px;
+      overflow-wrap: anywhere;
     }
 
-    .proposal-card-code-details {
-      margin-bottom: ${kiosaTheme.spacing.sm};
+    .message.user .message-content {
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 30%, transparent);
     }
 
-    .proposal-card-code-details summary {
+    .message-meta {
       font-size: 10px;
-      color: ${kiosaTheme.colors.textSecondary};
-      cursor: pointer;
-      font-family: ${kiosaTheme.fonts.mono};
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .proposal-card-code {
-      margin-top: ${kiosaTheme.spacing.xs};
-      padding: ${kiosaTheme.spacing.sm};
-      background: ${kiosaTheme.colors.background};
-      border: 1px solid ${kiosaTheme.colors.border};
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      font-family: ${kiosaTheme.fonts.mono};
-      font-size: 11px;
-      line-height: 1.5;
-      overflow-x: auto;
-      white-space: pre;
-      max-height: 360px;
-      overflow-y: auto;
-    }
-
-    .proposal-card-actions {
-      display: flex;
-      gap: ${kiosaTheme.spacing.sm};
-    }
-
-    .proposal-card-actions button {
-      flex: 1;
-      padding: ${kiosaTheme.spacing.xs} ${kiosaTheme.spacing.md};
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      border: 1px solid ${kiosaTheme.colors.border};
-      background: transparent;
-      cursor: pointer;
-      font-size: 10px;
-      font-weight: 700;
-      font-family: ${kiosaTheme.fonts.mono};
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    .proposal-card-allow {
-      color: ${kiosaTheme.colors.success};
-      border-color: ${kiosaTheme.colors.success};
-    }
-
-    .proposal-card-refuse {
-      color: ${kiosaTheme.colors.error};
-      border-color: ${kiosaTheme.colors.error};
-    }
-
-    .proposal-card-actions button:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-
-    .proposal-card-status {
-      font-size: 10px;
-      color: ${kiosaTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-top: 6px;
       font-family: ${kiosaTheme.fonts.mono};
     }
+
+    .message.user .message-meta { text-align: right; }
 
     .message-content h1,
     .message-content h2,
@@ -995,7 +1080,7 @@ self.addEventListener("fetch", (event) => {
     .message-content p {
       margin: ${kiosaTheme.spacing.sm} 0;
       line-height: 1.6;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .message-content ul,
@@ -1006,7 +1091,7 @@ self.addEventListener("fetch", (event) => {
 
     .message-content li {
       margin: ${kiosaTheme.spacing.xs} 0;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .message-content code {
@@ -1014,7 +1099,7 @@ self.addEventListener("fetch", (event) => {
       padding: 0.125rem 0.375rem;
       border-radius: ${kiosaTheme.borderRadius.sm};
       font-family: ${kiosaTheme.fonts.mono};
-      font-size: 11px;
+      font-size: 12px;
     }
 
     .message-content pre {
@@ -1029,7 +1114,7 @@ self.addEventListener("fetch", (event) => {
     .message-content pre code {
       background: none;
       padding: 0;
-      font-size: 11px;
+      font-size: 12px;
       color: inherit;
     }
 
@@ -1041,82 +1126,209 @@ self.addEventListener("fetch", (event) => {
       font-style: italic;
     }
 
-    .message-content strong {
-      font-weight: 700;
-    }
-
     .message-content a {
       color: ${accentHex};
       text-decoration: none;
     }
 
-    .message-content a:hover {
-      text-decoration: underline;
+    /* ---------- Composer ---------- */
+    .composer {
+      flex-shrink: 0;
+      padding: 16px 8vw 24px;
+      position: relative;
+      z-index: 50;
     }
 
-    .input-area {
-      justify-content: center;
+    .composer-inner {
+      max-width: 820px;
+      margin: 0 auto;
       background: ${kiosaTheme.colors.backgroundSecondary};
-      border-top: 1px solid ${kiosaTheme.colors.border};
-      padding: ${kiosaTheme.spacing.md} ${kiosaTheme.spacing.lg};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 22px;
+      padding: 10px 14px 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      transition: border-color 200ms ease, box-shadow 200ms ease;
+    }
+
+    .composer-inner:focus-within {
+      border-color: color-mix(in srgb, ${accentHex} 50%, transparent);
+      box-shadow: 0 8px 40px color-mix(in srgb, ${accentHex} 10%, transparent);
+    }
+
+    .composer-toolbar {
       display: flex;
-      gap: ${kiosaTheme.spacing.sm};
-      flex-shrink: 0;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 0 4px;
+    }
+
+    .mode-selector {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .mode-button {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .mode-button:hover { color: ${kiosaTheme.colors.textPrimary}; }
+
+    .mode-button.active {
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .mode-menu {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      min-width: 180px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 100;
+    }
+
+    .mode-menu.open { display: flex; }
+
+    .mode-menu-item {
+      padding: 8px 10px;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      font-size: 12px;
+      color: ${kiosaTheme.colors.textSecondary};
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mode-menu-item:hover,
+    .mode-menu-item.active {
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .composer-tool-btn {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: auto;
+    }
+
+    .composer-tool-btn:hover {
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .composer-tool-btn.active {
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+      border-color: color-mix(in srgb, ${accentHex} 40%, transparent);
+    }
+
+    .composer-input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
     }
 
     #message-input {
-      flex: 0 1 780px;
-      background: ${kiosaTheme.colors.background};
-      border: 1px solid ${kiosaTheme.colors.border};
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      font-size: 12px;
-      padding: 0.8rem 0.9rem;
-      min-height: 2.6rem;
-      max-height: 12rem;
-      resize: none;
-      overflow-y: auto;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
       color: ${kiosaTheme.colors.textPrimary};
       font-family: ${kiosaTheme.fonts.primary};
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 8px 4px;
+      max-height: var(--composer-max);
+      resize: none;
+      overflow-y: auto;
     }
 
-    #message-input:focus {
-      outline: none;
-      border-color: ${accentHex};
-    }
+    #message-input::placeholder { color: ${kiosaTheme.colors.textTertiary}; }
 
-    #message-input::placeholder {
-      color: ${kiosaTheme.colors.textTertiary};
-    }
-
-    #send-button, #mic-button {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      border: 1px solid ${kiosaTheme.colors.border};
-      background: ${kiosaTheme.colors.backgroundTertiary};
-      color: ${kiosaTheme.colors.textSecondary};
-      padding: 0.8rem 1rem;
+    .send-button {
+      flex: 0 0 38px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: ${accentHex};
+      color: ${kiosaTheme.colors.background};
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
-      font-family: ${kiosaTheme.fonts.mono};
+      transition: background 150ms ease, transform 100ms ease;
+      font-size: 18px;
+      padding-bottom: 2px;
     }
 
-    #send-button:hover:not(:disabled), #mic-button:hover:not(:disabled) {
-      background: color-mix(in srgb, ${accentHex} 16%, transparent);
-      border-color: ${accentHex};
-      color: ${kiosaTheme.colors.textPrimary};
+    .send-button:hover:not(:disabled) {
+      background: color-mix(in srgb, ${accentHex} 85%, #fff);
+      transform: scale(1.05);
     }
 
-    #send-button:disabled {
+    .send-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    #mic-button.recording {
+    .mic-button {
+      position: absolute;
+      right: calc(8vw + 14px);
+      bottom: 34px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+
+    .mic-button:hover:not(:disabled) {
+      background: color-mix(in srgb, ${accentHex} 15%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 50%, transparent);
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .mic-button.recording {
       background: color-mix(in srgb, ${kiosaTheme.colors.error} 25%, transparent);
       border-color: color-mix(in srgb, ${kiosaTheme.colors.error} 60%, transparent);
       color: #fff;
@@ -1128,46 +1340,95 @@ self.addEventListener("fetch", (event) => {
       50% { opacity: 0.55; }
     }
 
-    #files-panel-toggle, #speak-toggle {
-      background: transparent;
-      border: 1px solid ${kiosaTheme.colors.border};
-      color: ${kiosaTheme.colors.textSecondary};
-      border-radius: ${kiosaTheme.borderRadius.sm};
-      padding: 0.3rem 0.6rem;
-      font-size: 10px;
-      cursor: pointer;
-      font-family: ${kiosaTheme.fonts.mono};
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    #files-panel-toggle {
-      margin-left: auto;
-    }
-
-    #files-panel-toggle.active, #speak-toggle.active {
-      border-color: ${accentHex};
-      color: ${kiosaTheme.colors.textPrimary};
-      background: color-mix(in srgb, ${accentHex} 13%, transparent);
-    }
-
+    /* ---------- Drop zone ---------- */
     #drop-zone {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 24px);
+      max-width: 680px;
       padding: ${kiosaTheme.spacing.md};
       border: 2px dashed ${kiosaTheme.colors.border};
       border-radius: ${kiosaTheme.borderRadius.md};
       text-align: center;
       color: ${kiosaTheme.colors.textTertiary};
-      margin-bottom: ${kiosaTheme.spacing.sm};
       display: none;
-      font-size: 11px;
+      font-size: 12px;
       font-family: ${kiosaTheme.fonts.mono};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      z-index: 60;
+      pointer-events: none;
     }
 
     #drop-zone.drag-over {
       border-color: ${kiosaTheme.colors.borderHover};
-      background: ${kiosaTheme.colors.backgroundSecondary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
+    /* ---------- Proposal cards ---------- */
+    .proposal-card {
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .proposal-card-preview {
+      margin-bottom: 10px;
+      line-height: 1.5;
+      color: ${kiosaTheme.colors.textPrimary};
+    }
+
+    .proposal-card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .proposal-card-actions button {
+      flex: 1;
+      padding: 7px 12px;
+      border-radius: ${kiosaTheme.borderRadius.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: background 150ms ease, border-color 150ms ease;
+    }
+
+    .proposal-card-allow {
+      color: ${kiosaTheme.colors.success};
+      border-color: ${kiosaTheme.colors.success};
+    }
+
+    .proposal-card-allow:hover {
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 12%, transparent);
+    }
+
+    .proposal-card-refuse {
+      color: ${kiosaTheme.colors.error};
+      border-color: ${kiosaTheme.colors.error};
+    }
+
+    .proposal-card-refuse:hover {
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 12%, transparent);
+    }
+
+    .proposal-card-actions button:disabled { opacity: 0.5; cursor: default; }
+
+    .proposal-card-status {
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+
+    /* ---------- Loading ---------- */
     .loading {
       display: inline-block;
       width: 10px;
@@ -1182,21 +1443,9 @@ self.addEventListener("fetch", (event) => {
       to { transform: rotate(360deg); }
     }
 
-    .loading-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
+    /* ---------- Artifact panel ---------- */
     .artifact-panel {
-      width: 420px;
+      width: 380px;
       flex-shrink: 0;
       background: ${kiosaTheme.colors.backgroundSecondary};
       border-left: 1px solid ${kiosaTheme.colors.border};
@@ -1204,21 +1453,24 @@ self.addEventListener("fetch", (event) => {
       flex-direction: column;
       overflow: hidden;
     }
+
     .artifact-panel[hidden] { display: none; }
+
     .artifact-panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      padding: 12px 14px;
       border-bottom: 1px solid ${kiosaTheme.colors.border};
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       color: ${kiosaTheme.colors.textPrimary};
-      flex-shrink: 0;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+
     .artifact-panel-header-actions { display: flex; gap: 6px; }
+
     .artifact-panel-header-actions button {
       background: transparent;
       border: 1px solid ${kiosaTheme.colors.border};
@@ -1228,14 +1480,16 @@ self.addEventListener("fetch", (event) => {
       font-size: 10px;
       cursor: pointer;
       font-family: ${kiosaTheme.fonts.mono};
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+
     .artifact-panel-header-actions button.active {
       border-color: ${accentHex};
       color: ${kiosaTheme.colors.textPrimary};
-      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
     }
+
     .artifact-tabs {
       display: flex;
       gap: 4px;
@@ -1244,7 +1498,9 @@ self.addEventListener("fetch", (event) => {
       border-bottom: 1px solid ${kiosaTheme.colors.border};
       flex-shrink: 0;
     }
+
     .artifact-tabs:empty { display: none; }
+
     .artifact-tab {
       padding: 4px 10px;
       font-size: 10px;
@@ -1256,11 +1512,13 @@ self.addEventListener("fetch", (event) => {
       border: 1px solid ${kiosaTheme.colors.border};
       font-family: ${kiosaTheme.fonts.mono};
     }
+
     .artifact-tab.active {
-      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
       color: ${kiosaTheme.colors.textPrimary};
       border-color: ${accentHex};
     }
+
     .artifact-file-toolbar {
       display: flex;
       align-items: center;
@@ -1272,14 +1530,16 @@ self.addEventListener("fetch", (event) => {
       flex-shrink: 0;
       font-family: ${kiosaTheme.fonts.mono};
     }
+
     .artifact-file-toolbar:empty { display: none; }
+
     .artifact-file-toolbar .filename {
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-family: ${kiosaTheme.fonts.mono};
     }
+
     .artifact-file-toolbar button {
       background: transparent;
       border: 1px solid ${kiosaTheme.colors.border};
@@ -1289,14 +1549,15 @@ self.addEventListener("fetch", (event) => {
       cursor: pointer;
       font-size: 10px;
       font-family: ${kiosaTheme.fonts.mono};
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
     }
+
     .artifact-file-toolbar button:hover {
-      background: color-mix(in srgb, ${accentHex} 13%, transparent);
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
       border-color: ${accentHex};
     }
+
     .artifact-content { flex: 1; overflow: auto; padding: 10px; }
+
     .artifact-content pre {
       margin: 0;
       font-family: ${kiosaTheme.fonts.mono};
@@ -1304,7 +1565,9 @@ self.addEventListener("fetch", (event) => {
       white-space: pre-wrap;
       word-break: break-word;
     }
+
     .artifact-content img { max-width: 100%; border-radius: ${kiosaTheme.borderRadius.sm}; }
+
     .artifact-empty {
       color: ${kiosaTheme.colors.textTertiary};
       font-size: 11px;
@@ -1312,7 +1575,9 @@ self.addEventListener("fetch", (event) => {
       text-align: center;
       font-family: ${kiosaTheme.fonts.mono};
     }
+
     .artifact-library-list { display: flex; flex-direction: column; gap: 6px; }
+
     .artifact-library-item {
       padding: 8px 10px;
       border: 1px solid ${kiosaTheme.colors.border};
@@ -1321,20 +1586,127 @@ self.addEventListener("fetch", (event) => {
       font-size: 11px;
       transition: background 150ms ease, border-color 150ms ease;
     }
+
     .artifact-library-item:hover {
       background: ${kiosaTheme.colors.backgroundTertiary};
       border-color: ${accentHex};
     }
-    .artifact-library-item .name { font-weight: 700; color: ${kiosaTheme.colors.textPrimary}; letter-spacing: 0.06em; text-transform: uppercase; }
-    .artifact-library-item .meta { color: ${kiosaTheme.colors.textTertiary}; font-size: 9px; margin-top: 2px; font-family: ${kiosaTheme.fonts.mono}; }
+
+    .artifact-library-item .name {
+      font-weight: 700;
+      color: ${kiosaTheme.colors.textPrimary};
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .artifact-library-item .meta {
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 9px;
+      margin-top: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+    }
+
+    /* ---------- Mobile ---------- */
+    .mobile-nav { display: none; }
+
+    @media (max-width: 900px) {
+      .sidebar { width: 200px; padding: 12px 10px; }
+      #chat-history { padding: 24px 4vw; }
+      .composer { padding: 12px 4vw 18px; }
+      .mic-button { right: calc(4vw + 12px); bottom: 28px; }
+      .message { max-width: 92%; }
+    }
+
+    @media (max-width: 768px) {
+      .main-container { flex-direction: column; }
+      .sidebar { display: none; }
+      .mobile-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        padding: 8px 0;
+        background: ${kiosaTheme.colors.backgroundSecondary};
+        border-top: 1px solid ${kiosaTheme.colors.border};
+        flex-shrink: 0;
+        order: 100;
+      }
+      .mobile-nav a {
+        color: ${kiosaTheme.colors.textSecondary};
+        text-decoration: none;
+        font-size: 18px;
+        padding: 6px 12px;
+        border-radius: ${kiosaTheme.borderRadius.md};
+      }
+      .mobile-nav a.active {
+        color: ${accentHex};
+        background: color-mix(in srgb, ${accentHex} 10%, transparent);
+      }
+      #chat-history { padding: 16px 16px 8px; }
+      .hero-title { font-size: 28px; }
+      .suggestion-grid {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+      }
+      .quick-actions { max-width: 100%; }
+      .message { max-width: 96%; gap: 8px; }
+      .message-content { padding: 12px 14px; font-size: 14px; }
+      .composer { padding: 10px 14px 16px; }
+      .composer-inner { border-radius: 18px; padding: 8px 12px 10px; }
+      .composer-toolbar { gap: 4px; }
+      .mode-button { padding: 4px 8px; font-size: 10px; }
+      .composer-tool-btn { font-size: 10px; padding: 4px 8px; }
+      .send-button {
+        flex: 0 0 34px;
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+      }
+      .mic-button { display: none; }
+      .artifact-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 92vw;
+        max-width: 360px;
+        z-index: 200;
+        border-left: none;
+        border-radius: 0;
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+      }
+      .artifact-panel[hidden] { transform: translateX(100%); }
+      .artifact-panel.mobile-visible { transform: translateX(0); }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title { font-size: 24px; }
+      .hero-subtitle { font-size: 13px; }
+      .message-content { font-size: 14px; }
+      .suggestion-card { padding: 12px; }
+      .mode-button { display: none; }
+      .mode-selector > .mode-button:first-child { display: inline-flex; }
+    }
+
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CHAT / SECURE LINK", accent, chips: [`<b>${activeProviderLabel.toUpperCase()}</b> ${escapeHtmlServer(activeModelName)}`], rightMeta: `${this.chatCount} MESSAGES` })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CHAT", chips: [`<b>${activeProviderLabel.toUpperCase()}</b> ${escapeHtmlServer(activeModelName)}`], rightMeta: `${this.chatCount} MESSAGES` })}
   <div class="main-container">
-    <div class="sidebar">
+    <aside class="sidebar">
+      <div class="sidebar-brand">Ronin</div>
+      <nav class="sidebar-nav">
+        <a href="/" class="sidebar-nav-item"><span class="sidebar-nav-icon">⌂</span> Home</a>
+        <a href="/chat" class="sidebar-nav-item active"><span class="sidebar-nav-icon">💬</span> Chat</a>
+        <a href="/routes" class="sidebar-nav-item"><span class="sidebar-nav-icon">⚡</span> Routes</a>
+        <a href="/models" class="sidebar-nav-item"><span class="sidebar-nav-icon">🧠</span> Models</a>
+      </nav>
+      <div class="sidebar-divider"></div>
       <div class="sidebar-header">
-        <button class="new-chat-button" id="new-chat-button" title="New Chat">+ NEW CHAT</button>
+        <button class="new-chat-button" id="new-chat-button" title="New Chat (⌘N)">
+          <span>+</span>
+          <span>New chat</span>
+        </button>
         <div class="model-indicator" title="${escapeHtmlServer(`${activeProviderLabel} — ${activeModelName}`)}">
           ${renderProviderIconSvg(activeProvider, 16)}
           <span class="model-indicator-name">${escapeHtmlServer(activeModelName)}</span>
@@ -1343,16 +1715,37 @@ self.addEventListener("fetch", (event) => {
       <div class="chat-list" id="chat-list">
         <div class="chat-tabs-empty">Loading chats...</div>
       </div>
-    </div>
-    <div class="chat-container">
+    </aside>
+
+    <main class="chat-container">
       <div id="chat-history"></div>
       <div id="drop-zone">Drop files here to analyze</div>
-      <div class="input-area">
-        <textarea id="message-input" rows="1" placeholder="Ask Ronin..."></textarea>
-        <button id="mic-button" title="Voice input">🎤</button>
-        <button id="send-button">Send</button>
+
+      <div class="composer">
+        <div class="composer-inner">
+          <div class="composer-toolbar">
+            <div class="mode-selector" id="mode-selector">
+              <button class="mode-button active" data-mode="normal" title="Normal chat">✨ Normal</button>
+              <div class="mode-menu" id="mode-menu">
+                <div class="mode-menu-item active" data-mode="normal"><span>✨</span> Normal</div>
+                <div class="mode-menu-item" data-mode="code"><span>{}</span> Write code</div>
+                <div class="mode-menu-item" data-mode="web"><span>🌐</span> Search the web</div>
+                <div class="mode-menu-item" data-mode="image"><span>🎨</span> Create an image</div>
+                <div class="mode-menu-item" data-mode="research"><span>🧠</span> Deep research</div>
+              </div>
+            </div>
+            <button class="composer-tool-btn" id="files-panel-toggle" title="Files">📎 Files</button>
+            <button class="composer-tool-btn" id="speak-toggle" title="Speak replies">🔇 Speak</button>
+          </div>
+          <div class="composer-input-row">
+            <textarea id="message-input" rows="1" placeholder="Ask Ronin anything..."></textarea>
+            <button id="send-button" class="send-button" title="Send" disabled>➜</button>
+          </div>
+        </div>
       </div>
-    </div>
+      <button id="mic-button" class="mic-button" title="Voice input">🎤</button>
+    </main>
+
     <div id="artifact-panel" class="artifact-panel" hidden>
       <div class="artifact-panel-header">
         <span class="artifact-panel-title" id="artifact-panel-title">Files</span>
@@ -1368,6 +1761,14 @@ self.addEventListener("fetch", (event) => {
       </div>
     </div>
   </div>
+
+  <nav class="mobile-nav">
+    <a href="/" title="Home">⌂</a>
+    <a href="/chat" class="active" title="Chat">💬</a>
+    <a href="/routes" title="Routes">⚡</a>
+    <a href="/models" title="Models">🧠</a>
+  </nav>
+
   <script>
     let currentChatId = null;
     let chats = [];
@@ -1376,29 +1777,12 @@ self.addEventListener("fetch", (event) => {
       document.body.classList.add('embedded-client');
     }
 
-    // Remote-access token (see duties/cloudflare-connect.ts's /connect QR code):
-    // the first hit from a scanned QR arrives as /chat?token=..., which the
-    // server itself accepts once; store it here so every subsequent fetch on
-    // this device can authenticate too, then scrub it from the visible URL.
-    (function () {
-      const params = new URLSearchParams(location.search);
-      const tokenFromUrl = params.get('token');
-      if (tokenFromUrl) {
-        try { localStorage.setItem('ronin-remote-token', tokenFromUrl); } catch (e) {}
-        params.delete('token');
-        const clean = location.pathname + (params.toString() ? '?' + params.toString() : '');
-        history.replaceState(null, '', clean);
-      }
-    })();
+    const messageInput = document.getElementById('message-input');
+    const sendButton = document.getElementById('send-button');
 
+    // Local-only: Ronin serves localhost traffic directly with no auth token.
     function authFetch(url, options) {
-      options = options || {};
-      let token = null;
-      try { token = localStorage.getItem('ronin-remote-token'); } catch (e) {}
-      if (token) {
-        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
-      }
-      return fetch(url, options);
+      return fetch(url, options || {});
     }
 
     // --- Files panel: code blocks from this chat, plus a browser for the real Artifact library ---
@@ -1742,16 +2126,13 @@ self.addEventListener("fetch", (event) => {
       return div.innerHTML;
     }
 
-    // Proposal cards: a \`\`\`contract-proposal { id, preview } \`\`\`,
-    // \`\`\`workflow-proposal { id, preview } \`\`\`, or
+    // Proposal cards: a \`\`\`workflow-proposal { id, preview } \`\`\` or
     // \`\`\`duty-proposal { id, preview, code } \`\`\` fence (deterministically
-    // appended server-side whenever contracts.proposeReflex / workflows.propose /
-    // duties.proposeDuty runs — see injectContractProposalCardIntoResponse /
-    // injectWorkflowProposalCardIntoResponse / injectDutyProposalCardIntoResponse)
-    // is pulled out of the markdown text and rendered as an Allow/Refuse card
-    // instead of a code block.
+    // appended server-side whenever workflows.propose / duties.proposeDuty runs —
+    // see injectWorkflowProposalCardIntoResponse /
+    // injectDutyProposalCardIntoResponse) is pulled out of the markdown text
+    // and rendered as an Allow/Refuse card instead of a code block.
     const PROPOSAL_KINDS = {
-      'contract-proposal': { kind: 'contract', approveUrl: '/api/contracts/proposals/approve', refuseUrl: '/api/contracts/proposals/refuse', nameField: 'contractName' },
       'workflow-proposal': { kind: 'workflow', approveUrl: '/api/workflows/proposals/approve', refuseUrl: '/api/workflows/proposals/refuse', nameField: 'workflowName' },
       'duty-proposal': { kind: 'duty', approveUrl: '/api/duties/proposals/approve', refuseUrl: '/api/duties/proposals/refuse', nameField: 'dutyName' },
     };
@@ -1797,15 +2178,15 @@ self.addEventListener("fetch", (event) => {
       const refuseBtn = document.createElement('button');
       refuseBtn.className = 'proposal-card-refuse';
       refuseBtn.textContent = 'Refuse';
-      allowBtn.onclick = () => decideProposal(card.id, card.kind || 'contract', 'approve', actions);
-      refuseBtn.onclick = () => decideProposal(card.id, card.kind || 'contract', 'refuse', actions);
+      allowBtn.onclick = () => decideProposal(card.id, card.kind || 'workflow', 'approve', actions);
+      refuseBtn.onclick = () => decideProposal(card.id, card.kind || 'workflow', 'refuse', actions);
       actions.appendChild(allowBtn);
       actions.appendChild(refuseBtn);
       return el;
     }
 
     async function decideProposal(id, kind, action, actionsEl) {
-      const cfg = PROPOSAL_KINDS[kind + '-proposal'] || PROPOSAL_KINDS['contract-proposal'];
+      const cfg = PROPOSAL_KINDS[kind + '-proposal'] || PROPOSAL_KINDS['workflow-proposal'];
       const buttons = actionsEl.querySelectorAll('button');
       buttons.forEach(b => b.disabled = true);
       try {
@@ -1828,126 +2209,171 @@ self.addEventListener("fetch", (event) => {
       }
     }
 
+    function renderHero() {
+      return \x60
+        <div class="chat-hero">
+          <div class="hero-title">What can I help with?</div>
+          <div class="hero-subtitle">Ask anything, create files, search the web, or just talk.</div>
+          <div class="suggestion-grid">
+            <button class="suggestion-card" data-prompt="Summarize my latest notes and highlight next steps">
+              <div class="suggestion-card-icon">📝</div>
+              <div class="suggestion-card-title">Catch up</div>
+              <div class="suggestion-card-desc">Summarize notes, todos, and schedule into a morning brief.</div>
+            </button>
+            <button class="suggestion-card" data-prompt="Write a shell script that automates my morning Ronin brief">
+              <div class="suggestion-card-icon">{}</div>
+              <div class="suggestion-card-title">Write code</div>
+              <div class="suggestion-card-desc">Generate scripts, components, or full duties in seconds.</div>
+            </button>
+            <button class="suggestion-card" data-prompt="Search the web for the latest AI model releases this week">
+              <div class="suggestion-card-icon">🌐</div>
+              <div class="suggestion-card-title">Search the web</div>
+              <div class="suggestion-card-desc">Find recent news, papers, releases, and summarize them.</div>
+            </button>
+            <button class="suggestion-card" data-prompt="Create a minimal abstract 3D energy orb visualization concept">
+              <div class="suggestion-card-icon">🎨</div>
+              <div class="suggestion-card-title">Create an image</div>
+              <div class="suggestion-card-desc">Describe an image and get a prompt or generation plan.</div>
+            </button>
+          </div>
+          <div class="quick-actions">
+            <button class="quick-action-pill" data-prompt="Write code for ">⚡ Write code</button>
+            <button class="quick-action-pill" data-prompt="Search the web for ">🌐 Search web</button>
+            <button class="quick-action-pill" data-prompt="Create an image of ">🎨 Create image</button>
+            <button class="quick-action-pill" data-prompt="Think deeply about ">🧠 Deep research</button>
+          </div>
+        </div>
+      \x60;
+    }
+
+    function bindHeroActions() {
+      const container = document.getElementById('chat-history');
+      container.querySelectorAll('.suggestion-card, .quick-action-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const prompt = btn.dataset.prompt;
+          if (!prompt) return;
+          messageInput.value = prompt;
+          messageInput.focus();
+          autoResizeInput();
+          updateSendButton();
+        });
+      });
+    }
+
+    let currentMode = 'normal';
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-button, .mode-menu-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.mode === mode);
+      });
+      const labels = {
+        normal: '✨ Normal',
+        code: '{} Write code',
+        web: '🌐 Search web',
+        image: '🎨 Create image',
+        research: '🧠 Deep research'
+      };
+      const activeBtn = document.querySelector('.mode-button[data-mode]');
+      if (activeBtn) activeBtn.textContent = labels[mode] || labels.normal;
+    }
+
+    function updateSendButton() {
+      sendButton.disabled = !messageInput.value.trim();
+    }
+
     function renderHistory(messages) {
       const container = document.getElementById('chat-history');
       container.innerHTML = '';
-
-      if (!messages || messages.length === 0) {
-        container.innerHTML = \`
-          <div class="hero-state">
-            <div class="hero-title">RONIN</div>
-            <div class="hero-subtitle">Digital Resource Allocation Module</div>
-            <div class="hero-console">Secure Link Active</div>
-          </div>
-        \`;
-        syncSessionFilesFromHistory(messages);
-        renderArtifactPanel();
-        return;
-      }
-      
-      messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = \`message \${msg.role}\`;
-        const content = document.createElement('div');
-        content.className = 'message-content';
-        
-        // Render markdown for assistant messages, plain text for user messages
-        let proposalCards = [];
-        if (msg.role === 'assistant') {
-          const extracted = extractProposalCards(msg.content);
-          const msgText = extracted.text;
-          proposalCards = extracted.cards;
-          if (typeof marked !== 'undefined' && marked && marked.parse) {
-            try {
-              if (marked.setOptions) {
-                marked.setOptions({
-                  breaks: true,
-                  gfm: true,
-                  headerIds: false,
-                  mangle: false
-                });
-              }
-              content.innerHTML = marked.parse(msgText);
-
-              // Apply syntax highlighting to code blocks
-              if (typeof hljs !== 'undefined' && hljs) {
-                content.querySelectorAll('pre code').forEach(block => {
-                  hljs.highlightElement(block);
-                });
-              }
-            } catch (e) {
-              console.warn('Markdown parsing failed:', e);
-              const text = msgText.replace(/&/g, '&amp;')
-                                      .replace(/</g, '&lt;')
-                                      .replace(/>/g, '&gt;')
-                                      .replace(/\\n/g, '<br>');
-              content.innerHTML = text;
-            }
-          } else {
-            const text = msgText.replace(/&/g, '&amp;')
-                                    .replace(/</g, '&lt;')
-                                    .replace(/>/g, '&gt;')
-                                    .replace(/\\n/g, '<br>');
-            content.innerHTML = text;
-          }
-        } else {
-          const text = msg.content.replace(/&/g, '&amp;')
-                                  .replace(/</g, '&lt;')
-                                  .replace(/>/g, '&gt;')
-                                  .replace(/\\n/g, '<br>');
-          content.innerHTML = text;
-        }
-
-        div.appendChild(content);
-        proposalCards.forEach(card => div.appendChild(renderProposalCard(card)));
-        container.appendChild(div);
-      });
-      
-      container.scrollTop = container.scrollHeight;
       syncSessionFilesFromHistory(messages);
       renderArtifactPanel();
+      if (!messages || messages.length === 0) {
+        container.innerHTML = renderHero();
+        bindHeroActions();
+        return;
+      }
+      const wrapper = document.createElement('div');
+      wrapper.className = 'messages-wrapper';
+      messages.forEach(msg => {
+        const el = document.createElement('div');
+        el.className = 'message ' + msg.role;
+        const avatar = msg.role === 'user' ? '👤' : '🥷';
+        const time = msg.created_at ? formatTime(msg.created_at) : '';
+        const meta = time ? '<div class="message-meta">' + escapeHtml(time) + '</div>' : '';
+        const { text: cleanedText, cards } = extractProposalCards(msg.content || '');
+        let bodyHtml;
+        if (msg.role === 'assistant' && typeof marked !== 'undefined' && marked && marked.parse) {
+          try {
+            if (marked.setOptions) {
+              marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+            }
+            bodyHtml = marked.parse(cleanedText);
+            if (typeof hljs !== 'undefined' && hljs) {
+              setTimeout(() => {
+                el.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+              }, 0);
+            }
+          } catch (e) {
+            console.warn('Markdown parsing failed:', e);
+            bodyHtml = escapeHtml(cleanedText).replace(/\\n/g, '<br>');
+          }
+        } else {
+          bodyHtml = escapeHtml(cleanedText).replace(/\\n/g, '<br>');
+        }
+        let cardsHtml = '';
+        cards.forEach(card => {
+          const c = renderProposalCard(card);
+          cardsHtml += c ? c.outerHTML : '';
+        });
+        el.innerHTML = '<div class="message-avatar">' + avatar + '</div>' +
+          '<div><div class="message-content">' + bodyHtml + '</div>' + cardsHtml + meta + '</div>';
+        wrapper.appendChild(el);
+      });
+      container.appendChild(wrapper);
+      container.scrollTop = container.scrollHeight;
     }
 
     async function sendMessage() {
-      const input = document.getElementById('message-input');
-      const button = document.getElementById('send-button');
-      const message = input.value.trim();
-      if (!message) return;
-      
+      const input = messageInput;
+      const button = sendButton;
+      const rawMessage = input.value.trim();
+      const modePrefixes = {
+        code: '@code ',
+        web: '@web ',
+        image: '@image ',
+        research: '@research '
+      };
+      const message = (modePrefixes[currentMode] || '') + rawMessage;
+      if (!rawMessage) return;
+
       // Create chat if none exists
       if (!currentChatId) {
         await createNewChat();
-        // Wait for chat to be created
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
+
       input.value = '';
       autoResizeInput();
+      updateSendButton();
       button.disabled = true;
       button.innerHTML = '<span class="loading"></span>';
-      
-      // Add user message to state and UI immediately
+
       const userMessage = { role: 'user', content: message };
       currentMessages.push(userMessage);
       renderHistory(currentMessages);
-      
-      // Create AbortController with timeout that resets on each chunk
+
       const controller = new AbortController();
-      const STREAM_TIMEOUT_MS = 300000; // 5 minutes
+      const STREAM_TIMEOUT_MS = 300000;
       let timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
-      
-      // Helper to reset timeout on activity
       const resetTimeout = () => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
       };
-      
-      // Create assistant message placeholder
+
       const assistantMessage = { role: 'assistant', content: '' };
       currentMessages.push(assistantMessage);
-      
+
       try {
-        const response = await authFetch('/api/chat', {
+      const response = await authFetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message, chatId: currentChatId }),
@@ -2009,14 +2435,31 @@ self.addEventListener("fetch", (event) => {
         renderHistory(currentMessages);
       } finally {
         button.disabled = false;
-        button.textContent = 'Send';
+        button.innerHTML = '➜';
       }
     }
     
     // Event listeners
     document.getElementById('new-chat-button').addEventListener('click', createNewChat);
     document.getElementById('send-button').addEventListener('click', sendMessage);
-    const messageInput = document.getElementById('message-input');
+    // Mode selector dropdown
+    const modeSelector = document.getElementById('mode-selector');
+    const modeMenu = document.getElementById('mode-menu');
+    if (modeSelector && modeMenu) {
+      modeSelector.querySelector('.mode-button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        modeMenu.classList.toggle('open');
+      });
+      modeMenu.querySelectorAll('.mode-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setMode(item.dataset.mode);
+          modeMenu.classList.remove('open');
+        });
+      });
+      document.addEventListener('click', () => modeMenu.classList.remove('open'));
+    }
+
     function autoResizeInput() {
       messageInput.style.height = 'auto';
       const nextHeight = Math.min(messageInput.scrollHeight, 192);
@@ -2170,8 +2613,6 @@ self.addEventListener("fetch", (event) => {
    * Handle chat API requests
    */
   private async handleChatAPI(req: Request): Promise<Response> {
-    const denied = this.requireRemoteToken(req);
-    if (denied) return denied;
     if (req.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
     }
@@ -2397,8 +2838,8 @@ self.addEventListener("fetch", (event) => {
     // Auto-wrapped plugin tools (~186 of them, one per plugin method) are NOT
     // included up front — that's 8-20k tokens of schema overhead on every
     // turn, and this path bypasses the tokenGuard middleware entirely.
-    // Everything else (local.*, mcp:*, and duty-self-registered tools like
-    // contracts.proposeReflex) stays always visible; the model sees a compact
+    // Everything else (local.*, mcp:*, and duty-self-registered tools) stays
+    // always visible; the model sees a compact
     // category index instead and calls local.tools.load_category to pull in a
     // specific plugin category's real schemas when it decides it needs one.
     // See src/tools/toolDocs.ts (buildToolContext/expandToolContextForCategory
@@ -2544,10 +2985,7 @@ self.addEventListener("fetch", (event) => {
     if (finalResponse) {
       return injectDutyProposalCardIntoResponse(
         injectWorkflowProposalCardIntoResponse(
-          injectContractProposalCardIntoResponse(
-            injectMermaidLinkIntoResponse(finalResponse, toolResults),
-            toolResults
-          ),
+          injectMermaidLinkIntoResponse(finalResponse, toolResults),
           toolResults
         ),
         toolResults

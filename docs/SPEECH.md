@@ -428,9 +428,14 @@ export default class VoiceAssistant extends BaseAgent {
 }
 ```
 
-### Note: `duties/voice-messaging.ts` does not use TTS/STT
+### Note: the Realm relay speaks via `local.speech.say`
 
-Despite the name, `duties/voice-messaging.ts` has no working integration with the Piper/STT plugins described in this document — its "voice" refers to natural-language *command parsing* (e.g. "send X a message: ...") relayed over the Realm/mesh network, not audio. Its TTS/STT hooks are commented-out browser-API stubs (`SpeechSynthesisUtterance`/`webkitSpeechRecognition`) that have never been wired to `plugins/piper-tts.ts` or `plugins/stt.ts`. If you want a duty that actually speaks, follow `duties/announcer.ts`'s pattern instead — it checks `this.api.plugins.has("piper")` and calls `this.api.plugins.call("piper", "speakAndPlay", text)` for real.
+`duties/voice-config.ts` (VoiceDuty) absorbed the former `voice-messaging.ts`
+relay: natural-language command parsing (e.g. "send X a message: ...") over
+the Realm network, with relayed messages actually spoken through the
+`local.speech.say` tool — not browser-API stubs. The old duty's note about
+commented-out `SpeechSynthesisUtterance`/`webkitSpeechRecognition` stubs no
+longer applies; they were dropped in the merge.
 
 ---
 

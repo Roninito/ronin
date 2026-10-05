@@ -8,8 +8,8 @@ import { join } from "path";
 import { networkInterfaces } from "os";
 import { existsSync, rmSync } from "fs";
 import { spawn, spawnSync } from "child_process";
-import { getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getHeaderHomeIconSVG, getSharedUIPrimitivesCSS, hankoTheme, kiosaTheme, kiosaVisualTokens } from "../utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaPanelHTML, getKiosaChipHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML, type KiosaAccentName } from "../utils/kiosa.js";
+import { getHeaderHomeIconSVG, kiosaTheme, kiosaVisualTokens } from "../utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaPanelHTML, getKiosaChipHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink, type KiosaAccentName } from "../utils/kiosa.js";
 import { getConfigService } from "../config/ConfigService.js";
 import { discoverRoutes, startMenubar, stopMenubar } from "../os/index.js";
 import { Executor } from "../executor/Executor.js";
@@ -26,7 +26,6 @@ import {
   createReportMiddleware,
 } from "../middleware/index.js";
 import { modelSelector } from "../../plugins/model-selector.js";
-import { RouteGuard } from "../../plugins/cloudflare/src/RouteGuard.js";
 
 /** Return first non-internal IPv4 address for LAN URL display (e.g. 192.168.x.x). */
 function getLocalNetworkIP(): string | null {
@@ -83,7 +82,6 @@ export class DutyRegistry {
   private webhookHost?: string;
   private dependenciesInstalling = false;
   private homeFeeds: Map<string, HomeFeedItem> = new Map();
-  private routeGuard: RouteGuard;
 
   constructor(options: RegistryOptions) {
     this.files = options.files;
@@ -91,7 +89,6 @@ export class DutyRegistry {
     this.events = options.events;
     this.webhookHost = options.webhookHost;
     this.scheduler = new CronScheduler();
-    this.routeGuard = new RouteGuard();
     this.registerHomeFeedListener();
   }
 
@@ -392,17 +389,6 @@ export class DutyRegistry {
       fetch: async (req, server) => {
         const url = new URL(req.url);
         const path = url.pathname;
-
-        // Cloudflare route whitelist/block/auth enforcement — a no-op unless
-        // the user has opted in by running `ronin cloudflare route init`
-        // (RouteGuard.handle() 403s everything when no policy file exists, so
-        // it must never be called unconditionally). Once opted in, this gates
-        // ALL traffic on this port uniformly, local requests included — see
-        // docs/REMOTE_ACCESS.md for which routes to whitelist.
-        if (await this.routeGuard.hasPolicy()) {
-          const blocked = await this.routeGuard.handle(req, "default");
-          if (blocked) return blocked;
-        }
 
         // WebSocket upgrade — duties register via this.api.http.registerWebSocket(path, handlers);
         // checked early so it isn't shadowed by any of the ~25 hardcoded HTTP branches below.
@@ -1087,12 +1073,8 @@ export class DutyRegistry {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ronin Skills</title>
-  ${getKiosaHeadHTML(accent)}
+  ${getKiosaStylesheetLink(accent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
     body { margin:0; }
     .kiosa-wrap { max-width: 1200px; margin: 0 auto; padding: 14px; }
     .kiosa-card { background: ${kiosaTheme.colors.backgroundSecondary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 10px; margin-bottom: 10px; font-family: ${kiosaTheme.fonts.mono}; }
@@ -1113,7 +1095,7 @@ export class DutyRegistry {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SKILLS / LOCAL REGISTRY", accent, chips: [`LOCAL ${skills.length}`, `PORT ${port}`] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SKILLS / LOCAL REGISTRY", chips: [`LOCAL ${skills.length}`, `PORT ${port}`] })}
   <div class="kiosa-wrap">
     <div class="kiosa-card">
       <div class="kiosa-toolbar">
@@ -1226,12 +1208,8 @@ export class DutyRegistry {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ronin Dashboard</title>
-  ${getKiosaHeadHTML(accent)}
+  ${getKiosaStylesheetLink(accent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
     body { margin: 0; }
     .kiosa-nav { background: ${kiosaTheme.colors.backgroundSecondary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 10px; position: sticky; top: 8px; height: fit-content; }
     .kiosa-nav h3 { margin: 0 0 8px; font-family: ${kiosaTheme.fonts.mono}; font-size: 10px; color: ${kiosaTheme.colors.textSecondary}; letter-spacing: .14em; }
@@ -1255,7 +1233,7 @@ export class DutyRegistry {
     <div style="font-family:${kiosaTheme.fonts.primary};font-size:12px;letter-spacing:.16em;text-transform:uppercase;">Initializing Ronin Dashboard</div>
     <div id="loadingSubtitle" style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};max-width:460px;text-align:center;">Checking required dependencies...</div>
   </div>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DASH / RUNTIME OVERVIEW", accent, chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `UPTIME ${uptime}s`, `PID ${process.pid}`] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DASH / RUNTIME OVERVIEW", chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `UPTIME ${uptime}s`, `PID ${process.pid}`] })}
   <div class="kiosa-wrap kiosa-shell" style="display:grid;grid-template-columns:220px minmax(0,1fr);gap:10px;padding-top:14px;">
     <aside class="kiosa-nav">
       <h3>DASH</h3>
@@ -1587,12 +1565,8 @@ export class DutyRegistry {
   <title>Ronin - Available Routes</title>
   <link href="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/gridstack@10.1.2/dist/gridstack-all.js"></script>
-  ${getKiosaHeadHTML(routeAccent)}
+  ${getKiosaStylesheetLink(routeAccent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
     body { margin: 0; }
     .kiosa-route-card {
       background: ${kiosaTheme.colors.backgroundSecondary};
@@ -1680,7 +1654,7 @@ export class DutyRegistry {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ROUTES / NETWORK MAP", accent: routeAccent, chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `WEBHOOKS ${status.webhookDuties}`, `PORT ${port}`] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ROUTES / NETWORK MAP", chips: [`DUTIES ${status.totalDuties}`, `SCHEDULED ${status.scheduledDuties}`, `WEBHOOKS ${status.webhookDuties}`, `PORT ${port}`] })}
   <div class="kiosa-wrap">
     <div class="content">
       ${Object.entries(routesByCategory).map(([category, categoryRoutes]) => `
@@ -1764,15 +1738,10 @@ export class DutyRegistry {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Status</title>
-  ${getKiosaHeadHTML(accent)}
+  ${getKiosaStylesheetLink(accent)}
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
-    
     * {
       margin: 0;
       padding: 0;
@@ -2081,7 +2050,7 @@ export class DutyRegistry {
       };
       
       return React.createElement('div', null,
-        React.createElement('div', { dangerouslySetInnerHTML: { __html: ${JSON.stringify(getKiosaTopbarHTML({ title: "RONIN", subtitle: "STATUS / RUNTIME", accent, chips: [], rightMeta: "AUTO-REFRESH 5S" }))} } }),
+        React.createElement('div', { dangerouslySetInnerHTML: { __html: ${JSON.stringify(getKiosaTopbarHTML({ title: "RONIN", subtitle: "STATUS / RUNTIME", chips: [], rightMeta: "AUTO-REFRESH 5S" }))} } }),
         React.createElement('div', { className: 'kiosa-container' },
           React.createElement('div', { className: 'kiosa-info-grid' },
             React.createElement('div', { className: 'kiosa-info-item' },

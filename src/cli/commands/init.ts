@@ -11,6 +11,7 @@ import { execSync } from "child_process";
 
 interface InitOptions {
   quick?: boolean;
+  /** Accepted but ignored (local-only since tunnel removal); kept so old invocations don't break. */
   skipCloudflare?: boolean;
   skipDesktop?: boolean;
 }
@@ -153,32 +154,6 @@ async function interactiveSetup(options: InitOptions): Promise<void> {
       }
     }
 
-    // Step 4: Cloudflare Integration
-    if (!options.skipCloudflare) {
-      console.log("");
-      console.log(`${c.purple}☁️  STEP 4: Cloudflare Integration (Optional)${c.reset}`);
-      console.log("-----------------------------------------------");
-      console.log("");
-      console.log("Cloudflare integration lets you:");
-      console.log("  ✓ Create secure tunnels to access Ronin remotely");
-      console.log("  ✓ Share your dashboard with team members");
-      console.log("  ✓ Create webhook endpoints that trigger agents");
-      console.log("");
-      console.log(`${c.red}🛡️  IMPORTANT - Security Model:${c.reset}`);
-      console.log("Ronin uses ZERO-TRUST security with Cloudflare:");
-      console.log("  🔒 NOTHING is exposed by default");
-      console.log("  🔒 You must explicitly whitelist each route");
-      console.log("  🔒 Dangerous paths (/disk, /admin) are always blocked");
-      console.log("  🔒 Optional: authentication required, time-based access");
-      console.log("  🔒 Complete audit logs of all access attempts");
-      console.log("");
-
-      const setupCloudflare = await ask("Set up Cloudflare integration? [y/N]: ");
-      if (setupCloudflare.toLowerCase() === "y") {
-        await setupCloudflareIntegration();
-      }
-    }
-
     // Step 5: Ollama Check
     console.log("");
     console.log(`${c.purple}🤖 STEP 5: Local AI (Ollama)${c.reset}`);
@@ -272,7 +247,7 @@ async function quickSetup(): Promise<void> {
   console.log("Using recommended defaults...");
   console.log("");
 
-  // Default: Offline mode, no desktop, no cloudflare
+  // Default: Offline mode, no desktop (local-only, no remote access)
   await saveConfig("desktop.offlineMode", true);
   
   console.log(`${c.green}✓ Offline Mode enabled (most private)${c.reset}`);
@@ -283,62 +258,6 @@ async function quickSetup(): Promise<void> {
   console.log(`${c.cyan}Next steps:${c.reset}`);
   console.log("  ronin start              # Start Ronin");
   console.log("  ronin create agent       # Create an agent");
-}
-
-async function setupCloudflareIntegration(): Promise<void> {
-  console.log("");
-  console.log(`${c.cyan}Setting up Cloudflare integration...${c.reset}`);
-  console.log("");
-
-  // Check/install Wrangler
-  try {
-    execSync("which wrangler", { stdio: "ignore" });
-    console.log(`${c.green}✓ Wrangler already installed${c.reset}`);
-  } catch {
-    console.log("Installing Wrangler CLI...");
-    try {
-      execSync("npm install -g wrangler", { stdio: "inherit" });
-      console.log(`${c.green}✓ Wrangler installed${c.reset}`);
-    } catch (error) {
-      console.log(`${c.red}✗ Failed to install Wrangler${c.reset}`);
-      console.log("Install manually: npm install -g wrangler");
-      return;
-    }
-  }
-
-  // Check/install cloudflared
-  try {
-    execSync("which cloudflared", { stdio: "ignore" });
-    console.log(`${c.green}✓ cloudflared already installed${c.reset}`);
-  } catch {
-    console.log("Installing cloudflared daemon...");
-    console.log("Please install manually from: https://github.com/cloudflare/cloudflared/releases");
-  }
-
-  console.log("");
-  console.log("You'll now authenticate with Cloudflare via your browser.");
-  console.log("Press Enter to continue...");
-  
-  const readline = require("readline");
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  
-  await new Promise((resolve) => rl.question("", resolve));
-  rl.close();
-
-  try {
-    execSync("wrangler login", { stdio: "inherit" });
-    console.log(`${c.green}✓ Cloudflare authentication complete!${c.reset}`);
-    console.log("");
-    console.log(`${c.cyan}Next steps:${c.reset}`);
-    console.log("  ronin cloudflare route init       # Initialize route policy");
-    console.log("  ronin cloudflare route add /api   # Add a route to expose");
-    console.log("  ronin cloudflare tunnel create    # Create secure tunnel");
-  } catch {
-    console.log(`${c.red}✗ Authentication failed${c.reset}`);
-  }
 }
 
 async function updateShellConfig(key: string, value: string): Promise<void> {

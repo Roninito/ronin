@@ -10,7 +10,7 @@
  * "discover, then use" shape Skills already use, generalized to plugin tools.
  *
  * `local.*`, `mcp:*`, and duty-self-registered tools (e.g.
- * `contracts.proposeReflex`) are deliberately NOT gated behind this — they're
+ * `duties.proposeDuty`) are deliberately NOT gated behind this — they're
  * few (~35-40 total combined) and meant to always be visible; only the
  * auto-wrapped bulk plugin surface (the ~186-tool part) needed lazy loading.
  */
@@ -228,14 +228,13 @@ export function toOpenAISchema(t: ToolDefinition): OpenAIFunctionSchema {
  *
  * This is deliberately not "only local/mcp" — several duties self-register
  * their own tools directly (`api.tools.register(...)`) with a custom
- * provider naming the duty itself: `contracts.proposeReflex` (provider
- * "contract-executor"), `duties.proposeDuty` (provider "duty-executor"),
- * `schedule.writeSchedule` (provider "schedule-manager"), plus
- * skill-maker/workflow-manager/refactory's own tools. These are hand-written,
- * few (~15-20 total across all of them), and often exactly the tool a chat
- * message is trying to reach (creating a contract/duty/schedule) — nothing
- * like the ~186-tool bulk plugin surface that actually needed gating. They
- * stay always-visible alongside `local.*` and `mcp:*`.
+ * provider naming the duty itself: `duties.proposeDuty` (provider
+ * "maker"), `schedule.writeSchedule` (provider "schedule-manager"),
+ * plus skill-maker/workflow-manager's own tools. These are
+ * hand-written, few (~15-20 total across all of them), and often exactly
+ * the tool a chat message is trying to reach (creating a duty/schedule) —
+ * nothing like the ~186-tool bulk plugin surface that actually needed
+ * gating. They stay always-visible alongside `local.*` and `mcp:*`.
  *
  * Pure — pass in whatever `categoryIndexText` you already read (or "").
  */

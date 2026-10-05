@@ -13,8 +13,8 @@ import type {
   AIStreamEvent,
   AIToolCallEvent,
 } from "../src/tools/types.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 /**
  * Ring buffer that keeps the last N items in memory.
@@ -475,11 +475,63 @@ export default class AnalyticsAgent extends BaseDuty {
       timestamp: event.timestamp,
     });
     this.currentHourBucket.events++;
+    // Persistent daily cost + per-tool stats (absorbed from tool-analytics).
+    void this.persistToolCost(event).catch((error) =>
+      console.error("[analytics] Error persisting tool cost:", error)
+    );
   }
 
-  private handlePolicyViolation(_event: ToolPolicyViolationEvent): void {
+  private async persistToolCost(event: ToolCompletedEvent): Promise<void> {
+    const dayKey = new Date(event.timestamp).toISOString().split("T")[0]!;
+    if (event.cost) {
+      const costKey = `analytics.costs.daily.${dayKey}`;
+      const existing = await this.api.memory.retrieve(costKey);
+      const dailyCost = existing ? parseFloat(existing as string) : 0;
+      await this.api.memory.store(costKey, String(dailyCost + event.cost));
+    }
+    const statsKey = `analytics.tools.stats.${event.toolName}`;
+    const existing = (await this.api.memory.retrieve(statsKey)) as Record<string, any> | null;
+    const stats = existing ?? {
+      totalCalls: 0,
+      successfulCalls: 0,
+      failedCalls: 0,
+      totalCost: 0,
+      totalDuration: 0,
+      cachedCalls: 0,
+      firstUsed: event.timestamp,
+    };
+    stats.totalCalls++;
+    stats.successfulCalls += event.success ? 1 : 0;
+    stats.failedCalls += event.success ? 0 : 1;
+    stats.totalCost += event.cost || 0;
+    stats.totalDuration += event.duration;
+    stats.cachedCalls += event.cached ? 1 : 0;
+    stats.lastUsed = event.timestamp;
+    await this.api.memory.store(statsKey, stats);
+  }
+
+  private handlePolicyViolation(event: ToolPolicyViolationEvent): void {
     this.totalEvents++;
     this.currentHourBucket.events++;
+    // Persistent violation log, capped at 100 (absorbed from tool-analytics).
+    void (async () => {
+      try {
+        const key = "analytics.policy.violations";
+        const existing = await this.api.memory.retrieve(key);
+        const violations = Array.isArray(existing) ? existing : [];
+        violations.push({
+          toolName: event.toolName,
+          reason: event.reason,
+          estimatedCost: event.estimatedCost,
+          conversationId: event.conversationId,
+          timestamp: event.timestamp,
+        });
+        if (violations.length > 100) violations.shift();
+        await this.api.memory.store(key, violations);
+      } catch (error) {
+        console.error("[analytics] Error persisting policy violation:", error);
+      }
+    })();
   }
 
   private handleAiCompletion(event: AICompletionEvent): void {
@@ -756,11 +808,7 @@ export default class AnalyticsAgent extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Analytics</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  ${getKiosaHeadHTML(accent)}
-  ${getAdobeCleanFontFaceCSS()}
-  ${getThemeCSS(kiosaTheme)}
-  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-  ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
   <style>
     body {
       min-height: 100vh;
@@ -978,7 +1026,7 @@ export default class AnalyticsAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ANALYTICS / DASHBOARD", accent, chips: [`<b>AUTO-REFRESH</b> 30S`] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ANALYTICS / DASHBOARD", chips: [`<b>AUTO-REFRESH</b> 30S`] })}
 
   <div class="container">
     <!-- Overview Cards -->
@@ -1394,6 +1442,51 @@ export default class AnalyticsAgent extends BaseDuty {
 
     await this.api.memory.store(summaryKey, JSON.stringify(summary));
     console.log("[analytics] Summary persisted for", dayKey);
+
+    // Daily tool-cost report (absorbed from tool-analytics).
+    const costReport = await this.getCostReport(7);
+    await this.api.memory.store(`analytics.report.${dayKey}`, JSON.stringify(costReport));
+    console.log(
+      `[analytics] 7-day tool cost: $${costReport.totalCost.toFixed(4)} ` +
+        `(avg $${costReport.avgDaily.toFixed(4)}/day, projected $${costReport.projectedMonthly.toFixed(2)}/mo)`
+    );
+
     this.emitHomeFeed("Summary persisted", `Duties: ${summary.totalDuties} · Events: ${summary.totalEvents}`);
+  }
+
+  /**
+   * Cost report over the last N days from persistent daily buckets.
+   * Absorbed from the former tool-analytics duty.
+   */
+  async getCostReport(days = 30): Promise<{
+    totalCost: number;
+    avgDaily: number;
+    dailyBreakdown: Record<string, number>;
+    projectedMonthly: number;
+  }> {
+    const costs: Record<string, number> = {};
+    const now = new Date();
+
+    for (let i = 0; i < days; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dayKey = date.toISOString().split("T")[0]!;
+
+      const costKey = `analytics.costs.daily.${dayKey}`;
+      const cost = await this.api.memory.retrieve(costKey);
+      if (cost) {
+        costs[dayKey] = parseFloat(cost as string);
+      }
+    }
+
+    const totalCost = Object.values(costs).reduce((sum, cost) => sum + cost, 0);
+    const avgDaily = totalCost / days;
+
+    return {
+      totalCost,
+      avgDaily,
+      dailyBreakdown: costs,
+      projectedMonthly: avgDaily * 30,
+    };
   }
 }

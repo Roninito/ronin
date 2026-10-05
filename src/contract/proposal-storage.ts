@@ -131,9 +131,9 @@ export class ContractProposalStorage {
    */
   /**
    * `finalName`: the AI-derived name is a first guess; the human can rename
-   * it at approval time (see duties/contract-executor.ts). When set, this
-   * patches contract_json's embedded name too, so a re-read of a decided
-   * row reflects what the contract is actually called.
+   * it at approval time. When set, this patches contract_json's embedded
+   * name too, so a re-read of a decided row reflects what the contract is
+   * actually called.
    */
   async decide(id: string, status: Exclude<ProposalStatus, "pending">, finalName?: string): Promise<void> {
     const decidedAt = status === "superseded" ? null : Date.now();

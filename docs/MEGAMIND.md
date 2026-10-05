@@ -119,11 +119,13 @@ doing both.
 
 **Resolved:** "Direct model call" is already fully covered by the existing
 model router (`AIAPI.complete`/`.callTools`, tier-based). "CLI agent spawn"
-is a deliberately separate mechanism (`duties/tasking.ts` +
+was a deliberately separate mechanism (`duties/tasking.ts` +
 `src/tasking/executors.ts`, dispatching to `claude`/`opencode`/`qwen`/
-`cursor`/`gemini` CLI plugins) that does not go through the model router at
-all — it shells out to CLI binaries directly. These are correctly two
-different paths already, not two things that need reconciling into one.
+`cursor`/`gemini` CLI plugins) that did not go through the model router at
+all — it shelled out to CLI binaries directly. These were correctly two
+different paths already, not two things that needed reconciling into one.
+(Superseded: `duties/tasking.ts` + `src/tasking/` were deleted per the
+ecosystem plan; `duties/coder-bot.ts` is now the CLI-spawn path.)
 
 ### 2.4 Sensors
 Not a separate class — a naming convention for a Duty that only publishes,
@@ -252,13 +254,11 @@ and adding Ronin to multiple machines and communication between them")
 turned out to be three separate problems, each with its own answer.
 Conflating them was the original gap in this document.
 
-**Mobile access is solved and is neither of these primitives' job.** Bun
+**Mobile/remote access is out of scope and is neither of these primitives' job.** Bun
 has no real Android support, and phones aggressively kill backgrounded
-processes, so Ronin never runs *on* a phone. The answer is already built
-and documented (`docs/REMOTE_ACCESS.md`): Ronin stays running on a real
-always-on machine, a Cloudflare Tunnel exposes the dashboard, `RouteGuard`
-enforces a fail-closed path whitelist on every request (tunneled or local),
-and `/chat` is an installable PWA. Nothing in this section changes that.
+processes, so Ronin never runs *on* a phone. Ronin is local-only: the
+Cloudflare tunnel + route whitelist were removed, and tunneling (if ever
+wanted) is the user's concern per §2.6, not the engine's. Nothing in this section changes that.
 
 The remaining goal splits into two tiers with different trust models and
 different transports — **do not merge them into one mechanism**:
@@ -278,7 +278,7 @@ A call-sign-based pairing system for machines *you* own, in two parts:
   `beam(target, eventType, payload)` (fire-and-forget push to a named
   peer), `query(target, queryType, payload)` (request/response),
   `sendMessage`, `sendMedia`, and `getPeerStatus`. Already has a live
-  consumer today: `duties/voice-messaging.ts` uses `api.realm.sendMessage()`.
+  consumer today: `duties/voice-config.ts` (VoiceDuty) uses `api.realm.sendMessage()`.
 
 An incoming beam is re-emitted into the receiving instance's local event
 bus as `realm:beam:<eventType>` (not as the plain event name) — **kept
@@ -389,10 +389,10 @@ convenient; not blocking anything.
 | `tool-orchestrator.ts` | → **resolved: not receiving live traffic.** Nothing in the codebase calls its webhook or constructs it outside its own file; the two other references found are naming-collision comments, not callers. Keep as a *code pattern* reference for §2.6 (route registration), not as evidence of an active production path |
 | Reticulum plugin (`plugins/reticulum.ts`) | → **keep as the transport for Tier 2 (see 2.11)** — LXMF's encrypted, delay-tolerant, off-grid-capable messaging is the right fit for person-to-person comms between separate Ronin installs |
 | `src/mesh/` (`MeshDiscoveryService`) | → **keep the code, but it's the wrong shape for the actual goal** — see 2.11, Tier 2. Currently single-instance service discovery/RPC over Reticulum, not "my mesh talks to your mesh" encrypted messaging. Needs a real design pass (an addressable "my mesh" identity, an encrypted inter-owner channel) before it matches the intent — not a quick bridge to `api.events` |
-| **`plugins/realm.ts` + `realm-server`** | → **the actual cross-instance communication primitive** — see 2.11. Call-sign pairing, `beam`/`query` between named instances, already has a live consumer (`duties/voice-messaging.ts`) |
+| **`plugins/realm.ts` + `realm-server`** | → **the actual cross-instance communication primitive** — see 2.11. Call-sign pairing, `beam`/`query` between named instances, already has a live consumer (`duties/voice-config.ts`) |
 | `src/realms/` (plural — distributed *kata* registry, unrelated to Realm above despite the near-identical name) | → **deleted.** Confirmed zero callers anywhere in the codebase before removal. Not a rename or merge — the functionality (sharing katas across instances) had no real user; local kata management (`src/kata/`) was itself removed later the same day, see 2.10 |
-| `duties/tasking.ts` + `src/tasking/executors.ts` (multi-CLI dispatch: claude/opencode/qwen/cursor/gemini, chosen by label/heuristic) | → **keep and reuse** — this is already the "CLI agent spawn" Duty kind (§2.3) working in production; don't rebuild it |
-| RouteGuard / QuickTunnel (Cloudflare, fail-closed path whitelist on the HTTP server) | → **keep** — real remote-access security layer already wired into route handling (§2.6), and the actual mechanism behind mobile access (§2.11) |
+| `duties/tasking.ts` + `src/tasking/executors.ts` (multi-CLI dispatch: claude/opencode/qwen/cursor/gemini, chosen by label/heuristic) | → **superseded — deleted** per the ecosystem plan; `duties/coder-bot.ts` is the surviving CLI-spawn path |
+| RouteGuard / QuickTunnel (Cloudflare, fail-closed path whitelist on the HTTP server) | → **removed** — Ronin went local-only; tunnel, whitelist, and remote-token gate deleted (§2.6, §2.11) |
 | `workflows/*.md` (SOP guidance, read-only context injection) | → **resolved: keep as a distinct concept, not redundant with Skill.** Skill = callable (frontmatter + an `Abilities` section mapping to executable scripts). Workflow = pure guidance prose, injected read-only into context, never executed. The two were designed to connect — a Workflow's frontmatter has a `skills:` field meant to name the Skills it recommends — but that field is advisory-only and unenforced today, so in practice they're two unconnected systems rather than one layered one. Worth finishing the wiring, not worth merging the concepts |
 | `src/tools/WorkflowEngine.ts` (an older, unrelated third "workflow" concept — tool-step orchestration pipelines, distinct from both Skill and the `workflows/*.md` SOPs above) | → **deleted.** Confirmed fully dead: its 6 example pipelines were never registered anywhere, and `registerWorkflow()` had zero real callers ever, including custom ones. Not a "candidate for cleanup" — already removed |
 

@@ -1,5 +1,10 @@
 # Event-Sourced Plan Workflow
 
+> **Superseded (2026-10-05):** the Kanban board (`duties/tasking.ts`, `/todo`)
+> was deleted per the ecosystem plan. The event flow below
+> (`PlanProposed` → `manual-approval` → `PlanApproved` → `coder-bot`) still
+> holds; only the Todo-Agent state authority is gone.
+
 Ronin implements a clean, event-driven architecture for managing plans and tasks. This workflow decouples intent from execution, making the system composable, observable, and maintainable.
 
 ## Architecture Overview

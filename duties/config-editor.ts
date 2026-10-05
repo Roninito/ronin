@@ -4,8 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile, readdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
-import { hankoTheme, kiosaTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getSharedUIPrimitivesCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { hankoTheme, kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 import { getProviderVisual, renderProviderIconSvg, PROVIDER_LABELS } from "../src/utils/providerIcons.js";
 
 /**
@@ -1108,11 +1108,8 @@ export default class ConfigEditorAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Config Editor - Login</title>
-  ${getKiosaHeadHTML(loginAccent)}
+  ${getKiosaStylesheetLink(loginAccent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
     body {
       display: flex;
       justify-content: center;
@@ -1299,12 +1296,8 @@ export default class ConfigEditorAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Config Editor</title>
-  ${getKiosaHeadHTML(getKiosaAccentForPath("/config"))}
+  ${getKiosaStylesheetLink(getKiosaAccentForPath("/config"))}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
 
     body { margin: 0; }
 
@@ -1638,7 +1631,7 @@ export default class ConfigEditorAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CONFIG / SYSTEM SETTINGS", accent: getKiosaAccentForPath("/config"), rightMeta: "AUTHENTICATED" })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "CONFIG / SYSTEM SETTINGS", rightMeta: "AUTHENTICATED" })}
   <div class="container">
     <div class="config-layout">
       <aside class="category-nav">

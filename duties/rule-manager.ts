@@ -3,8 +3,8 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 /**
  * Rule Manager Agent
@@ -290,12 +290,8 @@ export default class RuleManagerAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Security Rules</title>
-  <style>
-    ${getKiosaHeadHTML(accent)}
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
+<style>
 
     body {
       padding: 0;
@@ -444,7 +440,7 @@ export default class RuleManagerAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "RULES", accent, chips: [], tabs: [] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "RULES", chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

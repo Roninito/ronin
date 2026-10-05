@@ -586,7 +586,7 @@ export async function createSkillCommand(
     ollamaModel: options.ollamaModel,
     dbPath: options.dbPath,
   });
-  const SkillMakerClass = (await import("../../../duties/skill-maker.js")).default;
-  const duty = new SkillMakerClass(api);
+  const MakerClass = (await import("../../../duties/maker.js")).default;
+  const duty = new MakerClass(api);
   await duty.createSkillFromRequest(description);
 }

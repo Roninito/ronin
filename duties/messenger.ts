@@ -257,7 +257,7 @@ export async function buildVaultContext(api: DutyAPI): Promise<string> {
             lines.push(`  - (+${indexed.length - sample.length} more — search "obsidian-" to enumerate)`);
           }
         } else {
-          lines.push("- No indexed vault notes yet. The obsidian-vault-indexer duty runs daily at 2 AM; until then, use obsidian_readNote for live vault reads.");
+          lines.push("- No indexed vault notes yet. The vault-doc-auditor duty indexes vaults daily at 4 AM; until then, use obsidian_readNote for live vault reads.");
         }
       } catch (err) {
         // Notes dir may not exist yet (fresh vault, mid-migration). Skip.

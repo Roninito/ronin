@@ -3,7 +3,30 @@
  * Extracted from techniques/types.ts during architecture refactor
  */
 
-import type { Condition, ConditionGroup } from "../contract/conditions.js";
+export type ConditionOperator =
+  | "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "in"
+  | "not_in"
+  | "contains"
+  | "starts_with"
+  | "ends_with";
+
+export interface Condition {
+  variable: string;
+  operator: ConditionOperator;
+  value: any;
+}
+
+/** Logical combination of conditions */
+export interface ConditionGroup {
+  type: "AND" | "OR";
+  conditions: (Condition | ConditionGroup)[];
+}
 
 // ── Schema Utilities ────────────────────────────────────────────────────────────
 

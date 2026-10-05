@@ -1,7 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 import { CrewClient } from "../src/dispatcher/crew.js";
 import { WAKE_TOOL, NEEDS_HUMAN_TOOL, buildAskPrompt } from "../src/dispatcher/tools.js";
 
@@ -196,13 +196,8 @@ export default class DispatcherConsoleDuty extends BaseDuty {
 <meta charset="utf-8">
 <title>Dispatcher Console</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+${getKiosaStylesheetLink(accent)}
 <style>
-  
-  ${getKiosaHeadHTML(accent)}
-  ${getAdobeCleanFontFaceCSS()}
-  ${getThemeCSS(kiosaTheme)}
-  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-  ${getKiosaTopbarCSS()}
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; color: ${kiosaTheme.colors.textPrimary}; background: ${kiosaTheme.colors.background}; }
   .page-content { max-width: 860px; margin: 0 auto; padding: 20px; }
   .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
@@ -229,7 +224,7 @@ export default class DispatcherConsoleDuty extends BaseDuty {
 </style>
 </head>
 <body>
-${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DISPATCHER", accent, chips: [], tabs: [] })}
+${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DISPATCHER", chips: [], tabs: [] })}
 <div class="page-content">
   <div id="status-error"></div>
   <div class="projects" id="projects"></div>

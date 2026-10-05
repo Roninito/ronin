@@ -5,7 +5,8 @@ import { homedir } from "os";
 import { readFile, writeFile } from "fs/promises";
 import { existsSync, mkdirSync } from "fs";
 import * as cheerio from "cheerio";
-import { hankoTheme, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconSVG } from "../src/utils/theme.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 interface RSSItem {
   /** Stable id for dedup: the feed's <guid>/<id>, falling back to the item's link. */
@@ -671,18 +672,18 @@ export default class RSSToTelegramAgent extends BaseDuty {
    * Get HTML UI for configuration
    */
   private getHTML(): string {
+    const accent = getKiosaAccentForPath("/rss-to-telegram/");
+    const accentHex = kiosaTheme.colors.accent;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RSS to Telegram Configuration</title>
+  ${getKiosaStylesheetLink(accent)}
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
 
     * {
       margin: 0;
@@ -691,19 +692,19 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
 
     body {
-      font-family: ${hankoTheme.fonts.primary};
-      background: ${hankoTheme.colors.background};
-      color: ${hankoTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
+      background: ${kiosaTheme.colors.background};
+      color: ${kiosaTheme.colors.textPrimary};
       min-height: 100vh;
       padding: 0;
       line-height: 1.6;
-      font-size: 0.8125rem;
+      font-size: 13px;
     }
 
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.lg};
+      padding: ${kiosaTheme.spacing.lg};
     }
 
     .content {
@@ -712,29 +713,34 @@ export default class RSSToTelegramAgent extends BaseDuty {
 
     .status-section,
     .form-section {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.lg};
-      padding: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.xl};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      padding: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.xl};
     }
 
     .status-section h2,
     .form-section h2 {
-      font-size: 0.9375rem;
-      font-weight: 300;
-      margin-bottom: ${hankoTheme.spacing.md};
-      padding-bottom: ${hankoTheme.spacing.sm};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: ${kiosaTheme.spacing.md};
+      padding-bottom: ${kiosaTheme.spacing.sm};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .status-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: ${hankoTheme.spacing.sm} 0;
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: 6px 0;
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
 
     .status-item:last-child {
@@ -742,153 +748,166 @@ export default class RSSToTelegramAgent extends BaseDuty {
     }
 
     .status-label {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.8125rem;
-      font-weight: 500;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
 
     .status-value {
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 0.8125rem;
-      font-family: ${hankoTheme.fonts.mono};
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 11px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .status-badge {
       display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: ${hankoTheme.borderRadius.sm};
-      font-size: 0.75rem;
-      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .status-badge.configured {
-      background: ${hankoTheme.colors.success}20;
-      color: ${hankoTheme.colors.success};
-      border: 1px solid ${hankoTheme.colors.success}40;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 15%, transparent);
+      color: ${kiosaTheme.colors.success};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 40%, transparent);
     }
 
     .status-badge.not-configured {
-      background: ${hankoTheme.colors.error}20;
-      color: ${hankoTheme.colors.error};
-      border: 1px solid ${hankoTheme.colors.error}40;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 15%, transparent);
+      color: ${kiosaTheme.colors.error};
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
     }
 
     .form-group {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.md};
     }
 
     .form-group label {
       display: block;
-      color: ${hankoTheme.colors.textSecondary};
-      margin-bottom: ${hankoTheme.spacing.xs};
-      font-size: 0.8125rem;
-      font-weight: 500;
+      color: ${kiosaTheme.colors.textSecondary};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .form-group .help-text {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textTertiary};
       margin-top: 0.25rem;
-      font-style: italic;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .form-group input {
       width: 100%;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      font-size: 0.8125rem;
-      background: ${hankoTheme.colors.background};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      color: ${hankoTheme.colors.textPrimary};
-      font-family: inherit;
-      transition: all 0.3s;
+      padding: 6px 8px;
+      font-size: 12px;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 2px;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.mono};
+      transition: border-color 150ms ease, background 150ms ease;
     }
 
     .form-group input::placeholder {
-      color: ${hankoTheme.colors.textTertiary};
+      color: ${kiosaTheme.colors.textTertiary};
     }
 
     .form-group input:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      background: ${kiosaTheme.colors.backgroundTertiary};
     }
 
     .form-group .required {
-      color: ${hankoTheme.colors.error};
+      color: ${kiosaTheme.colors.error};
     }
 
     .button {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.lg};
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 4px 8px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 0.8125rem;
-      font-family: inherit;
-      font-weight: 500;
-      transition: all 0.3s;
+      font-size: 10px;
+      font-family: ${kiosaTheme.fonts.mono};
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
     }
-    
-    .button:hover {
-      background: ${hankoTheme.colors.accent};
-      border-color: ${hankoTheme.colors.borderHover};
+
+    .button:hover:not(:disabled) {
+      background: ${kiosaTheme.colors.accent};
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.background};
     }
-    
+
     .button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
-    
+
     .button-primary {
-      background: ${hankoTheme.colors.accent};
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
+      background: color-mix(in srgb, ${accentHex} 12%, transparent);
+      border-color: color-mix(in srgb, ${accentHex} 45%, transparent);
+      color: ${accentHex};
     }
 
     .button-primary:hover:not(:disabled) {
-      background: ${hankoTheme.colors.accentHover};
+      background: ${kiosaTheme.colors.accentHover};
+      color: ${kiosaTheme.colors.background};
     }
 
     .error {
-      background: ${hankoTheme.colors.error}20;
-      border: 1px solid ${hankoTheme.colors.error}40;
-      color: ${hankoTheme.colors.error};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin: ${hankoTheme.spacing.md} 0;
+      background: color-mix(in srgb, ${kiosaTheme.colors.error} 12%, transparent);
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.error} 40%, transparent);
+      color: ${kiosaTheme.colors.error};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: 2px;
+      margin: ${kiosaTheme.spacing.md} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
 
     .success {
-      background: ${hankoTheme.colors.success}20;
-      border: 1px solid ${hankoTheme.colors.success}40;
-      color: ${hankoTheme.colors.success};
-      padding: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
-      margin: ${hankoTheme.spacing.md} 0;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 12%, transparent);
+      border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 40%, transparent);
+      color: ${kiosaTheme.colors.success};
+      padding: ${kiosaTheme.spacing.md};
+      border-radius: 2px;
+      margin: ${kiosaTheme.spacing.md} 0;
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 11px;
     }
 
     .loading {
       text-align: center;
-      padding: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textTertiary};
-      font-weight: 300;
+      padding: ${kiosaTheme.spacing.xl};
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 12px;
     }
 
     @media (max-width: 768px) {
       .container {
-        padding: ${hankoTheme.spacing.md};
+        padding: ${kiosaTheme.spacing.md};
       }
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  
+
   <script>
     const { useState, useEffect } = React;
-    const homeIconSvg = ${JSON.stringify(getHeaderHomeIconSVG())};
 
     function App() {
       const [config, setConfig] = useState(null);
@@ -1021,11 +1040,8 @@ export default class RSSToTelegramAgent extends BaseDuty {
       }
 
       return React.createElement('div', null,
-        React.createElement('div', { className: 'header' },
-          React.createElement('a', { href: '/', className: 'header-home', 'aria-label': 'Home', dangerouslySetInnerHTML: { __html: homeIconSvg } }),
-          React.createElement('h1', null, '📡 RSS to Telegram'),
-          React.createElement('div', { className: 'header-meta' }, 'Configure your Telegram bot to forward RSS feed items')
-        ),
+        ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "RSS TO TELEGRAM", chips: [], tabs: [] })},
+
         React.createElement('div', { className: 'container' },
         React.createElement('div', { className: 'content' },
           React.createElement('div', { className: 'status-section' },
@@ -1138,6 +1154,7 @@ export default class RSSToTelegramAgent extends BaseDuty {
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(React.createElement(App));
   </script>
+  ${getKiosaFooterHTML("RONIN · RSS TO TELEGRAM", "ONLINE · V0.1")}
 </body>
 </html>`;
   }

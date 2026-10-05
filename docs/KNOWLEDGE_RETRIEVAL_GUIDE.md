@@ -58,9 +58,8 @@ There's no enforced schema beyond `key`/`kind`/timestamps — add whatever front
 - **`refdoc-*`** — reference docs (from `docs/`, `AGENTS.md`, etc.), synced by `ronin doctor ingest-docs`
 - **`tool-*`** — every registered tool, synced by `duties/tools-indexer.ts` and `ronin doctor ingest-docs`
 - **`skill-*`** — installed AgentSkills, synced by `duties/skill-maker.ts` (on creation) and `ronin doctor ingest-docs`
-- **`codebase-file-*`** — TypeScript file summaries (exports, imports, complexity), by `duties/codebase-analyzer.ts`, overwritten daily
+- **`obsidian-<vault>-*`** — Obsidian vault note metadata (title, tags, wikilinks), by `duties/vault-doc-auditor.ts` (index phase, daily)
 - **`system-current`** — current OS/CPU/memory snapshot, by `duties/system-info-collector.ts`, overwritten every 6h
-- **`obsidian-<vault>-*`** — Obsidian vault note metadata (title, tags, wikilinks), by `duties/obsidian-vault-indexer.ts`
 - **`artifact-*`** — artifact state mirrors, by `duties/artifact-manager.ts` and the `artifact_*` tools
 - **freeform / ad hoc** — anything a duty writes via `api.memory.addContext()` or `api.memory.store()` with its own key convention (e.g. `messenger.ts`'s `conversation:<channel>:<user>`)
 

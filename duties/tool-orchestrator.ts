@@ -1,19 +1,24 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import type { ChainContext } from "../src/chain/types.js";
+import { standardSAR } from "../src/chains/templates.js";
 import { toolChat } from "../src/tools/ToolChat.js";
 import { getRoninContext, buildSystemPrompt } from "../src/utils/prompt.js";
 
 /**
  * Tool Orchestrator Agent
- * 
+ *
  * Demonstrates the complete Hybrid Intelligence system.
  * This agent acts as a smart router that:
  * 1. Understands user intent
  * 2. Decides which tools to use
  * 3. Orchestrates local and cloud tools
  * 4. Assembles final responses
- * 
+ *
  * This is the "Local Orchestrator" from the architecture document.
+ * It also absorbs the former tool-calling-agent duty: `ronin run
+ * tool-orchestrator` executes the SAR-chain demo below (git status +
+ * directory listing), the working reference example for standardSAR.
  */
 export default class ToolOrchestratorAgent extends BaseDuty {
   private conversationHistory: Map<string, Array<any>> = new Map();
@@ -26,11 +31,90 @@ export default class ToolOrchestratorAgent extends BaseDuty {
   }
 
   /**
-   * Main execution - handles incoming requests
+   * Main execution - runs the SAR-chain demo (see runSarDemo). The live
+   * query path is handleQuery() via the /api/tool-orchestrator webhook.
    */
   async execute(): Promise<void> {
-    console.log("[tool-orchestrator] Agent is running and ready");
-    console.log("[tool-orchestrator] Use the /api/tool-orchestrator endpoint or send events");
+    console.log("[tool-orchestrator] Running SAR-chain demo...");
+    try {
+      await this.runSarDemo(
+        "Check the git status and tell me if there are any uncommitted changes",
+        "git-status-check"
+      );
+      await this.runSarDemo(
+        "Get the current working directory and list all files in it, then tell me what you found",
+        "directory-listing"
+      );
+      console.log("[tool-orchestrator] Demo completed");
+    } catch (error) {
+      console.error("[tool-orchestrator] Demo error:", error);
+    }
+  }
+
+  /**
+   * Execute one request through a SAR chain (via the standardSAR template),
+   * letting the model decide which tools to call. Working reference example
+   * for standardSAR usage; result is stored in memory for future reference.
+   */
+  async runSarDemo(userRequest: string, operationId: string): Promise<void> {
+    console.log(`\n📋 Starting SAR chain: ${operationId}`);
+    console.log(`   Request: "${userRequest}"`);
+
+    const systemPrompt = `You are the Tool Calling Assistant. You have access to various tools and should intelligently decide which ones to use based on user requests.
+
+**Available Tools:**
+- local.shell.safe - Run safe shell commands (git, ls, cat, etc.)
+- local.file.read - Read file contents
+- local.file.list - List directory contents
+- local.http.request - Make HTTP requests
+- local.memory.search - Search stored context
+- skills.run - Execute available agent skills
+
+**Instructions:**
+1. Understand the user's request
+2. Decide which tools are needed to fulfill it
+3. Call the tools with appropriate parameters
+4. Return a clear summary of what you found
+
+Keep responses concise and focused on the actual results.`;
+
+    const ctx: ChainContext = {
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userRequest },
+      ],
+      ontology: {
+        domain: "tool-calling",
+        relevantSkills: [],
+      },
+      budget: {
+        max: 8192,
+        current: 0,
+        reservedForResponse: 512,
+      },
+      conversationId: `tool-orchestrator-${operationId}-${Date.now()}`,
+      metadata: { maxToolIterations: 4 },
+    };
+
+    try {
+      const stack = standardSAR({ maxTokens: 8192 });
+      const chain = this.createChain("tool-orchestrator");
+      chain.useMiddlewareStack(stack);
+      chain.withContext(ctx);
+      await chain.run();
+
+      const lastMessage = ctx.messages[ctx.messages.length - 1];
+      if (lastMessage && lastMessage.role === "assistant") {
+        console.log("📝 SAR Chain Result:", lastMessage.content);
+        await this.api.memory.store(`tool_call_result_${operationId}`, {
+          timestamp: Date.now(),
+          request: userRequest,
+          result: lastMessage.content,
+        });
+      }
+    } catch (error) {
+      console.error(`❌ SAR chain failed for ${operationId}:`, error);
+    }
   }
 
   /**

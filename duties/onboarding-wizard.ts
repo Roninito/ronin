@@ -3,7 +3,8 @@ import type { DutyAPI } from "@ronin/types/index.js";
 import { readFile, writeFile, access, mkdir } from "fs/promises";
 import { join } from "path";
 import { homedir } from "os";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 /**
  * Onboarding Wizard Agent
@@ -430,94 +431,114 @@ export default class OnboardingWizardAgent extends BaseDuty {
       platforms: status.steps?.platforms || !!(config.telegram.enabled || config.discord.enabled)
     };
     
+    const accent = getKiosaAccentForPath("/onboarding");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ronin Setup</title>
+  ${getKiosaStylesheetLink(accent)}
   <style>
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getAdobeCleanFontFaceCSS()}
 
     body {
-      padding: ${hankoTheme.spacing.xl};
+      margin: 0;
       min-height: 100vh;
     }
 
-    .container {
-      max-width: 700px;
+    .kiosa-wrap {
+      max-width: 760px;
       margin: 0 auto;
+      padding: 22px;
     }
 
-    header {
-      margin-bottom: ${hankoTheme.spacing.xl};
-      padding-bottom: ${hankoTheme.spacing.lg};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+    .kiosa-header {
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
+    }
+
+    .kiosa-header h1 {
+      font-family: ${kiosaTheme.fonts.primary};
+      font-size: 26px;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
     }
 
     .subtitle {
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.875rem;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .progress-bar {
-      background: ${hankoTheme.colors.accent};
-      height: 2px;
-      margin: ${hankoTheme.spacing.lg} 0;
+      background: ${kiosaTheme.colors.border};
+      height: 4px;
+      margin: 16px 0;
+      border-radius: 1px;
+      overflow: hidden;
     }
 
     .progress-fill {
-      background: #e94560;
+      background: ${accentHex};
       height: 100%;
+      box-shadow: 0 0 8px ${accentHex};
       transition: width 0.3s ease;
     }
 
     .steps {
       display: flex;
       flex-direction: column;
-      gap: ${hankoTheme.spacing.sm};
+      gap: 8px;
     }
 
     .step {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      transition: all 0.2s;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: 3px;
+      transition: border-color 150ms ease, background 150ms ease;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .step:hover {
-      border-color: ${hankoTheme.colors.borderHover};
+      border-color: ${kiosaTheme.colors.borderHover};
     }
 
     .step.complete {
-      border-color: rgba(39, 174, 96, 0.4);
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent);
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 5%, ${kiosaTheme.colors.backgroundSecondary});
     }
 
     .step-header {
-      padding: ${hankoTheme.spacing.md} ${hankoTheme.spacing.md};
+      padding: 10px 12px;
       display: flex;
       align-items: center;
-      gap: ${hankoTheme.spacing.md};
+      gap: 10px;
       cursor: pointer;
     }
 
     .step-number {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      border-radius: 2px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 500;
-      background: ${hankoTheme.colors.accent};
-      color: ${hankoTheme.colors.textSecondary};
+      font-size: 10px;
+      font-weight: 700;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
+      border: 1px solid ${kiosaTheme.colors.border};
     }
 
     .step.complete .step-number {
-      background: rgba(39, 174, 96, 0.2);
-      color: #27ae60;
+      background: color-mix(in srgb, ${kiosaTheme.colors.success} 15%, transparent);
+      border-color: color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent);
+      color: ${kiosaTheme.colors.success};
     }
 
     .step-title {
@@ -525,27 +546,35 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .step-title h3 {
-      font-size: 0.9375rem;
-      font-weight: 400;
-      margin-bottom: 0.125rem;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .step-title p {
-      color: ${hankoTheme.colors.textTertiary};
-      font-size: 0.8125rem;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .step-status {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: ${kiosaTheme.colors.textTertiary};
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .step.complete .step-status {
-      color: #27ae60;
+      color: ${kiosaTheme.colors.success};
     }
 
     .step-content {
-      padding: 0 ${hankoTheme.spacing.md} ${hankoTheme.spacing.md};
+      padding: 0 12px 12px;
       display: none;
     }
 
@@ -554,50 +583,57 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .form-group {
-      margin-bottom: ${hankoTheme.spacing.md};
+      margin-bottom: 12px;
     }
 
     .form-group label {
       display: block;
-      margin-bottom: ${hankoTheme.spacing.sm};
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.8125rem;
+      margin-bottom: 5px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textPrimary};
-      font-size: 0.875rem;
-      font-family: inherit;
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 8px;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textPrimary};
+      font-size: 12px;
+      font-family: ${kiosaTheme.fonts.mono};
+      border-radius: 2px;
+      box-sizing: border-box;
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: ${hankoTheme.colors.borderHover};
-      background: ${hankoTheme.colors.backgroundTertiary};
+      border-color: ${accentHex};
+      box-shadow: 0 0 8px color-mix(in srgb, ${accentHex} 25%, transparent);
     }
 
     .btn {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      color: ${hankoTheme.colors.textSecondary};
-      font-size: 0.875rem;
+      padding: 6px 10px;
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      color: ${kiosaTheme.colors.textSecondary};
+      font-size: 10px;
       cursor: pointer;
-      transition: all 0.2s;
-      border-radius: ${hankoTheme.borderRadius.md};
+      transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+      border-radius: 2px;
+      font-family: ${kiosaTheme.fonts.mono};
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
 
     .btn:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      border-color: ${hankoTheme.colors.borderHover};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      border-color: ${kiosaTheme.colors.borderHover};
+      color: ${kiosaTheme.colors.textPrimary};
     }
 
     .btn:disabled {
@@ -606,53 +642,60 @@ export default class OnboardingWizardAgent extends BaseDuty {
     }
 
     .btn-primary {
-      background: rgba(233, 69, 96, 0.15);
-      border-color: rgba(233, 69, 96, 0.4);
-      color: #e94560;
+      background: color-mix(in srgb, ${accentHex} 15%, transparent);
+      border-color: ${accentHex};
+      color: ${accentHex};
     }
 
     .btn-primary:hover:not(:disabled) {
-      background: rgba(233, 69, 96, 0.25);
+      background: ${accentHex};
+      color: ${kiosaTheme.colors.background};
     }
 
     .password-section {
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      margin-bottom: ${hankoTheme.spacing.md};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 12px;
+      background: ${kiosaTheme.colors.background};
+      border: 1px solid ${kiosaTheme.colors.border};
+      margin-bottom: 12px;
+      border-radius: 3px;
     }
 
     .password-section h4 {
-      font-size: 0.875rem;
-      font-weight: 400;
-      margin-bottom: ${hankoTheme.spacing.md};
-      color: ${hankoTheme.colors.textPrimary};
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      color: ${kiosaTheme.colors.textPrimary};
+      font-family: ${kiosaTheme.fonts.primary};
     }
 
     .info-box {
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-left: 2px solid ${hankoTheme.colors.borderHover};
-      margin-bottom: ${hankoTheme.spacing.md};
-      font-size: 0.8125rem;
-      color: ${hankoTheme.colors.textSecondary};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: 10px;
+      background: ${kiosaTheme.colors.background};
+      border-left: 2px solid ${accentHex};
+      margin-bottom: 12px;
+      font-size: 11px;
+      color: ${kiosaTheme.colors.textSecondary};
+      font-family: ${kiosaTheme.fonts.mono};
+      line-height: 1.5;
     }
 
     small {
-      font-size: 0.75rem;
-      color: ${hankoTheme.colors.textTertiary};
+      font-size: 10px;
+      color: ${kiosaTheme.colors.textTertiary};
       display: block;
-      margin-top: 0.25rem;
+      margin-top: 4px;
+      font-family: ${kiosaTheme.fonts.mono};
     }
 
     code {
-      font-family: ${hankoTheme.fonts.mono};
-      font-size: 0.75rem;
-      background: ${hankoTheme.colors.accent};
-      padding: ${hankoTheme.spacing.xs} ${hankoTheme.spacing.sm};
-      border-radius: ${hankoTheme.borderRadius.sm};
+      font-family: ${kiosaTheme.fonts.mono};
+      font-size: 10px;
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      padding: 2px 5px;
+      border-radius: 2px;
+      color: ${accentHex};
     }
 
     .checkbox-group input[type="checkbox"] {
@@ -661,20 +704,21 @@ export default class OnboardingWizardAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🚀 Ronin Setup Wizard</h1>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SETUP / ONBOARDING", rightMeta: `PROGRESS ${this.calculateProgress(status, steps)}%` })}
+  <div class="kiosa-wrap">
+    <div class="kiosa-header">
+      <h1>SETUP WIZARD</h1>
       <p class="subtitle">Configure your AI agent system</p>
       <div class="progress-bar">
         <div class="progress-fill" style="width: ${this.calculateProgress(status, steps)}%"></div>
       </div>
-    </header>
+    </div>
     
     ${status.completed ? `
-    <div style="text-align: center; padding: 3rem; border: 1px solid rgba(39, 174, 96, 0.4);">
-      <h2 style="font-size: 1.25rem; font-weight: 400; color: #27ae60; margin-bottom: 0.5rem;">Setup Complete</h2>
-      <p style="color: rgba(255,255,255,0.6); margin-bottom: 1.5rem;">Your Ronin system is configured and ready to use.</p>
-      <a href="/" class="btn btn-primary">Go to Dashboard</a>
+    <div style="text-align: center; padding: 24px; border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent); background: color-mix(in srgb, ${kiosaTheme.colors.success} 5%, transparent); border-radius: 3px;">
+      <h2 style="font-size: 16px; font-weight: 700; color: ${kiosaTheme.colors.success}; margin-bottom: 8px; letter-spacing: .04em; text-transform: uppercase; font-family: ${kiosaTheme.fonts.primary};">Setup Complete</h2>
+      <p style="color: ${kiosaTheme.colors.textSecondary}; margin-bottom: 18px; font-family: ${kiosaTheme.fonts.mono}; font-size: 11px;">Your Ronin system is configured and ready to use.</p>
+      <a href="/" class="btn btn-primary" style="text-decoration: none;">GO TO DASHBOARD</a>
     </div>
     ` : `
     <div class="steps">
@@ -733,24 +777,24 @@ export default class OnboardingWizardAgent extends BaseDuty {
           <div class="step-status">${steps.cliTools ? 'Complete' : 'Pending'}</div>
         </div>
         <div class="step-content ${steps.adminUser && !steps.cliTools ? 'active' : ''}" id="step-2">
-          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.opencode ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
-              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Opencode</div>
-              <div style="font-size: 0.75rem; color: ${config.cliTools.opencode ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.opencode ? '✓ Installed' : 'Not installed'}</div>
+           <div style="display: flex; gap: 8px; margin-bottom: 12px; font-family: ${kiosaTheme.fonts.mono};">
+            <div style="flex: 1; padding: 10px; background: ${kiosaTheme.colors.background}; border: 1px solid ${config.cliTools.opencode ? `color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent)` : kiosaTheme.colors.border}; border-radius: 2px;">
+              <div style="font-size: 11px; margin-bottom: 4px; letter-spacing: .1em; text-transform: uppercase;">Opencode</div>
+              <div style="font-size: 10px; color: ${config.cliTools.opencode ? kiosaTheme.colors.success : kiosaTheme.colors.textTertiary};">${config.cliTools.opencode ? '[OK] Installed' : 'Not installed'}</div>
             </div>
-            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.cursor ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
-              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Cursor</div>
-              <div style="font-size: 0.75rem; color: ${config.cliTools.cursor ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.cursor ? '✓ Installed' : 'Not installed'}</div>
+            <div style="flex: 1; padding: 10px; background: ${kiosaTheme.colors.background}; border: 1px solid ${config.cliTools.cursor ? `color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent)` : kiosaTheme.colors.border}; border-radius: 2px;">
+              <div style="font-size: 11px; margin-bottom: 4px; letter-spacing: .1em; text-transform: uppercase;">Cursor</div>
+              <div style="font-size: 10px; color: ${config.cliTools.cursor ? kiosaTheme.colors.success : kiosaTheme.colors.textTertiary};">${config.cliTools.cursor ? '[OK] Installed' : 'Not installed'}</div>
             </div>
-            <div style="flex: 1; padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px solid ${config.cliTools.qwen ? 'rgba(39, 174, 96, 0.4)' : 'rgba(255,255,255,0.08)'};">
-              <div style="font-size: 0.8125rem; margin-bottom: 0.25rem;">Qwen</div>
-              <div style="font-size: 0.75rem; color: ${config.cliTools.qwen ? '#27ae60' : 'rgba(255,255,255,0.4)'};">${config.cliTools.qwen ? '✓ Installed' : 'Not installed'}</div>
+            <div style="flex: 1; padding: 10px; background: ${kiosaTheme.colors.background}; border: 1px solid ${config.cliTools.qwen ? `color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent)` : kiosaTheme.colors.border}; border-radius: 2px;">
+              <div style="font-size: 11px; margin-bottom: 4px; letter-spacing: .1em; text-transform: uppercase;">Qwen</div>
+              <div style="font-size: 10px; color: ${config.cliTools.qwen ? kiosaTheme.colors.success : kiosaTheme.colors.textTertiary};">${config.cliTools.qwen ? '[OK] Installed' : 'Not installed'}</div>
             </div>
           </div>
-          
+
           ${!config.cliTools.anyInstalled ? `
-          <div style="padding: 0.75rem; background: rgba(230, 126, 34, 0.1); border: 1px solid rgba(230, 126, 34, 0.3); margin-bottom: 1rem; font-size: 0.8125rem; color: rgba(255,255,255,0.7);">
-            No CLI tools detected. Install at least one: <code style="background: rgba(255,255,255,0.08); padding: 0.125rem 0.375rem;">npm install -g opencode</code> or <code style="background: rgba(255,255,255,0.08); padding: 0.125rem 0.375rem;">npm install -g @anthropic-ai/qwen-cli</code>
+          <div style="padding: 10px; background: color-mix(in srgb, ${kiosaTheme.colors.warning} 9%, transparent); border: 1px solid color-mix(in srgb, ${kiosaTheme.colors.warning} 45%, transparent); border-radius: 2px; margin-bottom: 12px; font-size: 11px; color: ${kiosaTheme.colors.warning}; font-family: ${kiosaTheme.fonts.mono}; line-height: 1.5;">
+            No CLI tools detected. Install at least one: <code style="background: ${kiosaTheme.colors.backgroundTertiary}; padding: 2px 5px;">npm install -g opencode</code> or <code style="background: ${kiosaTheme.colors.backgroundTertiary}; padding: 2px 5px;">npm install -g @anthropic-ai/qwen-cli</code>
           </div>
           ` : ''}
           
@@ -841,8 +885,9 @@ export default class OnboardingWizardAgent extends BaseDuty {
       </div>
     </div>
     `}
+    ${getKiosaFooterHTML("RONIN · SETUP", "ONBOARDING · V0.1")}
   </div>
-  
+
   <script>
     function toggleStep(stepNum) {
       const content = document.getElementById('step-' + stepNum);

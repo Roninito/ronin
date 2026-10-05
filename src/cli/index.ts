@@ -21,7 +21,6 @@ import { realmConnectCommand } from "./commands/realm-connect.js";
 import { realmStatusCommand } from "./commands/realm-status.js";
 import { realmDiscoverCommand } from "./commands/realm-discover.js";
 import { mcpCommand } from "./commands/mcp.js";
-import { cloudflareCommand } from "./commands/cloudflare.js";
 import { initCommand } from "./commands/init.js";
 import { interactiveCommand } from "./commands/interactive.js";
 import { scheduleCommand } from "./commands/schedule.js";
@@ -29,8 +28,6 @@ import { emitCommand } from "./commands/emit.js";
 import { clientCommand } from "./commands/client.js";
 import { skillsCommand, createSkillCommand } from "./commands/skills.js";
 import { kdbCommand } from "./commands/kdb.js";
-import { contractCommand } from "./commands/contract.js";
-import { taskCommand } from "./commands/task.js";
 import { workflowCommand } from "./commands/workflow.js";
 import { handleVersionCommand } from "./commands/version.js";
 import { handleUpdateCommand } from "./commands/update.js";
@@ -569,14 +566,6 @@ async function main() {
       await mcpCommand(args);
       break;
 
-    case "cloudflare":
-    case "cf":
-      await cloudflareCommand(args, {
-        pluginDir: getArg("--plugin-dir", args),
-        userPluginDir: getArg("--user-plugin-dir", args),
-      });
-      break;
-
     case "os":
       const { handleOSCommand, parseOSArgs } = await import("./commands/os.js");
       const { action, subAction, options } = parseOSArgs(args);
@@ -648,49 +637,6 @@ async function main() {
       break;
     }
 
-    case "contract": {
-      const contractArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model", "--phases-file", "--trigger", "--cron", "--event", "--webhook", "--params", "--params-file", "--on-failure", "--retry-count", "--retry-backoff", "--alert-email", "--description", "--version", "--sort", "--limit", "--status", "--since", "--until", "--format", "--output", "--name"]);
-      await contractCommand(contractArgs, {
-        dbPath: getArg("--db-path", args),
-        pluginDir: getArg("--plugin-dir", args),
-        userPluginDir: getArg("--user-plugin-dir", args),
-        ollamaUrl: getArg("--ollama-url", args),
-        ollamaModel: getArg("--ollama-model", args),
-        phasesFile: getArg("--phases-file", args),
-        triggerType: getArg("--trigger", args),
-        cron: getArg("--cron", args),
-        event: getArg("--event", args),
-        webhook: getArg("--webhook", args),
-        params: getArg("--params", args),
-        paramsFile: getArg("--params-file", args),
-        onFailure: getArg("--on-failure", args),
-        retryCount: getArg("--retry-count", args) ? parseInt(getArg("--retry-count", args)!) : undefined,
-        retryBackoff: getArg("--retry-backoff", args),
-        alertEmail: getArg("--alert-email", args),
-        description: getArg("--description", args),
-        version: getArg("--version", args),
-        sort: getArg("--sort", args),
-        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
-        status: getArg("--status", args),
-        since: getArg("--since", args),
-        until: getArg("--until", args),
-        format: getArg("--format", args),
-        outputFile: getArg("--output", args),
-        enable: args.includes("--enable"),
-        disable: args.includes("--disable"),
-        enabled: args.includes("--enabled"),
-        disabled: args.includes("--disabled"),
-        verbose: args.includes("--verbose"),
-        dryRun: args.includes("--dry-run"),
-        force: args.includes("--force"),
-        history: getArg("--history", args) ? parseInt(getArg("--history", args)!) : undefined,
-        nextRuns: getArg("--next-runs", args) ? parseInt(getArg("--next-runs", args)!) : undefined,
-        name: getArg("--name", args),
-        yes: args.includes("--yes") || args.includes("-y"),
-      });
-      break;
-    }
-
     case "workflow": {
       const workflowArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--ollama-url", "--ollama-model"]);
       await workflowCommand(workflowArgs, {
@@ -700,20 +646,6 @@ async function main() {
         ollamaUrl: getArg("--ollama-url", args),
         ollamaModel: getArg("--ollama-model", args),
         yes: args.includes("--yes") || args.includes("-y"),
-      });
-      break;
-    }
-
-    case "task": {
-      const taskArgs = stripFlags(args, ["--db-path", "--plugin-dir", "--user-plugin-dir", "--status", "--contract", "--limit"]);
-      await taskCommand(taskArgs, {
-        dbPath: getArg("--db-path", args),
-        pluginDir: getArg("--plugin-dir", args),
-        userPluginDir: getArg("--user-plugin-dir", args),
-        status: getArg("--status", args),
-        contract: getArg("--contract", args),
-        limit: getArg("--limit", args) ? parseInt(getArg("--limit", args)!) : undefined,
-        force: args.includes("--force"),
       });
       break;
     }
@@ -802,12 +734,9 @@ Integrations:
   realm discover <call>   Discover a peer by call sign
   client                  Launch optional ElectronBun desktop client
   mcp <subcommand>        Manage MCP server connections
-  cloudflare <subcommand> Manage Cloudflare tunnels and route policy
   os <subcommand>         Desktop Mode commands (macOS)
 
 Advanced (Execution Engine):
-  contract <subcommand>   Manage contracts — schedules/triggers that declare their own phase graph (ronin contract help)
-  task <subcommand>       View and manage task executions (ronin task help)
   workflow <subcommand>   Manage workflow markdown SOPs (ronin workflow help)
 
 Global Options:

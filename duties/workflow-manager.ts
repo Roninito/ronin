@@ -7,9 +7,7 @@
  * /workflows dashboard — list + viewer/editor (direct save, no approval gate)
  * + a discussion prompt for drafting/revising a workflow conversationally.
  *
- * See docs/WORKFLOWS_PLAN.md for the full design. Mirrors
- * duties/contract-executor.ts's shape throughout (routes, proposal
- * storage/approve/refuse, tool registration).
+ * See docs/WORKFLOWS_PLAN.md for the full design.
  */
 
 import { BaseDuty } from "../src/duty/index.js";
@@ -22,8 +20,8 @@ import {
   listWorkflows,
   loadWorkflow,
 } from "../src/workflow/index.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -375,12 +373,8 @@ ${contextLine}`;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Workflows - Ronin</title>
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
-  <style>
-    ${getKiosaHeadHTML(accent)}
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
+<style>
 
     body { padding: 0; margin: 0; }
 
@@ -488,7 +482,7 @@ ${contextLine}`;
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "WORKFLOWS", accent, chips: [], tabs: [] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "WORKFLOWS", chips: [], tabs: [] })}
   </div>
 
   <div class="page-content">

@@ -212,7 +212,7 @@ kind: "kv"
 
 \`\`\`json
 {
-  "source_agent": "obsidian-vault-indexer",
+  "source_agent": "vault-doc-auditor",
   "vault_id": "ronin-ai-data",
   "file_path": "/Users/ronin/Documents/Obsidian/RoninAIData/Welcome.md",
   "relative_path": "Welcome.md",

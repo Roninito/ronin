@@ -17,7 +17,7 @@ interface PlanApprovedPayload {
   source?: string;
   sourceChannel?: string;
   sourceUser?: string;
-  /** Optional cheap single-completion draft (e.g. from duties/duty-executor.ts's
+  /** Optional cheap single-completion draft (e.g. from duties/maker.ts's
    *  proposeDuty() review card) to hand the CLI as a starting point — a real
    *  coding agent iterating on a draft tends to do better than one working from
    *  nothing, and the human already reviewed this draft's shape before approving. */
@@ -463,7 +463,7 @@ Instructions:
 3. Ensure TypeScript compiles without errors
 4. Keep the same file name and exports`;
     } else if (isDuty) {
-      // Duty creation: use the same authoring instructions duty-executor.ts's
+      // Duty creation: use the same authoring instructions maker.ts's
       // proposeDuty() draft was written against, so a real coding agent
       // implements against the actual current BaseDuty/DutyAPI shape instead
       // of a generic one-liner guess.

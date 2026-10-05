@@ -13,8 +13,8 @@ import {
   type CronParts,
 } from "../src/utils/cron.js";
 import { resolve, basename } from "path";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 /**
  * Schedule Manager Duty
@@ -92,7 +92,7 @@ export default class ScheduleManagerDuty extends BaseDuty {
         properties: {
           dutyName: {
             type: "string",
-            description: "The name of the duty to update (e.g., 'tool-analytics', 'rss-to-telegram')",
+            description: "The name of the duty to update (e.g., 'analytics', 'rss-to-telegram')",
           },
           schedule: {
             type: "string",
@@ -950,11 +950,7 @@ Respond with a JSON object containing:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Schedule Manager - Ronin</title>
-  ${getKiosaHeadHTML(accent)}
-  ${getAdobeCleanFontFaceCSS()}
-  ${getThemeCSS(kiosaTheme)}
-  ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-  ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
 
   <style>
     body {
@@ -1490,7 +1486,7 @@ Respond with a JSON object containing:
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SCHEDULE / MANAGER", accent, chips: [`<b>${dutiesWithSchedules.length}</b> SCHEDULED`], tabs: [{ label: "Overview", href: "#overview", active: true }, { label: "Builder", href: "#builder" }, { label: "Templates", href: "#templates" }, { label: "Tools", href: "#tools" }] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "SCHEDULE / MANAGER", chips: [`<b>${dutiesWithSchedules.length}</b> SCHEDULED`], tabs: [{ label: "Overview", href: "#overview", active: true }, { label: "Builder", href: "#builder" }, { label: "Templates", href: "#templates" }, { label: "Tools", href: "#tools" }] })}
 
   <div class="page-content">
     <div class="tabs">

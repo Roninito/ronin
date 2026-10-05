@@ -5,7 +5,7 @@ import { join } from "path";
 import type { DutyAPI } from "@ronin/types/index.js";
 import { runEngineMigrations } from "../src/database/migrations.js";
 import { DutyProposalStorage } from "../src/duty/proposal-storage.js";
-import DutyExecutorAgent from "../duties/duty-executor.js";
+import MakerDuty from "../duties/maker.js";
 
 const VALID_CODE = `import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
@@ -104,7 +104,7 @@ describe("Duty proposal approve/refuse routes", () => {
     ({ api, routes, emittedEvents } = createMockAPI());
     await runEngineMigrations((api as any).db);
     storage = new DutyProposalStorage(api);
-    new DutyExecutorAgent(api); // registers routes in its constructor
+    new MakerDuty(api); // registers routes in its constructor
   });
 
   afterEach(() => {
@@ -241,7 +241,7 @@ describe("GET /duties/review dashboard page", () => {
     ({ api, routes } = createMockAPI());
     await runEngineMigrations((api as any).db);
     storage = new DutyProposalStorage(api);
-    new DutyExecutorAgent(api);
+    new MakerDuty(api);
   });
 
   afterEach(() => {

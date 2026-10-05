@@ -30,10 +30,17 @@
  * a human pass (or an LLM with real grep/read access) would — they'll drift
  * themselves as the codebase moves on, and expect an occasional manual
  * refresh rather than being treated as permanently authoritative.
+ *
+ * Phase 0 (absorbed from the former obsidian-vault-indexer duty): before
+ * auditing, index every configured Obsidian vault into memory/notes/ — one
+ * note per Obsidian note, overwritten each run. Index first so the audit
+ * below always runs against fresh data.
  */
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import type { ObsidianVaultConfig } from "../src/config/types.js";
+import type { ObsidianNote } from "../plugins/obsidian.js";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
@@ -115,7 +122,7 @@ interface ScannedFile {
 }
 
 export default class VaultDocAuditorDuty extends BaseDuty {
-  // Run daily at 4 AM — after codebase-analyzer (1 AM) and obsidian-vault-indexer (2 AM).
+  // Run daily at 4 AM.
   static schedule = "0 4 * * *";
 
   private readonly repoRoot = process.cwd();
@@ -127,6 +134,8 @@ export default class VaultDocAuditorDuty extends BaseDuty {
 
   async execute(): Promise<void> {
     try {
+      await this.indexVaults();
+
       const vaultPath = this.getVaultPath();
       if (!vaultPath) {
         console.warn("[vault-doc-auditor] memory.vaultPath is not configured — skipping.");
@@ -187,6 +196,99 @@ export default class VaultDocAuditorDuty extends BaseDuty {
   }
 
   // ── Scanning ──────────────────────────────────────────────────────────────
+
+  /**
+   * Phase 0: index every configured Obsidian vault into memory/notes/ —
+   * one note per Obsidian note, overwritten each run (no ontology graph,
+   * no TTL). Absorbed from the former obsidian-vault-indexer duty.
+   */
+  private async indexVaults(): Promise<void> {
+    const config = this.api.config?.get?.("obsidian") as
+      | { vaults: ObsidianVaultConfig[] }
+      | undefined;
+
+    if (!config?.vaults || config.vaults.length === 0) {
+      console.log("[vault-doc-auditor] No Obsidian vaults configured. Skipping index phase.");
+      return;
+    }
+
+    const results = { indexed: 0, errors: 0, vaults: 0 };
+    for (const vaultConfig of config.vaults) {
+      if (!vaultConfig.enabled) continue;
+      const r = await this.indexVault(vaultConfig);
+      results.indexed += r.indexed;
+      results.errors += r.errors;
+      results.vaults += 1;
+    }
+    console.log(
+      `[vault-doc-auditor] Index phase complete: ${results.indexed} indexed, ${results.errors} errors across ${results.vaults} vaults`
+    );
+  }
+
+  private async indexVault(vaultConfig: ObsidianVaultConfig): Promise<{
+    indexed: number;
+    errors: number;
+  }> {
+    const result = { indexed: 0, errors: 0 };
+
+    try {
+      if (!this.api.plugins?.has?.("obsidian")) {
+        console.warn(`[vault-doc-auditor] Obsidian plugin not available for vault ${vaultConfig.id}`);
+        return result;
+      }
+
+      const obsidian = await this.api.plugins?.call?.(
+        "obsidian",
+        "listNotes",
+        vaultConfig.path,
+        vaultConfig.allowedFolders,
+        true
+      );
+
+      const notePaths = Array.isArray(obsidian) ? obsidian : [];
+
+      for (const filePath of notePaths) {
+        try {
+          const note = (await this.api.plugins?.call?.("obsidian", "readNote", filePath)) as
+            | ObsidianNote
+            | null
+            | undefined;
+
+          if (!note) {
+            result.errors++;
+            continue;
+          }
+
+          note.vault_id = vaultConfig.id;
+          note.relative_path = filePath.substring(vaultConfig.path.length + 1);
+
+          await this.api.memory.store(`obsidian-${vaultConfig.id}-${note.relative_path}`, {
+            source_agent: "vault-doc-auditor",
+            vault_id: note.vault_id,
+            file_path: note.file_path,
+            relative_path: note.relative_path,
+            title: note.title,
+            has_frontmatter: Object.keys(note.frontmatter || {}).length > 0,
+            frontmatter: note.frontmatter,
+            tags: note.tags,
+            wikilinks: note.wikilinks,
+            backlinks: note.backlinks || [],
+            created_at: note.created_at,
+            modified_at: note.modified_at,
+            last_indexed_at: new Date().toISOString(),
+          });
+          result.indexed++;
+        } catch (error) {
+          console.error(`[vault-doc-auditor] Failed to process note ${filePath}:`, error);
+          result.errors++;
+        }
+      }
+    } catch (error) {
+      console.error(`[vault-doc-auditor] Error indexing vault ${vaultConfig.id}:`, error);
+    }
+
+    return result;
+  }
 
   private async scanVault(vaultPath: string): Promise<ScannedFile[]> {
     const obsidian = this.api.plugins;

@@ -1,33 +1,61 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 const DEFAULT_TEST_PHRASE = "This is how Ronin sounds with the current voice settings.";
 
+interface QueuedVoiceMessage {
+  from: string;
+  content: string;
+  timestamp: number;
+}
+
 /**
- * Voice Config Duty
+ * Voice Duty
  *
- * Provides a small settings page at /voice for choosing and testing Ronin's
- * speech backends — STT (apple/whisper/deepgram/elevenlabs) and TTS (piper,
- * agent-voice for cloned/persona voices via a running agent-voice server,
- * see https://github.com/rodaddy/agent-voice, or elevenlabs cloud voices).
- * Writes through api.config.set
- * (persisted to ~/.ronin/config.json, same mechanism duties/config-editor.ts
- * uses) and speaks a test phrase via the existing local.speech.say tool so
- * "test this voice" always exercises the exact code path chat/duties use.
+ * Settings + runtime relay for Ronin's voice in one place:
  *
- * This is deliberately narrower than config-editor.ts's generic schema
- * editor: it exists for the interactive parts a generic form can't easily
- * do (list available agent-voice voices, play a sample) — not to duplicate
- * general config editing.
+ * - Settings page at /voice for choosing and testing Ronin's speech
+ *   backends — STT (apple/whisper/deepgram/elevenlabs) and TTS (piper,
+ *   agent-voice for cloned/persona voices via a running agent-voice server,
+ *   see https://github.com/rodaddy/agent-voice, or elevenlabs cloud voices).
+ *   Writes through api.config.set (persisted to ~/.ronin/config.json, same
+ *   mechanism duties/config-editor.ts uses) and speaks a test phrase via
+ *   the existing local.speech.say tool so "test this voice" always
+ *   exercises the exact code path chat/duties use. This is deliberately
+ *   narrower than config-editor.ts's generic schema editor: it exists for
+ *   the interactive parts a generic form can't easily do (list available
+ *   agent-voice voices, play a sample) — not to duplicate general config
+ *   editing.
+ * - Realm voice-messaging relay (absorbed from voice-messaging): listens
+ *   for `realm:message`, queues inbound messages until the user is active,
+ *   and relays them via TTS. Handles "send <callsign> a message: ..."
+ *   voice commands outbound over Realm.
  */
 export default class VoiceConfigDuty extends BaseDuty {
+  private messageQueue: QueuedVoiceMessage[] = [];
+  private isUserAvailable = false;
+  private lastActivityTime = Date.now();
+  private availabilityCheckInterval: NodeJS.Timeout | null = null;
+  // Stored so cleanup() can pass the exact same reference to events.off() —
+  // an inline closure passed straight to events.on() can never be
+  // unsubscribed later, since off() matches by function identity.
+  private readonly onRealmMessage = (raw: unknown): void => {
+    const data = raw as { from: string; content: string };
+    this.handleIncomingMessage(data.from, data.content);
+  };
+
   constructor(api: DutyAPI) {
     super(api);
     this.registerRoutes();
+    this.api.events.on("realm:message", this.onRealmMessage);
+    this.startAvailabilityMonitoring();
   }
 
   async execute(): Promise<void> {
-    // No standing work — this duty only responds to routes.
+    // No standing work — this duty responds to routes and Realm events.
+    await this.processMessageQueue();
   }
 
   private registerRoutes(): void {
@@ -35,6 +63,160 @@ export default class VoiceConfigDuty extends BaseDuty {
     this.api.http.registerRoute("/api/voice/config", this.handleConfig.bind(this));
     this.api.http.registerRoute("/api/voice/voices", this.handleVoices.bind(this));
     this.api.http.registerRoute("/api/voice/test", this.handleTest.bind(this));
+  }
+
+  // ── Realm voice-messaging relay (absorbed from voice-messaging) ─────────
+
+  /**
+   * Handle an incoming message from Realm: queue it, deliver immediately
+   * when the user is active.
+   */
+  private handleIncomingMessage(from: string, content: string): void {
+    console.log(`[voice] Message received from ${from}: ${content}`);
+
+    const message: QueuedVoiceMessage = {
+      from,
+      content,
+      timestamp: Date.now(),
+    };
+
+    this.messageQueue.push(message);
+    console.log(`[voice] Message queued. Queue size: ${this.messageQueue.length}`);
+
+    // Try to deliver immediately if user is available
+    void this.processMessageQueue();
+  }
+
+  /**
+   * Process queued messages if user is available.
+   */
+  private async processMessageQueue(): Promise<void> {
+    if (!this.isUserAvailable || this.messageQueue.length === 0) {
+      return;
+    }
+
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift()!;
+      await this.relayMessage(message);
+    }
+  }
+
+  /**
+   * Relay a message to the user via TTS (falls back to console + memory).
+   */
+  private async relayMessage(message: QueuedVoiceMessage): Promise<void> {
+    const announcement = `Message from ${message.from}: ${message.content}`;
+    console.log(`[voice] 🔊 ${announcement}`);
+
+    try {
+      await this.api.tools.execute("local.speech.say", { text: announcement });
+    } catch (error) {
+      console.warn("[voice] TTS relay failed, message kept in memory only:", error);
+    }
+
+    // Store in memory for reference
+    await this.api.memory.store(`message:${message.timestamp}`, {
+      from: message.from,
+      content: message.content,
+      timestamp: message.timestamp,
+    });
+  }
+
+  /**
+   * Start monitoring user availability.
+   */
+  private startAvailabilityMonitoring(): void {
+    // Check availability every 5 seconds
+    this.availabilityCheckInterval = setInterval(() => {
+      this.checkUserAvailability();
+    }, 5000);
+
+    // Initial check
+    this.checkUserAvailability();
+  }
+
+  /**
+   * Check if user is available (simple heuristic based on activity).
+   */
+  private checkUserAvailability(): void {
+    const timeSinceLastActivity = Date.now() - this.lastActivityTime;
+    const AVAILABILITY_TIMEOUT = 60000; // 1 minute
+
+    const wasAvailable = this.isUserAvailable;
+    this.isUserAvailable = timeSinceLastActivity < AVAILABILITY_TIMEOUT;
+
+    if (!wasAvailable && this.isUserAvailable) {
+      console.log("[voice] User is now available");
+      void this.processMessageQueue();
+    }
+  }
+
+  /**
+   * Mark user as active (call this when user interacts).
+   */
+  private markUserActive(): void {
+    this.lastActivityTime = Date.now();
+    if (!this.isUserAvailable) {
+      this.isUserAvailable = true;
+      void this.processMessageQueue();
+    }
+  }
+
+  /**
+   * Parse a voice command and send a message over Realm.
+   *
+   * Example: "Hey Ronin, send Tyro a message: I'll be there around 3 on Thursday"
+   */
+  async handleVoiceCommand(transcript: string): Promise<void> {
+    // Mark user as active
+    this.markUserActive();
+
+    // Pattern: "send <callsign> a message: <content>"
+    const sendPattern = /send\s+(\w+)\s+(?:a\s+)?message[:\s]+(.+)/i;
+    const match = transcript.match(sendPattern);
+
+    if (!match) {
+      console.log("[voice] Command not recognized:", transcript);
+      return;
+    }
+
+    // Both capturing groups are mandatory ((\w+) and (.+)), so a successful
+    // match always has both.
+    const targetCallSign = match[1]!;
+    const messageContent = match[2]!;
+
+    if (!this.api.realm) {
+      console.error("[voice] Realm not initialized");
+      return;
+    }
+
+    try {
+      console.log(`[voice] Sending message to ${targetCallSign}: ${messageContent}`);
+      await this.api.realm.sendMessage(targetCallSign, messageContent.trim());
+      console.log(`[voice] ✅ Message sent to ${targetCallSign}`);
+
+      const confirmation = `Message sent to ${targetCallSign}`;
+      console.log(`[voice] 🔊 ${confirmation}`);
+      try {
+        await this.api.tools.execute("local.speech.say", { text: confirmation });
+      } catch {
+        // Console log above is the fallback; never fail the send on TTS.
+      }
+    } catch (error) {
+      const errorMsg = `Failed to send message to ${targetCallSign}`;
+      console.error("[voice] Failed to send message:", error);
+      console.log(`[voice] 🔊 ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Cleanup on duty shutdown.
+   */
+  async cleanup(): Promise<void> {
+    if (this.availabilityCheckInterval) {
+      clearInterval(this.availabilityCheckInterval);
+    }
+    this.api.events.off("realm:message", this.onRealmMessage);
   }
 
   private currentSpeechConfig() {
@@ -156,25 +338,31 @@ export default class VoiceConfigDuty extends BaseDuty {
   }
 }
 
+const accent = getKiosaAccentForPath("/voice");
+const accentHex = kiosaTheme.colors.accent;
+
 const PAGE_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>Voice Settings — Ronin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+${getKiosaStylesheetLink(accent)}
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 20px; color: #222; background: #fafafa; }
-  h1 { font-size: 1.4em; }
-  fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; background: #fff; }
-  legend { font-weight: 600; padding: 0 6px; }
-  label { display: block; margin: 12px 0 4px; font-size: 0.9em; color: #444; }
-  select, input[type=text], input[type=password] { width: 100%; padding: 6px 8px; font-size: 1em; box-sizing: border-box; }
-  button { padding: 8px 16px; margin-top: 12px; margin-right: 8px; cursor: pointer; }
-  #status { margin-top: 10px; font-size: 0.9em; }
-  .hint { color: #888; font-size: 0.85em; }
+
+  body { font-family: ${kiosaTheme.fonts.primary}; max-width: 560px; margin: 0 auto; padding: 22px 20px; color: ${kiosaTheme.colors.textPrimary}; background: ${kiosaTheme.colors.background}; }
+  h1 { font-size: 1.4em; text-transform: uppercase; letter-spacing: 0.04em; }
+  fieldset { border: 1px solid ${kiosaTheme.colors.border}; border-radius: 2px; padding: 16px 20px; margin-bottom: 20px; background: ${kiosaTheme.colors.backgroundSecondary}; }
+  legend { font-weight: 600; padding: 0 6px; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
+  label { display: block; margin: 12px 0 4px; font-size: 10px; color: ${kiosaTheme.colors.textSecondary}; text-transform: uppercase; letter-spacing: 0.1em; font-family: ${kiosaTheme.fonts.mono}; }
+  select, input[type=text], input[type=password] { width: 100%; padding: 6px 8px; font-size: 1em; box-sizing: border-box; background: ${kiosaTheme.colors.background}; color: ${kiosaTheme.colors.textPrimary}; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 2px; }
+  button { padding: 6px 10px; margin-top: 12px; margin-right: 8px; cursor: pointer; font-family: ${kiosaTheme.fonts.mono}; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 2px; background: ${kiosaTheme.colors.backgroundSecondary}; color: ${kiosaTheme.colors.textSecondary}; }
+  #status { margin-top: 10px; font-size: 12px; font-family: ${kiosaTheme.fonts.mono}; color: ${kiosaTheme.colors.textSecondary}; }
+  .hint { color: ${kiosaTheme.colors.textTertiary}; font-size: 11px; }
 </style>
 </head>
 <body>
+${getKiosaTopbarHTML({ title: "RONIN", subtitle: "VOICE", chips: [], tabs: [] })}
 <h1>Voice Settings</h1>
 
 <fieldset>
@@ -315,5 +503,6 @@ const PAGE_HTML = `<!DOCTYPE html>
 
   loadConfig();
 </script>
+${getKiosaFooterHTML("RONIN · SPEECH SETTINGS", "ONLINE · V0.1")}
 </body>
 </html>`;

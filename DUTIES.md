@@ -164,7 +164,7 @@ Plugins with type-safe direct accessors on `DutyAPI` today:
 - `api.reticulum.*` - Reticulum mesh networking (radio/LAN/wide-area)
 - `api.email.*` - Email management
 
-Everything else (Notion, Obsidian, Cloudflare, MCP, model-selector, etc.) is
+Everything else (Notion, Obsidian, MCP, model-selector, etc.) is
 reached via the generic `api.plugins.call(pluginName, method, ...args)`.
 
 **Example (direct APIs):**

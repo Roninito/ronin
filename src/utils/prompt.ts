@@ -404,38 +404,7 @@ export function injectMermaidLinkIntoResponse(
 }
 
 /**
- * Ensure the reply includes a renderable approval card for any contract
- * proposal drafted this turn (contracts.proposeReflex). The chat UI detects
- * a fenced \`\`\`contract-proposal block and renders it as a card with
- * Allow/Refuse buttons — deterministic injection here means the card always
- * appears regardless of what the model chose to say in prose, mirroring
- * injectMermaidLinkIntoResponse's pattern above.
- */
-export function injectContractProposalCardIntoResponse(
-  response: string,
-  toolResults: Array<ToolResultEntry>
-): string {
-  const fences: string[] = [];
-  for (const tr of toolResults) {
-    if (tr.name !== "contracts.proposeReflex" || !tr.success || !tr.result) continue;
-    const data = tr.result as Record<string, unknown>;
-    if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
-    const fence = "```contract-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
-    // Check for the fence itself, not just the bare id — a model that
-    // narrates the id in prose ("...with ID prop_123") must not suppress the
-    // card. Real bug: this used to check `response.includes(data.id)`, so a
-    // model saying "I've drafted it, ID: prop_123" silently swallowed the
-    // card every time, contradicting this function's whole point (see the
-    // doc comment above: the card must appear regardless of what the model
-    // says in prose).
-    if (!response.includes(fence)) fences.push(fence);
-  }
-  if (fences.length === 0) return response;
-  return response + "\n\n" + fences.join("\n\n");
-}
-
-/**
- * Same pattern as injectContractProposalCardIntoResponse, for AI-drafted
+ * Same pattern as injectMermaidLinkIntoResponse, for AI-drafted
  * Workflow proposals (workflows.propose, duties/workflow-manager.ts). The
  * chat UI detects a fenced \`\`\`workflow-proposal block and renders it as an
  * Allow/Refuse card.
@@ -450,9 +419,8 @@ export function injectWorkflowProposalCardIntoResponse(
     const data = tr.result as Record<string, unknown>;
     if (typeof data.id !== "string" || typeof data.preview !== "string") continue;
     const fence = "```workflow-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview }) + "\n```";
-    // See injectContractProposalCardIntoResponse above — check the fence
-    // itself, not the bare id, or a model narrating the id in prose silently
-    // suppresses the card.
+    // Check the fence itself, not the bare id, or a model narrating the id
+    // in prose silently suppresses the card.
     if (!response.includes(fence)) fences.push(fence);
   }
   if (fences.length === 0) return response;
@@ -460,7 +428,7 @@ export function injectWorkflowProposalCardIntoResponse(
 }
 
 /**
- * Same pattern as injectContractProposalCardIntoResponse, for AI-drafted
+ * Same pattern as above, for AI-drafted
  * Duty proposals (duties.proposeDuty, duties/duty-executor.ts). The chat UI
  * detects a fenced \`\`\`duty-proposal block and renders it as an Allow/Refuse
  * card. Unlike the contract/workflow fences, this one also carries the full
@@ -478,11 +446,8 @@ export function injectDutyProposalCardIntoResponse(
     const data = tr.result as Record<string, unknown>;
     if (typeof data.id !== "string" || typeof data.preview !== "string" || typeof data.code !== "string") continue;
     const fence = "```duty-proposal\n" + JSON.stringify({ id: data.id, preview: data.preview, code: data.code }) + "\n```";
-    // See injectContractProposalCardIntoResponse above — this exact bug is
-    // what was reported: the model narrated the id in prose ("with ID
-    // dprop_..."), `response.includes(data.id)` was true, and the card was
-    // silently never appended even though the proposal was drafted
-    // successfully. Check the fence itself, not the bare id.
+    // Check the fence itself, not the bare id — a model narrating the id in
+    // prose ("with ID dprop_...") must not suppress the card.
     if (!response.includes(fence)) fences.push(fence);
   }
   if (fences.length === 0) return response;

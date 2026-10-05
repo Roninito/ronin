@@ -69,7 +69,7 @@ files were converted to `SKILL.md` format; the `technique` CLI verb is gone.
 |---------|------------|
 | **Tool Pack** | A namespaced bundle of Tools plus the adapter code backing them. Auto-discovered. Formerly "plugin." |
 | **Duty Preset** | The markdown file that declares a Duty: persona + the Skills/Tools it may use + budget. |
-| **Workflow** | A markdown file (`workflows/<name>.md`) describing a category of work: purpose, standards/expectations, and steps. Discoverable like a Skill, but not callable — it only ever contributes read-only guidance text into a running SAR chain's context (`createWorkflowContextMiddleware`, §3). Hand-edited; never compiled or validated; the human-in-the-loop counterpart to Contract's compiled phase automation. See `docs/WORKFLOWS_PLAN.md`. |
+| **Workflow** | A markdown file (`workflows/<name>.md`) describing a category of work: purpose, standards/expectations, and steps. Discoverable like a Skill, but not callable — it only ever contributes read-only guidance text into a running SAR chain's context (`createWorkflowContextMiddleware`, §3). Hand-edited; never compiled or validated. See `docs/WORKFLOWS.md`. |
 | **Schema** | The typed I/O contracts that Tools and Duties conform to. Cross-cutting. |
 
 ---
@@ -130,15 +130,14 @@ wired directly into its own message assembly (`discoverWorkflow()` before
 | `src/kata/` | — | ✅ Removed — see §5. Two orphaned `.kata` files remain under `katas/` as historical reference; nothing loads them anymore. |
 
 **Known "Agent" leaks (not fixed, listed so nobody assumes otherwise):**
-- Duty files/classes still named after "agent": `duties/example-agent.ts`
-  (`ExampleAgent`), `duties/test-agent.ts` (`TestAgent`),
-  `duties/tool-calling-agent.ts` (`ToolCallingAgent`), `duties/docs-agent.ts`
-  (`DocsAgent`), `duties/dojo-agent.ts` (`DojoAgent`),
-  `duties/agent-registry.ts` (class is actually named `DutyRegistry`, despite
-  the filename), `duties/agent-dependency-dashboard.ts`
-  (`AgentDependencyDashboard`), and `duties/tasking.ts`'s own class
-  (`TodoAgent`). These all `extends BaseDuty` — they're ordinary Duties whose
-  file/class names predate the rename.
+- Duty files/classes still named after "agent": `duties/tool-calling-agent.ts`
+  (`ToolCallingAgent`), `duties/docs-agent.ts` (`DocsAgent`),
+  `duties/dojo-agent.ts` (`DojoAgent`), `duties/agent-registry.ts` (class is
+  actually named `DutyRegistry`, despite the filename), and
+  `duties/agent-dependency-dashboard.ts` (`AgentDependencyDashboard`). These
+  all `extends BaseDuty` — they're ordinary Duties whose file/class names
+  predate the rename. (`duties/example-agent.ts`, `duties/test-agent.ts`,
+  and `duties/tasking.ts` were deleted per the ecosystem plan.)
 - Live CLI output still says "agent": `ronin interactive` prints
   `Agents: N running`, `Agent Status:`, `run <agent-name>`
   (`src/cli/commands/interactive.ts`); `ronin schedule` help text says
@@ -154,65 +153,37 @@ wired directly into its own message assembly (`discoverWorkflow()` before
 
 ---
 
-## 5. Engine internals: Contract → Task → Skills/Tools
+## 5. Engine internals (removed — historical record)
 
-**This corrects earlier drafts of this document (including an intermediate
-draft that swung the other way and declared kata permanent, "actively
-developed and extended").** Both framings are now moot: Kata was fully
-removed. Investigation for that removal found the DSL/compiler/registry
-layer wasn't actually delivering the things that would have justified
-keeping it — conditional branching, parallel phases, and parent/child
-data-threading were all either unimplemented or silently discarded despite
-scaffolding suggesting otherwise — so a contract's phase graph now lives
-inline on the contract itself, with no intermediate compiled artifact.
-`technique` was vestigial and got removed (§4); so was `src/realms/`, a
-*distributed* kata registry (central/local realms, version pinning, install
-requests) that had zero callers anywhere in the codebase — confirmed by
-grep, then deleted, ahead of the rest of `src/kata/` following the same day.
+The Contract → Task engine described here in earlier drafts was **removed**
+per the ecosystem plan (Phase-1 dump list): `duties/tasking.ts`,
+`duties/contract-executor.ts`, `duties/task-executor.ts`,
+`duties/task-runner.ts`, `src/tasking/`, `src/task/`, `contracts/`, the
+`ronin contract` / `ronin task` CLI commands, and the engine halves of
+`src/contract/` (`engine`, `event-engine`, `loader`, `conditions`,
+`propose`, barrel `index`) are all gone. The three `.contract` DSL files
+were copied verbatim to `~/.ronin/contracts/*.md` as placeholder input for
+the future `tasker` duty (markdown contracts, no DSL).
 
-```
-  Contract ──inline phases──► Task ──runs phases──► Skills / Tools
-  (WHEN: schedule/trigger,     (a running instance   (leaf
-   phase graph on the row)     of a contract)         capabilities)
-```
+Its replacement is live: `duties/tasker.ts` runs markdown contracts from
+`~/.ronin/contracts/*.md` (flat frontmatter + prompt body, chatty-authored),
+`duties/schedule-sensor.ts` wakes it on cron (`tasker.wake`), and
+`src/tasker/contracts.ts` holds the shared parse/match/load helpers.
+Run modes are `sar` (bounded tool-calling loop) and `opencode` (CLI handoff,
+falls back to sar). Seeded contracts: `morning-briefing`, `on-discord-mention`
+(event), `portfolio-sync` (sense-and-report only — never trades),
+`every-morning-9am`, `announcer`.
 
-- **Contract** — binds a trigger (cron schedule, or an event with an optional
-  condition guard) directly to a phase graph. `src/contract/parser-v2.ts`
-  parses `initial <phase>` / `phase <name>` blocks (`run skill`, `wait
-  event`, `next`/`complete`/`fail`) straight into `Record<string,
-  ContractPhase>`, stored as JSON on the `contracts_v2` row
-  (`initial_phase`/`phases` columns) — no separate compiled artifact, no
-  registry, no versioning layer. `src/contract/phase-compiler.ts` validates
-  the graph (reachability, terminals, cycles) at parse time, so every caller
-  (`cmdValidate`/`cmdRegister`/`ContractLoader`/`propose.ts`) gets it for
-  free. `src/contract/engine.ts` (`CronEngine`, `ContractEngine`) and
-  `src/contract/event-engine.ts` (`EventTriggerEngine`) evaluate triggers and
-  spawn tasks. Contracts are drafted from plain English via `contract
-  propose` (`src/contract/propose.ts`) and, from chat, via the
-  `contracts.proposeReflex` tool, each drafting its own `phases` block
-  directly (no shared reusable phase-sequence registry — two contracts
-  wanting the same sequence each carry their own copy now) — nothing
-  registers automatically; every AI-drafted contract is staged as a pending
-  proposal (`src/contract/proposal-storage.ts`) and only goes live once
-  approved via an inline chat card or the `/contracts` dashboard page, never
-  silently.
-- **Task** — a running instance of a contract's phase graph.
-  `src/task/contract-task-engine.ts` (`ContractTaskEngine`) spawns tasks on
-  `TaskStorageV2` and tracks `currentPhase`/`variables` directly on the task
-  row (no re-deriving them from a registry lookup). `src/task/
-  contract-task-executor.ts` (`ContractTaskExecutor`) runs consecutive `run`
-  phases via `SkillAdapter` in one synchronous burst per call, stopping only
-  at a `wait`/`complete`/`fail` phase — a real behavioral improvement over
-  the old one-phase-per-poll executor, which could leave a multi-phase
-  contract taking up to 30 minutes per hop. A `wait event` phase gets a real
-  `waiting_for_event` task status, with in-memory listeners re-armed for any
-  still-waiting task on duty construction and each poll tick, so a process
-  restart no longer silently orphans a contract mid-wait (this matters
-  directly for the Alpaca portfolio-sync contract's human-approval gate).
-
-**`contracts/` → `schema/` rename:** still deferred, out of scope for any
-pass to date. Not a removal — a possible future rename of the shared-type
-folder, unrelated to the Kata removal above.
+What remains of `src/contract/` and why (do not delete without checking
+these consumers first):
+- `parser-v2`, `phase-compiler`, `phase-grammar`, `phase-format`,
+  `storage-v2` — imported by `duties/dojo-agent.ts`; `storage-v2` and
+  `proposal-storage` are also imported by `src/graph/derive.ts` and
+  `src/graph/source.ts`.
+- `cron.ts` (`CronEvaluator`) — imported by `src/graph/derive.ts`.
+- `proposal-storage.ts` (`ContractProposalStorage`) — imported by
+  `src/graph/*`; mirrored (not imported) by `src/workflow/proposal-storage.ts`
+  and `src/duty/proposal-storage.ts`.
 
 ---
 
@@ -229,7 +200,7 @@ authors of two specific Duties agreed on by event name.
 | Previously | Now |
 |------------|-----|
 | Reactive triggers (cron, file-watch, webhook, contract event-triggers) | **Sensors.** They emit events into the bus; they do not run logic. |
-| Plan Workflow (Intent → Todo → Coder) | A **set of Duties** (`duties/tasking.ts`'s `TodoAgent`, `duties/coder-bot.ts`, `duties/manual-approval.ts`, `duties/alert-observer.ts`, `duties/log-observer.ts`) plus Sensors, wired on the same bus (§6.2). |
+| Plan Workflow (Intent → Approval → Coder) | A **set of Duties** (`duties/duty-executor.ts`, `duties/coder-bot.ts`, `duties/manual-approval.ts`, `duties/alert-observer.ts`, `duties/log-observer.ts`) plus Sensors, wired on the same bus (§6.2). |
 
 ```
 Sensors ──► [ event bus ] ──► Duties (each a SAR loop) ──► effects ──► bus
@@ -262,22 +233,13 @@ one-shot registration handshake plus a webhook receiver:
   internal-coordinator config exists.
 
 An internal coordinating Duty was proposed at one point and explicitly
-dropped — see the comment above `handleDecomposeAPI` in `duties/tasking.ts`:
-*"Decomposition intent (spec §9.3, renamed away from 'MNGR' — see the
-integration plan for why: neither the aspirational coordinating Duty nor the
-external MNGR app integration is a safe dependency here)."* That decomposition
-endpoint does goal→Kanban-card breakdown with a single LLM call; it does not
-dispatch to other Duties.
+dropped (the Kanban duty that carried the `handleDecomposeAPI` endpoint has
+since been deleted per the ecosystem plan). Neither an aspirational
+coordinating Duty nor the external MNGR app integration is a safe
+dependency — `duties/mngr-worker.ts` stays a single-purpose webhook handler.
 
 ### 6.2 The closest things to "orchestration" that actually exist
 
-- **`duties/tasking.ts` (`TodoAgent`)** — a self-contained Kanban/task-board
-  Duty (~4800 lines). It listens for `PlanProposed`/`PlanApproved`, serves
-  `/todo` and `/api/todo/*`, and can decompose a goal into cards via a single
-  `api.ai.complete()` call. When a command needs code executed, it routes to
-  an *external coding CLI* (`claude`, `opencode`, `qwen`, `cursor`, `gemini`
-  — each a Plugin) via `src/tasking/executors.ts`, based on card labels or a
-  keyword heuristic. It never dispatches to other Ronin Duties.
 - **`duties/coder-bot.ts`** — reacts to `PlanApproved` events (tagged
   `#create`/`#build`/`#fix`/`#update`) and executes approved plans by
   shelling out to a real coding CLI (`claude`, `qwen`, `cursor`, `opencode`,
@@ -297,8 +259,8 @@ dispatch to other Duties.
   cheap preview via a single `api.ai.complete()` call for the chat approval
   card, but **no longer writes that draft to disk on approval** — a
   single-completion draft has no compile-check or self-correction loop.
-  Approval instead emits `PlanProposed` (a real, trackable Kanban card at
-  `/todo`) then immediately `PlanApproved` (no second approval needed — the
+  Approval instead emits `PlanProposed` (keeps the manual-approval gate
+  working) then immediately `PlanApproved` (no second approval needed — the
   human already approved in chat) with the draft attached, handing the
   actual implementation to `coder-bot.ts`'s real CLI spawn above.
 - **`api.langchain.runAgent`** (`plugins/langchain.ts`) — a real LangChain
@@ -338,18 +300,17 @@ whole registry — currently ~200 tools total, ~186 of them plugin-generated.
 **`api.ai.callTools()` no longer force-injects every plugin tool.** It used
 to (`allTools = [...pluginTools, ...tools]`, unconditionally, regardless of
 what the caller passed) — a bug fixed 2026-09, since it silently defeated
-every caller's own curation (`duties/schedule-manager.ts` passing exactly one
-tool, `duties/tasking.ts` filtering to a template's allowlist). Callers now
-get exactly the tools they pass; anyone who wants the full plugin surface
-gets it explicitly from `api.tools.getSchemas()`.
+every caller's own curation (e.g. `duties/schedule-manager.ts` passing
+exactly one tool). Callers now get exactly the tools they pass; anyone who
+wants the full plugin surface gets it explicitly from
+`api.tools.getSchemas()`.
 
 **Chat (`duties/chatty.ts`) doesn't show the model all ~200 tools every
 turn** — that's 8-20k tokens of schema overhead on a path that bypasses the
 `tokenGuard` middleware entirely (route-driven, not run through
 `executeDuty()`). Only the bulk auto-wrapped `plugin:*` surface (~186 tools)
 is gated — `local.*`, `mcp:*`, **and** duty-self-registered tools like
-`contracts.proposeReflex` (provider `"contract-executor"`),
-`duties.proposeDuty` (`"duty-executor"`), and `schedule.writeSchedule`
+`duties.proposeDuty` (`"duty-executor"`) and `schedule.writeSchedule`
 (`"schedule-manager"`) all stay always-visible (~35-40 tools combined) —
 gating those too would have made several of the most important
 chat-creation tools unreachable. Bulk plugin tools are grouped by category
@@ -379,8 +340,7 @@ may have the same token-bloat exposure chat had; not yet assessed.
 Ronin shares OpenClaw's attack surface: shell execution + file access + inbound
 channels. Any tool-calling chat surface (e.g. the `/chat` UI in
 `duties/chatty.ts`) can have the model call the `local.events.emit` tool to
-emit `PlanProposed` (`src/tools/providers/LocalTools.ts`), which
-`duties/tasking.ts`'s `TodoAgent` turns into a Kanban card. **This means chat
+emit `PlanProposed` (`src/tools/providers/LocalTools.ts`). **This means chat
 input can propose executable work** — but it cannot execute it unapproved:
 `duties/manual-approval.ts` gates the step from `PlanProposed` to
 `PlanApproved`, and only `PlanApproved` is what `duties/coder-bot.ts` acts on
@@ -394,11 +354,7 @@ Hardening:
 2. **Tool trust tiers.** (Planned) Tag Tools `safe` / `guarded` / `dangerous`.
 3. **Provenance on events.** Every event carries its origin.
 4. **Approval is an event.** Model approval as a first-class event with trusted provenance.
-5. **Remote access whitelist.** `RouteGuard` (`plugins/cloudflare/src/RouteGuard.ts`)
-   is wired into the real HTTP server (`src/duty/DutyRegistry.ts`'s `fetch`
-   handler) — a no-op until a route policy exists (`ronin cloudflare route
-   init`), then a fail-closed whitelist gating every request, local included.
-   See `docs/REMOTE_ACCESS.md`.
+5. **Local-only.** Ronin serves localhost directly with no auth gate and no remote-access path. (The Cloudflare tunnel + route whitelist were removed.)
 
 ---
 
@@ -418,14 +374,13 @@ ronin/
 │   ├── mesh/            # cross-instance discovery (Reticulum) — separate Ronin installs finding each other, not inter-Duty coordination. Exists, not wired into any duty-dispatch path.
 │   └── os/              # Desktop Mode: menubar/tray, OS installers. Additive UI layered on top of duties after they register routes — doesn't run or manage them.
 ├── duties/             # Your Duties
-├── plugins/            # Capability plugins (langchain, gemini-cli, cloudflare, etc.)
+├── plugins/            # Capability plugins (langchain, gemini-cli, etc.)
 ├── skills/             # Markdown Skill defs — language-agnostic
 ├── workflows/          # Markdown Workflow SOPs — guidance only, never compiled (§2)
 ├── contracts/          # .contract DSL source files (planned rename to schema/, deferred)
 ├── packages/sar/       # @ronin/sar — Executor, Chain, MiddlewareStack
 └── docs/
     ├── ARCHITECTURE.md   # This document — canonical
-    ├── REMOTE_ACCESS.md  # Cloudflare tunnel + dashboard-as-PWA guide
     └── history/          # Archived, point-in-time — never authoritative (§12)
 ```
 
@@ -436,15 +391,14 @@ ronin/
 | File | Purpose |
 |------|---------|
 | `src/duty/Duty.ts` | `BaseDuty` class with optional SAR (`use()`, `createChain()`) |
-| `src/duty/DutyRegistry.ts` | Duty registry + scheduler + webhook server + SAR envelope in `executeDuty()` + RouteGuard enforcement in `fetch()` |
+| `src/duty/DutyRegistry.ts` | Duty registry + scheduler + webhook server + SAR envelope in `executeDuty()` |
 | `src/duty/DutyLoader.ts` | Discovers and loads duty files |
 | `src/types/duty.ts` | `interface Duty`, `DutyMetadata`, `DutyConstructor` |
 | `src/api/ai.ts` | AIAPI — single path to models via ToolRouter |
 | `src/tools/ToolRouter.ts` | Tool registration and execution with policy enforcement |
 | `src/memory/Memory.ts` | SQLite store with `duty_name` columns |
 | `src/contract/engine.ts`, `event-engine.ts`, `propose.ts` | Contract trigger evaluation, event sensors, AI-authoring |
-| `duties/contract-executor.ts` | Owns the contract/cron/event engines, the `contracts.proposeReflex` tool, and the `/contracts` review page |
-| `plugins/cloudflare/src/RouteGuard.ts`, `QuickTunnel.ts` | Route whitelist enforcement; real anonymous quick tunnels |
+| `duties/duty-executor.ts` | Owns the `duties.proposeDuty` tool and the `/duties/review` page; approval emits `PlanProposed` → `PlanApproved` for `coder-bot` |
 | `packages/sar/` | Executor, Chain, MiddlewareStack — the shared SAR machinery |
 | `plugins/mngr.ts`, `duties/mngr-worker.ts` | The external-MNGR-app integration — registration handshake + inbound task webhook. See §6.1. |
 | `src/mesh/MeshDiscoveryService.ts` | Cross-instance service discovery over Reticulum — see §9, dormant/unwired |
@@ -467,7 +421,6 @@ ronin stop / restart / kill Manage running instances
 ronin create duty [desc]    AI-powered duty creation
 ronin create skill "desc"   AI-powered skill creation
 ronin create plugin <name>  Create a new plugin template
-ronin contract propose "<intent>"   AI-drafts a trigger + phase graph from plain language
 ronin workflow propose "<description>"   AI-drafts a Workflow SOP from plain language
 ronin workflow list / show / new / edit  Manage workflows/*.md directly (no compile step)
 ```
@@ -477,20 +430,6 @@ ronin workflow list / show / new / edit  Manage workflows/*.md directly (no comp
 ronin config --show         Show current configuration
 ronin config --init        Initialize user directories
 ronin config --duty-dir    Set duty directory
-```
-
-### Remote access
-```
-ronin cloudflare route init          Opt into the route whitelist (required before any tunnel)
-ronin cloudflare route add <path>    Whitelist a path (--auth none|token, --methods)
-ronin cloudflare tunnel temp [ttl]   Real anonymous quick tunnel, prints URL + QR code
-```
-See `docs/REMOTE_ACCESS.md` for the full walkthrough.
-
-### Engine (kept, engine-internal — §5)
-```
-ronin task list             Part of the execution engine
-ronin contract list         Part of the execution engine
 ```
 
 See `ronin --help` for the full command list.

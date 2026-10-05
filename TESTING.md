@@ -40,19 +40,11 @@ bun run ronin ask "explain the memory system" --sources
 
 ### 1. Run a Single Duty Manually (Recommended for Testing)
 
-This is the easiest way to test and see output. These three duty files still
-carry their pre-rename `*-agent.ts` names (see `ARCHITECTURE.md` §4), so
-their duty ids are `example-agent`, `tool-calling-agent`, and `test-agent`:
+This is the easiest way to test and see output:
 
 ```bash
-# Run the example duty
-bun run ronin run example-agent
-
-# Run the tool-calling duty
-bun run ronin run tool-calling-agent
-
-# Run the test duty (no Ollama required)
-bun run ronin run test-agent
+# Run the tool-orchestrator SAR demo (git status + directory listing)
+bun run ronin run tool-orchestrator
 ```
 
 **What you'll see:**
@@ -153,7 +145,7 @@ bun run ronin plugins info git
 If Ollama isn't running, duties will still work but AI calls will fail gracefully:
 
 ```bash
-bun run ronin run example-agent
+bun run ronin run tool-orchestrator
 # You'll see: "Error calling AI: Ollama API error: Not Found"
 # But file operations and other features still work
 ```
@@ -172,15 +164,15 @@ ollama pull qwen3:1.7b
 
 3. Run a duty:
 ```bash
-bun run ronin run example-agent
+bun run ronin run tool-orchestrator
 ```
 
 ### Test Tool Calling
 
-The tool-calling duty demonstrates function calling:
+The tool-orchestrator duty demonstrates function calling:
 
 ```bash
-bun run ronin run tool-calling-agent
+bun run ronin run tool-orchestrator
 ```
 
 This will:
@@ -191,27 +183,16 @@ This will:
 
 ## Expected Output Examples
 
-### Running example-agent:
+### Running tool-orchestrator:
 
 ```
-🚀 Running duty: example-agent
-🤖 Example duty executing...
-AI Response: Hello! How can I help you today?
-Package.json size: 494 bytes
-✅ Example duty completed
-✅ Duty example-agent completed successfully
-```
-
-### Running tool-calling-agent:
-
-```
-🚀 Running duty: tool-calling-agent
-🤖 Tool Calling Duty executing...
+🚀 Running duty: tool-orchestrator
+📋 Starting SAR chain: git-status-check
 AI Response: I'll check the git status for you.
 🔧 Executing tool: git_status
 ✅ Tool result: { clean: true, files: [] }
 📝 Follow-up response: The git repository is clean with no uncommitted changes.
-✅ Tool Calling Duty completed
+✅ Tool orchestrator demo completed
 ```
 
 ### Starting the system:
@@ -222,7 +203,7 @@ AI Response: I'll check the git status for you.
 🔍 Discovering duties...
 ✅ Loaded 1 duty(s)
 ✅ Loaded 3 plugin(s): git, shell, hyprland
-Registered schedule for example-agent: * * * * *
+Registered schedule for schedule-sensor: * * * * *
 
 📊 Duty Status:
    Total duties: 1

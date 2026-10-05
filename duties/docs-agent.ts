@@ -2,7 +2,8 @@ import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
 import { readdir, readFile, stat } from "fs/promises";
 import { join, relative, extname, basename } from "path";
-import { hankoTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS, getHeaderBarCSS, getHeaderHomeIconHTML } from "../src/utils/theme.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 interface DocumentItem {
   type: "markdown";
@@ -304,6 +305,8 @@ export default class DocsAgent extends BaseDuty {
    * Serve docs UI
    */
   private async handleDocsUI(req: Request): Promise<Response> {
+    const accent = getKiosaAccentForPath("/docs");
+    const accentHex = kiosaTheme.colors.accent;
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -313,11 +316,8 @@ export default class DocsAgent extends BaseDuty {
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  ${getKiosaStylesheetLink(accent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(hankoTheme)}
-    ${getSharedUIPrimitivesCSS(hankoTheme, { variant: "hanko" })}
-    ${getHeaderBarCSS(hankoTheme)}
 
     body {
       height: 100vh;
@@ -337,8 +337,8 @@ export default class DocsAgent extends BaseDuty {
     
     .sidebar {
       width: 300px;
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border-right: 1px solid ${hankoTheme.colors.border};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border-right: 1px solid ${kiosaTheme.colors.border};
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -346,8 +346,8 @@ export default class DocsAgent extends BaseDuty {
     }
     
     .sidebar-section {
-      padding: ${hankoTheme.spacing.md};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.md};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
     
     .sidebar-section-title {
@@ -355,41 +355,41 @@ export default class DocsAgent extends BaseDuty {
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: ${hankoTheme.colors.textTertiary};
-      margin-bottom: ${hankoTheme.spacing.sm};
+      color: ${kiosaTheme.colors.textTertiary};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
     
     .doc-item {
-      padding: ${hankoTheme.spacing.sm} ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.xs};
-      border-radius: ${hankoTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.sm} ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.xs};
+      border-radius: ${kiosaTheme.borderRadius.md};
       cursor: pointer;
       transition: all 0.2s;
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       font-size: 0.8125rem;
     }
     
     .doc-item:hover {
-      background: ${hankoTheme.colors.backgroundTertiary};
-      color: ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.backgroundTertiary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
     
     .doc-item.active {
-      background: ${hankoTheme.colors.accent};
-      color: ${hankoTheme.colors.textPrimary};
-      border-left: 2px solid ${hankoTheme.colors.textPrimary};
+      background: ${kiosaTheme.colors.accent};
+      color: ${kiosaTheme.colors.textPrimary};
+      border-left: 2px solid ${kiosaTheme.colors.textPrimary};
     }
     
     .content-area {
       flex: 1;
       overflow-y: auto;
-      background: ${hankoTheme.colors.background};
+      background: ${kiosaTheme.colors.background};
     }
     
     .content-wrapper {
       max-width: 900px;
       margin: 0 auto;
-      padding: ${hankoTheme.spacing.xl};
+      padding: ${kiosaTheme.spacing.xl};
       min-height: 100%;
     }
     
@@ -400,16 +400,16 @@ export default class DocsAgent extends BaseDuty {
     
     .loading {
       text-align: center;
-      padding: ${hankoTheme.spacing.xl};
-      color: ${hankoTheme.colors.textSecondary};
+      padding: ${kiosaTheme.spacing.xl};
+      color: ${kiosaTheme.colors.textSecondary};
     }
     
     .error {
-      padding: ${hankoTheme.spacing.md};
-      background: ${hankoTheme.colors.error}20;
-      border: 1px solid ${hankoTheme.colors.error};
-      border-radius: ${hankoTheme.borderRadius.md};
-      color: ${hankoTheme.colors.error};
+      padding: ${kiosaTheme.spacing.md};
+      background: ${kiosaTheme.colors.error}20;
+      border: 1px solid ${kiosaTheme.colors.error};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      color: ${kiosaTheme.colors.error};
     }
     
     /* Markdown styling */
@@ -419,41 +419,41 @@ export default class DocsAgent extends BaseDuty {
     
     .markdown-content h1 {
       font-size: 2rem;
-      margin-top: ${hankoTheme.spacing.xl};
-      margin-bottom: ${hankoTheme.spacing.md};
-      padding-bottom: ${hankoTheme.spacing.sm};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      margin-top: ${kiosaTheme.spacing.xl};
+      margin-bottom: ${kiosaTheme.spacing.md};
+      padding-bottom: ${kiosaTheme.spacing.sm};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
     
     .markdown-content h2 {
       font-size: 1.5rem;
-      margin-top: ${hankoTheme.spacing.lg};
-      margin-bottom: ${hankoTheme.spacing.md};
-      padding-bottom: ${hankoTheme.spacing.xs};
-      border-bottom: 1px solid ${hankoTheme.colors.border};
+      margin-top: ${kiosaTheme.spacing.lg};
+      margin-bottom: ${kiosaTheme.spacing.md};
+      padding-bottom: ${kiosaTheme.spacing.xs};
+      border-bottom: 1px solid ${kiosaTheme.colors.border};
     }
     
     .markdown-content h3 {
       font-size: 1.25rem;
-      margin-top: ${hankoTheme.spacing.md};
-      margin-bottom: ${hankoTheme.spacing.sm};
+      margin-top: ${kiosaTheme.spacing.md};
+      margin-bottom: ${kiosaTheme.spacing.sm};
     }
     
     .markdown-content code {
-      background: ${hankoTheme.colors.backgroundSecondary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
       padding: 0.2em 0.4em;
-      border-radius: ${hankoTheme.borderRadius.sm};
+      border-radius: ${kiosaTheme.borderRadius.sm};
       font-size: 0.85em;
-      font-family: ${hankoTheme.fonts.mono};
+      font-family: ${kiosaTheme.fonts.mono};
     }
     
     .markdown-content pre {
-      background: ${hankoTheme.colors.backgroundSecondary};
-      border: 1px solid ${hankoTheme.colors.border};
-      border-radius: ${hankoTheme.borderRadius.md};
-      padding: ${hankoTheme.spacing.md};
+      background: ${kiosaTheme.colors.backgroundSecondary};
+      border: 1px solid ${kiosaTheme.colors.border};
+      border-radius: ${kiosaTheme.borderRadius.md};
+      padding: ${kiosaTheme.spacing.md};
       overflow-x: auto;
-      margin: ${hankoTheme.spacing.md} 0;
+      margin: ${kiosaTheme.spacing.md} 0;
     }
     
     .markdown-content pre code {
@@ -472,62 +472,62 @@ export default class DocsAgent extends BaseDuty {
     }
     
     .hljs {
-      background: ${hankoTheme.colors.backgroundSecondary} !important;
+      background: ${kiosaTheme.colors.backgroundSecondary} !important;
     }
     
     .markdown-content blockquote {
-      border-left: 3px solid ${hankoTheme.colors.accent};
-      padding-left: ${hankoTheme.spacing.md};
-      margin: ${hankoTheme.spacing.md} 0;
-      color: ${hankoTheme.colors.textSecondary};
+      border-left: 3px solid ${kiosaTheme.colors.accent};
+      padding-left: ${kiosaTheme.spacing.md};
+      margin: ${kiosaTheme.spacing.md} 0;
+      color: ${kiosaTheme.colors.textSecondary};
     }
     
     .markdown-content ul, .markdown-content ol {
-      margin: ${hankoTheme.spacing.md} 0;
-      padding-left: ${hankoTheme.spacing.lg};
+      margin: ${kiosaTheme.spacing.md} 0;
+      padding-left: ${kiosaTheme.spacing.lg};
     }
     
     .markdown-content li {
-      margin: ${hankoTheme.spacing.xs} 0;
+      margin: ${kiosaTheme.spacing.xs} 0;
     }
     
     .markdown-content a {
-      color: ${hankoTheme.colors.textSecondary};
+      color: ${kiosaTheme.colors.textSecondary};
       text-decoration: underline;
     }
     
     .markdown-content a:hover {
-      color: ${hankoTheme.colors.textPrimary};
+      color: ${kiosaTheme.colors.textPrimary};
     }
     
     .markdown-content table {
       width: 100%;
       border-collapse: collapse;
-      margin: ${hankoTheme.spacing.md} 0;
+      margin: ${kiosaTheme.spacing.md} 0;
     }
     
     .markdown-content th,
     .markdown-content td {
-      padding: ${hankoTheme.spacing.sm};
-      border: 1px solid ${hankoTheme.colors.border};
+      padding: ${kiosaTheme.spacing.sm};
+      border: 1px solid ${kiosaTheme.colors.border};
       text-align: left;
     }
     
     .markdown-content th {
-      background: ${hankoTheme.colors.backgroundSecondary};
+      background: ${kiosaTheme.colors.backgroundSecondary};
       font-weight: 600;
     }
     
   </style>
 </head>
 <body>
-  <div class="header">
-    ${getHeaderHomeIconHTML()}
-    <h1>📚 Ronin Documentation</h1>
-    <div class="header-meta">Reference documentation for building with Ronin</div>
-  </div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "DOCS / REFERENCE", chips: ["MARKDOWN"], tabs: [
+    { label: "Docs", href: "/docs", active: true },
+    { label: "Guide", href: "/guide" }
+  ], rightMeta: "v0.1" })}
+  <div class="kiosa-wrap">
 
-  <div class="main-container">
+  <div class="main-container" style="height:calc(100vh - 90px);">
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-section-title">📄 Documentation</div>
@@ -738,6 +738,8 @@ export default class DocsAgent extends BaseDuty {
       window.dispatchEvent(new Event('hashchange'));
     }
   </script>
+  </div>
+  ${getKiosaFooterHTML("RONIN · DOCS", "INDEXED · V0.1")}
 </body>
 </html>`;
 

@@ -8,7 +8,7 @@ Realm consists of three main components:
 
 1. **Realm Discovery Server** (separate project at `../realm-server/`) - Central registry for peer discovery
 2. **Realm Plugin** (`plugins/realm.ts`) - Ronin plugin for peer connections
-3. **Voice Messaging Agent** (`agents/voice-messaging.ts`) - Example agent using Realm
+3. **Voice Duty** (`duties/voice-config.ts`) - Settings + Realm voice-messaging relay using Realm
 
 ## Quick Start
 
@@ -180,23 +180,20 @@ Realm emits events via `api.events`:
   });
   ```
 
-## Voice Messaging Agent
+## Voice Messaging Relay
 
-The `voice-messaging.ts` agent demonstrates:
+The `voice-config.ts` duty demonstrates:
 
 - Receiving messages via Realm
 - Queuing messages until user is available
 - Parsing voice commands (template for STT integration)
-- Relaying messages (template for TTS integration)
+- Relaying messages via TTS (`local.speech.say`)
 
 ### Usage
 
 ```typescript
-// In your agent
-const agent = new VoiceMessagingAgent(api);
-
-// Handle voice command (when STT is integrated)
-await agent.handleVoiceCommand("Hey Ronin, send Tyro a message: I'll be there around 3");
+// In your duty (voice-config.ts exposes this)
+await duty.handleVoiceCommand("Hey Ronin, send Tyro a message: I'll be there around 3");
 ```
 
 ## WebRTC Support

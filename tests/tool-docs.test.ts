@@ -36,9 +36,9 @@ function realisticFixture(): ToolDefinition[] {
     tool("filesystem_readFile", "mcp:filesystem", "Read a file via MCP"),
     // Duty-self-registered tools use a custom provider naming the duty
     // itself, NOT "local" and NOT "plugin:X" — e.g. the real
-    // contracts.proposeReflex uses provider "contract-executor". These must
+    // duties.proposeDuty uses provider "maker". These must
     // stay always-visible; see the regression test below.
-    tool("contracts.proposeReflex", "contract-executor", "Draft a reflex automation"),
+    tool("duties.proposeDuty", "maker", "Draft a new duty"),
     tool("git_status", "plugin:git", "Get git status"),
     tool("git_diff", "plugin:git", "Get git diff", {
       type: "object",
@@ -165,7 +165,7 @@ describe("buildToolContext — what chat actually sees at the start of a turn", 
 
     const visibleNames = context.schemas.map((s) => s.function.name).sort();
     expect(visibleNames).toEqual([
-      "contracts.proposeReflex",
+      "duties.proposeDuty",
       "filesystem_readFile",
       "local.file.read",
       "local.memory.search",
@@ -180,21 +180,19 @@ describe("buildToolContext — what chat actually sees at the start of a turn", 
     expect(context.loadedCategories.size).toBe(0);
   });
 
-  it("REGRESSION: duty-self-registered tools (custom provider, e.g. 'contract-executor') must stay visible", () => {
+  it("REGRESSION: duty-self-registered tools (custom provider, e.g. 'maker') must stay visible", () => {
     // These are some of the most important chat-creation tools in the system
-    // (contracts.proposeReflex, duties.proposeDuty, schedule.writeSchedule).
+    // (duties.proposeDuty, schedule.writeSchedule).
     // A provider filter that only recognized "local"/"mcp:*" would have made
     // all of them unreachable — this pins the fix.
     const context = buildToolContext(
       [
-        tool("contracts.proposeReflex", "contract-executor"),
-        tool("duties.proposeDuty", "duty-executor"),
+        tool("duties.proposeDuty", "maker"),
         tool("schedule.writeSchedule", "schedule-manager"),
       ],
       ""
     );
     expect(context.schemas.map((s) => s.function.name).sort()).toEqual([
-      "contracts.proposeReflex",
       "duties.proposeDuty",
       "schedule.writeSchedule",
     ]);
@@ -276,7 +274,7 @@ describe("loadToolContext — the full assembled context, end to end (real files
 
     expect(context.categoryIndexText).toContain("# Tool categories");
     expect(context.schemas.map((s) => s.function.name).sort()).toEqual([
-      "contracts.proposeReflex",
+      "duties.proposeDuty",
       "filesystem_readFile",
       "local.file.read",
       "local.memory.search",

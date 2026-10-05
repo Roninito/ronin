@@ -210,7 +210,6 @@ Interactive setup wizard for new installations.
 
 Options:
   --quick              Use recommended defaults
-  --skip-cloudflare    Skip Cloudflare tunnel setup
   --skip-desktop       Skip Desktop Mode setup
 `,
   mcp: `
@@ -237,36 +236,6 @@ Subcommands:
                         --url <wss://...> --callsign <name>
   status              Show connection status
   discover <callsign> Discover a peer by call sign
-`,
-  cloudflare: `
-Usage: ronin cloudflare <subcommand> [options]
-
-Manage Cloudflare tunnels and route policy for secure remote access.
-
-Auth:
-  login                    Authenticate with Cloudflare (opens browser)
-  logout                   Log out and clear local tunnel state
-  status                   Show auth, policy, and tunnel status
-
-Route policy (required before creating tunnels):
-  route init               Create default policy at ~/.ronin/cloudflare.routes.json
-  route add <path>         Whitelist a path
-  route remove <path>      Remove a path from whitelist
-  route list               List allowed routes
-  route validate           Validate policy file
-
-Tunnels:
-  tunnel create <name>    Create a named tunnel
-  tunnel start <name>     Start a tunnel
-  tunnel stop <name>      Stop a tunnel
-  tunnel delete <name>    Delete a tunnel
-  tunnel list             List tunnels in state
-  tunnel temp [ttl]       Create temporary tunnel (ttl in seconds, default 3600)
-
-Other:
-  pages deploy <dir> <project>  Deploy directory to Cloudflare Pages
-  security audit                Print security summary
-  audit                         Alias for security audit
 `,
   os: `
 Usage: ronin os <subcommand>
@@ -330,7 +299,7 @@ Create new Ronin components.
 Types:
   plugin <name>          Create a new plugin template
   duty [description]     AI-powered duty creation (interactive)
-  skill "description"    Generate an AgentSkill from a description (SkillMaker)
+  skill "description"    Generate an AgentSkill from a description (maker duty)
   workflow "description"  AI-drafts a workflow markdown SOP (alias for "workflow propose")
 
 Options (duty):
@@ -396,24 +365,6 @@ Subcommands:
 Usage: ronin version
 
 Print the installed Ronin version and check for available updates.
-`,
-  contract: `
-Usage: ronin contract <subcommand> [options]
-
-Manage contracts — schedules/triggers (cron, event, or webhook) bound to a
-phase graph declared inline on the contract itself.
-
-Run "ronin contract" or "ronin contract help" for the full subcommand list and
-options (list, show, create, update, enable, disable, test, validate, register,
-delete, history, dry-run, export, import, stats, propose).
-`,
-  task: `
-Usage: ronin task <subcommand> [options]
-
-View and manage task executions produced by contracts.
-
-Run "ronin task" or "ronin task help" for the full subcommand list and options
-(list, show, cancel, retry).
 `,
   workflow: `
 Usage: ronin workflow <subcommand> [options]

@@ -12,7 +12,6 @@ providers optional).
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — canonical, always current. If any other document disagrees with it, this one wins.
 - [`DUTIES.md`](./DUTIES.md) — how to write a Duty file (the practical reference).
 - [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md) — markdown SOPs Duties consult as guidance (`/workflows` page, `ronin workflow` CLI).
-- [`docs/REMOTE_ACCESS.md`](./docs/REMOTE_ACCESS.md) — using the dashboard from your phone via a Cloudflare Tunnel.
 - [`docs/history/`](./docs/history/) — archived planning docs and phase summaries. Point-in-time record, never live guidance.
 - Nothing outside this repository is ever authoritative — not a file on someone's Desktop, not another machine. Architecture docs live here, under version control, or they go stale.
 
@@ -48,7 +47,6 @@ ronin init --quick
 The setup wizard will guide you through:
 - **Privacy Mode**: Choose between Offline Mode (most private) or Hybrid Mode
 - **Desktop Integration** (macOS): Enable Quick Actions, menubar controls, and notifications
-- **Cloudflare**: Optional secure tunnel setup for remote access — see [`docs/REMOTE_ACCESS.md`](./docs/REMOTE_ACCESS.md) for using the dashboard from your phone
 - **AI Providers**: Configure Grok/Gemini (optional - uses local AI by default)
 
 ### Manual Setup
@@ -136,14 +134,15 @@ ronin init
 ronin init --quick
 
 # Skip specific features
-ronin init --skip-cloudflare --skip-desktop
+ronin init --skip-desktop
 ```
 
 The wizard will help you:
 1. **Choose Privacy Mode**: Offline Mode (local AI only) or Hybrid Mode
 2. **Enable Desktop Mode** (macOS): Right-click integration, menubar, notifications
-3. **Set up Cloudflare**: Secure remote access with zero-trust security ([remote access guide](./docs/REMOTE_ACCESS.md))
-4. **Configure AI Providers**: Optional Grok/Gemini keys
+3. **Configure AI Providers**: Optional Grok/Gemini keys
+
+> Ronin is local-only: there is no remote access, tunnel, or phone pairing. Every route serves localhost directly.
 
 ### Privacy-First Defaults
 
@@ -178,7 +177,7 @@ See [DUTIES.md](./DUTIES.md) for detailed documentation on writing duty files.
 
 Ronin includes a plugin system for extending functionality:
 
-- **Built-in Plugins**: auto-discovered from `plugins/` — git, shell, web-scraper, torrent, telegram, discord, realm (WebRTC/WebSocket relay), reticulum (mesh networking), langchain, email, notion, obsidian, cloudflare, and several coding-CLI adapters (claude-cli, cursor-cli, gemini-cli, opencode-cli, qwen-cli), among others
+- **Built-in Plugins**: auto-discovered from `plugins/` — git, shell, web-scraper, torrent, telegram, discord, realm (WebRTC/WebSocket relay), reticulum (mesh networking), langchain, email, notion, obsidian, and several coding-CLI adapters (claude-cli, cursor-cli, gemini-cli, opencode-cli, qwen-cli), among others
 - **Direct API Access**: ✨ Use `api.git.*`, `api.shell.*`, `api.scrape.*`, `api.torrent.*`, `api.telegram.*`, `api.discord.*`, `api.langchain.*`, `api.realm.*`, `api.reticulum.*`, `api.email.*` for type-safe, ergonomic access. Everything else goes through `api.plugins.call(name, method, ...args)`.
 - **Auto-discovery**: Plugins automatically loaded from `plugins/` directory
 - **Function Calling**: Plugins available as tools for AI function calling
@@ -229,7 +228,7 @@ Ronin includes an event-driven system for turning a proposed plan into a
 tracked, human-approved unit of executed work:
 
 **Architecture (real duties, from `duties/`):**
-- **`duties/tasking.ts`** (`TodoAgent`) — state authority; listens for `PlanProposed`, creates a Kanban card; serves the `/todo` dashboard and `/api/todo/*` endpoints
+- **`duties/duty-executor.ts`** — chat-reachable `duties.proposeDuty` tool; on approval emits `PlanProposed` then `PlanApproved`
 - **`duties/manual-approval.ts`** — approve/reject/block API (`/api/plans/:id/approve` etc.); emits approval events
 - **`duties/coder-bot.ts`** — pure reactor; on `PlanApproved`, shells out to a coding CLI to execute the plan
 - **`duties/alert-observer.ts`, `duties/log-observer.ts`** — observe and log the same events
@@ -244,19 +243,15 @@ fixed intake pipeline instead of chat-driven proposals.
 
 **Key Principles:**
 - ✅ No shared state (all communication via events)
-- ✅ Single state authority (`TodoAgent` owns the kanban board)
 - ✅ Pure reactor (`coder-bot.ts` never touches board state directly)
 - ✅ Observable everything (all transitions emit events)
 
 **Quick Example:**
 ```bash
-# 1. View the kanban board
-curl http://localhost:3000/todo
-
-# 2. Approve a proposed plan
+# 1. Approve a proposed plan
 curl -X POST http://localhost:3000/api/plans/<id>/approve
 
-# 3. Coder Bot executes, Todo updates, observers log/alert
+# 2. Coder Bot executes, observers log/alert
 ```
 
 **Events:** `PlanProposed` → `PlanApproved` → `PlanCompleted`/`PlanFailed`

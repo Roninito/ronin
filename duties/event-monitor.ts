@@ -4,8 +4,8 @@ import { join } from "path";
 import { homedir } from "os";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 interface EventRecord {
   id: string;
@@ -334,12 +334,8 @@ export default class EventMonitorAgent extends BaseDuty {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Event Timeline - Ronin</title>
-  <style>
-    ${getKiosaHeadHTML(accent)}
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
+<style>
 
     .container {
       max-width: 1400px;
@@ -622,7 +618,7 @@ export default class EventMonitorAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "TIMELINE", accent, chips: [], tabs: [] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "TIMELINE", chips: [], tabs: [] })}
     </div>
   </div>
   <div class="container">

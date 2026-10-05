@@ -165,19 +165,12 @@ describe("/api/chat/artifact/* routes", () => {
     expect(missingRes.status).toBe(404);
   });
 
-  it("all three routes require the remote token for non-local requests", async () => {
+  it("all three routes serve any Host (local-only, no token gate)", async () => {
     scratchDir = mkdtempSync(join(tmpdir(), "ronin-chat-artifact-"));
     const { api, routes } = createMockAPI(scratchDir);
     await runArtifactMigrations((api as any).db);
     new ChattyAgent(api);
-    process.env.CLOUDFLARE_ROUTE_TOKEN = "secret";
-    try {
-      const remoteReq = new Request("http://random.trycloudflare.com/x", { headers: { Host: "random.trycloudflare.com" } });
-      expect((await routes.get("/api/chat/artifact/library")!(remoteReq)).status).toBe(401);
-      expect((await routes.get("/api/chat/artifact/load")!(remoteReq)).status).toBe(401);
-      expect((await routes.get("/api/chat/artifact/save")!(remoteReq)).status).toBe(401);
-    } finally {
-      delete process.env.CLOUDFLARE_ROUTE_TOKEN;
-    }
+    const remoteReq = new Request("http://some-other-host/x", { headers: { Host: "some-other-host" } });
+    expect((await routes.get("/api/chat/artifact/library")!(remoteReq)).status).toBe(200);
   });
 });

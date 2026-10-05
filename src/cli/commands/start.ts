@@ -1,7 +1,6 @@
 import { createAPI } from "../../api/index.js";
 import type { DutyAPI } from "../../types/api.js";
 import { DutyLoader, DutyRegistry, HotReloadService } from "../../duty/index.js";
-import { ContractLoader } from "../../contract/loader.js";
 import { loadConfig, ensureDefaultDutyDir, ensureDefaultExternalDutyDir, ensureDefaultUserPluginDir } from "./config.js";
 import { ensureAiRegistry } from "./ai.js";
 import { logger } from "../../utils/logger.js";
@@ -123,14 +122,6 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
 
   logger.info("Loaded duties", { count: duties.length });
 
-  // Load contracts from filesystem — each declares its own phase graph inline
-  // (no separate kata-loading step since the Kata registry was removed).
-  const contractLoader = new ContractLoader(process.cwd());
-  const contractResult = await contractLoader.loadAll(api);
-  if (contractResult.loaded > 0 || contractResult.errors.length > 0) {
-    logger.info("Loaded contracts from files", { loaded: contractResult.loaded, skipped: contractResult.skipped, errors: contractResult.errors.length });
-  }
-
   const registry = new DutyRegistry({
     files: api.files as any,
     http: api.http as any,
@@ -140,7 +131,7 @@ export async function startRoninServer(options: StartOptions = {}): Promise<Roni
   registry.startWebhookServerIfNeeded();
   registry.registerAll(duties);
 
-  // Start menubar after duties are registered so route discovery includes duty routes (e.g. /todo, /analytics)
+  // Start menubar after duties are registered so route discovery includes duty routes (e.g. /chat, /analytics)
   if (desktopEnabled && config.desktop?.menubar) {
     const { startMenubar, discoverRoutes } = await import("../../os/index.js");
     const port = config.desktop?.bridge?.port ?? 17341;

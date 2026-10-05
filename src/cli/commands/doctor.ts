@@ -228,7 +228,7 @@ export async function syncMessagingPlatforms(
   if (config.telegram?.botToken) {
     await api.memory.store("messaging-platform-telegram", {
       name: "Telegram",
-      summary: "Telegram messaging; chatId from config or from incoming event (e.g. create-skill, refactor-request). Use SendTelegramMessage event with chatId to reply.",
+      summary: "Telegram messaging; chatId from config or from incoming event (e.g. create-skill). Use SendTelegramMessage event with chatId to reply.",
     });
   }
   if (config.discord?.enabled && config.discord?.botToken) {

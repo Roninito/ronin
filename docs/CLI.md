@@ -33,7 +33,7 @@ Use `POST /api/events/emit` with payload like:
 - Latest-per-agent is enforced (new payload replaces old entry for that agent).
 - Feed entries can be listed at `GET /api/home-feed`.
 - Feed entries can be removed at `DELETE /api/home-feed/:agent`.
-- Wave-1 publishers: `messenger`, `chatty`, `schedule-manager`, `event-monitor`, `tool-analytics`, `portfolio`, `telegram_subscription`, `rss-feed`, `gvec`, `analytics`.
+- Wave-1 publishers: `messenger`, `chatty`, `schedule-manager`, `event-monitor`, `telegram_subscription`, `analytics`.
 
 ## Commands
 

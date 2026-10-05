@@ -1,7 +1,7 @@
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 export default class EmailManagerAgent extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -120,12 +120,8 @@ export default class EmailManagerAgent extends BaseDuty {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Email Manager - Ronin</title>
-  <style>
-    ${getKiosaHeadHTML(accent)}
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getKiosaTopbarCSS()}
+  ${getKiosaStylesheetLink(accent)}
+<style>
     body { margin: 0; padding: 0; }
     .page-content { max-width: 1100px; margin: 0 auto; padding: ${kiosaTheme.spacing.lg}; }
     .grid { display: grid; gap: ${kiosaTheme.spacing.md}; grid-template-columns: 1fr 1fr; }
@@ -140,7 +136,7 @@ export default class EmailManagerAgent extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "EMAIL", accent, chips: [], tabs: [] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "EMAIL", chips: [], tabs: [] })}
   <div class="page-content">
     <div id="status" class="status muted">Loading accounts...</div>
     <div class="grid">

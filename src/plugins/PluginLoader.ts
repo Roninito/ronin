@@ -78,8 +78,8 @@ export class PluginLoader {
       }
 
       // Extract plugin name from directory structure
-      // e.g., plugins/cloudflare/src/index.ts -> cloudflare
-      // e.g., plugins/cloudflare/dist/index.js -> cloudflare
+      // e.g., plugins/realm/src/index.ts -> realm
+      // e.g., plugins/realm/dist/index.js -> realm
       // e.g., plugins/telegram.ts -> telegram
       const match = file.match(/plugins\/([^\/]+)/);
       if (!match) continue;
@@ -111,7 +111,7 @@ export class PluginLoader {
    * Get plugin name from file path (used for deduplication)
    */
   private getPluginName(filePath: string): string | null {
-    // Extract plugin name from path like plugins/cloudflare/dist/index.js
+    // Extract plugin name from path like plugins/realm/dist/index.js
     const match = filePath.match(/plugins\/([^\/]+)/);
     // Non-null: the capture group is mandatory, so a successful match always fills it.
     return match ? match[1]! : null;
@@ -163,7 +163,7 @@ export class PluginLoader {
 
       // If still no plugin, try to find the first object export
       if (!plugin) {
-        const possibleExports = ['cloudflare', 'plugin', 'Plugin'];
+        const possibleExports = ['plugin', 'Plugin'];
         for (const name of possibleExports) {
           if (module[name] && typeof module[name] === 'object' && module[name] !== null) {
             plugin = module[name];

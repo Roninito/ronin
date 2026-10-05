@@ -11,8 +11,8 @@
 
 import { BaseDuty } from "../src/duty/index.js";
 import type { DutyAPI } from "../src/types/index.js";
-import { kiosaTheme, getSharedUIPrimitivesCSS, getAdobeCleanFontFaceCSS, getThemeCSS } from "../src/utils/theme.js";
-import { getKiosaTopbarCSS, getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaHeadHTML } from "../src/utils/kiosa.js";
+import { kiosaTheme } from "../src/utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../src/utils/kiosa.js";
 
 export default class AgentDependencyDashboard extends BaseDuty {
   constructor(api: DutyAPI) {
@@ -200,6 +200,8 @@ export default class AgentDependencyDashboard extends BaseDuty {
       )
       .join("");
 
+    const accent = getKiosaAccentForPath("/dashboard/dependencies");
+    const accentHex = kiosaTheme.colors.accent;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,11 +209,8 @@ export default class AgentDependencyDashboard extends BaseDuty {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent & Plugin Dependencies</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  ${getKiosaStylesheetLink(getKiosaAccentForPath("/agent-deps"))}
   <style>
-    ${getThemeCSS(kiosaTheme)}
-    ${getSharedUIPrimitivesCSS(kiosaTheme, { variant: "kiosa" })}
-    ${getAdobeCleanFontFaceCSS()}
-    ${getKiosaTopbarCSS()}
 
     body {
       background: ${kiosaTheme.colors.background};
@@ -454,7 +453,7 @@ export default class AgentDependencyDashboard extends BaseDuty {
   </style>
 </head>
 <body>
-  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "AGENT & PLUGIN DEPENDENCIES", accent, chips: [], tabs: [] })}
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "AGENT & PLUGIN DEPENDENCIES", chips: [], tabs: [] })}
 
   <div class="container">
     <div class="tabs">

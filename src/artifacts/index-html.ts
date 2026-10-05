@@ -4,7 +4,8 @@
  * same theme-helper pattern).
  */
 
-import { getAdobeCleanFontFaceCSS, getHeaderBarCSS, getHeaderHomeIconHTML, getThemeCSS, hankoTheme } from "../utils/theme.js";
+import { kiosaTheme } from "../utils/theme.js";
+import { getKiosaTopbarHTML, getKiosaFooterHTML, getKiosaAccentForPath, getKiosaStylesheetLink } from "../utils/kiosa.js";
 import { calculateCompletion } from "./types.js";
 import type { ArtifactFile } from "./types.js";
 import { isImageAsset } from "./storage.js";
@@ -20,15 +21,15 @@ function escapeHtml(s: string): string {
 
 function renderProgressBars(assets: ArtifactFile["metadata"]["assets"]): string {
   const categories = Object.values(assets);
-  if (categories.length === 0) return `<p>No asset categories tracked yet.</p>`;
+  if (categories.length === 0) return `<p style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};">No asset categories tracked yet.</p>`;
   return categories
     .map((a) => {
       const pct = a.target > 0 ? Math.min(100, Math.round((a.collected / a.target) * 100)) : 100;
       return `<div class="stat">
-        <strong>${escapeHtml(a.category)}</strong>
-        <div>${a.collected} / ${a.target} (${a.pending} pending)</div>
-        <div style="background:${hankoTheme.colors.backgroundTertiary};border-radius:4px;overflow:hidden;height:8px;margin-top:.4rem;">
-          <div style="background:${hankoTheme.colors.success};width:${pct}%;height:100%;"></div>
+        <strong style="font-family:${kiosaTheme.fonts.primary};font-size:11px;letter-spacing:.04em;text-transform:uppercase;">${escapeHtml(a.category)}</strong>
+        <div style="font-size:10px;color:${kiosaTheme.colors.textSecondary};margin-top:4px;">${a.collected} / ${a.target} (${a.pending} pending)</div>
+        <div style="background:${kiosaTheme.colors.backgroundTertiary};border-radius:2px;overflow:hidden;height:6px;margin-top:6px;">
+          <div style="background:${kiosaTheme.colors.success};width:${pct}%;height:100%;box-shadow:0 0 6px ${kiosaTheme.colors.success};"></div>
         </div>
       </div>`;
     })
@@ -36,10 +37,10 @@ function renderProgressBars(assets: ArtifactFile["metadata"]["assets"]): string 
 }
 
 function renderActivityLog(logs: ArtifactFile["logs"]): string {
-  if (logs.length === 0) return `<p>No activity yet.</p>`;
-  return `<ul>${logs
+  if (logs.length === 0) return `<p style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};">No activity yet.</p>`;
+  return `<ul style="font-family:${kiosaTheme.fonts.mono};font-size:11px;color:${kiosaTheme.colors.textSecondary};padding-left:0;list-style:none;">${logs
     .slice(0, 20)
-    .map((l) => `<li><strong>${escapeHtml(l.action)}</strong> — ${escapeHtml(l.details)} <em>(${escapeHtml(l.timestamp)})</em></li>`)
+    .map((l) => `<li style="border-bottom:1px dashed ${kiosaTheme.colors.border};padding:6px 0;"><span style="color:${kiosaTheme.colors.textTertiary};">${escapeHtml(l.timestamp)}</span> · <strong style="color:${kiosaTheme.colors.textPrimary};">${escapeHtml(l.action)}</strong> — ${escapeHtml(l.details)}</li>`)
     .join("")}</ul>`;
 }
 
@@ -55,9 +56,9 @@ function renderAssetRecords(artifactId: string, records: ArtifactFile["assetReco
           .slice(0, 24)
           .map((r) => {
             const url = `/api/artifact/${artifactId}/asset/${encodeURIComponent(r.storedPath!)}`;
-            return `<a href="${url}" target="_blank" rel="noopener">
-              <img src="${url}" alt="${escapeHtml(r.filename)}" style="width:100%;border-radius:6px;display:block;" />
-              <div style="font-size:.8rem;margin-top:.3rem;">${escapeHtml(r.filename)}</div>
+            return `<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;color:${kiosaTheme.colors.textSecondary};font-family:${kiosaTheme.fonts.mono};font-size:10px;">
+              <img src="${url}" alt="${escapeHtml(r.filename)}" style="width:100%;border-radius:2px;display:block;border:1px solid ${kiosaTheme.colors.border};" />
+              <div style="font-size:10px;margin-top:4px;letter-spacing:.04em;">${escapeHtml(r.filename)}</div>
             </a>`;
           })
           .join("")}</div>`
@@ -71,7 +72,7 @@ function renderAssetRecords(artifactId: string, records: ArtifactFile["assetReco
             const stored = r.storedPath
               ? ` — <a href="/api/artifact/${artifactId}/asset/${encodeURIComponent(r.storedPath)}">download</a>`
               : "";
-            return `<li>[${escapeHtml(r.type)}] ${escapeHtml(r.filename)} — from ${escapeHtml(r.source)}${r.license ? ` (${escapeHtml(r.license)})` : ""}${stored}</li>`;
+            return `<li style="border-bottom:1px dashed ${kiosaTheme.colors.border};padding:6px 0;">[${escapeHtml(r.type)}] ${escapeHtml(r.filename)} — from ${escapeHtml(r.source)}${r.license ? ` (${escapeHtml(r.license)})` : ""}${stored}</li>`;
           })
           .join("")}</ul>`
       : "";
@@ -83,6 +84,7 @@ export function generateIndexHTML(artifact: ArtifactFile): string {
   const meta = artifact.metadata;
   const completion = calculateCompletion(meta.assets);
   const statusClass = completion >= meta.completionThreshold ? "complete" : completion >= 50 ? "in-progress" : "early";
+  const accent = getKiosaAccentForPath("/artifacts");
 
   return `<!doctype html>
 <html lang="en">
@@ -90,48 +92,47 @@ export function generateIndexHTML(artifact: ArtifactFile): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(meta.name)}</title>
+  ${getKiosaStylesheetLink(accent)}
   <style>
-    ${getAdobeCleanFontFaceCSS()}
-    ${getThemeCSS()}
-    ${getHeaderBarCSS()}
     body { margin: 0; }
-    .page { max-width: 900px; margin: 0 auto; padding: 1rem; }
-    .card { border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.lg}; padding: 1rem; margin-bottom: 1rem; background: ${hankoTheme.colors.backgroundSecondary}; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: .75rem; }
-    .stat { padding: .75rem; border: 1px solid ${hankoTheme.colors.border}; border-radius: ${hankoTheme.borderRadius.md}; background: ${hankoTheme.colors.backgroundTertiary}; }
-    .badge { display:inline-block; padding:.2rem .6rem; border-radius:999px; font-size:.85rem; margin-left:.5rem; }
-    .badge.complete { background:${hankoTheme.colors.success}; color:${hankoTheme.colors.background}; }
-    .badge.in-progress { background:${hankoTheme.colors.warning}; color:${hankoTheme.colors.background}; }
-    .badge.early { background:${hankoTheme.colors.backgroundTertiary}; color:${hankoTheme.colors.textSecondary}; }
-    ul { padding-left: 1.2rem; }
-    li { margin-bottom: .3rem; }
+    .kiosa-page { max-width: 900px; margin: 0 auto; padding: 22px; }
+    .kiosa-card { border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; padding: 12px; margin-bottom: 10px; background: ${kiosaTheme.colors.backgroundSecondary}; font-family: ${kiosaTheme.fonts.mono}; }
+    .kiosa-card h3 { font-family: ${kiosaTheme.fonts.primary}; font-size: 14px; letter-spacing: .06em; margin: 0 0 10px 0; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px; }
+    .stat { padding: 10px; border: 1px solid ${kiosaTheme.colors.border}; border-radius: 3px; background: ${kiosaTheme.colors.background}; }
+    .kiosa-badge { display:inline-block; padding:2px 7px; border-radius:2px; font-size:10px; margin-left:8px; letter-spacing:.1em; text-transform:uppercase; border:1px solid; }
+    .kiosa-badge.complete { border-color: color-mix(in srgb, ${kiosaTheme.colors.success} 50%, transparent); color: ${kiosaTheme.colors.success}; background: color-mix(in srgb, ${kiosaTheme.colors.success} 10%, transparent); }
+    .kiosa-badge.in-progress { border-color: color-mix(in srgb, ${kiosaTheme.colors.warning} 50%, transparent); color: ${kiosaTheme.colors.warning}; background: color-mix(in srgb, ${kiosaTheme.colors.warning} 10%, transparent); }
+    .kiosa-badge.early { border-color: ${kiosaTheme.colors.border}; color: ${kiosaTheme.colors.textSecondary}; background: ${kiosaTheme.colors.backgroundTertiary}; }
+    ul { padding-left: 0; list-style: none; }
+    li { margin-bottom: 0; }
+    .meta-row { margin-bottom: 6px; font-size: 11px; color: ${kiosaTheme.colors.textSecondary}; }
+    .meta-row strong { color: ${kiosaTheme.colors.textPrimary}; }
   </style>
 </head>
 <body>
-  <div class="header">${getHeaderHomeIconHTML()}<h1>${escapeHtml(meta.name)}<span class="badge ${statusClass}">${completion}%</span></h1></div>
-  <div class="page">
-    <div class="card">
-      <div><strong>State:</strong> ${escapeHtml(meta.state)}</div>
-      <div><strong>Type:</strong> ${escapeHtml(meta.type)}</div>
-      ${meta.description ? `<div><strong>Description:</strong> ${escapeHtml(meta.description)}</div>` : ""}
-      ${meta.tags.length > 0 ? `<div><strong>Tags:</strong> ${meta.tags.map(escapeHtml).join(", ")}</div>` : ""}
-      <div><strong>Updated:</strong> ${escapeHtml(meta.updated)}</div>
+  ${getKiosaTopbarHTML({ title: "RONIN", subtitle: "ARTIFACT / " + meta.name.toUpperCase(), chips: [`COMPLETION ${completion}%`] })}
+  <div class="kiosa-page">
+    <div class="kiosa-card">
+      <div class="meta-row"><strong>STATE:</strong> ${escapeHtml(meta.state)}</div>
+      <div class="meta-row"><strong>TYPE:</strong> ${escapeHtml(meta.type)}</div>
+      ${meta.description ? `<div class="meta-row"><strong>DESCRIPTION:</strong> ${escapeHtml(meta.description)}</div>` : ""}
+      ${meta.tags.length > 0 ? `<div class="meta-row"><strong>TAGS:</strong> ${meta.tags.map(escapeHtml).join(", ")}</div>` : ""}
+      <div class="meta-row"><strong>UPDATED:</strong> ${escapeHtml(meta.updated)}</div>
     </div>
-    <div class="card">
-      <h3>Progress</h3>
+    <div class="kiosa-card">
+      <h3>PROGRESS</h3>
       <div class="stats">${renderProgressBars(meta.assets)}</div>
     </div>
-    <div class="card">
-      <h3>Collected Assets</h3>
+    <div class="kiosa-card">
+      <h3>COLLECTED ASSETS</h3>
       ${renderAssetRecords(meta.id, artifact.assetRecords)}
     </div>
-    <div class="card">
-      <h3>Activity Log</h3>
+    <div class="kiosa-card">
+      <h3>ACTIVITY LOG</h3>
       ${renderActivityLog(artifact.logs)}
     </div>
-    <div class="card">
-      <em>Generated ${new Date().toLocaleString()}</em>
-    </div>
+    ${getKiosaFooterHTML("RONIN · ARTIFACT", `COMPLETION ${completion}% · ${statusClass.toUpperCase()}`)}
   </div>
 </body>
 </html>`;

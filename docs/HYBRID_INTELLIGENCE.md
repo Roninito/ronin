@@ -246,8 +246,8 @@ Monitor tool usage costs:
 const stats = this.api.tools.getCostStats();
 console.log(`Daily: $${stats.daily}, Monthly: $${stats.monthly}`);
 
-// Get detailed report (from ToolAnalyticsAgent)
-const report = await toolAnalyticsAgent.getCostReport(30);
+// Get detailed report (from the analytics duty — absorbed from ToolAnalyticsAgent)
+const report = await analyticsDuty.getCostReport(30);
 console.log(`Total: $${report.totalCost}`);
 ```
 
@@ -428,7 +428,7 @@ In offline mode:
    - Strategy selection
    - Conversation management
 
-2. **ToolAnalyticsAgent** (`agents/tool-analytics.ts`)
+2. **Analytics duty** (`duties/analytics.ts`, absorbed the former `tool-analytics.ts`)
    - Usage tracking
    - Cost reporting
    - Scheduled reports

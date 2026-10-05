@@ -1,77 +1,33 @@
 import { describe, it, expect } from "bun:test";
 import {
-  injectContractProposalCardIntoResponse,
   injectDutyProposalCardIntoResponse,
   injectWorkflowProposalCardIntoResponse,
 } from "../src/utils/prompt.js";
 
 // This file used to also test filterToolSchemas — a keyword-regex guesser
-// that decided whether contracts.proposeReflex/duties.proposeDuty were even
-// offered to the model, based on message phrasing. It had a real bug history
-// (documented in the tests that used to be here): "propose a contract" and
-// "when X happens" phrasings kept missing the regex buckets, so the tool was
-// silently never offered and the model hallucinated instead.
+// that decided whether duties.proposeDuty was even offered to the model,
+// based on message phrasing. It had a real bug history (documented in the
+// tests that used to be here): proposal phrasings kept missing the regex
+// buckets, so the tool was silently never offered and the model hallucinated
+// instead.
 //
 // filterToolSchemas is deleted (see ARCHITECTURE.md §7.1). Duty-self-registered
-// tools like contracts.proposeReflex now stay unconditionally visible in every
+// tools like duties.proposeDuty now stay unconditionally visible in every
 // chat turn regardless of message content — a structural guarantee, not a
 // phrasing match. See the regression test "duty-self-registered tools (custom
 // provider...) must stay visible" in tests/tool-docs.test.ts, which pins
-// exactly this for contracts.proposeReflex, duties.proposeDuty, and
-// schedule.writeSchedule.
+// exactly this for duties.proposeDuty and schedule.writeSchedule.
 //
-// This file's scope grew to cover all three proposal-card injectors after a
-// real production bug: a user proposed a duty, the tool call succeeded (a
-// real proposal was drafted and stored), but no card appeared in chat. Root
+// This file covers the two surviving proposal-card injectors (duty/workflow;
+// the contract injector was deleted with the contract DSL) after a real
+// production bug: a user proposed a duty, the tool call succeeded (a real
+// proposal was drafted and stored), but no card appeared in chat. Root
 // cause: the model narrated the id back in prose ("...with ID
 // dprop_123..."), and the injector's duplicate-guard checked for the bare id
 // string anywhere in the response — which the model's own sentence
 // satisfied — so it concluded a card was "already there" and silently
-// skipped appending one. All three injectors (contract/duty/workflow) shared
-// this exact bug. Fixed by checking for the actual rendered fence, not the
-// bare id.
-
-describe("injectContractProposalCardIntoResponse", () => {
-  it("appends a contract-proposal fence when the tool succeeded", () => {
-    const response = "I've drafted that for you.";
-    const toolResults = [
-      { name: "contracts.proposeReflex", success: true, result: { id: "prop_123", preview: "Fires when X → runs kata Y" } },
-    ];
-    const out = injectContractProposalCardIntoResponse(response, toolResults);
-    expect(out).toContain("```contract-proposal");
-    expect(out).toContain('"id":"prop_123"');
-    expect(out).toContain("Fires when X");
-  });
-
-  it("is a no-op when the tool didn't run or failed", () => {
-    const response = "Sorry, I couldn't draft that.";
-    expect(injectContractProposalCardIntoResponse(response, [])).toBe(response);
-    expect(injectContractProposalCardIntoResponse(response, [
-      { name: "contracts.proposeReflex", success: false, result: null, error: "boom" },
-    ])).toBe(response);
-  });
-
-  it("REGRESSION: still appends the card when the model narrates the id in prose", () => {
-    // This is the exact bug: the model's own sentence mentions the bare id,
-    // which must NOT be mistaken for the card already being present.
-    const response = "I've drafted that reflex for you — the proposal ID is prop_123, take a look.";
-    const toolResults = [
-      { name: "contracts.proposeReflex", success: true, result: { id: "prop_123", preview: "Fires when X" } },
-    ];
-    const out = injectContractProposalCardIntoResponse(response, toolResults);
-    expect(out).toContain("```contract-proposal");
-    expect(out).toContain('"id":"prop_123"');
-  });
-
-  it("does not duplicate when the exact fence is already in the response", () => {
-    const fence = '```contract-proposal\n{"id":"prop_123","preview":"p"}\n```';
-    const response = `Here you go.\n\n${fence}`;
-    const toolResults = [
-      { name: "contracts.proposeReflex", success: true, result: { id: "prop_123", preview: "p" } },
-    ];
-    expect(injectContractProposalCardIntoResponse(response, toolResults)).toBe(response);
-  });
-});
+// skipped appending one. Both injectors shared this exact bug. Fixed by
+// checking for the actual rendered fence, not the bare id.
 
 describe("injectDutyProposalCardIntoResponse", () => {
   it("appends a duty-proposal fence (including code) when the tool succeeded", () => {
